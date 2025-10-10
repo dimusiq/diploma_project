@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@chakra-ui/stat": "^2.1.1"
+  }
+}

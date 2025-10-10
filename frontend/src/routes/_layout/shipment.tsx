@@ -9,7 +9,7 @@ import {
   PaginationNextTrigger,
   PaginationPrevTrigger,
   PaginationRoot,
-} from '@/components/ui/pagination.tsx';
+} from '@/components/ui/pagination';
 import {
   Table,
   Flex,
@@ -26,17 +26,17 @@ function getItemsQueryOptions({ page }: { page: number }) {
       ItemsService.readItems({
         skip: (page - 1) * PER_PAGE,
         limit: PER_PAGE,
-        status: 'warehouse',
+        status: 'shipment',
       }),
     queryKey: ['items', { page }],
   };
 }
 
-export const Route = createFileRoute('/_layout/warehouse')({
-  component: Warehouse,
+export const Route = createFileRoute('/_layout/shipment')({
+  component: Shipment,
 });
 
-function WarehouseTable() {
+function ShipmentTable() {
   const page = 1;
   const { data, isLoading, isPlaceholderData } = useQuery({
     ...getItemsQueryOptions({ page }),
@@ -115,13 +115,13 @@ function WarehouseTable() {
   );
 }
 
-function Warehouse() {
+function Shipment() {
   return (
     <Container maxW='full'>
       <Heading size='lg' pt={12}>
-        Склад
+        Отгрузка
       </Heading>
-      <WarehouseTable />
+      <ShipmentTable />
     </Container>
   );
 }
