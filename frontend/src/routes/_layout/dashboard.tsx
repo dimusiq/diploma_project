@@ -13,6 +13,19 @@ import {
 } from '@chakra-ui/stat';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
 import { DashboardService } from '@/client';
 
@@ -45,6 +58,40 @@ function Dashboard() {
       </Container>
     );
   }
+
+  //Translation mapping for status names
+  const StatusTranslation: Record<string, string> = {
+    shipment: 'Отгрузка',
+    incoming: 'Поступления',
+    warehouse: 'Склад',
+  };
+
+  // Prepare data for status distribution pie chart
+  const statusData = stats.status_distribution
+    ? Object.entries(stats.status_distribution).map(
+        ([status, count]) => ({
+          name: StatusTranslation[status] || status,
+          value: count as number,
+        })
+      )
+    : [];
+
+  // Colors for pie chart
+  const COLORS = [
+    '#0088FE',
+    '#00C49F',
+    '#FFBB28',
+    '#FF8042',
+    '#8884D8',
+  ];
+
+  // Prepare data for top owners bar chart
+  const topOwnersData = stats.top_owners
+    ? stats.top_owners.map((owner) => ({
+        name: owner.owner_email?.split('@')[0] || 'Unknown', // Show only username part
+        items: owner.item_count || 0,
+      }))
+    : [];
 
   return (
     <Container maxW='full'>
@@ -115,6 +162,91 @@ function Dashboard() {
               </Text>
               <StatHelpText>Готовы к отгрузке</StatHelpText>
             </Stat>
+          </Card.Body>
+        </Card.Root>
+      </SimpleGrid>
+
+      {/* Visual Graphics Section */}
+      <SimpleGrid
+        columns={{ base: 1, lg: 2 }}
+        gap={6}
+        mt={8}
+      >
+        {/* Status Distribution Pie Chart */}
+        <Card.Root>
+          <Card.Body>
+            <Heading size='md' mb={4}>
+              Распределение по статусам
+            </Heading>
+            {statusData.length > 0 ? (
+              <Box height='300px'>
+                <ResponsiveContainer
+                  width='100%'
+                  height='100%'
+                >
+                  <PieChart>
+                    <Pie
+                      data={statusData}
+                      cx='50%'
+                      cy='50%'
+                      labelLine={false}
+                      label={({ name, percent }) =>
+                        `${name} ${((percent as number) * 100).toFixed(0)}%`
+                      }
+                      outerRadius={80}
+                      fill='#8884d8'
+                      dataKey='value'
+                    >
+                      {statusData.map((_, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            COLORS[index % COLORS.length]
+                          }
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </Box>
+            ) : (
+              <Text>Нет данных о статусах</Text>
+            )}
+          </Card.Body>
+        </Card.Root>
+
+        {/* Top Owners Bar Chart */}
+        <Card.Root>
+          <Card.Body>
+            <Heading size='md' mb={4}>
+              Топ владельцев по количеству товаров
+            </Heading>
+            {topOwnersData.length > 0 ? (
+              <Box height='300px'>
+                <ResponsiveContainer
+                  width='100%'
+                  height='100%'
+                >
+                  <BarChart data={topOwnersData}>
+                    <CartesianGrid strokeDasharray='3 3' />
+                    <XAxis
+                      dataKey='name'
+                      angle={-45}
+                      textAnchor='end'
+                      height={80}
+                      fontSize={12}
+                    />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey='items' fill='#8884d8' />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Box>
+            ) : (
+              <Text>Нет данных о владельцах</Text>
+            )}
           </Card.Body>
         </Card.Root>
       </SimpleGrid>
