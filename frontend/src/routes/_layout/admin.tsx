@@ -196,7 +196,7 @@ function AddCategory() {
           minWidth: '140px',
         }}
       >
-        <option value="">— родитель —</option>
+        <option value="">— Категории —</option>
         {categories.map((c) => (
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
@@ -240,55 +240,77 @@ function EditCategory({
 
   return (
     <>
-      <Button size="xs" variant="ghost" onClick={onOpen}>
+      <Button size='xs' variant='ghost' onClick={onOpen}>
         Изменить
       </Button>
       {open && (
         <Box
-          position="fixed"
+          position='fixed'
           top={0}
           left={0}
           right={0}
           bottom={0}
           zIndex={50}
-          bg="blackAlpha.500"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
+          bg='blackAlpha.500'
+          display='flex'
+          alignItems='center'
+          justifyContent='center'
           onClick={() => setOpen(false)}
         >
           <Box
-            bg="white"
+            bg='white'
             p={4}
-            borderRadius="md"
-            shadow="lg"
-            minW="280px"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            borderRadius='md'
+            shadow='lg'
+            minW='280px'
+            onClick={(e: React.MouseEvent) =>
+              e.stopPropagation()
+            }
           >
-            <Text fontWeight="bold" mb={3}>Редактировать категорию</Text>
-            <Flex direction="column" gap={3} mb={4}>
+            <Text fontWeight='bold' mb={3}>
+              Редактировать категорию
+            </Text>
+            <Flex direction='column' gap={3} mb={4}>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Название"
-                size="sm"
+                placeholder='Название'
+                size='sm'
               />
               <select
                 value={parentId}
-                onChange={(e) => setParentId((e.target as HTMLSelectElement).value)}
-                style={{ padding: 8, borderRadius: 6, border: '1px solid #e2e8f0' }}
+                onChange={(e) =>
+                  setParentId(
+                    (e.target as HTMLSelectElement).value,
+                  )
+                }
+                style={{
+                  padding: 8,
+                  borderRadius: 6,
+                  border: '1px solid #e2e8f0',
+                }}
               >
-                <option value="">— родитель —</option>
+                <option value=''>— Категории —</option>
                 {parentOpts.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
                 ))}
               </select>
             </Flex>
-            <Flex gap={2} justifyContent="flex-end">
-              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+            <Flex gap={2} justifyContent='flex-end'>
+              <Button
+                size='sm'
+                variant='ghost'
+                onClick={() => setOpen(false)}
+              >
                 Отмена
               </Button>
-              <Button size="sm" onClick={() => update.mutate()} loading={update.isPending}>
+              <Button
+                size='sm'
+                onClick={() => update.mutate()}
+                loading={update.isPending}
+              >
                 Сохранить
               </Button>
             </Flex>
@@ -314,11 +336,11 @@ function CategoriesList() {
 
   if (categories.length === 0) return null;
   return (
-    <Table.Root size="sm">
+    <Table.Root size='sm'>
       <Table.Header>
         <Table.Row>
           <Table.ColumnHeader>Название</Table.ColumnHeader>
-          <Table.ColumnHeader>Родитель</Table.ColumnHeader>
+          <Table.ColumnHeader>Категории</Table.ColumnHeader>
           <Table.ColumnHeader>Действия</Table.ColumnHeader>
         </Table.Row>
       </Table.Header>
@@ -326,16 +348,28 @@ function CategoriesList() {
         {categories.map((c) => (
           <Table.Row key={c.id}>
             <Table.Cell>{c.name}</Table.Cell>
-            <Table.Cell>{c.parent_id ? (parentMap[c.parent_id] ?? <ShortId id={c.parent_id} />) : '—'}</Table.Cell>
+            <Table.Cell>
+              {c.parent_id
+                ? parentMap[c.parent_id] ?? (
+                    <ShortId id={c.parent_id} />
+                  )
+                : '—'}
+            </Table.Cell>
             <Table.Cell>
               <Flex gap={2}>
-                <EditCategory category={c} categories={categories} />
+                <EditCategory
+                  category={c}
+                  categories={categories}
+                />
                 <Button
-                  size="xs"
-                  variant="ghost"
-                  colorPalette="red"
+                  size='xs'
+                  variant='ghost'
+                  colorPalette='red'
                   onClick={() => {
-                    if (window.confirm(`Удалить «${c.name}»?`)) deleteCat.mutate(c.id);
+                    if (
+                      window.confirm(`Удалить «${c.name}»?`)
+                    )
+                      deleteCat.mutate(c.id);
                   }}
                   disabled={deleteCat.isPending}
                 >

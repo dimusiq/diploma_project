@@ -11,12 +11,14 @@ const PendingItems = () => (
         <Table.ColumnHeader w='xs'>Кол-во</Table.ColumnHeader>
         <Table.ColumnHeader w='sm'>Артикул</Table.ColumnHeader>
         <Table.ColumnHeader w='xs'>Ед.</Table.ColumnHeader>
+        <Table.ColumnHeader w='sm'>Категория</Table.ColumnHeader>
         <Table.ColumnHeader w='sm'>Действия</Table.ColumnHeader>
       </Table.Row>
     </Table.Header>
     <Table.Body>
       {[...Array(5)].map((_, index) => (
         <Table.Row key={index}>
+          <Table.Cell><SkeletonText noOfLines={1} /></Table.Cell>
           <Table.Cell><SkeletonText noOfLines={1} /></Table.Cell>
           <Table.Cell><SkeletonText noOfLines={1} /></Table.Cell>
           <Table.Cell><SkeletonText noOfLines={1} /></Table.Cell>

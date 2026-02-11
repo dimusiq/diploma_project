@@ -11,4 +11,12 @@ export default defineConfig({
     },
   },
   plugins: [react(), TanStackRouterVite()],
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
+  },
 })

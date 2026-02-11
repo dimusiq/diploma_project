@@ -2,6 +2,9 @@ FROM python:3.10
 
 ENV PYTHONUNBUFFERED=1
 
+# Шрифты DejaVu для кириллицы в PDF (накладная, этикетки)
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app/
 
 # Install uv

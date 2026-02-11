@@ -142,7 +142,9 @@ export class ItemsService {
             query: {
                 skip: data.skip,
                 limit: data.limit,
-                status: data.status
+                status: data.status,
+                search: data.search,
+                category_id: data.category_id
             },
             errors: {
                 422: 'Validation Error'

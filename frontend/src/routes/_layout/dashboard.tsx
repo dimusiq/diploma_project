@@ -1,10 +1,12 @@
 import {
+  Box,
+  Card,
   Container,
   Heading,
+  Link,
   SimpleGrid,
-  Card,
   Text,
-  Box,
+  VStack,
 } from '@chakra-ui/react';
 import {
   Stat,
@@ -12,7 +14,7 @@ import {
   StatHelpText,
 } from '@chakra-ui/stat';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link as RouterLink, redirect } from '@tanstack/react-router';
 import {
   PieChart,
   Pie,
@@ -26,21 +28,33 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { FiArrowDownRight, FiBox, FiTruck } from 'react-icons/fi';
 
 import { DashboardService } from '@/client';
+
+interface LatestIncomingItem {
+  id: string;
+  title: string;
+  created_at: string;
+  status?: string;
+}
 
 interface DashboardStats {
   total_items: number;
   total_users: number;
   status_distribution: Record<string, number>;
   top_owners: Array<{ owner_email?: string; item_count?: number }>;
+  latest_incoming?: LatestIncomingItem[];
 }
 
 export const Route = createFileRoute('/_layout/dashboard')({
-  component: Dashboard,
+  beforeLoad: () => {
+    throw redirect({ to: '/' });
+  },
+  component: () => null,
 });
 
-function Dashboard() {
+export function Dashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () =>
@@ -170,6 +184,130 @@ function Dashboard() {
               </Text>
               <StatHelpText>Готовы к отгрузке</StatHelpText>
             </Stat>
+          </Card.Body>
+        </Card.Root>
+      </SimpleGrid>
+
+      {/* Краткие ссылки */}
+      <SimpleGrid columns={{ base: 1, sm: 3 }} gap={4} mt={6}>
+        <RouterLink to="/items">
+          <Card.Root
+            cursor="pointer"
+            _hover={{ bg: 'gray.50' }}
+            transition="background 0.2s"
+          >
+            <Card.Body display="flex" flexDirection="row" alignItems="center" gap={3}>
+              <Box color="blue.500">
+                <FiArrowDownRight size={24} />
+              </Box>
+              <VStack align="start" gap={0}>
+                <Text fontWeight="semibold">Поступления</Text>
+                <Text fontSize="sm" color="gray.600">
+                  Новые товары
+                </Text>
+              </VStack>
+            </Card.Body>
+          </Card.Root>
+        </RouterLink>
+        <RouterLink to="/warehouse">
+          <Card.Root
+            cursor="pointer"
+            _hover={{ bg: 'gray.50' }}
+            transition="background 0.2s"
+          >
+            <Card.Body display="flex" flexDirection="row" alignItems="center" gap={3}>
+              <Box color="green.500">
+                <FiBox size={24} />
+              </Box>
+              <VStack align="start" gap={0}>
+                <Text fontWeight="semibold">Склад</Text>
+                <Text fontSize="sm" color="gray.600">
+                  На складе
+                </Text>
+              </VStack>
+            </Card.Body>
+          </Card.Root>
+        </RouterLink>
+        <RouterLink to="/shipment">
+          <Card.Root
+            cursor="pointer"
+            _hover={{ bg: 'gray.50' }}
+            transition="background 0.2s"
+          >
+            <Card.Body display="flex" flexDirection="row" alignItems="center" gap={3}>
+              <Box color="orange.500">
+                <FiTruck size={24} />
+              </Box>
+              <VStack align="start" gap={0}>
+                <Text fontWeight="semibold">Отгрузка</Text>
+                <Text fontSize="sm" color="gray.600">
+                  В отгрузке
+                </Text>
+              </VStack>
+            </Card.Body>
+          </Card.Root>
+        </RouterLink>
+      </SimpleGrid>
+
+      {/* Последние поступления и В отгрузке */}
+      <SimpleGrid columns={{ base: 1, md: 2 }} gap={6} mt={6}>
+        <Card.Root>
+          <Card.Body>
+            <Heading size="sm" mb={3}>
+              Последние поступления
+            </Heading>
+            {stats.latest_incoming && stats.latest_incoming.length > 0 ? (
+              <VStack align="stretch" gap={2}>
+                {stats.latest_incoming.map((item) => (
+                  <Box
+                    key={item.id}
+                    py={2}
+                    borderBottomWidth="1px"
+                    borderColor="gray.100"
+                    _last={{ borderBottomWidth: 0 }}
+                  >
+                    <Text fontWeight="medium" lineClamp={1}>
+                      {item.title}
+                    </Text>
+                    <Text fontSize="xs" color="gray.500">
+                      {item.created_at
+                        ? new Date(item.created_at).toLocaleString('ru-RU')
+                        : ''}
+                    </Text>
+                  </Box>
+                ))}
+                <Box mt={2}>
+                  <RouterLink to="/items">
+                    <Link fontSize="sm" color="blue.500">
+                      Все поступления →
+                    </Link>
+                  </RouterLink>
+                </Box>
+              </VStack>
+            ) : (
+              <Text color="gray.500" fontSize="sm">
+                Нет поступлений
+              </Text>
+            )}
+          </Card.Body>
+        </Card.Root>
+
+        <Card.Root>
+          <Card.Body>
+            <Heading size="sm" mb={3}>
+              В отгрузке
+            </Heading>
+            <Text fontSize="2xl" fontWeight="bold" color="orange.500">
+              {(stats.status_distribution || {}).shipment ?? 0}
+            </Text>
+            <Text fontSize="sm" color="gray.600" mb={3}>
+              товаров в отгрузке
+            </Text>
+            <RouterLink to="/shipment">
+              <Link fontSize="sm" color="blue.500">
+                К отгрузке →
+              </Link>
+            </RouterLink>
           </Card.Body>
         </Card.Root>
       </SimpleGrid>

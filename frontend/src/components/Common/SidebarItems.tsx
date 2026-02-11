@@ -4,22 +4,20 @@ import { Link as RouterLink } from '@tanstack/react-router';
 import {
   FiArrowDownRight,
   FiBox,
-  FiHome,
   FiSettings,
   FiTruck,
   FiUsers,
-  FiBarChart2
+  FiBarChart2,
 } from 'react-icons/fi';
 import type { IconType } from 'react-icons/lib';
 
 import type { UserPublic } from '@/client';
 
 const items = [
-  { icon: FiHome, title: 'Главная', path: '/' },
   {
     icon: FiBarChart2,
     title: 'Дашборд',
-    path: '/dashboard',
+    path: '/',
   },
   {
     icon: FiArrowDownRight,

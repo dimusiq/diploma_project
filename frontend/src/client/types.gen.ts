@@ -205,6 +205,8 @@ export type ItemsReadItemsData = {
     limit?: number;
     skip?: number;
     status?: (string | null);
+    search?: (string | null);
+    category_id?: (string | null);
 };
 
 export type ItemsReadItemsResponse = (ItemsPublic);

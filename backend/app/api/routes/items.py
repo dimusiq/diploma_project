@@ -2,6 +2,8 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
+from sqlalchemy import or_
 from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -17,8 +19,32 @@ from app.models import (
     ItemUpdate,
     Message,
 )
+from app.services.pdf_service import build_label_pdf, build_shipping_note_pdf
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+
+class ShippingNoteRequest(BaseModel):
+    """Тело запроса для печати накладной."""
+    item_ids: list[uuid.UUID]
+
+
+def _item_filters(statement: Any, *, status: str | None, search: str | None, category_id: uuid.UUID | None) -> Any:
+    if status:
+        statement = statement.where(Item.status == status)
+    if category_id is not None:
+        statement = statement.where(Item.category_id == category_id)
+    if search and search.strip():
+        q = f"%{search.strip()}%"
+        statement = statement.where(
+            or_(
+                Item.title.ilike(q),
+                Item.description.ilike(q),
+                Item.sku.ilike(q),
+            )
+        )
+    return statement
 
 
 @router.get("/", response_model=ItemsPublic)
@@ -28,18 +54,19 @@ def read_items(
     skip: int = 0,
     limit: int = 100,
     status: str | None = None,
+    search: str | None = None,
+    category_id: uuid.UUID | None = None,
 ) -> Any:
     """
     Retrieve items. Роли admin/manager/warehouse видят все, viewer — только свои.
+    Фильтры: status, search (по названию/описанию/артикулу), category_id.
     """
     if can_see_all_items(current_user):
         count_statement = select(func.count()).select_from(Item)
-        if status:
-            count_statement = count_statement.where(Item.status == status)
+        count_statement = _item_filters(count_statement, status=status, search=search, category_id=category_id)
         count = session.exec(count_statement).one()
         statement = select(Item)
-        if status:
-            statement = statement.where(Item.status == status)
+        statement = _item_filters(statement, status=status, search=search, category_id=category_id)
         statement = statement.offset(skip).limit(limit)
         items = session.exec(statement).all()
     else:
@@ -48,12 +75,10 @@ def read_items(
             .select_from(Item)
             .where(Item.owner_id == current_user.id)
         )
-        if status:
-            count_statement = count_statement.where(Item.status == status)
+        count_statement = _item_filters(count_statement, status=status, search=search, category_id=category_id)
         count = session.exec(count_statement).one()
         statement = select(Item).where(Item.owner_id == current_user.id)
-        if status:
-            statement = statement.where(Item.status == status)
+        statement = _item_filters(statement, status=status, search=search, category_id=category_id)
         statement = statement.offset(skip).limit(limit)
         items = session.exec(statement).all()
 
@@ -69,6 +94,52 @@ def _get_item_or_404(
     if not can_see_all_items(current_user) and (item.owner_id != current_user.id):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return item
+
+
+@router.post("/shipping-note-pdf")
+def shipping_note_pdf(
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: ShippingNoteRequest,
+) -> Response:
+    """
+    Генерация PDF накладной по списку товаров (для отгрузки).
+    Передайте item_ids — возвращается PDF.
+    """
+    if not body.item_ids:
+        raise HTTPException(status_code=400, detail="item_ids не может быть пустым")
+    items: list[Item] = []
+    for item_id in body.item_ids:
+        item = session.get(Item, item_id)
+        if not item:
+            raise HTTPException(status_code=404, detail=f"Item {item_id} not found")
+        if not can_see_all_items(current_user) and item.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+        items.append(item)
+    pdf_bytes = build_shipping_note_pdf(items)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=shipping-note.pdf"},
+    )
+
+
+@router.get("/{id}/label-pdf")
+def label_pdf(
+    session: SessionDep,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+) -> Response:
+    """
+    Генерация PDF этикетки товара (со штрихкодом при наличии barcode).
+    """
+    item = _get_item_or_404(session, current_user, id)
+    pdf_bytes = build_label_pdf(item)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=label.pdf"},
+    )
 
 
 @router.get("/{id}/history", response_model=ItemHistoryList)
