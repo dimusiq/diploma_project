@@ -5,6 +5,7 @@ const PendingItems = () => (
   <Table.Root size={{ base: 'sm', md: 'md' }}>
     <Table.Header>
       <Table.Row>
+        <Table.ColumnHeader w='xs' />
         <Table.ColumnHeader w='sm'>ID</Table.ColumnHeader>
         <Table.ColumnHeader w='sm'>Название</Table.ColumnHeader>
         <Table.ColumnHeader w='sm'>Описание</Table.ColumnHeader>
@@ -18,6 +19,7 @@ const PendingItems = () => (
     <Table.Body>
       {[...Array(5)].map((_, index) => (
         <Table.Row key={index}>
+          <Table.Cell><SkeletonText noOfLines={1} w={4} /></Table.Cell>
           <Table.Cell><SkeletonText noOfLines={1} /></Table.Cell>
           <Table.Cell><SkeletonText noOfLines={1} /></Table.Cell>
           <Table.Cell><SkeletonText noOfLines={1} /></Table.Cell>

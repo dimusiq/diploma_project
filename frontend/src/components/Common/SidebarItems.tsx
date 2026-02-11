@@ -4,6 +4,7 @@ import { Link as RouterLink } from '@tanstack/react-router';
 import {
   FiArrowDownRight,
   FiBox,
+  FiCheckCircle,
   FiSettings,
   FiTruck,
   FiUsers,
@@ -33,6 +34,11 @@ const items = [
     icon: FiTruck,
     title: 'Отгрузка',
     path: '/shipment',
+  },
+  {
+    icon: FiCheckCircle,
+    title: 'Отгружено',
+    path: '/shipped',
   },
   {
     icon: FiSettings,

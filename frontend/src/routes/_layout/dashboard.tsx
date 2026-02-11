@@ -28,7 +28,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { FiArrowDownRight, FiBox, FiTruck } from 'react-icons/fi';
+import { FiArrowDownRight, FiBox, FiCheckCircle, FiTruck } from 'react-icons/fi';
 
 import { DashboardService } from '@/client';
 
@@ -86,6 +86,7 @@ export function Dashboard() {
     shipment: 'Отгрузка',
     incoming: 'Поступления',
     warehouse: 'Склад',
+    shipped: 'Отгружено',
   };
 
   // Prepare data for status distribution pie chart
@@ -242,6 +243,25 @@ export function Dashboard() {
                 <Text fontWeight="semibold">Отгрузка</Text>
                 <Text fontSize="sm" color="gray.600">
                   В отгрузке
+                </Text>
+              </VStack>
+            </Card.Body>
+          </Card.Root>
+        </RouterLink>
+        <RouterLink to="/shipped">
+          <Card.Root
+            cursor="pointer"
+            _hover={{ bg: 'gray.50' }}
+            transition="background 0.2s"
+          >
+            <Card.Body display="flex" flexDirection="row" alignItems="center" gap={3}>
+              <Box color="green.500">
+                <FiCheckCircle size={24} />
+              </Box>
+              <VStack align="start" gap={0}>
+                <Text fontWeight="semibold">Отгружено</Text>
+                <Text fontSize="sm" color="gray.600">
+                  Архив
                 </Text>
               </VStack>
             </Card.Body>

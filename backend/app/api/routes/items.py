@@ -24,6 +24,17 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/items", tags=["items"])
 
+# Допустимые переходы статусов: только по цепочке incoming → warehouse → shipment → shipped
+ALLOWED_STATUS_TRANSITIONS: dict[str, list[str]] = {
+    "incoming": ["warehouse"],
+    "warehouse": ["shipment"],
+    "shipment": ["shipped"],
+}
+
+
+def _allowed_next_statuses(current: str) -> list[str]:
+    return ALLOWED_STATUS_TRANSITIONS.get(current, [])
+
 
 class ShippingNoteRequest(BaseModel):
     """Тело запроса для печати накладной."""
@@ -205,6 +216,14 @@ def update_item(
             status_code=403,
             detail="Not enough permissions to change item status",
         )
+    if "status" in update_dict:
+        new_status = update_dict["status"]
+        allowed = _allowed_next_statuses(item.status)
+        if new_status not in allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status transition: {item.status} → {new_status}. Allowed: {allowed}",
+            )
     # Аудит: до применения изменений сохраняем старые значения
     history_rows = []
     for k in update_dict:

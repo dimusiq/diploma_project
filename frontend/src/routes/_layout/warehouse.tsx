@@ -10,18 +10,24 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { FiSearch } from 'react-icons/fi';
+import { useCallback, useState } from 'react';
 import { z } from 'zod';
 
+import { openShippingNotePdf } from '@/api/printPdf';
 import { CategoriesService, ItemsService } from '@/client';
-import PendingItems from '@/components/Pending/PendingItems';
 import { ItemActionsMenu } from '@/components/Common/ItemActionsMenu';
+import { ItemSelectionToolbar } from '@/components/Common/ItemSelectionToolbar';
 import { ShortId } from '@/components/Common/ShortId';
+import { MoveItemsDialog } from '@/components/Items/MoveItemsDialog';
+import PendingItems from '@/components/Pending/PendingItems';
 import {
   PaginationItems,
   PaginationNextTrigger,
   PaginationPrevTrigger,
   PaginationRoot,
 } from '@/components/ui/pagination.tsx';
+import { Checkbox } from '@/components/ui/checkbox';
+import useCustomToast from '@/hooks/useCustomToast';
 
 const warehouseSearchSchema = z.object({
   page: z.number().catch(1),
@@ -60,6 +66,10 @@ export const Route = createFileRoute('/_layout/warehouse')({
 
 function WarehouseTable() {
   const navigate = useNavigate({ from: Route.fullPath });
+  const { showErrorToast } = useCustomToast();
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
   const { page, search, category_id } = Route.useSearch();
 
   const { data: categories = [] } = useQuery({
@@ -79,6 +89,44 @@ function WarehouseTable() {
 
   const items = data?.data.slice(0, PER_PAGE) ?? [];
   const count = data?.count ?? 0;
+
+  const toggleOne = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    const ids = items.map((i) => i.id);
+    const allSelected = ids.every((id) => selectedIds.has(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, [items, selectedIds]);
+
+  const isAllSelected = items.length > 0 && items.every((i) => selectedIds.has(i.id));
+  const isSomeSelected = items.some((i) => selectedIds.has(i.id));
+
+  const handlePrintShippingNote = useCallback(async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setIsPrinting(true);
+    try {
+      await openShippingNotePdf(ids);
+    } catch (e) {
+      showErrorToast(e instanceof Error ? e.message : 'Ошибка печати накладной');
+    } finally {
+      setIsPrinting(false);
+    }
+  }, [selectedIds, showErrorToast]);
+
+  const handleMoveSuccess = useCallback(() => setSelectedIds(new Set()), []);
 
   if (isLoading) return <PendingItems />;
 
@@ -101,6 +149,13 @@ function WarehouseTable() {
 
   return (
     <>
+      <ItemSelectionToolbar
+        selectedCount={selectedIds.size}
+        onClear={() => setSelectedIds(new Set())}
+        onPrintShippingNote={handlePrintShippingNote}
+        onMove={() => setMoveDialogOpen(true)}
+        isPrinting={isPrinting}
+      />
       <Flex gap={3} mb={4} flexWrap="wrap" align="center">
         <Input
           placeholder="Поиск по названию, описанию, артикулу..."
@@ -131,6 +186,13 @@ function WarehouseTable() {
       <Table.Root size={{ base: 'sm', md: 'md' }}>
         <Table.Header>
           <Table.Row>
+            <Table.ColumnHeader w='xs'>
+              <Checkbox
+                checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
+                onCheckedChange={toggleAll}
+                aria-label="Выбрать все"
+              />
+            </Table.ColumnHeader>
             <Table.ColumnHeader w='sm'>ID</Table.ColumnHeader>
             <Table.ColumnHeader w='sm'>Название</Table.ColumnHeader>
             <Table.ColumnHeader w='sm'>Описание</Table.ColumnHeader>
@@ -144,6 +206,13 @@ function WarehouseTable() {
         <Table.Body>
           {items.map((item) => (
             <Table.Row key={item.id} opacity={isPlaceholderData ? 0.5 : 1}>
+              <Table.Cell>
+                <Checkbox
+                  checked={selectedIds.has(item.id)}
+                  onCheckedChange={() => toggleOne(item.id)}
+                  aria-label={`Выбрать ${item.title}`}
+                />
+              </Table.Cell>
               <Table.Cell><ShortId id={item.id} /></Table.Cell>
               <Table.Cell>{item.title}</Table.Cell>
               <Table.Cell>{item.description || 'N/A'}</Table.Cell>
@@ -173,6 +242,13 @@ function WarehouseTable() {
           </Flex>
         </PaginationRoot>
       </Flex>
+      <MoveItemsDialog
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
+        selectedIds={Array.from(selectedIds)}
+        selectedItems={items.filter((i) => selectedIds.has(i.id)).map((i) => ({ id: i.id, status: i.status }))}
+        onSuccess={handleMoveSuccess}
+      />
     </>
   );
 }
