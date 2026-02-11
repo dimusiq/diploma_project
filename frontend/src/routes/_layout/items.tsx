@@ -1,4 +1,5 @@
 import {
+  Box,
   Container,
   EmptyState,
   Flex,
@@ -12,7 +13,7 @@ import {
   createFileRoute,
   useNavigate,
 } from '@tanstack/react-router';
-import { FiSearch } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
 import { useCallback, useState } from 'react';
 import { z } from 'zod';
 
@@ -22,6 +23,7 @@ import { ItemActionsMenu } from '@/components/Common/ItemActionsMenu';
 import { ItemSelectionToolbar } from '@/components/Common/ItemSelectionToolbar';
 import { ShortId } from '@/components/Common/ShortId';
 import AddItem from '@/components/Items/AddItem';
+import { MassEditItemsDialog } from '@/components/Items/MassEditItemsDialog';
 import { MoveItemsDialog } from '@/components/Items/MoveItemsDialog';
 import PendingItems from '@/components/Pending/PendingItems';
 import {
@@ -37,19 +39,20 @@ const itemsSearchSchema = z.object({
   page: z.number().catch(1),
   search: z.string().catch(''),
   category_id: z.string().catch(''),
+  created_at_from: z.string().catch(''),
+  created_at_to: z.string().catch(''),
+  sort_by: z.enum(['title', 'created_at', 'quantity', 'sku']).catch('created_at'),
+  sort_order: z.enum(['asc', 'desc']).catch('desc'),
 });
 
 const PER_PAGE = 5;
 
-function getItemsQueryOptions({
-  page,
-  search,
-  category_id,
-}: {
-  page: number;
-  search: string;
-  category_id: string;
-}) {
+type ItemsSearch = z.infer<typeof itemsSearchSchema>;
+
+function getItemsQueryOptions(
+  params: ItemsSearch & { status?: string }
+) {
+  const { page, search, category_id, created_at_from, created_at_to, sort_by, sort_order, status } = params;
   return {
     queryFn: () =>
       ItemsService.readItems({
@@ -57,8 +60,13 @@ function getItemsQueryOptions({
         limit: PER_PAGE,
         search: search || undefined,
         category_id: category_id || undefined,
+        created_at_from: created_at_from || undefined,
+        created_at_to: created_at_to || undefined,
+        sort_by: sort_by || undefined,
+        sort_order: sort_order || undefined,
+        status: status || undefined,
       }),
-    queryKey: ['items', { page, search, category_id }],
+    queryKey: ['items', params],
   };
 }
 
@@ -73,8 +81,9 @@ function ItemsTable() {
   const { showErrorToast } = useCustomToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [massEditDialogOpen, setMassEditDialogOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
-  const { page, search, category_id } = Route.useSearch();
+  const searchParams = Route.useSearch() as ItemsSearch;
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -82,14 +91,39 @@ function ItemsTable() {
   });
 
   const { data, isLoading, isPlaceholderData } = useQuery({
-    ...getItemsQueryOptions({ page, search, category_id }),
+    ...getItemsQueryOptions(searchParams),
     placeholderData: (prevData) => prevData,
   });
 
-  const setSearchParams = (updates: { page?: number; search?: string; category_id?: string }) =>
+  const setSearchParams = (updates: Partial<ItemsSearch>) =>
     navigate({
-      search: (prev: z.infer<typeof itemsSearchSchema>) => ({ ...prev, ...updates }),
+      search: (prev: ItemsSearch) => ({ ...prev, ...updates }),
     });
+
+  const handleSort = (field: 'title' | 'created_at' | 'quantity' | 'sku') => {
+    setSearchParams({
+      sort_by: field,
+      sort_order: searchParams.sort_by === field && searchParams.sort_order === 'desc' ? 'asc' : 'desc',
+      page: 1,
+    });
+  };
+
+  const SortHeader = ({ field, label }: { field: 'title' | 'created_at' | 'quantity' | 'sku'; label: string }) => (
+    <Table.ColumnHeader
+      w="sm"
+      cursor="pointer"
+      onClick={() => handleSort(field)}
+      _hover={{ bg: 'gray.100' }}
+      whiteSpace="nowrap"
+    >
+      {label}
+      {searchParams.sort_by === field
+        ? searchParams.sort_order === 'desc'
+          ? <Box as={FiChevronDown} display="inline" ml={1} />
+          : <Box as={FiChevronUp} display="inline" ml={1} />
+        : null}
+    </Table.ColumnHeader>
+  );
 
   const items = data?.data.slice(0, PER_PAGE) ?? [];
   const count = data?.count ?? 0;
@@ -165,18 +199,19 @@ function ItemsTable() {
         onClear={() => setSelectedIds(new Set())}
         onPrintShippingNote={handlePrintShippingNote}
         onMove={() => setMoveDialogOpen(true)}
+        onMassEdit={() => setMassEditDialogOpen(true)}
         isPrinting={isPrinting}
       />
       <Flex gap={3} mb={4} flexWrap="wrap" align="center">
         <Input
           placeholder="Поиск по названию, описанию, артикулу..."
-          value={search}
+          value={searchParams.search}
           onChange={(e) => setSearchParams({ search: e.target.value, page: 1 })}
           maxW="xs"
           size="sm"
         />
         <select
-          value={category_id}
+          value={searchParams.category_id}
           onChange={(e) => setSearchParams({ category_id: e.target.value, page: 1 })}
           style={{
             padding: '6px 10px',
@@ -193,6 +228,22 @@ function ItemsTable() {
             </option>
           ))}
         </select>
+        <Input
+          type="date"
+          size="sm"
+          maxW="40"
+          value={searchParams.created_at_from}
+          onChange={(e) => setSearchParams({ created_at_from: e.target.value, page: 1 })}
+          placeholder="Дата от"
+        />
+        <Input
+          type="date"
+          size="sm"
+          maxW="40"
+          value={searchParams.created_at_to}
+          onChange={(e) => setSearchParams({ created_at_to: e.target.value, page: 1 })}
+          placeholder="Дата до"
+        />
       </Flex>
       <Table.Root size={{ base: 'sm', md: 'md' }}>
         <Table.Header>
@@ -205,12 +256,13 @@ function ItemsTable() {
               />
             </Table.ColumnHeader>
             <Table.ColumnHeader w='sm'>ID</Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>Название</Table.ColumnHeader>
+            <SortHeader field="title" label="Название" />
             <Table.ColumnHeader w='sm'>Описание</Table.ColumnHeader>
-            <Table.ColumnHeader w='xs'>Кол-во</Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>Артикул</Table.ColumnHeader>
+            <SortHeader field="quantity" label="Кол-во" />
+            <SortHeader field="sku" label="Артикул" />
             <Table.ColumnHeader w='xs'>Ед.</Table.ColumnHeader>
             <Table.ColumnHeader w='sm'>Категория</Table.ColumnHeader>
+            <SortHeader field="created_at" label="Дата" />
             <Table.ColumnHeader w='sm'>Действия</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
@@ -234,6 +286,9 @@ function ItemsTable() {
               <Table.Cell>{item.unit || '—'}</Table.Cell>
               <Table.Cell truncate maxW='sm'>
                 {item.category_id ? categories.find((c) => c.id === item.category_id)?.name ?? '—' : '—'}
+              </Table.Cell>
+              <Table.Cell whiteSpace="nowrap">
+                {item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU') : '—'}
               </Table.Cell>
               <Table.Cell>
                 <ItemActionsMenu item={item} />
@@ -260,6 +315,12 @@ function ItemsTable() {
         onOpenChange={setMoveDialogOpen}
         selectedIds={Array.from(selectedIds)}
         selectedItems={items.filter((i) => selectedIds.has(i.id)).map((i) => ({ id: i.id, status: i.status }))}
+        onSuccess={handleMoveSuccess}
+      />
+      <MassEditItemsDialog
+        open={massEditDialogOpen}
+        onOpenChange={setMassEditDialogOpen}
+        selectedIds={Array.from(selectedIds)}
         onSuccess={handleMoveSuccess}
       />
     </>

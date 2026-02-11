@@ -144,7 +144,11 @@ export class ItemsService {
                 limit: data.limit,
                 status: data.status,
                 search: data.search,
-                category_id: data.category_id
+                category_id: data.category_id,
+                created_at_from: data.created_at_from,
+                created_at_to: data.created_at_to,
+                sort_by: data.sort_by,
+                sort_order: data.sort_order
             },
             errors: {
                 422: 'Validation Error'

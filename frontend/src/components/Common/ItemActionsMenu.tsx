@@ -1,5 +1,5 @@
 import { Box, Button, ButtonGroup, IconButton, Text } from '@chakra-ui/react';
-import { FiPrinter } from 'react-icons/fi';
+import { FiCopy, FiPrinter } from 'react-icons/fi';
 import { BsThreeDotsVertical } from 'react-icons/bs';
 import { ItemsService, type ItemPublic } from '@/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -32,11 +32,35 @@ interface ItemActionsMenuProps {
 
 export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
   const queryClient = useQueryClient();
-  const { showErrorToast } = useCustomToast();
+  const { showErrorToast, showSuccessToast } = useCustomToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTargetStatus, setConfirmTargetStatus] = useState<string | null>(null);
 
   const allowedNext = getAllowedNextStatuses(item.status);
+
+  const duplicateItem = useMutation({
+    mutationFn: () =>
+      ItemsService.createItem({
+        requestBody: {
+          title: item.title,
+          description: item.description ?? undefined,
+          quantity: item.quantity,
+          sku: item.sku ?? undefined,
+          barcode: item.barcode ?? undefined,
+          unit: item.unit ?? undefined,
+          expires_at: item.expires_at ?? undefined,
+          location: item.location ?? undefined,
+          category_id: item.category_id ?? undefined,
+        },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      showSuccessToast('Товар скопирован');
+    },
+    onError: (e: Error) => {
+      showErrorToast(e.message || 'Ошибка при копировании товара');
+    },
+  });
 
   const handlePrintLabel = async () => {
     try {
@@ -94,6 +118,14 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
           <MenuItem value="print-label" onClick={handlePrintLabel}>
             <Box as={FiPrinter} mr="2" />
             Печать этикетки
+          </MenuItem>
+          <MenuItem
+            value="duplicate"
+            onClick={() => duplicateItem.mutate()}
+            disabled={duplicateItem.isPending}
+          >
+            <Box as={FiCopy} mr="2" />
+            Дублировать
           </MenuItem>
           <ItemHistoryDialog item={item} />
           <EditItem item={item} />

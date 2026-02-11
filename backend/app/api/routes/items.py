@@ -1,4 +1,5 @@
 import uuid
+from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -41,7 +42,15 @@ class ShippingNoteRequest(BaseModel):
     item_ids: list[uuid.UUID]
 
 
-def _item_filters(statement: Any, *, status: str | None, search: str | None, category_id: uuid.UUID | None) -> Any:
+def _item_filters(
+    statement: Any,
+    *,
+    status: str | None,
+    search: str | None,
+    category_id: uuid.UUID | None,
+    created_at_from: date | None,
+    created_at_to: date | None,
+) -> Any:
     if status:
         statement = statement.where(Item.status == status)
     if category_id is not None:
@@ -55,7 +64,25 @@ def _item_filters(statement: Any, *, status: str | None, search: str | None, cat
                 Item.sku.ilike(q),
             )
         )
+    if created_at_from is not None:
+        dt_from = datetime.combine(created_at_from, time.min).replace(tzinfo=timezone.utc)
+        statement = statement.where(Item.created_at >= dt_from)
+    if created_at_to is not None:
+        dt_to = datetime.combine(created_at_to + timedelta(days=1), time.min).replace(tzinfo=timezone.utc)
+        statement = statement.where(Item.created_at < dt_to)
     return statement
+
+
+_VALID_SORT_FIELDS = {"title", "created_at", "quantity", "sku"}
+
+
+def _apply_order(statement: Any, sort_by: str | None, sort_order: str | None) -> Any:
+    if not sort_by or sort_by not in _VALID_SORT_FIELDS:
+        sort_by = "created_at"
+    if sort_order not in ("asc", "desc"):
+        sort_order = "desc"
+    col = getattr(Item, sort_by)
+    return statement.order_by(col.desc() if sort_order == "desc" else col.asc())
 
 
 @router.get("/", response_model=ItemsPublic)
@@ -67,17 +94,30 @@ def read_items(
     status: str | None = None,
     search: str | None = None,
     category_id: uuid.UUID | None = None,
+    created_at_from: date | None = None,
+    created_at_to: date | None = None,
+    sort_by: str | None = None,
+    sort_order: str | None = None,
 ) -> Any:
     """
     Retrieve items. Роли admin/manager/warehouse видят все, viewer — только свои.
-    Фильтры: status, search (по названию/описанию/артикулу), category_id.
+    Фильтры: status, search, category_id, created_at_from, created_at_to.
+    Сортировка: sort_by (title, created_at, quantity, sku), sort_order (asc, desc).
     """
+    filters = {
+        "status": status,
+        "search": search,
+        "category_id": category_id,
+        "created_at_from": created_at_from,
+        "created_at_to": created_at_to,
+    }
     if can_see_all_items(current_user):
         count_statement = select(func.count()).select_from(Item)
-        count_statement = _item_filters(count_statement, status=status, search=search, category_id=category_id)
+        count_statement = _item_filters(count_statement, **filters)
         count = session.exec(count_statement).one()
         statement = select(Item)
-        statement = _item_filters(statement, status=status, search=search, category_id=category_id)
+        statement = _item_filters(statement, **filters)
+        statement = _apply_order(statement, sort_by, sort_order)
         statement = statement.offset(skip).limit(limit)
         items = session.exec(statement).all()
     else:
@@ -86,10 +126,11 @@ def read_items(
             .select_from(Item)
             .where(Item.owner_id == current_user.id)
         )
-        count_statement = _item_filters(count_statement, status=status, search=search, category_id=category_id)
+        count_statement = _item_filters(count_statement, **filters)
         count = session.exec(count_statement).one()
         statement = select(Item).where(Item.owner_id == current_user.id)
-        statement = _item_filters(statement, status=status, search=search, category_id=category_id)
+        statement = _item_filters(statement, **filters)
+        statement = _apply_order(statement, sort_by, sort_order)
         statement = statement.offset(skip).limit(limit)
         items = session.exec(statement).all()
 

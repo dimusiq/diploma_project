@@ -123,7 +123,7 @@ export function Dashboard() {
       </Heading>
 
       <SimpleGrid
-        columns={{ base: 1, md: 2, lg: 4 }}
+        columns={{ base: 1, md: 2, lg: 3 }}
         gap={6}
       >
         <Card.Root>
@@ -161,14 +161,11 @@ export function Dashboard() {
         <Card.Root>
           <Card.Body>
             <Stat>
-              <StatLabel>В процессе</StatLabel>
-              <Text>
-                {(
-                  (stats.status_distribution || {})
-                    .warehouse ?? 0
-                ).toString()}
+              <StatLabel>Поступления</StatLabel>
+              <Text fontSize='2xl' fontWeight='bold' color='cyan.500'>
+                {(stats.status_distribution || {}).incoming ?? 0}
               </Text>
-              <StatHelpText>Ожидают обработки</StatHelpText>
+              <StatHelpText>Ожидают приёмки на склад</StatHelpText>
             </Stat>
           </Card.Body>
         </Card.Root>
@@ -177,13 +174,34 @@ export function Dashboard() {
           <Card.Body>
             <Stat>
               <StatLabel>На складе</StatLabel>
-              <Text>
-                {(
-                  (stats.status_distribution || {})
-                    .warehouse ?? 0
-                ).toString()}
+              <Text fontSize='2xl' fontWeight='bold' color='green.500'>
+                {(stats.status_distribution || {}).warehouse ?? 0}
               </Text>
               <StatHelpText>Готовы к отгрузке</StatHelpText>
+            </Stat>
+          </Card.Body>
+        </Card.Root>
+
+        <Card.Root>
+          <Card.Body>
+            <Stat>
+              <StatLabel>В отгрузке</StatLabel>
+              <Text fontSize='2xl' fontWeight='bold' color='orange.500'>
+                {(stats.status_distribution || {}).shipment ?? 0}
+              </Text>
+              <StatHelpText>Подготовлено к отправке</StatHelpText>
+            </Stat>
+          </Card.Body>
+        </Card.Root>
+
+        <Card.Root>
+          <Card.Body>
+            <Stat>
+              <StatLabel>Отгружено</StatLabel>
+              <Text fontSize='2xl' fontWeight='bold' color='gray.600'>
+                {(stats.status_distribution || {}).shipped ?? 0}
+              </Text>
+              <StatHelpText>Архив</StatHelpText>
             </Stat>
           </Card.Body>
         </Card.Root>

@@ -207,6 +207,10 @@ export type ItemsReadItemsData = {
     status?: (string | null);
     search?: (string | null);
     category_id?: (string | null);
+    created_at_from?: (string | null);
+    created_at_to?: (string | null);
+    sort_by?: (string | null);
+    sort_order?: (string | null);
 };
 
 export type ItemsReadItemsResponse = (ItemsPublic);
