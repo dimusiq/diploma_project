@@ -29,6 +29,13 @@ import {
 
 import { DashboardService } from '@/client';
 
+interface DashboardStats {
+  total_items: number;
+  total_users: number;
+  status_distribution: Record<string, number>;
+  top_owners: Array<{ owner_email?: string; item_count?: number }>;
+}
+
 export const Route = createFileRoute('/_layout/dashboard')({
   component: Dashboard,
 });
@@ -36,7 +43,8 @@ export const Route = createFileRoute('/_layout/dashboard')({
 function Dashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
-    queryFn: () => DashboardService.getDashboardStats(),
+    queryFn: async () =>
+      (await DashboardService.getDashboardStats()) as unknown as DashboardStats,
   });
 
   if (isLoading) {

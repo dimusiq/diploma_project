@@ -13,6 +13,7 @@ import {
 } from '../ui/menu';
 import EditItem from '../Items/EditItem';
 import DeleteItem from '../Items/DeleteItem';
+import ItemHistoryDialog from '../Items/ItemHistoryDialog';
 
 interface ItemActionsMenuProps {
   item: ItemPublic;
@@ -63,6 +64,7 @@ export const ItemActionsMenu = ({
         >
           В Отгрузку
         </MenuItem>
+        <ItemHistoryDialog item={item} />
         <EditItem item={item} />
         <DeleteItem id={item.id} />
       </MenuContent>

@@ -8,7 +8,7 @@ import {
   useForm,
 } from 'react-hook-form';
 
-import { type UserCreate, UsersService } from '@/client';
+import { type UserCreate, UsersService, RolesService } from '@/client';
 import type { ApiError } from '@/client/core/ApiError';
 import useCustomToast from '@/hooks/useCustomToast';
 import { emailPattern, handleError } from '@/utils';
@@ -21,6 +21,7 @@ import {
   Text,
   VStack,
 } from '@chakra-ui/react';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import { Checkbox } from '../ui/checkbox';
@@ -39,10 +40,16 @@ interface UserCreateForm extends UserCreate {
   confirm_password: string;
 }
 
+const ROLE_EMPTY = '';
+
 const AddUser = () => {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
   const { showSuccessToast } = useCustomToast();
+  const { data: roles = [] } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => RolesService.readRoles(),
+  });
   const {
     control,
     register,
@@ -60,6 +67,7 @@ const AddUser = () => {
       confirm_password: '',
       is_superuser: false,
       is_active: false,
+      role_id: ROLE_EMPTY,
     },
   });
 
@@ -84,7 +92,11 @@ const AddUser = () => {
   const onSubmit: SubmitHandler<UserCreateForm> = (
     data
   ) => {
-    mutation.mutate(data);
+    const payload: UserCreate = {
+      ...data,
+      role_id: data.role_id && data.role_id !== ROLE_EMPTY ? data.role_id : null,
+    };
+    mutation.mutate(payload);
   };
 
   return (
@@ -140,6 +152,26 @@ const AddUser = () => {
                   placeholder='Полное имя'
                   type='text'
                 />
+              </Field>
+
+              <Field label='Роль'>
+                <select
+                  id='role_id'
+                  {...register('role_id')}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--chakra-colors-border)',
+                  }}
+                >
+                  <option value={ROLE_EMPTY}>— не выбрана —</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
               </Field>
 
               <Field

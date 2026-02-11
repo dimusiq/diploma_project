@@ -18,13 +18,15 @@ import {
   Text,
   VStack,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { FaExchangeAlt } from 'react-icons/fa';
 
 import {
   type UserPublic,
   type UserUpdate,
   UsersService,
+  RolesService,
 } from '@/client';
 import type { ApiError } from '@/client/core/ApiError';
 import useCustomToast from '@/hooks/useCustomToast';
@@ -48,10 +50,16 @@ interface UserUpdateForm extends UserUpdate {
   confirm_password?: string;
 }
 
+const ROLE_EMPTY = '';
+
 const EditUser = ({ user }: EditUserProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const queryClient = useQueryClient();
   const { showSuccessToast } = useCustomToast();
+  const { data: roles = [] } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => RolesService.readRoles(),
+  });
   const {
     control,
     register,
@@ -62,8 +70,20 @@ const EditUser = ({ user }: EditUserProps) => {
   } = useForm<UserUpdateForm>({
     mode: 'onBlur',
     criteriaMode: 'all',
-    defaultValues: user,
+    defaultValues: {
+      ...user,
+      role_id: user.role_id ?? ROLE_EMPTY,
+    },
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      reset({
+        ...user,
+        role_id: user.role_id ?? ROLE_EMPTY,
+      });
+    }
+  }, [isOpen, user, reset]);
 
   const mutation = useMutation({
     mutationFn: (data: UserUpdateForm) =>
@@ -89,10 +109,10 @@ const EditUser = ({ user }: EditUserProps) => {
   const onSubmit: SubmitHandler<UserUpdateForm> = async (
     data
   ) => {
-    if (data.password === '') {
-      data.password = undefined;
-    }
-    mutation.mutate(data);
+    const payload = { ...data };
+    if (payload.password === '') payload.password = undefined;
+    payload.role_id = payload.role_id && payload.role_id !== ROLE_EMPTY ? payload.role_id : null;
+    mutation.mutate(payload);
   };
 
   return (
@@ -145,6 +165,26 @@ const EditUser = ({ user }: EditUserProps) => {
                   placeholder='Полное имя'
                   type='text'
                 />
+              </Field>
+
+              <Field label='Роль'>
+                <select
+                  id='role_id'
+                  {...register('role_id')}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: '1px solid var(--chakra-colors-border)',
+                  }}
+                >
+                  <option value={ROLE_EMPTY}>— не выбрана —</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
               </Field>
 
               <Field

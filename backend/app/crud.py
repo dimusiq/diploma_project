@@ -4,13 +4,24 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
-from app.models import Item, ItemCreate, User, UserCreate, UserUpdate
+from app.models import (
+    Item,
+    ItemCreate,
+    Role,
+    User,
+    UserCreate,
+    UserUpdate,
+)
+from app.models import ROLE_VIEWER
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
-    db_obj = User.model_validate(
-        user_create, update={"hashed_password": get_password_hash(user_create.password)}
-    )
+    update = {"hashed_password": get_password_hash(user_create.password)}
+    if user_create.role_id is None:
+        viewer = session.exec(select(Role).where(Role.name == ROLE_VIEWER)).first()
+        if viewer:
+            update["role_id"] = viewer.id
+    db_obj = User.model_validate(user_create, update=update)
     session.add(db_obj)
     session.commit()
     session.refresh(db_obj)

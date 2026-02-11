@@ -9,7 +9,9 @@ RUN npm install
 
 COPY ./ /app/
 
-ARG VITE_API_URL=${VITE_API_URL}
+# VITE_API_URL должен быть в process.env во время сборки (Vite читает VITE_* из env)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 

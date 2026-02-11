@@ -9,6 +9,22 @@ export type Body_login_login_access_token = {
     client_secret?: (string | null);
 };
 
+export type CategoryCreate = {
+    name: string;
+    parent_id?: (string | null);
+};
+
+export type CategoryPublic = {
+    id: string;
+    name: string;
+    parent_id?: (string | null);
+};
+
+export type CategoryUpdate = {
+    name?: (string | null);
+    parent_id?: (string | null);
+};
+
 export type HTTPValidationError = {
     detail?: Array<ValidationError>;
 };
@@ -16,14 +32,44 @@ export type HTTPValidationError = {
 export type ItemCreate = {
     title: string;
     description?: (string | null);
+    quantity?: number;
+    sku?: (string | null);
+    barcode?: (string | null);
+    unit?: (string | null);
+    expires_at?: (string | null);
+    location?: (string | null);
+    category_id?: (string | null);
+};
+
+export type ItemHistoryList = {
+    data: Array<ItemHistoryPublic>;
+    count: number;
+};
+
+export type ItemHistoryPublic = {
+    id: string;
+    item_id: string;
+    user_id: string;
+    changed_at: string;
+    field_name: string;
+    old_value: string;
+    new_value: string;
 };
 
 export type ItemPublic = {
     title: string;
     description?: (string | null);
+    quantity?: number;
+    sku?: (string | null);
+    barcode?: (string | null);
+    unit?: (string | null);
+    expires_at?: (string | null);
+    location?: (string | null);
     id: string;
     owner_id: string;
     status: string;
+    category_id?: (string | null);
+    created_at: string;
 };
 
 export type ItemsPublic = {
@@ -34,7 +80,14 @@ export type ItemsPublic = {
 export type ItemUpdate = {
     title?: (string | null);
     description?: (string | null);
+    quantity?: (number | null);
+    sku?: (string | null);
+    barcode?: (string | null);
+    unit?: (string | null);
+    expires_at?: (string | null);
+    location?: (string | null);
     status?: (string | null);
+    category_id?: (string | null);
 };
 
 export type Message = {
@@ -63,12 +116,18 @@ export type UpdatePassword = {
     new_password: string;
 };
 
+export type RolePublic = {
+    id: string;
+    name: string;
+};
+
 export type UserCreate = {
     email: string;
     is_active?: boolean;
     is_superuser?: boolean;
     full_name?: (string | null);
     password: string;
+    role_id?: (string | null);
 };
 
 export type UserPublic = {
@@ -77,6 +136,7 @@ export type UserPublic = {
     is_superuser?: boolean;
     full_name?: (string | null);
     id: string;
+    role_id?: (string | null);
 };
 
 export type UserRegister = {
@@ -96,6 +156,7 @@ export type UserUpdate = {
     is_superuser?: boolean;
     full_name?: (string | null);
     password?: (string | null);
+    role_id?: (string | null);
 };
 
 export type UserUpdateMe = {
@@ -109,16 +170,35 @@ export type ValidationError = {
     type: string;
 };
 
+export type CategoriesReadCategoriesResponse = (Array<CategoryPublic>);
+
+export type CategoriesCreateCategoryData = {
+    requestBody: CategoryCreate;
+};
+
+export type CategoriesCreateCategoryResponse = (CategoryPublic);
+
+export type CategoriesReadCategoryData = {
+    id: string;
+};
+
+export type CategoriesReadCategoryResponse = (CategoryPublic);
+
+export type CategoriesUpdateCategoryData = {
+    id: string;
+    requestBody: CategoryUpdate;
+};
+
+export type CategoriesUpdateCategoryResponse = (CategoryPublic);
+
+export type CategoriesDeleteCategoryData = {
+    id: string;
+};
+
+export type CategoriesDeleteCategoryResponse = (Message);
+
 export type DashboardGetDashboardStatsResponse = ({
-    total_items?: number;
-    total_users?: number;
-    status_distribution?: {
-        [key: string]: unknown;
-    };
-    top_owners?: Array<{
-        owner_email?: string;
-        item_count?: number;
-    }>;
+    [key: string]: unknown;
 });
 
 export type ItemsReadItemsData = {
@@ -134,6 +214,12 @@ export type ItemsCreateItemData = {
 };
 
 export type ItemsCreateItemResponse = (ItemPublic);
+
+export type ItemsReadItemHistoryData = {
+    id: string;
+};
+
+export type ItemsReadItemHistoryResponse = (ItemHistoryList);
 
 export type ItemsReadItemData = {
     id: string;

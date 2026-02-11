@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { ItemsService } from '@/client';
 import PendingItems from '@/components/Pending/PendingItems';
 import { ItemActionsMenu } from '@/components/Common/ItemActionsMenu';
+import { ShortId } from '@/components/Common/ShortId';
 import {
   PaginationItems,
   PaginationNextTrigger,
@@ -70,31 +71,24 @@ function WarehouseTable() {
       <Table.Root size={{ base: 'sm', md: 'md' }}>
         <Table.Header>
           <Table.Row>
-            <Table.ColumnHeader w='sm'>
-              ID
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>
-              Название
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>
-              Описание
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>
-              Действия
-            </Table.ColumnHeader>
+            <Table.ColumnHeader w='sm'>ID</Table.ColumnHeader>
+            <Table.ColumnHeader w='sm'>Название</Table.ColumnHeader>
+            <Table.ColumnHeader w='sm'>Описание</Table.ColumnHeader>
+            <Table.ColumnHeader w='xs'>Кол-во</Table.ColumnHeader>
+            <Table.ColumnHeader w='sm'>Артикул</Table.ColumnHeader>
+            <Table.ColumnHeader w='xs'>Ед.</Table.ColumnHeader>
+            <Table.ColumnHeader w='sm'>Действия</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
         <Table.Body>
           {items.map((item) => (
-            <Table.Row
-              key={item.id}
-              opacity={isPlaceholderData ? 0.5 : 1}
-            >
-              <Table.Cell>{item.id}</Table.Cell>
+            <Table.Row key={item.id} opacity={isPlaceholderData ? 0.5 : 1}>
+              <Table.Cell><ShortId id={item.id} /></Table.Cell>
               <Table.Cell>{item.title}</Table.Cell>
-              <Table.Cell>
-                {item.description || 'N/A'}
-              </Table.Cell>
+              <Table.Cell>{item.description || 'N/A'}</Table.Cell>
+              <Table.Cell>{item.quantity ?? 1}</Table.Cell>
+              <Table.Cell>{item.sku || '—'}</Table.Cell>
+              <Table.Cell>{item.unit || '—'}</Table.Cell>
               <Table.Cell>
                 <ItemActionsMenu item={item} />
               </Table.Cell>
