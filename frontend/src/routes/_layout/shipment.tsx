@@ -1,4 +1,5 @@
 import {
+  Box,
   Button,
   Container,
   Flex,
@@ -10,10 +11,11 @@ import {
 } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { FiPrinter, FiSearch } from 'react-icons/fi';
+import { FiDownload, FiPrinter, FiSearch } from 'react-icons/fi';
 import { useCallback, useState } from 'react';
 import { z } from 'zod';
 
+import { downloadItemsExport } from '@/api/exportItems';
 import { openShippingNotePdf } from '@/api/printPdf';
 import { CategoriesService, ItemsService } from '@/client';
 import useCustomToast from '@/hooks/useCustomToast';
@@ -22,6 +24,12 @@ import { ItemActionsMenu } from '@/components/Common/ItemActionsMenu';
 import { ItemSelectionToolbar } from '@/components/Common/ItemSelectionToolbar';
 import { ShortId } from '@/components/Common/ShortId';
 import { MoveItemsDialog } from '@/components/Items/MoveItemsDialog';
+import {
+  MenuContent,
+  MenuItem,
+  MenuRoot,
+  MenuTrigger,
+} from '@/components/ui/menu';
 import {
   PaginationItems,
   PaginationNextTrigger,
@@ -90,6 +98,7 @@ function ShipmentTable() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const toggleOne = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -136,6 +145,25 @@ function ShipmentTable() {
   }, [items, showErrorToast]);
 
   const handleMoveSuccess = useCallback(() => setSelectedIds(new Set()), []);
+
+  const handleExport = useCallback(
+    async (format: 'csv' | 'xlsx') => {
+      setIsExporting(true);
+      try {
+        await downloadItemsExport({
+          format,
+          status: 'shipment',
+          search: search || undefined,
+          category_id: category_id || undefined,
+        });
+      } catch (e) {
+        showErrorToast(e instanceof Error ? e.message : 'Ошибка выгрузки');
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [search, category_id, showErrorToast]
+  );
 
   if (isLoading) return <PendingItems />;
 
@@ -202,6 +230,24 @@ function ShipmentTable() {
             Печать накладной (вся страница)
           </Flex>
         </Button>
+        <MenuRoot>
+          <MenuTrigger asChild>
+            <Button size="sm" variant="outline" disabled={isExporting}>
+              <Flex as="span" gap={2} align="center">
+                <Box as={FiDownload} />
+                Выгрузить
+              </Flex>
+            </Button>
+          </MenuTrigger>
+          <MenuContent>
+            <MenuItem value="csv" onClick={() => handleExport('csv')}>
+              CSV
+            </MenuItem>
+            <MenuItem value="xlsx" onClick={() => handleExport('xlsx')}>
+              Excel
+            </MenuItem>
+          </MenuContent>
+        </MenuRoot>
       </Flex>
       <Table.Root size={{ base: 'sm', md: 'md' }}>
         <Table.Header>

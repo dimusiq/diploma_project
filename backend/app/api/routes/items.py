@@ -1,9 +1,14 @@
+import csv
+import io
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
 from sqlalchemy import or_
 from sqlmodel import func, select
 
@@ -135,6 +140,134 @@ def read_items(
         items = session.exec(statement).all()
 
     return ItemsPublic(data=items, count=count)
+
+
+def _items_for_export(
+    session: Any,
+    current_user: CurrentUser,
+    status: str | None,
+    search: str | None,
+    category_id: uuid.UUID | None,
+    created_at_from: date | None,
+    created_at_to: date | None,
+) -> list[Item]:
+    """Items list with same filters as read_items, no limit (for export)."""
+    filters = {
+        "status": status,
+        "search": search,
+        "category_id": category_id,
+        "created_at_from": created_at_from,
+        "created_at_to": created_at_to,
+    }
+    if can_see_all_items(current_user):
+        statement = select(Item)
+    else:
+        statement = select(Item).where(Item.owner_id == current_user.id)
+    statement = _item_filters(statement, **filters)
+    statement = _apply_order(statement, "created_at", "desc")
+    return list(session.exec(statement).all())
+
+
+@router.get("/export")
+def export_items(
+    session: SessionDep,
+    current_user: CurrentUser,
+    format: str = "csv",
+    status: str | None = None,
+    search: str | None = None,
+    category_id: uuid.UUID | None = None,
+    created_at_from: date | None = None,
+    created_at_to: date | None = None,
+) -> Response:
+    """
+    Экспорт товаров в CSV или XLSX.
+    Параметры фильтрации: format=csv|xlsx, status, search, category_id, created_at_from, created_at_to.
+    """
+    if format not in ("csv", "xlsx"):
+        raise HTTPException(status_code=400, detail="format must be csv or xlsx")
+    items = _items_for_export(
+        session, current_user, status, search, category_id, created_at_from, created_at_to
+    )
+    headers_ru: list[str] = [
+        "ID", "Название", "Описание", "Кол-во", "Артикул", "Штрихкод", "Ед. изм.",
+        "Срок годности", "Местоположение", "Статус", "Категория", "Дата создания", "Владелец (ID)",
+    ]
+
+    def _row(item: Item) -> list[str]:
+        return [
+            str(item.id),
+            item.title or "",
+            item.description or "",
+            str(item.quantity),
+            item.sku or "",
+            item.barcode or "",
+            item.unit or "",
+            item.expires_at.isoformat() if item.expires_at else "",
+            item.location or "",
+            item.status or "",
+            str(item.category_id) if item.category_id else "",
+            item.created_at.isoformat() if item.created_at else "",
+            str(item.owner_id),
+        ]
+
+    if format == "csv":
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(headers_ru)
+        for item in items:
+            writer.writerow(_row(item))
+        return Response(
+            content=buf.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": "attachment; filename=items_export.csv"},
+        )
+
+    wb = Workbook()
+    ws = wb.active
+    if ws is None:
+        raise HTTPException(status_code=500, detail="Failed to create workbook")
+    ws.title = "Товары"
+
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    cell_alignment = Alignment(vertical="center", wrap_text=True)
+
+    ws.append(headers_ru)
+    for item in items:
+        ws.append(_row(item))
+
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=len(headers_ru)):
+        for cell in row:
+            cell.border = thin_border
+            cell.alignment = cell_alignment
+            if cell.row == 1:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+
+    for col_idx in range(1, len(headers_ru) + 1):
+        col_letter = get_column_letter(col_idx)
+        max_len = max(
+            (len(str(c.value or "")) for c in ws[col_letter]),
+            default=10,
+        )
+        ws.column_dimensions[col_letter].width = min(50, max(max_len + 2, 12))
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=items_export.xlsx"},
+    )
 
 
 def _get_item_or_404(

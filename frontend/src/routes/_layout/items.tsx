@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Container,
   EmptyState,
   Flex,
@@ -13,10 +14,11 @@ import {
   createFileRoute,
   useNavigate,
 } from '@tanstack/react-router';
-import { FiChevronDown, FiChevronUp, FiSearch } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiDownload, FiSearch } from 'react-icons/fi';
 import { useCallback, useState } from 'react';
 import { z } from 'zod';
 
+import { downloadItemsExport } from '@/api/exportItems';
 import { openShippingNotePdf } from '@/api/printPdf';
 import { CategoriesService, ItemsService } from '@/client';
 import { ItemActionsMenu } from '@/components/Common/ItemActionsMenu';
@@ -26,6 +28,12 @@ import AddItem from '@/components/Items/AddItem';
 import { MassEditItemsDialog } from '@/components/Items/MassEditItemsDialog';
 import { MoveItemsDialog } from '@/components/Items/MoveItemsDialog';
 import PendingItems from '@/components/Pending/PendingItems';
+import {
+  MenuContent,
+  MenuItem,
+  MenuRoot,
+  MenuTrigger,
+} from '@/components/ui/menu';
 import {
   PaginationItems,
   PaginationNextTrigger,
@@ -83,6 +91,7 @@ function ItemsTable() {
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [massEditDialogOpen, setMassEditDialogOpen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const searchParams = Route.useSearch() as ItemsSearch;
 
   const { data: categories = [] } = useQuery({
@@ -168,6 +177,27 @@ function ItemsTable() {
     setSelectedIds(new Set());
   }, []);
 
+  const handleExport = useCallback(
+    async (format: 'csv' | 'xlsx') => {
+      setIsExporting(true);
+      try {
+        await downloadItemsExport({
+          format,
+          status: undefined,
+          search: searchParams.search || undefined,
+          category_id: searchParams.category_id || undefined,
+          created_at_from: searchParams.created_at_from || undefined,
+          created_at_to: searchParams.created_at_to || undefined,
+        });
+      } catch (e) {
+        showErrorToast(e instanceof Error ? e.message : 'Ошибка выгрузки');
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [searchParams, showErrorToast]
+  );
+
   if (isLoading) {
     return <PendingItems />;
   }
@@ -244,6 +274,24 @@ function ItemsTable() {
           onChange={(e) => setSearchParams({ created_at_to: e.target.value, page: 1 })}
           placeholder="Дата до"
         />
+        <MenuRoot>
+          <MenuTrigger asChild>
+            <Button size="sm" variant="outline" disabled={isExporting}>
+              <Flex as="span" gap={2} align="center">
+                <Box as={FiDownload} />
+                Выгрузить
+              </Flex>
+            </Button>
+          </MenuTrigger>
+          <MenuContent>
+            <MenuItem value="csv" onClick={() => handleExport('csv')}>
+              CSV
+            </MenuItem>
+            <MenuItem value="xlsx" onClick={() => handleExport('xlsx')}>
+              Excel
+            </MenuItem>
+          </MenuContent>
+        </MenuRoot>
       </Flex>
       <Table.Root size={{ base: 'sm', md: 'md' }}>
         <Table.Header>

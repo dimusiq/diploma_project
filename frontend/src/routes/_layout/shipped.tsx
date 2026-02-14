@@ -1,4 +1,6 @@
 import {
+  Box,
+  Button,
   Container,
   Flex,
   Heading,
@@ -9,14 +11,22 @@ import {
 } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { FiSearch } from 'react-icons/fi';
+import { FiDownload, FiSearch } from 'react-icons/fi';
 import { useCallback, useState } from 'react';
 import { z } from 'zod';
 
+import { downloadItemsExport } from '@/api/exportItems';
 import { CategoriesService, ItemsService } from '@/client';
+import useCustomToast from '@/hooks/useCustomToast';
 import PendingItems from '@/components/Pending/PendingItems';
 import { ItemActionsMenu } from '@/components/Common/ItemActionsMenu';
 import { ShortId } from '@/components/Common/ShortId';
+import {
+  MenuContent,
+  MenuItem,
+  MenuRoot,
+  MenuTrigger,
+} from '@/components/ui/menu';
 import {
   PaginationItems,
   PaginationNextTrigger,
@@ -62,6 +72,8 @@ export const Route = createFileRoute('/_layout/shipped')({
 
 function ShippedTable() {
   const navigate = useNavigate({ from: Route.fullPath });
+  const { showErrorToast } = useCustomToast();
+  const [isExporting, setIsExporting] = useState(false);
   const { page, search, category_id } = Route.useSearch();
 
   const { data: categories = [] } = useQuery({
@@ -106,6 +118,25 @@ function ShippedTable() {
 
   const isAllSelected = items.length > 0 && items.every((i) => selectedIds.has(i.id));
   const isSomeSelected = items.some((i) => selectedIds.has(i.id));
+
+  const handleExport = useCallback(
+    async (format: 'csv' | 'xlsx') => {
+      setIsExporting(true);
+      try {
+        await downloadItemsExport({
+          format,
+          status: 'shipped',
+          search: search || undefined,
+          category_id: category_id || undefined,
+        });
+      } catch (e) {
+        showErrorToast(e instanceof Error ? e.message : 'Ошибка выгрузки');
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [search, category_id, showErrorToast]
+  );
 
   if (isLoading) return <PendingItems />;
 
@@ -152,6 +183,24 @@ function ShippedTable() {
             </option>
           ))}
         </select>
+        <MenuRoot>
+          <MenuTrigger asChild>
+            <Button size="sm" variant="outline" disabled={isExporting}>
+              <Flex as="span" gap={2} align="center">
+                <Box as={FiDownload} />
+                Выгрузить
+              </Flex>
+            </Button>
+          </MenuTrigger>
+          <MenuContent>
+            <MenuItem value="csv" onClick={() => handleExport('csv')}>
+              CSV
+            </MenuItem>
+            <MenuItem value="xlsx" onClick={() => handleExport('xlsx')}>
+              Excel
+            </MenuItem>
+          </MenuContent>
+        </MenuRoot>
       </Flex>
       <Table.Root size={{ base: 'sm', md: 'md' }}>
         <Table.Header>
