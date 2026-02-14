@@ -281,6 +281,26 @@ def _get_item_or_404(
     return item
 
 
+def _cell_is_occupied(
+    session: SessionDep,
+    storage_row: int,
+    storage_level: int,
+    storage_cell_x: int,
+    storage_cell_z: int,
+    exclude_item_id: uuid.UUID | None = None,
+) -> bool:
+    """Проверяет, занята ли ячейка другим товаром."""
+    stmt = select(Item).where(
+        Item.storage_row == storage_row,
+        Item.storage_level == storage_level,
+        Item.storage_cell_x == storage_cell_x,
+        Item.storage_cell_z == storage_cell_z,
+    )
+    if exclude_item_id is not None:
+        stmt = stmt.where(Item.id != exclude_item_id)
+    return session.exec(stmt).first() is not None
+
+
 @router.post("/shipping-note-pdf")
 def shipping_note_pdf(
     session: SessionDep,
@@ -362,6 +382,23 @@ def create_item(
     Create new item.
     """
     item = Item.model_validate(item_in, update={"owner_id": current_user.id})
+    if (
+        item.storage_row is not None
+        and item.storage_level is not None
+        and item.storage_cell_x is not None
+        and item.storage_cell_z is not None
+    ):
+        if _cell_is_occupied(
+            session,
+            item.storage_row,
+            item.storage_level,
+            item.storage_cell_x,
+            item.storage_cell_z,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Ячейка уже занята. Выберите другую ячейку хранения.",
+            )
     session.add(item)
     session.commit()
     session.refresh(item)
@@ -398,6 +435,16 @@ def update_item(
                 status_code=400,
                 detail=f"Invalid status transition: {item.status} → {new_status}. Allowed: {allowed}",
             )
+        if new_status == "warehouse":
+            # При переводе на склад обязательна ячейка хранения
+            storage_row = update_dict.get("storage_row", item.storage_row)
+            storage_level = update_dict.get("storage_level", item.storage_level)
+            storage_cell_x = update_dict.get("storage_cell_x", item.storage_cell_x)
+            if storage_row is None or storage_level is None or storage_cell_x is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Для перемещения на склад укажите ячейку хранения (ряд, уровень, позиция) в карточке товара.",
+                )
     # Аудит: до применения изменений сохраняем старые значения
     history_rows = []
     for k in update_dict:
@@ -414,6 +461,24 @@ def update_item(
         )
     item.sqlmodel_update(update_dict)
     session.add(item)
+    if (
+        item.storage_row is not None
+        and item.storage_level is not None
+        and item.storage_cell_x is not None
+        and item.storage_cell_z is not None
+    ):
+        if _cell_is_occupied(
+            session,
+            item.storage_row,
+            item.storage_level,
+            item.storage_cell_x,
+            item.storage_cell_z,
+            exclude_item_id=item.id,
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Ячейка уже занята другим товаром. Выберите другую ячейку хранения.",
+            )
     for h in history_rows:
         session.add(h)
     session.commit()

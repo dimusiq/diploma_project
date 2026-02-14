@@ -112,6 +112,11 @@ export function MoveItemsDialog({
                   </option>
                 ))}
               </select>
+              {targetStatus === 'warehouse' && (
+                <Text fontSize="xs" color="fg.muted" mt={2}>
+                  У каждого товара должна быть указана ячейка хранения (ряд, уровень, позиция) в карточке товара.
+                </Text>
+              )}
             </Field.Root>
           ) : (
             <Text fontSize="sm" color="fg.muted">
