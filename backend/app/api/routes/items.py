@@ -67,6 +67,7 @@ def _item_filters(
                 Item.title.ilike(q),
                 Item.description.ilike(q),
                 Item.sku.ilike(q),
+                Item.barcode.ilike(q),
             )
         )
     if created_at_from is not None:
@@ -301,6 +302,18 @@ def _cell_is_occupied(
     return session.exec(stmt).first() is not None
 
 
+def _barcode_exists(
+    session: SessionDep, barcode: str, exclude_item_id: uuid.UUID | None = None
+) -> bool:
+    """Проверяет, занят ли штрихкод другим товаром (barcode не пустой)."""
+    if not barcode or not barcode.strip():
+        return False
+    stmt = select(Item).where(Item.barcode == barcode.strip())
+    if exclude_item_id is not None:
+        stmt = stmt.where(Item.id != exclude_item_id)
+    return session.exec(stmt).first() is not None
+
+
 @router.post("/shipping-note-pdf")
 def shipping_note_pdf(
     session: SessionDep,
@@ -382,6 +395,11 @@ def create_item(
     Create new item.
     """
     item = Item.model_validate(item_in, update={"owner_id": current_user.id})
+    if item.barcode and _barcode_exists(session, item.barcode):
+        raise HTTPException(
+            status_code=400,
+            detail="Штрихкод уже используется другим товаром. Укажите другой или оставьте пустым.",
+        )
     if (
         item.storage_row is not None
         and item.storage_level is not None
@@ -461,6 +479,11 @@ def update_item(
         )
     item.sqlmodel_update(update_dict)
     session.add(item)
+    if item.barcode and _barcode_exists(session, item.barcode, exclude_item_id=item.id):
+        raise HTTPException(
+            status_code=400,
+            detail="Штрихкод уже используется другим товаром. Укажите другой или оставьте пустым.",
+        )
     if (
         item.storage_row is not None
         and item.storage_level is not None

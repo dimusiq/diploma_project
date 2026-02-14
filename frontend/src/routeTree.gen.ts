@@ -17,9 +17,10 @@ import { Route as RecoverPasswordImport } from './routes/recover-password'
 import { Route as LoginImport } from './routes/login'
 import { Route as LayoutImport } from './routes/_layout'
 import { Route as LayoutIndexImport } from './routes/_layout/index'
+import { Route as LayoutWarehouse3dImport } from './routes/_layout/warehouse-3d'
 import { Route as LayoutWarehouseImport } from './routes/_layout/warehouse'
-import { Route as LayoutShipmentImport } from './routes/_layout/shipment'
 import { Route as LayoutShippedImport } from './routes/_layout/shipped'
+import { Route as LayoutShipmentImport } from './routes/_layout/shipment'
 import { Route as LayoutSettingsImport } from './routes/_layout/settings'
 import { Route as LayoutItemsImport } from './routes/_layout/items'
 import { Route as LayoutDashboardImport } from './routes/_layout/dashboard'
@@ -57,18 +58,23 @@ const LayoutIndexRoute = LayoutIndexImport.update({
   getParentRoute: () => LayoutRoute,
 } as any)
 
+const LayoutWarehouse3dRoute = LayoutWarehouse3dImport.update({
+  path: '/warehouse-3d',
+  getParentRoute: () => LayoutRoute,
+} as any)
+
 const LayoutWarehouseRoute = LayoutWarehouseImport.update({
   path: '/warehouse',
   getParentRoute: () => LayoutRoute,
 } as any)
 
-const LayoutShipmentRoute = LayoutShipmentImport.update({
-  path: '/shipment',
+const LayoutShippedRoute = LayoutShippedImport.update({
+  path: '/shipped',
   getParentRoute: () => LayoutRoute,
 } as any)
 
-const LayoutShippedRoute = LayoutShippedImport.update({
-  path: '/shipped',
+const LayoutShipmentRoute = LayoutShipmentImport.update({
+  path: '/shipment',
   getParentRoute: () => LayoutRoute,
 } as any)
 
@@ -144,6 +150,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutWarehouseImport
       parentRoute: typeof LayoutImport
     }
+    '/_layout/warehouse-3d': {
+      preLoaderRoute: typeof LayoutWarehouse3dImport
+      parentRoute: typeof LayoutImport
+    }
     '/_layout/': {
       preLoaderRoute: typeof LayoutIndexImport
       parentRoute: typeof LayoutImport
@@ -162,6 +172,7 @@ export const routeTree = rootRoute.addChildren([
     LayoutShipmentRoute,
     LayoutShippedRoute,
     LayoutWarehouseRoute,
+    LayoutWarehouse3dRoute,
     LayoutIndexRoute,
   ]),
   LoginRoute,

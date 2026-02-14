@@ -1,9 +1,9 @@
 import { Box, Button, Container, Flex, Heading, Link, Text } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link as RouterLink } from '@tanstack/react-router';
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
-import { FiChevronRight, FiRotateCcw } from 'react-icons/fi';
+import { FiChevronRight, FiMaximize2, FiRotateCcw } from 'react-icons/fi';
 import { ItemsService } from '@/client';
 import type { ItemPublic } from '@/client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -77,12 +77,36 @@ function searchToCellInfo(search: z.infer<typeof warehouse3dSearchSchema>): Cell
 
 function Warehouse3DPage() {
   const search = Route.useSearch();
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [selectedCell, setSelectedCell] = useState<CellInfo | null>(() => searchToCellInfo(search));
+  /** Фокус камеры только при переходе по «Показать на складе 3D»; после применения сбрасывается. */
+  const [focusCell, setFocusCell] = useState<CellInfo | null>(null);
   const [sceneKey, setSceneKey] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
   useEffect(() => {
     const fromUrl = searchToCellInfo(search);
-    if (fromUrl) setSelectedCell(fromUrl);
+    if (fromUrl) {
+      setSelectedCell(fromUrl);
+      // Фокус камеры только при смене URL (переход по ссылке из списка), не при клике по ячейке
+      setFocusCell(fromUrl);
+    }
   }, [search.row, search.level, search.cellX, search.cellZ]);
 
   useEffect(() => {
@@ -205,12 +229,22 @@ function Warehouse3DPage() {
         </Flex>
       </Flex>
 
-      <Box position="relative" w="100%">
+      <Box
+        position="relative"
+        w="100%"
+        ref={canvasContainerRef}
+        {...(isFullscreen && {
+          w: '100vw',
+          h: '100vh',
+          minH: '100vh',
+          bg: 'gray.100',
+        })}
+      >
         <Box
           w="100%"
-          h="calc(100vh - 200px)"
-          minH="480px"
-          borderRadius="lg"
+          h={isFullscreen ? '100%' : 'calc(100vh - 200px)'}
+          minH={isFullscreen ? 0 : '480px'}
+          borderRadius={isFullscreen ? 0 : 'lg'}
           overflow="hidden"
           bg="gray.100"
         >
@@ -227,28 +261,39 @@ function Warehouse3DPage() {
             <WarehouseScene
               key={sceneKey}
               selectedCell={selectedCell}
+              focusCell={focusCell}
+              onFocusDone={() => setFocusCell(null)}
               onCellSelect={setSelectedCell}
               occupiedCellKeys={occupiedCellKeys}
               expiringCellKeys={expiringCellKeys}
               selectedItem={selectedItemForPopup}
+              darkMode={false}
             />
           </Suspense>
         </Box>
-        <Button
-          size="sm"
-          variant="outline"
-          position="absolute"
-          top={2}
-          right={2}
-          onClick={resetCamera}
-          title="Вернуть вид по умолчанию"
-          aria-label="Сбросить камеру"
-        >
-          <Flex as="span" gap={2} align="center">
-            <Box as={FiRotateCcw} />
-            Сбросить камеру
-          </Flex>
-        </Button>
+        <Flex position="absolute" top={2} right={2} gap={2}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={toggleFullscreen}
+            title="Полноэкранный режим"
+            aria-label="Полноэкранный режим"
+          >
+            <Box as={FiMaximize2} />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={resetCamera}
+            title="Вернуть вид по умолчанию"
+            aria-label="Сбросить камеру"
+          >
+            <Flex as="span" gap={2} align="center">
+              <Box as={FiRotateCcw} />
+              Сбросить камеру
+            </Flex>
+          </Button>
+        </Flex>
       </Box>
 
       <Text fontSize="xs" color="gray.500" mt={2}>

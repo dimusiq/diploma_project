@@ -204,6 +204,13 @@ function ItemsTable() {
     return <PendingItems />;
   }
 
+  const hasActiveFilters = !!(
+    searchParams.search?.trim() ||
+    searchParams.category_id ||
+    searchParams.created_at_from ||
+    searchParams.created_at_to
+  );
+
   if (items.length === 0) {
     return (
       <EmptyState.Root>
@@ -211,13 +218,32 @@ function ItemsTable() {
           <EmptyState.Indicator>
             <FiSearch />
           </EmptyState.Indicator>
-          <VStack textAlign='center'>
+          <VStack textAlign='center' gap={3}>
             <EmptyState.Title>
-              Нет добавленных слотов
+              {hasActiveFilters ? 'Ничего не найдено по заданным фильтрам' : 'Нет добавленных слотов'}
             </EmptyState.Title>
             <EmptyState.Description>
-              Добавьте слоты, чтобы они отображались здесь.
+              {hasActiveFilters
+                ? 'Измените условия поиска или сбросьте фильтры.'
+                : 'Добавьте слоты, чтобы они отображались здесь.'}
             </EmptyState.Description>
+            {hasActiveFilters && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setSearchParams({
+                    search: '',
+                    category_id: '',
+                    created_at_from: '',
+                    created_at_to: '',
+                    page: 1,
+                  })
+                }
+              >
+                Сбросить фильтры
+              </Button>
+            )}
           </VStack>
         </EmptyState.Content>
       </EmptyState.Root>
@@ -236,7 +262,7 @@ function ItemsTable() {
       />
       <Flex gap={3} mb={4} flexWrap="wrap" align="center">
         <Input
-          placeholder="Поиск по названию, описанию, артикулу..."
+          placeholder="Поиск по названию, описанию, артикулу, штрихкоду..."
           value={searchParams.search}
           onChange={(e) => setSearchParams({ search: e.target.value, page: 1 })}
           maxW="xs"
@@ -295,7 +321,8 @@ function ItemsTable() {
           </MenuContent>
         </MenuRoot>
       </Flex>
-      <Table.Root size={{ base: 'sm', md: 'md' }}>
+      <Box overflowX="auto" w="100%">
+      <Table.Root size={{ base: 'sm', md: 'md' }} minW={{ base: '800px' }}>
         <Table.Header>
           <Table.Row>
             <Table.ColumnHeader w='xs'>
@@ -347,6 +374,7 @@ function ItemsTable() {
           ))}
         </Table.Body>
       </Table.Root>
+      </Box>
       <Flex justifyContent='flex-end' mt={4}>
         <PaginationRoot
           count={count}

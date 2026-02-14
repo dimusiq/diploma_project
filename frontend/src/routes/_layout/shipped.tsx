@@ -140,6 +140,8 @@ function ShippedTable() {
 
   if (isLoading) return <PendingItems />;
 
+  const hasActiveFilters = !!(search?.trim() || category_id);
+
   if (items.length === 0) {
     return (
       <EmptyState.Root>
@@ -147,8 +149,22 @@ function ShippedTable() {
           <EmptyState.Indicator>
             <FiSearch />
           </EmptyState.Indicator>
-          <VStack textAlign="center">
-            <EmptyState.Title>Нет отгруженных товаров</EmptyState.Title>
+          <VStack textAlign="center" gap={3}>
+            <EmptyState.Title>
+              {hasActiveFilters ? 'Ничего не найдено по заданным фильтрам' : 'Нет отгруженных товаров'}
+            </EmptyState.Title>
+            {hasActiveFilters && (
+              <>
+                <EmptyState.Description>Измените условия поиска или сбросьте фильтры.</EmptyState.Description>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSearchParams({ search: '', category_id: '', page: 1 })}
+                >
+                  Сбросить фильтры
+                </Button>
+              </>
+            )}
           </VStack>
         </EmptyState.Content>
       </EmptyState.Root>
@@ -159,7 +175,7 @@ function ShippedTable() {
     <>
       <Flex gap={3} mb={4} flexWrap="wrap" align="center">
         <Input
-          placeholder="Поиск по названию, описанию, артикулу..."
+          placeholder="Поиск по названию, описанию, артикулу, штрихкоду..."
           value={search}
           onChange={(e) => setSearchParams({ search: e.target.value, page: 1 })}
           maxW="xs"
@@ -202,7 +218,8 @@ function ShippedTable() {
           </MenuContent>
         </MenuRoot>
       </Flex>
-      <Table.Root size={{ base: 'sm', md: 'md' }}>
+      <Box overflowX="auto" w="100%">
+      <Table.Root size={{ base: 'sm', md: 'md' }} minW={{ base: '800px' }}>
         <Table.Header>
           <Table.Row>
             <Table.ColumnHeader w="xs">
@@ -248,6 +265,7 @@ function ShippedTable() {
           ))}
         </Table.Body>
       </Table.Root>
+      </Box>
       <Flex justifyContent="flex-end" mt={4}>
         <PaginationRoot
           count={count}

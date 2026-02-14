@@ -167,6 +167,8 @@ function ShipmentTable() {
 
   if (isLoading) return <PendingItems />;
 
+  const hasActiveFilters = !!(search?.trim() || category_id);
+
   if (items.length === 0) {
     return (
       <EmptyState.Root>
@@ -176,16 +178,28 @@ function ShipmentTable() {
           </EmptyState.Indicator>
           <VStack textAlign='center' gap={3}>
             <EmptyState.Title>
-              Нет товаров в отгрузке
+              {hasActiveFilters ? 'Ничего не найдено по заданным фильтрам' : 'Нет товаров в отгрузке'}
             </EmptyState.Title>
             <EmptyState.Description>
-              Переведите товары из раздела «Склад» в «Отгрузка», чтобы они отобразились здесь.
+              {hasActiveFilters
+                ? 'Измените условия поиска или сбросьте фильтры.'
+                : 'Переведите товары из раздела «Склад» в «Отгрузка», чтобы они отобразились здесь.'}
             </EmptyState.Description>
-            <RouterLink to="/warehouse">
-              <Button size="sm" variant="solid" mt={2}>
-                Перейти на склад
+            {hasActiveFilters ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSearchParams({ search: '', category_id: '', page: 1 })}
+              >
+                Сбросить фильтры
               </Button>
-            </RouterLink>
+            ) : (
+              <RouterLink to="/warehouse">
+                <Button size="sm" variant="solid" mt={2}>
+                  Перейти на склад
+                </Button>
+              </RouterLink>
+            )}
           </VStack>
         </EmptyState.Content>
       </EmptyState.Root>
@@ -203,7 +217,7 @@ function ShipmentTable() {
       />
       <Flex gap={3} mb={4} flexWrap="wrap" align="center">
         <Input
-          placeholder="Поиск по названию, описанию, артикулу..."
+          placeholder="Поиск по названию, описанию, артикулу, штрихкоду..."
           value={search}
           onChange={(e) => setSearchParams({ search: e.target.value, page: 1 })}
           maxW="xs"
@@ -257,7 +271,8 @@ function ShipmentTable() {
           </MenuContent>
         </MenuRoot>
       </Flex>
-      <Table.Root size={{ base: 'sm', md: 'md' }}>
+      <Box overflowX="auto" w="100%">
+      <Table.Root size={{ base: 'sm', md: 'md' }} minW={{ base: '800px' }}>
         <Table.Header>
           <Table.Row>
             <Table.ColumnHeader w='xs'>
@@ -303,6 +318,7 @@ function ShipmentTable() {
           ))}
         </Table.Body>
       </Table.Root>
+      </Box>
       <Flex justifyContent='flex-end' mt={4}>
         <PaginationRoot
           count={count}

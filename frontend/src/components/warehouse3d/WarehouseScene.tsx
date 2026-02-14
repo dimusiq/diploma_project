@@ -3,18 +3,23 @@
  * artificial light, floor markings 1–12, cell click. No walls, no shadows.
  * Optimized for React Three Fiber.
  */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Html, OrbitControls, Text, useCursor } from '@react-three/drei';
 import type { MeshStandardMaterial } from 'three';
 
-const FLOOR_COLOR = '#6b7280';
-const RACK_FRAME_COLOR = '#4b5563';
-const CELL_EMPTY_COLOR = '#9ca3af';
+const FLOOR_COLOR_LIGHT = '#6b7280';
+const FLOOR_COLOR_DARK = '#374151';
+const RACK_FRAME_COLOR_LIGHT = '#4b5563';
+const RACK_FRAME_COLOR_DARK = '#1f2937';
+const CELL_EMPTY_COLOR_LIGHT = '#9ca3af';
+const CELL_EMPTY_COLOR_DARK = '#4b5563';
 const CELL_FILLED_COLOR = '#3b82f6';
 const CELL_HOVER_COLOR = '#93c5fd';
 const CELL_SELECTED_COLOR = '#fbbf24';
 const CELL_EXPIRING_COLOR = '#dc2626';
+const FLOOR_LABEL_COLOR_LIGHT = '#e5e7eb';
+const FLOOR_LABEL_COLOR_DARK = '#6b7280';
 const CELL_SIZE = 0.72;
 const CELL_GAP = 0.12;
 const LEVEL_HEIGHT = 0.82;
@@ -97,6 +102,7 @@ function StorageCell({
   y,
   z,
   selected,
+  darkMode,
   onCellClick,
   onEnter,
   onLeave,
@@ -107,6 +113,7 @@ function StorageCell({
   y: number;
   z: number;
   selected?: boolean;
+  darkMode?: boolean;
   onCellClick?: () => void;
   onEnter?: () => void;
   onLeave?: () => void;
@@ -136,7 +143,7 @@ function StorageCell({
     } else if (filled) {
       mat.color.setStyle(CELL_FILLED_COLOR);
     } else {
-      mat.color.setStyle(CELL_EMPTY_COLOR);
+      mat.color.setStyle(darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT);
     }
   });
 
@@ -148,7 +155,7 @@ function StorageCell({
         ? CELL_HOVER_COLOR
         : filled
           ? CELL_FILLED_COLOR
-          : CELL_EMPTY_COLOR;
+          : (darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT);
 
   return (
     <mesh
@@ -184,6 +191,7 @@ function Rack({
   baseX,
   baseZ,
   selectedCell,
+  darkMode,
   onCellClick,
   onCellEnter,
   onCellLeave,
@@ -194,12 +202,14 @@ function Rack({
   baseX: number;
   baseZ: number;
   selectedCell: CellInfo | null;
+  darkMode?: boolean;
   onCellClick: (info: CellInfo | null) => void;
   onCellEnter?: (info: CellInfo) => void;
   onCellLeave?: (info: CellInfo) => void;
   occupiedCellKeys?: Set<string> | null;
   expiringCellKeys?: Set<string> | null;
 }) {
+  const rackFrameColor = darkMode ? RACK_FRAME_COLOR_DARK : RACK_FRAME_COLOR_LIGHT;
   const cells = useMemo(() => {
     const out: Array<{ level: number; ix: number; iz: number; filled: boolean; expiring: boolean }> = [];
     for (let level = 0; level < LEVELS; level++) {
@@ -231,7 +241,7 @@ function Rack({
       ].map(([px, py, pz], i) => (
         <mesh key={i} position={[px, py, pz]}>
           <boxGeometry args={[0.08, rackH, 0.08]} />
-          <meshStandardMaterial color={RACK_FRAME_COLOR} metalness={0.3} roughness={0.6} />
+          <meshStandardMaterial color={rackFrameColor} metalness={0.3} roughness={0.6} />
         </mesh>
       ))}
       {cells.map(({ level, ix, iz, filled, expiring }, i) => {
@@ -253,6 +263,7 @@ function Rack({
             y={oy}
             z={oz}
             selected={isSelected}
+            darkMode={darkMode}
             onCellClick={() => onCellClick(isSelected ? null : info)}
             onEnter={() => onCellEnter?.(info)}
             onLeave={() => onCellLeave?.(info)}
@@ -263,11 +274,12 @@ function Rack({
   );
 }
 
-function Floor() {
+function Floor({ darkMode }: { darkMode?: boolean }) {
+  const color = darkMode ? FLOOR_COLOR_DARK : FLOOR_COLOR_LIGHT;
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
       <planeGeometry args={[FLOOR_WIDTH, FLOOR_DEPTH]} />
-      <meshStandardMaterial color={FLOOR_COLOR} metalness={0.05} roughness={0.9} />
+      <meshStandardMaterial color={color} metalness={0.05} roughness={0.9} />
     </mesh>
   );
 }
@@ -376,9 +388,15 @@ function CellPopup({
   );
 }
 
-function FloorMarkings({ rowPositions }: { rowPositions: Array<{ rowIndex: number; z: number }> }) {
+function FloorMarkings({
+  rowPositions,
+  darkMode,
+}: {
+  rowPositions: Array<{ rowIndex: number; z: number }>;
+  darkMode?: boolean;
+}) {
   const labelX = -RACK_LENGTH / 2 - 0.6;
-
+  const labelColor = darkMode ? FLOOR_LABEL_COLOR_DARK : FLOOR_LABEL_COLOR_LIGHT;
   return (
     <group>
       {rowPositions.map(({ rowIndex, z }) => (
@@ -387,7 +405,7 @@ function FloorMarkings({ rowPositions }: { rowPositions: Array<{ rowIndex: numbe
           position={[labelX, 0.02, z]}
           rotation={[-Math.PI / 2, 0, 0]}
           fontSize={0.7}
-          color="#e5e7eb"
+          color={labelColor}
           anchorX="center"
           anchorY="middle"
           maxWidth={1.5}
@@ -427,12 +445,14 @@ function WarehouseContent({
   occupiedCellKeys,
   expiringCellKeys,
   selectedItem,
+  darkMode,
 }: {
   selectedCell: CellInfo | null;
   onCellSelect: (info: CellInfo | null) => void;
   occupiedCellKeys?: Set<string> | null;
   expiringCellKeys?: Set<string> | null;
   selectedItem?: CellItemInfo | null;
+  darkMode?: boolean;
 }) {
   const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null);
   const handleCellEnter = useCallback((cell: CellInfo) => setHoveredCell(cell), []);
@@ -470,8 +490,8 @@ function WarehouseContent({
       <pointLight position={[-8, 5, 6]} intensity={0.9} distance={35} decay={2} />
       <pointLight position={[8, 5, 6]} intensity={0.9} distance={35} decay={2} />
 
-      <Floor />
-      <FloorMarkings rowPositions={rowPositions} />
+      <Floor darkMode={darkMode} />
+      <FloorMarkings rowPositions={rowPositions} darkMode={darkMode} />
       {hoveredCell && !selectedCell && (
         <HoverLabel cell={hoveredCell} />
       )}
@@ -495,6 +515,7 @@ function WarehouseContent({
           baseX={x}
           baseZ={z}
           selectedCell={selectedCell}
+          darkMode={darkMode}
           onCellClick={onCellSelect}
           onCellEnter={handleCellEnter}
           onCellLeave={handleCellLeave}
@@ -506,24 +527,76 @@ function WarehouseContent({
   );
 }
 
+/** Фокус камеры только при переходе по «Показать на складе 3D» (focusCell), не при клике по ячейке. */
+function CameraFocusOnCell({
+  focusCell,
+  onFocusDone,
+}: {
+  focusCell: CellInfo | null;
+  onFocusDone?: () => void;
+}) {
+  const appliedKeyRef = useRef<string | null>(null);
+  const frameCountRef = useRef(0);
+
+  useFrame((state) => {
+    const { camera, controls, invalidate } = state;
+    const c = controls as unknown as
+      | { target: { set: (x: number, y: number, z: number) => void }; update?: () => void }
+      | undefined;
+
+    if (!focusCell) {
+      appliedKeyRef.current = null;
+      frameCountRef.current = 0;
+      return;
+    }
+
+    const key = cellKey(focusCell.row, focusCell.level, focusCell.cellX, focusCell.cellZ);
+    if (appliedKeyRef.current === key) return;
+
+    if (!c?.target?.set) return;
+    frameCountRef.current += 1;
+    if (frameCountRef.current < 2) return;
+
+    const [cx, cy, cz] = getCellWorldPosition(
+      focusCell.row,
+      focusCell.level,
+      focusCell.cellX,
+      focusCell.cellZ
+    );
+    const dist = 14;
+    c.target.set(cx, cy, cz);
+    camera.position.set(cx, cy + 6, cz - dist);
+    c.update?.();
+    appliedKeyRef.current = key;
+    invalidate?.();
+    onFocusDone?.();
+  });
+  return null;
+}
+
 interface WarehouseSceneProps {
-  /** Выбранная ячейка снаружи (при переходе по ссылке «Показать на складе 3D»). */
+  /** Выбранная ячейка (показ попапа, подсветка). */
   selectedCell?: CellInfo | null;
+  /** Ячейка, на которую нужно один раз навести камеру (только при переходе по «Показать на складе 3D»). */
+  focusCell?: CellInfo | null;
+  /** Вызывается после применения фокуса камеры на focusCell (чтобы страница сбросила focusCell). */
+  onFocusDone?: () => void;
   onCellSelect?: (info: CellInfo | null) => void;
-  /** Занятые ячейки с API: ключи "row-level-ix-iz" (0-based). Заполнение только по данным API. */
   occupiedCellKeys?: Set<string> | null;
-  /** Ячейки с товарами, у которых скоро истекает срок годности — мигают красным. */
   expiringCellKeys?: Set<string> | null;
-  /** Данные товара в выбранной ячейке для всплывающего окна (рядом с ячейкой). */
   selectedItem?: CellItemInfo | null;
+  darkMode?: boolean;
 }
 
 export function WarehouseScene({
   selectedCell: selectedCellFromParent,
+  focusCell,
+  onFocusDone,
   onCellSelect,
   occupiedCellKeys,
   expiringCellKeys,
   selectedItem,
+  darkMode,
 }: WarehouseSceneProps) {
   const [internalCell, setInternalCell] = useState<CellInfo | null>(null);
   const isControlled = selectedCellFromParent !== undefined;
@@ -554,7 +627,9 @@ export function WarehouseScene({
         occupiedCellKeys={occupiedCellKeys}
         expiringCellKeys={expiringCellKeys}
         selectedItem={selectedItem}
+        darkMode={darkMode}
       />
+      <CameraFocusOnCell focusCell={focusCell ?? null} onFocusDone={onFocusDone} />
       <OrbitControls
         enablePan
         enableZoom

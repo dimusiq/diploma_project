@@ -159,6 +159,8 @@ function WarehouseTable() {
 
   if (isLoading) return <PendingItems />;
 
+  const hasActiveFilters = !!(search?.trim() || category_id);
+
   if (items.length === 0) {
     return (
       <EmptyState.Root>
@@ -168,16 +170,28 @@ function WarehouseTable() {
           </EmptyState.Indicator>
           <VStack textAlign='center' gap={3}>
             <EmptyState.Title>
-              Нет товаров на складе
+              {hasActiveFilters ? 'Ничего не найдено по заданным фильтрам' : 'Нет товаров на складе'}
             </EmptyState.Title>
             <EmptyState.Description>
-              Переведите товары из «Поступления» на склад, чтобы они отобразились здесь.
+              {hasActiveFilters
+                ? 'Измените условия поиска или сбросьте фильтры.'
+                : 'Переведите товары из «Поступления» на склад, чтобы они отобразились здесь.'}
             </EmptyState.Description>
-            <RouterLink to="/items">
-              <Button size="sm" variant="solid" mt={2}>
-                Перейти в поступления
+            {hasActiveFilters ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSearchParams({ search: '', category_id: '', page: 1 })}
+              >
+                Сбросить фильтры
               </Button>
-            </RouterLink>
+            ) : (
+              <RouterLink to="/items">
+                <Button size="sm" variant="solid" mt={2}>
+                  Перейти в поступления
+                </Button>
+              </RouterLink>
+            )}
           </VStack>
         </EmptyState.Content>
       </EmptyState.Root>
@@ -195,7 +209,7 @@ function WarehouseTable() {
       />
       <Flex gap={3} mb={4} flexWrap="wrap" align="center">
         <Input
-          placeholder="Поиск по названию, описанию, артикулу..."
+          placeholder="Поиск по названию, описанию, артикулу, штрихкоду..."
           value={search}
           onChange={(e) => setSearchParams({ search: e.target.value, page: 1 })}
           maxW="xs"
@@ -238,7 +252,8 @@ function WarehouseTable() {
           </MenuContent>
         </MenuRoot>
       </Flex>
-      <Table.Root size={{ base: 'sm', md: 'md' }}>
+      <Box overflowX="auto" w="100%">
+      <Table.Root size={{ base: 'sm', md: 'md' }} minW={{ base: '800px' }}>
         <Table.Header>
           <Table.Row>
             <Table.ColumnHeader w='xs'>
@@ -284,6 +299,7 @@ function WarehouseTable() {
           ))}
         </Table.Body>
       </Table.Root>
+      </Box>
       <Flex justifyContent='flex-end' mt={4}>
         <PaginationRoot
           count={count}
