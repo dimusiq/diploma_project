@@ -5,6 +5,7 @@ import {
   Button,
   DialogActionTrigger,
   DialogTitle,
+  Flex,
   Input,
   Text,
   VStack,
@@ -27,6 +28,10 @@ import {
 } from "../ui/dialog"
 import { Field } from "../ui/field"
 
+const STORAGE_ROWS = 12
+const STORAGE_LEVELS = 4
+const STORAGE_CELLS_LENGTH = 20
+
 const defaultValues: Partial<ItemCreate> = {
   title: "",
   description: "",
@@ -37,6 +42,10 @@ const defaultValues: Partial<ItemCreate> = {
   category_id: null,
   expires_at: null,
   location: "",
+  storage_row: null,
+  storage_level: null,
+  storage_cell_x: null,
+  storage_cell_z: 1,
 }
 
 const AddItem = () => {
@@ -76,11 +85,18 @@ const AddItem = () => {
   })
 
   const onSubmit: SubmitHandler<ItemCreate> = (data) => {
+    const hasStorage =
+      data.storage_row != null && data.storage_level != null &&
+      data.storage_cell_x != null
     const body: ItemCreate = {
       ...data,
       quantity: (typeof data.quantity === "number" && data.quantity >= 1) ? data.quantity : 1,
       category_id: data.category_id && data.category_id !== "" ? data.category_id : null,
       expires_at: data.expires_at && data.expires_at !== "" ? data.expires_at : null,
+      storage_row: hasStorage ? data.storage_row : null,
+      storage_level: hasStorage ? data.storage_level : null,
+      storage_cell_x: hasStorage ? data.storage_cell_x : null,
+      storage_cell_z: hasStorage ? (data.storage_cell_z ?? 1) : null,
     }
     mutation.mutate(body)
   }
@@ -206,11 +222,69 @@ const AddItem = () => {
                 />
               </Field>
 
-              <Field invalid={!!errors.location} errorText={errors.location?.message} label="Ячейка/зона">
+              <Text fontSize="sm" fontWeight="medium" mt={2}>Ячейка хранения (склад)</Text>
+              <Flex gap={3} flexWrap="wrap">
+                <Field label="Ряд (1–12)">
+                  <select
+                    id="storage_row"
+                    {...register("storage_row", { setValueAs: (v) => (v === "" ? null : Number(v)) })}
+                    style={{
+                      width: "100%",
+                      minWidth: "80px",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid #e2e8f0",
+                    }}
+                  >
+                    <option value="">—</option>
+                    {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Уровень (1–4)">
+                  <select
+                    id="storage_level"
+                    {...register("storage_level", { setValueAs: (v) => (v === "" ? null : Number(v)) })}
+                    style={{
+                      width: "100%",
+                      minWidth: "80px",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid #e2e8f0",
+                    }}
+                  >
+                    <option value="">—</option>
+                    {Array.from({ length: STORAGE_LEVELS }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Позиция в ряду (1–20)">
+                  <select
+                    id="storage_cell_x"
+                    {...register("storage_cell_x", { setValueAs: (v) => (v === "" ? null : Number(v)) })}
+                    style={{
+                      width: "100%",
+                      minWidth: "100px",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid #e2e8f0",
+                    }}
+                  >
+                    <option value="">—</option>
+                    {Array.from({ length: STORAGE_CELLS_LENGTH }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </Field>
+              </Flex>
+
+              <Field invalid={!!errors.location} errorText={errors.location?.message} label="Зона / примечание">
                 <Input
                   id="location"
                   {...register("location")}
-                  placeholder="Зона склада"
+                  placeholder="Доп. описание места"
                   type="text"
                 />
               </Field>

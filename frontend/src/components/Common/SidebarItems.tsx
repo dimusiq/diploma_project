@@ -5,6 +5,7 @@ import {
   FiArrowDownRight,
   FiBox,
   FiCheckCircle,
+  FiLayers,
   FiSettings,
   FiTruck,
   FiUsers,
@@ -29,6 +30,11 @@ const items = [
     icon: FiBox,
     title: 'Склад',
     path: '/warehouse',
+  },
+  {
+    icon: FiLayers,
+    title: '3D Склад',
+    path: '/warehouse-3d',
   },
   {
     icon: FiTruck,

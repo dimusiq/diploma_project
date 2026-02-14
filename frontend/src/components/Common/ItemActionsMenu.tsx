@@ -1,5 +1,6 @@
 import { Box, Button, ButtonGroup, IconButton, Text } from '@chakra-ui/react';
-import { FiCopy, FiPrinter } from 'react-icons/fi';
+import { useNavigate } from '@tanstack/react-router';
+import { FiCopy, FiBox, FiPrinter } from 'react-icons/fi';
 import { BsThreeDotsVertical } from 'react-icons/bs';
 import { ItemsService, type ItemPublic } from '@/client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,6 +32,7 @@ interface ItemActionsMenuProps {
 }
 
 export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showErrorToast, showSuccessToast } = useCustomToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -97,11 +99,24 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
 
   const targetLabel = confirmTargetStatus ? getStatusLabel(confirmTargetStatus) : '';
 
+  const hasStorageCell =
+    item.storage_row != null &&
+    item.storage_level != null &&
+    item.storage_cell_x != null;
+  const warehouse3dSearch = hasStorageCell
+    ? {
+        row: item.storage_row,
+        level: item.storage_level,
+        cellX: item.storage_cell_x,
+        cellZ: item.storage_cell_z ?? 1,
+      }
+    : null;
+
   return (
     <>
       <MenuRoot>
         <MenuTrigger asChild>
-          <IconButton variant="ghost" color="inherit">
+          <IconButton variant="ghost" color="inherit" aria-label="Действия с товаром">
             <BsThreeDotsVertical />
           </IconButton>
         </MenuTrigger>
@@ -119,6 +134,15 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
             <Box as={FiPrinter} mr="2" />
             Печать этикетки
           </MenuItem>
+          {warehouse3dSearch && (
+            <MenuItem
+              value="warehouse-3d"
+              onClick={() => navigate({ to: '/warehouse-3d', search: warehouse3dSearch })}
+            >
+              <Box as={FiBox} mr="2" />
+              Показать на складе 3D
+            </MenuItem>
+          )}
           <MenuItem
             value="duplicate"
             onClick={() => duplicateItem.mutate()}

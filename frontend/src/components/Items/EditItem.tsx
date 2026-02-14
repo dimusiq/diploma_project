@@ -2,6 +2,7 @@ import {
   Button,
   ButtonGroup,
   DialogActionTrigger,
+  Flex,
   Input,
   Text,
   VStack,
@@ -26,12 +27,24 @@ import {
 } from '../ui/dialog';
 import { Field } from '../ui/field';
 
+const STORAGE_ROWS = 12;
+const STORAGE_LEVELS = 4;
+const STORAGE_CELLS_LENGTH = 20;
+
 interface EditItemProps {
   item: ItemPublic;
+  /** Controlled: open dialog from outside (e.g. from URL ?open=id). */
+  open?: boolean;
+  onOpenChange?: (e: { open: boolean }) => void;
 }
 
-const EditItem = ({ item }: EditItemProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+const EditItem = ({ item, open: controlledOpen, onOpenChange }: EditItemProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined && onOpenChange != null;
+  const isOpen = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled
+    ? (next: boolean) => onOpenChange?.({ open: next })
+    : setInternalOpen;
   const queryClient = useQueryClient();
   const { showSuccessToast } = useCustomToast();
   const { data: categories = [] } = useQuery({
@@ -57,11 +70,15 @@ const EditItem = ({ item }: EditItemProps) => {
       expires_at: item.expires_at ?? undefined,
       location: item.location ?? undefined,
       category_id: item.category_id ?? undefined,
+      storage_row: item.storage_row ?? undefined,
+      storage_level: item.storage_level ?? undefined,
+      storage_cell_x: item.storage_cell_x ?? undefined,
+      storage_cell_z: item.storage_cell_z ?? undefined,
     },
   });
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && item) {
       reset({
         title: item.title,
         description: item.description ?? undefined,
@@ -72,6 +89,10 @@ const EditItem = ({ item }: EditItemProps) => {
         expires_at: item.expires_at ?? undefined,
         location: item.location ?? undefined,
         category_id: item.category_id ?? undefined,
+        storage_row: item.storage_row ?? undefined,
+        storage_level: item.storage_level ?? undefined,
+        storage_cell_x: item.storage_cell_x ?? undefined,
+        storage_cell_z: item.storage_cell_z ?? undefined,
       });
     }
   }, [isOpen, item, reset]);
@@ -82,7 +103,7 @@ const EditItem = ({ item }: EditItemProps) => {
     onSuccess: () => {
       showSuccessToast('Поступление успешно обновлено.');
       reset();
-      setIsOpen(false);
+      setOpen(false);
     },
     onError: (err: ApiError) => {
       handleError(err);
@@ -107,14 +128,16 @@ const EditItem = ({ item }: EditItemProps) => {
       size={{ base: 'xs', md: 'lg' }}
       placement="center"
       open={isOpen}
-      onOpenChange={({ open }) => setIsOpen(open)}
+      onOpenChange={({ open }) => setOpen(open)}
     >
-      <DialogTrigger asChild>
-        <Button variant="ghost">
-          <FaExchangeAlt fontSize="16px" />
-          Изменить поступление
-        </Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button variant="ghost">
+            <FaExchangeAlt fontSize="16px" />
+            Изменить поступление
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
@@ -162,8 +185,47 @@ const EditItem = ({ item }: EditItemProps) => {
               <Field invalid={!!errors.expires_at} errorText={errors.expires_at?.message} label="Срок годности">
                 <Input id="expires_at" {...register('expires_at')} type="date" />
               </Field>
-              <Field invalid={!!errors.location} errorText={errors.location?.message} label="Ячейка/зона">
-                <Input id="location" {...register('location')} placeholder="Зона склада" type="text" />
+              <Text fontSize="sm" fontWeight="medium" mt={2}>Ячейка хранения (склад)</Text>
+              <Flex gap={3} flexWrap="wrap">
+                <Field label="Ряд (1–12)">
+                  <select
+                    id="storage_row"
+                    {...register('storage_row', { setValueAs: (v) => (v === '' ? null : Number(v)) })}
+                    style={{ width: '100%', minWidth: '80px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                  >
+                    <option value="">—</option>
+                    {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Уровень (1–4)">
+                  <select
+                    id="storage_level"
+                    {...register('storage_level', { setValueAs: (v) => (v === '' ? null : Number(v)) })}
+                    style={{ width: '100%', minWidth: '80px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                  >
+                    <option value="">—</option>
+                    {Array.from({ length: STORAGE_LEVELS }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Позиция (1–20)">
+                  <select
+                    id="storage_cell_x"
+                    {...register('storage_cell_x', { setValueAs: (v) => (v === '' ? null : Number(v)) })}
+                    style={{ width: '100%', minWidth: '100px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                  >
+                    <option value="">—</option>
+                    {Array.from({ length: STORAGE_CELLS_LENGTH }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </Field>
+              </Flex>
+              <Field invalid={!!errors.location} errorText={errors.location?.message} label="Зона / примечание">
+                <Input id="location" {...register('location')} placeholder="Доп. описание места" type="text" />
               </Field>
             </VStack>
           </DialogBody>

@@ -10,7 +10,7 @@ import {
   EmptyState,
 } from '@chakra-ui/react';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link as RouterLink, useNavigate } from '@tanstack/react-router';
 import { FiDownload, FiSearch } from 'react-icons/fi';
 import { useCallback, useState } from 'react';
 import { z } from 'zod';
@@ -166,10 +166,18 @@ function WarehouseTable() {
           <EmptyState.Indicator>
             <FiSearch />
           </EmptyState.Indicator>
-          <VStack textAlign='center'>
+          <VStack textAlign='center' gap={3}>
             <EmptyState.Title>
               Нет товаров на складе
             </EmptyState.Title>
+            <EmptyState.Description>
+              Переведите товары из «Поступления» на склад, чтобы они отобразились здесь.
+            </EmptyState.Description>
+            <RouterLink to="/items">
+              <Button size="sm" variant="solid" mt={2}>
+                Перейти в поступления
+              </Button>
+            </RouterLink>
           </VStack>
         </EmptyState.Content>
       </EmptyState.Root>

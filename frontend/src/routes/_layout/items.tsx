@@ -25,6 +25,7 @@ import { ItemActionsMenu } from '@/components/Common/ItemActionsMenu';
 import { ItemSelectionToolbar } from '@/components/Common/ItemSelectionToolbar';
 import { ShortId } from '@/components/Common/ShortId';
 import AddItem from '@/components/Items/AddItem';
+import EditItem from '@/components/Items/EditItem';
 import { MassEditItemsDialog } from '@/components/Items/MassEditItemsDialog';
 import { MoveItemsDialog } from '@/components/Items/MoveItemsDialog';
 import PendingItems from '@/components/Pending/PendingItems';
@@ -51,6 +52,7 @@ const itemsSearchSchema = z.object({
   created_at_to: z.string().catch(''),
   sort_by: z.enum(['title', 'created_at', 'quantity', 'sku']).catch('created_at'),
   sort_order: z.enum(['asc', 'desc']).catch('desc'),
+  open: z.string().optional(),
 });
 
 const PER_PAGE = 5;
@@ -376,6 +378,20 @@ function ItemsTable() {
 }
 
 function Items() {
+  const searchParams = Route.useSearch() as ItemsSearch;
+  const navigate = useNavigate({ from: Route.fullPath });
+  const openItemId = searchParams.open;
+
+  const { data: openItem } = useQuery({
+    queryKey: ['item', openItemId],
+    queryFn: () => ItemsService.readItem({ id: openItemId! }),
+    enabled: Boolean(openItemId),
+  });
+
+  const clearOpenParam = useCallback(() => {
+    navigate({ search: (prev: ItemsSearch) => ({ ...prev, open: undefined }) });
+  }, [navigate]);
+
   return (
     <Container maxW='full'>
       <Heading size='lg' pt={12}>
@@ -383,6 +399,15 @@ function Items() {
       </Heading>
       <AddItem />
       <ItemsTable />
+      {openItem && (
+        <EditItem
+          item={openItem}
+          open={true}
+          onOpenChange={({ open }) => {
+            if (!open) clearOpenParam();
+          }}
+        />
+      )}
     </Container>
   );
 }

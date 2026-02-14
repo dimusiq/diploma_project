@@ -39,6 +39,10 @@ export type ItemCreate = {
     expires_at?: (string | null);
     location?: (string | null);
     category_id?: (string | null);
+    storage_row?: (number | null);
+    storage_level?: (number | null);
+    storage_cell_x?: (number | null);
+    storage_cell_z?: (number | null);
 };
 
 export type ItemHistoryList = {
@@ -70,6 +74,10 @@ export type ItemPublic = {
     status: string;
     category_id?: (string | null);
     created_at: string;
+    storage_row?: (number | null);
+    storage_level?: (number | null);
+    storage_cell_x?: (number | null);
+    storage_cell_z?: (number | null);
 };
 
 export type ItemsPublic = {
@@ -86,6 +94,10 @@ export type ItemUpdate = {
     unit?: (string | null);
     expires_at?: (string | null);
     location?: (string | null);
+    storage_row?: (number | null);
+    storage_level?: (number | null);
+    storage_cell_x?: (number | null);
+    storage_cell_z?: (number | null);
     status?: (string | null);
     category_id?: (string | null);
 };

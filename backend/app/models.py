@@ -114,6 +114,10 @@ class ItemBase(SQLModel):
     unit: str | None = Field(default=None, max_length=32)
     expires_at: date | None = None
     location: str | None = Field(default=None, max_length=128)
+    storage_row: int | None = Field(default=None, ge=1, le=12)
+    storage_level: int | None = Field(default=None, ge=1, le=4)
+    storage_cell_x: int | None = Field(default=None, ge=1, le=20)
+    storage_cell_z: int | None = Field(default=None, ge=1, le=1)
 
 
 # Properties to receive on item creation
@@ -131,6 +135,10 @@ class ItemUpdate(SQLModel):
     unit: str | None = None
     expires_at: date | None = None
     location: str | None = None
+    storage_row: int | None = Field(default=None, ge=1, le=12)  # type: ignore
+    storage_level: int | None = Field(default=None, ge=1, le=4)  # type: ignore
+    storage_cell_x: int | None = Field(default=None, ge=1, le=20)  # type: ignore
+    storage_cell_z: int | None = Field(default=None, ge=1, le=1)  # type: ignore
     status: str | None = None
     category_id: uuid.UUID | None = None
 
@@ -149,6 +157,10 @@ class Item(ItemBase, table=True):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    storage_row: int | None = Field(default=None, ge=1, le=12)
+    storage_level: int | None = Field(default=None, ge=1, le=4)
+    storage_cell_x: int | None = Field(default=None, ge=1, le=20)
+    storage_cell_z: int | None = Field(default=None, ge=1, le=1)
     owner: User | None = Relationship(back_populates="items")
     category: Category | None = Relationship(back_populates="items")
 
