@@ -26,7 +26,7 @@ import useCustomToast from '@/hooks/useCustomToast';
 import { getAllowedNextStatuses, getStatusLabel } from '@/utils/statusTransitions';
 import EditItem from '../Items/EditItem';
 import DeleteItem from '../Items/DeleteItem';
-import ItemHistoryDialog from '../Items/ItemHistoryDialog';
+import ItemHistoryDialog, { ItemHistoryDialogMenuItem } from '../Items/ItemHistoryDialog';
 
 const STORAGE_ROWS = 12;
 const STORAGE_LEVELS = 4;
@@ -50,6 +50,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTargetStatus, setConfirmTargetStatus] = useState<string | null>(null);
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [duplicateCell, setDuplicateCell] = useState<StorageCell>(() => ({
     storage_row: item.storage_row ?? 1,
     storage_level: item.storage_level ?? 1,
@@ -215,7 +216,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
             <Box as={FiCopy} mr="2" />
             Дублировать
           </MenuItem>
-          <ItemHistoryDialog item={item} />
+          <ItemHistoryDialogMenuItem item={item} onOpen={() => setHistoryDialogOpen(true)} />
           <EditItem item={item} />
           <DeleteItem id={item.id} />
         </MenuContent>
@@ -340,6 +341,12 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
           </DialogFooter>
         </DialogContent>
       </DialogRoot>
+
+      <ItemHistoryDialog
+        item={item}
+        open={historyDialogOpen}
+        onOpenChange={({ open: o }) => setHistoryDialogOpen(o)}
+      />
     </>
   );
 };

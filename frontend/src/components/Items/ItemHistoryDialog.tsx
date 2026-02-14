@@ -36,10 +36,21 @@ function formatDate(s: string) {
 
 interface ItemHistoryDialogProps {
   item: ItemPublic;
+  /** Управление извне (чтобы диалог не размонтировался при закрытии меню). */
+  open?: boolean;
+  onOpenChange?: (e: { open: boolean }) => void;
 }
 
-export default function ItemHistoryDialog({ item }: ItemHistoryDialogProps) {
-  const [open, setOpen] = useState(false);
+export default function ItemHistoryDialog({
+  item,
+  open: controlledOpen,
+  onOpenChange,
+}: ItemHistoryDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined && onOpenChange != null;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (o: boolean) => onOpenChange?.({ open: o }) : setInternalOpen;
+
   const { data, isLoading } = useQuery({
     queryKey: ['item-history', item.id],
     queryFn: () => ItemsService.readItemHistory({ id: item.id }),
@@ -50,9 +61,8 @@ export default function ItemHistoryDialog({ item }: ItemHistoryDialogProps) {
   const label = (f: string) => FIELD_LABELS[f] ?? f;
 
   return (
-    <>
-      <DialogRoot open={open} onOpenChange={({ open: o }) => setOpen(o)}>
-        <DialogContent>
+    <DialogRoot open={open} onOpenChange={({ open: o }) => setOpen(o)}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>История изменений: {item.title}</DialogTitle>
         </DialogHeader>
@@ -91,10 +101,21 @@ export default function ItemHistoryDialog({ item }: ItemHistoryDialogProps) {
         <DialogCloseTrigger />
       </DialogContent>
     </DialogRoot>
-    <MenuItem value="history" onClick={() => setOpen(true)}>
+  );
+}
+
+/** Пункт меню «История» — рендерить в меню; диалог рендерить снаружи с open/onOpenChange. */
+export function ItemHistoryDialogMenuItem({
+  item: _item,
+  onOpen,
+}: {
+  item: ItemPublic;
+  onOpen: () => void;
+}) {
+  return (
+    <MenuItem value="history" onClick={onOpen}>
       <Box as={FiClock} mr="2" />
       История
     </MenuItem>
-    </>
   );
 }
