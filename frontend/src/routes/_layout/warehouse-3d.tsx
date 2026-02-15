@@ -44,6 +44,26 @@ function isExpiringSoon(expiresAt: string | null | undefined): boolean {
   return daysLeft >= 0 && daysLeft <= EXPIRING_DAYS;
 }
 
+function isExpired(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return false;
+  const exp = new Date(expiresAt);
+  exp.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return exp.getTime() < today.getTime();
+}
+
+/** Количество дней просрочки (положительное число). 0 если не просрочен. */
+function getExpiredDays(expiresAt: string | null | undefined): number {
+  if (!expiresAt) return 0;
+  const exp = new Date(expiresAt);
+  exp.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.ceil((today.getTime() - exp.getTime()) / (24 * 60 * 60 * 1000));
+  return diff > 0 ? diff : 0;
+}
+
 function findItemInCell(
   items: ItemPublic[] | undefined,
   cell: CellInfo
@@ -167,6 +187,26 @@ function Warehouse3DPage() {
     return set;
   }, [items]);
 
+  const expiredCellKeys = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach((item) => {
+      if (!isExpired(item.expires_at ?? null)) return;
+      const r = item.storage_row;
+      const l = item.storage_level;
+      const x = item.storage_cell_x;
+      const z = item.storage_cell_z;
+      if (
+        r != null &&
+        l != null &&
+        x != null &&
+        z != null
+      ) {
+        set.add(cellKeyFromItem(r, l, x, z));
+      }
+    });
+    return set;
+  }, [items]);
+
   const selectedItem = useMemo(
     () => (selectedCell ? findItemInCell(items, selectedCell) : undefined),
     [selectedCell, items]
@@ -174,6 +214,8 @@ function Warehouse3DPage() {
 
   const selectedItemForPopup = useMemo((): CellItemInfo | null => {
     if (!selectedItem) return null;
+    const expiresAt = selectedItem.expires_at ?? null;
+    const expired = isExpired(expiresAt);
     return {
       id: selectedItem.id,
       title: selectedItem.title,
@@ -181,10 +223,12 @@ function Warehouse3DPage() {
       quantity: selectedItem.quantity ?? 1,
       unit: selectedItem.unit ?? null,
       sku: selectedItem.sku ?? null,
-      expires_at: selectedItem.expires_at ?? null,
+      expires_at: expiresAt,
       location: selectedItem.location ?? null,
       status: selectedItem.status,
-      expiringSoon: isExpiringSoon(selectedItem.expires_at ?? null),
+      expiringSoon: !expired && isExpiringSoon(expiresAt),
+      isExpired: expired,
+      expiredDays: expired ? getExpiredDays(expiresAt) : undefined,
     };
   }, [selectedItem]);
 
@@ -222,6 +266,10 @@ function Warehouse3DPage() {
         <Flex align="center" gap={2}>
           <Box w="3" h="3" borderRadius="sm" bg="#dc2626" />
           <Text>Срок истекает</Text>
+        </Flex>
+        <Flex align="center" gap={2}>
+          <Box w="3" h="3" borderRadius="sm" bg="#7f1d1d" />
+          <Text>Просрочено</Text>
         </Flex>
         <Flex align="center" gap={2}>
           <Box w="3" h="3" borderRadius="sm" bg="#fbbf24" />
@@ -266,6 +314,7 @@ function Warehouse3DPage() {
               onCellSelect={setSelectedCell}
               occupiedCellKeys={occupiedCellKeys}
               expiringCellKeys={expiringCellKeys}
+              expiredCellKeys={expiredCellKeys}
               selectedItem={selectedItemForPopup}
               darkMode={false}
             />

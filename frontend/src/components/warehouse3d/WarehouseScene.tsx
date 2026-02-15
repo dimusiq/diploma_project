@@ -18,6 +18,7 @@ const CELL_FILLED_COLOR = '#3b82f6';
 const CELL_HOVER_COLOR = '#93c5fd';
 const CELL_SELECTED_COLOR = '#fbbf24';
 const CELL_EXPIRING_COLOR = '#dc2626';
+const CELL_EXPIRED_COLOR = '#7f1d1d';
 const FLOOR_LABEL_COLOR_LIGHT = '#e5e7eb';
 const FLOOR_LABEL_COLOR_DARK = '#6b7280';
 const CELL_SIZE = 0.72;
@@ -93,11 +94,14 @@ export interface CellItemInfo {
   location?: string | null;
   status: string;
   expiringSoon?: boolean;
+  isExpired?: boolean;
+  expiredDays?: number;
 }
 
 function StorageCell({
   filled,
   expiring,
+  expired,
   x,
   y,
   z,
@@ -109,6 +113,7 @@ function StorageCell({
 }: {
   filled: boolean;
   expiring: boolean;
+  expired: boolean;
   x: number;
   y: number;
   z: number;
@@ -125,6 +130,13 @@ function StorageCell({
   useFrame((state) => {
     const mat = materialRef.current;
     if (!mat) return;
+    if (expired) {
+      const t = state.clock.elapsedTime;
+      mat.color.setStyle(CELL_EXPIRED_COLOR);
+      mat.emissive.setStyle(CELL_EXPIRED_COLOR);
+      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4);
+      return;
+    }
     if (expiring) {
       const t = state.clock.elapsedTime;
       mat.color.setStyle(CELL_EXPIRING_COLOR);
@@ -147,9 +159,11 @@ function StorageCell({
     }
   });
 
-  const baseColor = expiring
-    ? CELL_EXPIRING_COLOR
-    : selected
+  const baseColor = expired
+    ? CELL_EXPIRED_COLOR
+    : expiring
+      ? CELL_EXPIRING_COLOR
+      : selected
       ? CELL_SELECTED_COLOR
       : hover
         ? CELL_HOVER_COLOR
@@ -197,6 +211,7 @@ function Rack({
   onCellLeave,
   occupiedCellKeys,
   expiringCellKeys,
+  expiredCellKeys,
 }: {
   rackIndex: number;
   baseX: number;
@@ -208,10 +223,11 @@ function Rack({
   onCellLeave?: (info: CellInfo) => void;
   occupiedCellKeys?: Set<string> | null;
   expiringCellKeys?: Set<string> | null;
+  expiredCellKeys?: Set<string> | null;
 }) {
   const rackFrameColor = darkMode ? RACK_FRAME_COLOR_DARK : RACK_FRAME_COLOR_LIGHT;
   const cells = useMemo(() => {
-    const out: Array<{ level: number; ix: number; iz: number; filled: boolean; expiring: boolean }> = [];
+    const out: Array<{ level: number; ix: number; iz: number; filled: boolean; expiring: boolean; expired: boolean }> = [];
     for (let level = 0; level < LEVELS; level++) {
       for (let ix = 0; ix < CELLS_LENGTH; ix++) {
         for (let iz = 0; iz < CELLS_DEPTH; iz++) {
@@ -222,12 +238,13 @@ function Rack({
             iz,
             filled: isCellFilled(rackIndex, level, ix, iz, occupiedCellKeys),
             expiring: Boolean(expiringCellKeys?.has(key)),
+            expired: Boolean(expiredCellKeys?.has(key)),
           });
         }
       }
     }
     return out;
-  }, [rackIndex, occupiedCellKeys, expiringCellKeys]);
+  }, [rackIndex, occupiedCellKeys, expiringCellKeys, expiredCellKeys]);
 
   const rackH = LEVELS * LEVEL_HEIGHT;
 
@@ -244,7 +261,7 @@ function Rack({
           <meshStandardMaterial color={rackFrameColor} metalness={0.3} roughness={0.6} />
         </mesh>
       ))}
-      {cells.map(({ level, ix, iz, filled, expiring }, i) => {
+      {cells.map(({ level, ix, iz, filled, expiring, expired }, i) => {
         const ox = (ix - (CELLS_LENGTH - 1) / 2) * (CELL_SIZE + CELL_GAP);
         const oz = (iz - (CELLS_DEPTH - 1) / 2) * (CELL_SIZE + CELL_GAP);
         const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02;
@@ -259,6 +276,7 @@ function Rack({
             key={i}
             filled={filled}
             expiring={expiring}
+            expired={expired}
             x={ox}
             y={oy}
             z={oz}
@@ -342,7 +360,12 @@ function CellPopup({
             {item.expires_at && (
               <div style={{ marginBottom: 4 }}>
                 Срок годности: {new Date(item.expires_at).toLocaleDateString('ru-RU')}
-                {item.expiringSoon && (
+                {item.isExpired && item.expiredDays != null && (
+                  <span style={{ marginLeft: 6, color: '#7f1d1d', fontWeight: 600 }}>
+                    Просрочено на {item.expiredDays} {item.expiredDays === 1 ? 'день' : item.expiredDays < 5 ? 'дня' : 'дней'}
+                  </span>
+                )}
+                {item.expiringSoon && !item.isExpired && (
                   <span style={{ marginLeft: 6, color: '#dc2626', fontWeight: 600 }}>Скоро истекает</span>
                 )}
               </div>
@@ -444,6 +467,7 @@ function WarehouseContent({
   onCellSelect,
   occupiedCellKeys,
   expiringCellKeys,
+  expiredCellKeys,
   selectedItem,
   darkMode,
 }: {
@@ -451,6 +475,7 @@ function WarehouseContent({
   onCellSelect: (info: CellInfo | null) => void;
   occupiedCellKeys?: Set<string> | null;
   expiringCellKeys?: Set<string> | null;
+  expiredCellKeys?: Set<string> | null;
   selectedItem?: CellItemInfo | null;
   darkMode?: boolean;
 }) {
@@ -521,6 +546,7 @@ function WarehouseContent({
           onCellLeave={handleCellLeave}
           occupiedCellKeys={occupiedCellKeys}
           expiringCellKeys={expiringCellKeys}
+          expiredCellKeys={expiredCellKeys}
         />
       ))}
     </>
@@ -584,6 +610,7 @@ interface WarehouseSceneProps {
   onCellSelect?: (info: CellInfo | null) => void;
   occupiedCellKeys?: Set<string> | null;
   expiringCellKeys?: Set<string> | null;
+  expiredCellKeys?: Set<string> | null;
   selectedItem?: CellItemInfo | null;
   darkMode?: boolean;
 }
@@ -595,6 +622,7 @@ export function WarehouseScene({
   onCellSelect,
   occupiedCellKeys,
   expiringCellKeys,
+  expiredCellKeys,
   selectedItem,
   darkMode,
 }: WarehouseSceneProps) {
@@ -626,6 +654,7 @@ export function WarehouseScene({
         onCellSelect={handleCellSelect}
         occupiedCellKeys={occupiedCellKeys}
         expiringCellKeys={expiringCellKeys}
+        expiredCellKeys={expiredCellKeys}
         selectedItem={selectedItem}
         darkMode={darkMode}
       />
