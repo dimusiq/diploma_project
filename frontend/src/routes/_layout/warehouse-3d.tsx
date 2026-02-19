@@ -246,7 +246,7 @@ function Warehouse3DPage() {
       <Flex justify="space-between" align="flex-start" wrap="wrap" gap={4} mb={3}>
         <Box>
           <Heading size="lg" mb={2}>
-            Цифровой двойник склада
+            3D модель склада
           </Heading>
           <Text fontSize="sm" color="gray.600">
             Ячейки заполняются только при добавлении товара с выбранной ячейкой. Клик по ячейке — всплывающее окно. Красное мигание — срок годности истекает в течение {EXPIRING_DAYS} дн.

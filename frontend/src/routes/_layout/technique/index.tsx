@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { EquipmentList } from '@/components/Equipment/EquipmentList';
+import { MaintenanceScheduleEditor } from '@/components/Equipment/MaintenanceScheduleEditor';
 import { MaintenanceScheduleTable } from '@/components/Equipment/MaintenanceScheduleTable';
 
 const techniqueSearchSchema = z.object({
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/_layout/technique/')({
 const SECTION_LABELS: Record<string, { title: string }> = {
   assets: { title: 'Список техники' },
   maintenance: { title: 'График ТО' },
+  'maintenance-schedule': { title: 'Расписание ТО' },
   'work-orders': { title: 'Рабочие заказы' },
   technicians: { title: 'Управление задачами техников' },
   alerts: { title: 'Мониторинг и уведомления' },
@@ -42,6 +44,8 @@ function TechniqueIndexPage() {
             <EquipmentList />
           ) : section === 'maintenance' ? (
             <MaintenanceScheduleTable />
+          ) : section === 'maintenance-schedule' ? (
+            <MaintenanceScheduleEditor />
           ) : (
             <Text color='fg.muted'>
               Раздел в разработке. Здесь будет реализован функционал подраздела.
