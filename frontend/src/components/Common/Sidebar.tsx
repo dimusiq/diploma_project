@@ -53,35 +53,34 @@ const Sidebar = () => {
         </DrawerTrigger>
         <DrawerContent maxW='xs'>
           <DrawerCloseTrigger />
-          <DrawerBody>
-            <Flex flexDir='column' justify='space-between'>
-              <Box>
-                <SidebarItems />
-                <Flex
-                  as='button'
-                  onClick={() => {
-                    logout();
-                  }}
-                  alignItems='center'
-                  gap={4}
-                  px={4}
-                  py={2}
-                >
-                  <FiLogOut />
-                  <Text>Выйти</Text>
-                </Flex>
-              </Box>
-              {currentUser?.email && (
-                <Text
-                  fontSize='sm'
-                  p={2}
-                  truncate
-                  maxW='sm'
-                >
-                  Logged in as: {currentUser.email}
-                </Text>
-              )}
-            </Flex>
+          <DrawerBody overflow='hidden' display='flex' flexDir='column' p={0}>
+            <Box flex='1' minH={0} overflowY='auto' overflowX='hidden' px={4} pt={4} pb={4}>
+              <SidebarItems onClose={() => setOpen(false)} />
+              <Flex
+                as='button'
+                onClick={() => {
+                  logout();
+                }}
+                alignItems='center'
+                gap={4}
+                px={4}
+                py={2}
+              >
+                <FiLogOut />
+                <Text>Выйти</Text>
+              </Flex>
+            </Box>
+            {currentUser?.email && (
+              <Text
+                fontSize='sm'
+                p={4}
+                truncate
+                maxW='sm'
+                flexShrink={0}
+              >
+                Logged in as: {currentUser.email}
+              </Text>
+            )}
           </DrawerBody>
           <DrawerCloseTrigger />
         </DrawerContent>
@@ -91,14 +90,15 @@ const Sidebar = () => {
 
       <Box
         display={{ base: 'none', md: 'flex' }}
-        position='sticky'
+        flexDir='column'
+        w='xs'
+        maxW='xs'
+        flexShrink={0}
+        minH={0}
         bg='bg.subtle'
-        top={0}
-        minW='xs'
-        h='100vh'
-        p={4}
+        overflow='hidden'
       >
-        <Box w='100%'>
+        <Box h='100%' minH={0} overflowY='auto' overflowX='hidden' w='100%' p={4}>
           <SidebarItems />
         </Box>
       </Box>

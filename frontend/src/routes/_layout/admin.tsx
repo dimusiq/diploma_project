@@ -14,6 +14,8 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { z } from 'zod';
 
+import { brandsApi, type BrandPublic } from '@/api/brands';
+import { zonesApi, type ZonePublic } from '@/api/zones';
 import { CategoriesService, type UserPublic, UsersService, RolesService } from '@/client';
 import AddUser from '@/components/Admin/AddUser';
 import { ShortId } from '@/components/Common/ShortId';
@@ -258,11 +260,14 @@ function EditCategory({
           onClick={() => setOpen(false)}
         >
           <Box
-            bg='white'
+            bg='bg'
+            color='fg'
             p={4}
             borderRadius='md'
             shadow='lg'
             minW='280px'
+            borderWidth='1px'
+            borderColor='border'
             onClick={(e: React.MouseEvent) =>
               e.stopPropagation()
             }
@@ -384,6 +389,318 @@ function CategoriesList() {
   );
 }
 
+function AddBrand() {
+  const [name, setName] = useState('');
+  const queryClient = useQueryClient();
+  const create = useMutation({
+    mutationFn: () => brandsApi.create({ name: name.trim() }),
+    onSuccess: () => {
+      setName('');
+      queryClient.invalidateQueries({ queryKey: ['brands'] });
+    },
+  });
+  return (
+    <Flex gap={2} mb={4} flexWrap="wrap" align="center">
+      <Input
+        placeholder="Новый бренд техники"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxW="xs"
+      />
+      <Button
+        onClick={() => create.mutate()}
+        disabled={!name.trim()}
+        loading={create.isPending}
+      >
+        Добавить бренд
+      </Button>
+    </Flex>
+  );
+}
+
+function EditBrand({ brand }: { brand: BrandPublic }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(brand.name);
+  const queryClient = useQueryClient();
+  const update = useMutation({
+    mutationFn: () =>
+      brandsApi.update(brand.id, { name: name.trim() }),
+    onSuccess: () => {
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['brands'] });
+    },
+  });
+
+  const onOpen = () => {
+    setName(brand.name);
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <Button size="xs" variant="ghost" onClick={onOpen}>
+        Изменить
+      </Button>
+      {open && (
+        <Box
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          zIndex={50}
+          bg="blackAlpha.500"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          onClick={() => setOpen(false)}
+        >
+          <Box
+            bg="bg"
+            color="fg"
+            p={4}
+            borderRadius="md"
+            shadow="lg"
+            minW="280px"
+            borderWidth="1px"
+            borderColor="border"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
+            <Text fontWeight="bold" mb={3}>
+              Редактировать бренд
+            </Text>
+            <Flex direction="column" gap={3} mb={4}>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Название"
+                size="sm"
+              />
+            </Flex>
+            <Flex gap={2} justifyContent="flex-end">
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+                Отмена
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => update.mutate()}
+                loading={update.isPending}
+                disabled={!name.trim()}
+              >
+                Сохранить
+              </Button>
+            </Flex>
+          </Box>
+        </Box>
+      )}
+    </>
+  );
+}
+
+function BrandsList() {
+  const queryClient = useQueryClient();
+  const { data: brands = [] } = useQuery({
+    queryKey: ['brands'],
+    queryFn: () => brandsApi.list(),
+  });
+  const deleteBrand = useMutation({
+    mutationFn: (id: string) => brandsApi.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brands'] }),
+  });
+
+  if (brands.length === 0) return null;
+  return (
+    <Table.Root size="sm">
+      <Table.Header>
+        <Table.Row>
+          <Table.ColumnHeader>Название</Table.ColumnHeader>
+          <Table.ColumnHeader>Действия</Table.ColumnHeader>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {brands.map((b) => (
+          <Table.Row key={b.id}>
+            <Table.Cell>{b.name}</Table.Cell>
+            <Table.Cell>
+              <Flex gap={2}>
+                <EditBrand brand={b} />
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  colorPalette="red"
+                  onClick={() => {
+                    if (window.confirm(`Удалить бренд «${b.name}»? К нему не должна быть привязана техника.`))
+                      deleteBrand.mutate(b.id);
+                  }}
+                  disabled={deleteBrand.isPending}
+                >
+                  Удалить
+                </Button>
+              </Flex>
+            </Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </Table.Root>
+  );
+}
+
+function AddZone() {
+  const [name, setName] = useState('');
+  const queryClient = useQueryClient();
+  const create = useMutation({
+    mutationFn: () => zonesApi.create({ name: name.trim() }),
+    onSuccess: () => {
+      setName('');
+      queryClient.invalidateQueries({ queryKey: ['zones'] });
+    },
+  });
+  return (
+    <Flex gap={2} mb={4} flexWrap="wrap" align="center">
+      <Input
+        placeholder="Новая зона склада"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxW="xs"
+      />
+      <Button
+        onClick={() => create.mutate()}
+        disabled={!name.trim()}
+        loading={create.isPending}
+      >
+        Добавить зону
+      </Button>
+    </Flex>
+  );
+}
+
+function EditZone({ zone }: { zone: ZonePublic }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(zone.name);
+  const queryClient = useQueryClient();
+  const update = useMutation({
+    mutationFn: () =>
+      zonesApi.update(zone.id, { name: name.trim() }),
+    onSuccess: () => {
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['zones'] });
+    },
+  });
+
+  const onOpen = () => {
+    setName(zone.name);
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <Button size="xs" variant="ghost" onClick={onOpen}>
+        Изменить
+      </Button>
+      {open && (
+        <Box
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          zIndex={50}
+          bg="blackAlpha.500"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          onClick={() => setOpen(false)}
+        >
+          <Box
+            bg="bg"
+            color="fg"
+            p={4}
+            borderRadius="md"
+            shadow="lg"
+            minW="280px"
+            borderWidth="1px"
+            borderColor="border"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
+            <Text fontWeight="bold" mb={3}>
+              Редактировать зону
+            </Text>
+            <Flex direction="column" gap={3} mb={4}>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Название"
+                size="sm"
+              />
+            </Flex>
+            <Flex gap={2} justifyContent="flex-end">
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+                Отмена
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => update.mutate()}
+                loading={update.isPending}
+                disabled={!name.trim()}
+              >
+                Сохранить
+              </Button>
+            </Flex>
+          </Box>
+        </Box>
+      )}
+    </>
+  );
+}
+
+function ZonesList() {
+  const queryClient = useQueryClient();
+  const { data: zones = [] } = useQuery({
+    queryKey: ['zones'],
+    queryFn: () => zonesApi.list(),
+  });
+  const deleteZone = useMutation({
+    mutationFn: (id: string) => zonesApi.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zones'] }),
+  });
+
+  if (zones.length === 0) return null;
+  return (
+    <Table.Root size="sm">
+      <Table.Header>
+        <Table.Row>
+          <Table.ColumnHeader>Название</Table.ColumnHeader>
+          <Table.ColumnHeader>Действия</Table.ColumnHeader>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {zones.map((z) => (
+          <Table.Row key={z.id}>
+            <Table.Cell>{z.name}</Table.Cell>
+            <Table.Cell>
+              <Flex gap={2}>
+                <EditZone zone={z} />
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  colorPalette="red"
+                  onClick={() => {
+                    if (window.confirm(`Удалить зону «${z.name}»?`))
+                      deleteZone.mutate(z.id);
+                  }}
+                  disabled={deleteZone.isPending}
+                >
+                  Удалить
+                </Button>
+              </Flex>
+            </Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </Table.Root>
+  );
+}
+
 function Admin() {
   return (
     <Container maxW="full">
@@ -398,6 +715,24 @@ function Admin() {
       </Heading>
       <AddCategory />
       <CategoriesList />
+
+      <Heading size="md" mt={10} mb={2}>
+        Бренды техники
+      </Heading>
+      <Text fontSize="sm" color="fg.muted" mb={2}>
+        Справочник брендов для раздела «Техника». Создание и изменение — только для суперпользователя.
+      </Text>
+      <AddBrand />
+      <BrandsList />
+
+      <Heading size="md" mt={10} mb={2}>
+        Зоны склада
+      </Heading>
+      <Text fontSize="sm" color="fg.muted" mb={2}>
+        Справочник зон для раздела «Техника». Создание и изменение — только для суперпользователя.
+      </Text>
+      <AddZone />
+      <ZonesList />
     </Container>
   );
 }

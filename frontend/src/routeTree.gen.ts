@@ -19,12 +19,15 @@ import { Route as LayoutImport } from './routes/_layout'
 import { Route as LayoutIndexImport } from './routes/_layout/index'
 import { Route as LayoutWarehouse3dImport } from './routes/_layout/warehouse-3d'
 import { Route as LayoutWarehouseImport } from './routes/_layout/warehouse'
+import { Route as LayoutTechniqueImport } from './routes/_layout/technique'
 import { Route as LayoutShippedImport } from './routes/_layout/shipped'
 import { Route as LayoutShipmentImport } from './routes/_layout/shipment'
 import { Route as LayoutSettingsImport } from './routes/_layout/settings'
 import { Route as LayoutItemsImport } from './routes/_layout/items'
 import { Route as LayoutDashboardImport } from './routes/_layout/dashboard'
 import { Route as LayoutAdminImport } from './routes/_layout/admin'
+import { Route as LayoutTechniqueIndexImport } from './routes/_layout/technique/index'
+import { Route as LayoutTechniqueEquipmentEquipmentIdImport } from './routes/_layout/technique/equipment.$equipmentId'
 
 // Create/Update Routes
 
@@ -68,6 +71,11 @@ const LayoutWarehouseRoute = LayoutWarehouseImport.update({
   getParentRoute: () => LayoutRoute,
 } as any)
 
+const LayoutTechniqueRoute = LayoutTechniqueImport.update({
+  path: '/technique',
+  getParentRoute: () => LayoutRoute,
+} as any)
+
 const LayoutShippedRoute = LayoutShippedImport.update({
   path: '/shipped',
   getParentRoute: () => LayoutRoute,
@@ -97,6 +105,17 @@ const LayoutAdminRoute = LayoutAdminImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+
+const LayoutTechniqueIndexRoute = LayoutTechniqueIndexImport.update({
+  path: '/',
+  getParentRoute: () => LayoutTechniqueRoute,
+} as any)
+
+const LayoutTechniqueEquipmentEquipmentIdRoute =
+  LayoutTechniqueEquipmentEquipmentIdImport.update({
+    path: '/equipment/$equipmentId',
+    getParentRoute: () => LayoutTechniqueRoute,
+  } as any)
 
 // Populate the FileRoutesByPath interface
 
@@ -146,6 +165,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutShippedImport
       parentRoute: typeof LayoutImport
     }
+    '/_layout/technique': {
+      preLoaderRoute: typeof LayoutTechniqueImport
+      parentRoute: typeof LayoutImport
+    }
     '/_layout/warehouse': {
       preLoaderRoute: typeof LayoutWarehouseImport
       parentRoute: typeof LayoutImport
@@ -157,6 +180,14 @@ declare module '@tanstack/react-router' {
     '/_layout/': {
       preLoaderRoute: typeof LayoutIndexImport
       parentRoute: typeof LayoutImport
+    }
+    '/_layout/technique/': {
+      preLoaderRoute: typeof LayoutTechniqueIndexImport
+      parentRoute: typeof LayoutTechniqueImport
+    }
+    '/_layout/technique/equipment/$equipmentId': {
+      preLoaderRoute: typeof LayoutTechniqueEquipmentEquipmentIdImport
+      parentRoute: typeof LayoutTechniqueImport
     }
   }
 }
@@ -171,6 +202,10 @@ export const routeTree = rootRoute.addChildren([
     LayoutSettingsRoute,
     LayoutShipmentRoute,
     LayoutShippedRoute,
+    LayoutTechniqueRoute.addChildren([
+      LayoutTechniqueIndexRoute,
+      LayoutTechniqueEquipmentEquipmentIdRoute,
+    ]),
     LayoutWarehouseRoute,
     LayoutWarehouse3dRoute,
     LayoutIndexRoute,

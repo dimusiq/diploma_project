@@ -207,6 +207,129 @@ class ItemHistoryList(SQLModel):
     count: int
 
 
+# --- Brand (справочник брендов техники, управление в админке) ---
+class Brand(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=128, unique=True)
+    equipment: list["Equipment"] = Relationship(back_populates="brand")
+
+
+class BrandCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=128)
+
+
+class BrandUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class BrandPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+
+
+# --- WarehouseZone (зоны склада, управление в админке) ---
+class WarehouseZone(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=128, unique=True)
+
+
+class WarehouseZoneCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=128)
+
+
+class WarehouseZoneUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class WarehouseZonePublic(SQLModel):
+    id: uuid.UUID
+    name: str
+
+
+# --- Equipment (складская техника, тип из справочника, бренд из справочника Brand) ---
+EQUIPMENT_TYPE_AUTOPOGRUZCHIK = "autopogruzchik"
+EQUIPMENT_TYPE_ELEKTROPOGRUZCHIK = "elektropogruzchik"
+EQUIPMENT_TYPE_KOMPLEKTOVSHCHIK = "komplektovshchik"
+EQUIPMENT_TYPE_RICHTRAK = "richtrak"
+EQUIPMENT_TYPE_ELEKTROTELEZHKA = "elektrotelezhka"
+EQUIPMENT_TYPES = (
+    EQUIPMENT_TYPE_AUTOPOGRUZCHIK,
+    EQUIPMENT_TYPE_ELEKTROPOGRUZCHIK,
+    EQUIPMENT_TYPE_KOMPLEKTOVSHCHIK,
+    EQUIPMENT_TYPE_RICHTRAK,
+    EQUIPMENT_TYPE_ELEKTROTELEZHKA,
+)
+
+
+class Equipment(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    equipment_type: str = Field(max_length=32)
+    vin: str | None = Field(default=None, max_length=64)
+    serial_number: str | None = Field(default=None, max_length=128)
+    brand_id: uuid.UUID = Field(foreign_key="brand.id", ondelete="RESTRICT")
+    model: str = Field(max_length=128)
+    commissioned_at: date | None = None
+    engine_hours: int | None = Field(default=None, ge=0)
+    current_status: str = Field(default="active", max_length=32)
+    zone: str | None = Field(default=None, max_length=128)
+    attachments: str | None = Field(default=None, max_length=4096)
+    instructions: str | None = Field(default=None, max_length=2048)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+    brand: Brand | None = Relationship(back_populates="equipment")
+
+
+class EquipmentCreate(SQLModel):
+    equipment_type: str = Field(max_length=32)
+    vin: str | None = None
+    serial_number: str | None = None
+    brand_id: uuid.UUID
+    model: str = Field(min_length=1, max_length=128)
+    commissioned_at: date | None = None
+    engine_hours: int | None = Field(default=None, ge=0)
+    current_status: str = Field(default="active", max_length=32)
+    zone: str | None = None
+    attachments: str | None = None
+    instructions: str | None = None
+
+
+class EquipmentUpdate(SQLModel):
+    equipment_type: str | None = Field(default=None, max_length=32)
+    vin: str | None = None
+    serial_number: str | None = None
+    brand_id: uuid.UUID | None = None
+    model: str | None = Field(default=None, min_length=1, max_length=128)
+    commissioned_at: date | None = None
+    engine_hours: int | None = Field(default=None, ge=0)
+    current_status: str | None = Field(default=None, max_length=32)
+    zone: str | None = None
+    attachments: str | None = None
+    instructions: str | None = None
+
+
+class EquipmentPublic(SQLModel):
+    id: uuid.UUID
+    equipment_type: str
+    vin: str | None
+    serial_number: str | None
+    brand_id: uuid.UUID
+    brand_name: str
+    model: str
+    commissioned_at: date | None
+    engine_hours: int | None
+    current_status: str
+    zone: str | None
+    attachments: str | None
+    instructions: str | None
+    created_at: datetime
+
+
+class EquipmentList(SQLModel):
+    data: list[EquipmentPublic]
+    count: int
+
+
 # Generic message
 class Message(SQLModel):
     message: str

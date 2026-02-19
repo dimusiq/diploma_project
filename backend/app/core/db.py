@@ -1,3 +1,5 @@
+import uuid
+
 from sqlmodel import Session, create_engine, select
 
 from app import crud
@@ -7,6 +9,7 @@ from app.models import (
     ROLE_MANAGER,
     ROLE_VIEWER,
     ROLE_WAREHOUSE,
+    Brand,
     Role,
     User,
     UserCreate,
@@ -49,3 +52,19 @@ def init_db(session: Session) -> None:
             user.role_id = admin_role.id
             session.add(user)
             session.commit()
+
+    _ensure_brands(session)
+
+
+def _ensure_brands(session: Session) -> dict[str, uuid.UUID]:
+    """Создать бренды Linde и Jungheinrich, если их ещё нет. Возвращает словарь name -> id."""
+    result: dict[str, uuid.UUID] = {}
+    for name in ("Linde", "Jungheinrich"):
+        brand = session.exec(select(Brand).where(Brand.name == name)).first()
+        if not brand:
+            brand = Brand(name=name)
+            session.add(brand)
+            session.commit()
+            session.refresh(brand)
+        result[name] = brand.id
+    return result
