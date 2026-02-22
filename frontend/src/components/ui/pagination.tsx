@@ -4,9 +4,9 @@ import type { ButtonProps, TextProps } from "@chakra-ui/react"
 import {
   Button,
   Pagination as ChakraPagination,
+  createContext,
   IconButton,
   Text,
-  createContext,
   usePaginationContext,
 } from "@chakra-ui/react"
 import * as React from "react"
@@ -15,7 +15,7 @@ import {
   HiChevronRight,
   HiMiniEllipsisHorizontal,
 } from "react-icons/hi2"
-import { LinkButton } from "./link-button"
+import { LinkButton } from "./link-button.tsx"
 
 interface ButtonVariantMap {
   current: ButtonProps["variant"]
@@ -37,6 +37,7 @@ const [RootPropsProvider, useRootProps] = createContext<ButtonVariantContext>({
 
 export interface PaginationRootProps
   extends Omit<ChakraPagination.RootProps, "type"> {
+  ref?: React.Ref<HTMLDivElement>
   size?: ButtonProps["size"]
   variant?: PaginationVariant
   getHref?: (page: number) => string
@@ -48,11 +49,13 @@ const variantMap: Record<PaginationVariant, ButtonVariantMap> = {
   subtle: { default: "ghost", ellipsis: "plain", current: "subtle" },
 }
 
-export const PaginationRoot = React.forwardRef<
-  HTMLDivElement,
-  PaginationRootProps
->(function PaginationRoot(props, ref) {
-  const { size = "sm", variant = "outline", getHref, ...rest } = props
+export function PaginationRoot({
+  ref,
+  size = "sm",
+  variant = "outline",
+  getHref,
+  ...rest
+}: PaginationRootProps) {
   return (
     <RootPropsProvider
       value={{ size, variantMap: variantMap[variant], getHref }}
@@ -64,12 +67,14 @@ export const PaginationRoot = React.forwardRef<
       />
     </RootPropsProvider>
   )
-})
+}
 
-export const PaginationEllipsis = React.forwardRef<
-  HTMLDivElement,
-  ChakraPagination.EllipsisProps
->(function PaginationEllipsis(props, ref) {
+export function PaginationEllipsis({
+  ref,
+  ...props
+}: ChakraPagination.EllipsisProps & {
+  ref?: React.Ref<HTMLDivElement>
+}) {
   const { size, variantMap } = useRootProps()
   return (
     <ChakraPagination.Ellipsis ref={ref} {...props} asChild>
@@ -78,12 +83,14 @@ export const PaginationEllipsis = React.forwardRef<
       </Button>
     </ChakraPagination.Ellipsis>
   )
-})
+}
 
-export const PaginationItem = React.forwardRef<
-  HTMLButtonElement,
-  ChakraPagination.ItemProps
->(function PaginationItem(props, ref) {
+export function PaginationItem({
+  ref,
+  ...props
+}: ChakraPagination.ItemProps & {
+  ref?: React.Ref<HTMLButtonElement>
+}) {
   const { page } = usePaginationContext()
   const { size, variantMap, getHref } = useRootProps()
 
@@ -105,12 +112,14 @@ export const PaginationItem = React.forwardRef<
       </Button>
     </ChakraPagination.Item>
   )
-})
+}
 
-export const PaginationPrevTrigger = React.forwardRef<
-  HTMLButtonElement,
-  ChakraPagination.PrevTriggerProps
->(function PaginationPrevTrigger(props, ref) {
+export function PaginationPrevTrigger({
+  ref,
+  ...props
+}: ChakraPagination.PrevTriggerProps & {
+  ref?: React.Ref<HTMLButtonElement>
+}) {
   const { size, variantMap, getHref } = useRootProps()
   const { previousPage } = usePaginationContext()
 
@@ -133,12 +142,14 @@ export const PaginationPrevTrigger = React.forwardRef<
       </IconButton>
     </ChakraPagination.PrevTrigger>
   )
-})
+}
 
-export const PaginationNextTrigger = React.forwardRef<
-  HTMLButtonElement,
-  ChakraPagination.NextTriggerProps
->(function PaginationNextTrigger(props, ref) {
+export function PaginationNextTrigger({
+  ref,
+  ...props
+}: ChakraPagination.NextTriggerProps & {
+  ref?: React.Ref<HTMLButtonElement>
+}) {
   const { size, variantMap, getHref } = useRootProps()
   const { nextPage } = usePaginationContext()
 
@@ -161,7 +172,7 @@ export const PaginationNextTrigger = React.forwardRef<
       </IconButton>
     </ChakraPagination.NextTrigger>
   )
-})
+}
 
 export const PaginationItems = (props: React.HTMLAttributes<HTMLElement>) => {
   return (
@@ -185,14 +196,15 @@ export const PaginationItems = (props: React.HTMLAttributes<HTMLElement>) => {
 }
 
 interface PageTextProps extends TextProps {
+  ref?: React.Ref<HTMLParagraphElement>
   format?: "short" | "compact" | "long"
 }
 
-export const PaginationPageText = React.forwardRef<
-  HTMLParagraphElement,
-  PageTextProps
->(function PaginationPageText(props, ref) {
-  const { format = "compact", ...rest } = props
+export function PaginationPageText({
+  ref,
+  format = "compact",
+  ...rest
+}: PageTextProps) {
   const { page, totalPages, pageRange, count } = usePaginationContext()
   const content = React.useMemo(() => {
     if (format === "short") return `${page} / ${totalPages}`
@@ -208,4 +220,4 @@ export const PaginationPageText = React.forwardRef<
       {content}
     </Text>
   )
-})
+}

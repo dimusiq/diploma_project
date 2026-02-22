@@ -3,52 +3,59 @@
  * artificial light, floor markings 1–12, cell click. No walls, no shadows.
  * Optimized for React Three Fiber.
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Html, OrbitControls, Text, useCursor } from '@react-three/drei';
-import type { MeshStandardMaterial } from 'three';
 
-const FLOOR_COLOR_LIGHT = '#6b7280';
-const FLOOR_COLOR_DARK = '#374151';
-const RACK_FRAME_COLOR_LIGHT = '#4b5563';
-const RACK_FRAME_COLOR_DARK = '#1f2937';
-const CELL_EMPTY_COLOR_LIGHT = '#9ca3af';
-const CELL_EMPTY_COLOR_DARK = '#4b5563';
-const CELL_FILLED_COLOR = '#3b82f6';
-const CELL_HOVER_COLOR = '#93c5fd';
-const CELL_SELECTED_COLOR = '#fbbf24';
-const CELL_EXPIRING_COLOR = '#dc2626';
-const CELL_EXPIRED_COLOR = '#7f1d1d';
-const FLOOR_LABEL_COLOR_LIGHT = '#e5e7eb';
-const FLOOR_LABEL_COLOR_DARK = '#6b7280';
-const CELL_SIZE = 0.72;
-const CELL_GAP = 0.12;
-const LEVEL_HEIGHT = 0.82;
+import {
+  Html,
+  OrbitControls,
+  Text,
+  useCursor,
+  useProgress,
+} from "@react-three/drei"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { useCallback, useMemo, useRef, useState } from "react"
+import type { MeshStandardMaterial } from "three"
 
-const RACK_ROWS = 12;
-const PAIRS = 6;
-const CELLS_LENGTH = 20;
-const CELLS_DEPTH = 1;
-const LEVELS = 4;
+const FLOOR_COLOR_LIGHT = "#6b7280"
+const FLOOR_COLOR_DARK = "#374151"
+const RACK_FRAME_COLOR_LIGHT = "#4b5563"
+const RACK_FRAME_COLOR_DARK = "#1f2937"
+const CELL_EMPTY_COLOR_LIGHT = "#9ca3af"
+const CELL_EMPTY_COLOR_DARK = "#4b5563"
+const CELL_FILLED_COLOR = "#3b82f6"
+const CELL_HOVER_COLOR = "#93c5fd"
+const CELL_SELECTED_COLOR = "#fbbf24"
+const CELL_EXPIRING_COLOR = "#dc2626"
+const CELL_EXPIRED_COLOR = "#7f1d1d"
+const FLOOR_LABEL_COLOR_LIGHT = "#e5e7eb"
+const FLOOR_LABEL_COLOR_DARK = "#6b7280"
+const CELL_SIZE = 0.72
+const CELL_GAP = 0.12
+const LEVEL_HEIGHT = 0.82
 
-const RACK_LENGTH = CELLS_LENGTH * (CELL_SIZE + CELL_GAP) - CELL_GAP;
-const RACK_DEPTH = CELLS_DEPTH * (CELL_SIZE + CELL_GAP) - CELL_GAP;
-const PASSAGE_WIDTH = 2.5;
-const BLOCK_WIDTH = 2 * RACK_DEPTH;
-const TOTAL_Z = PAIRS * BLOCK_WIDTH + (PAIRS - 1) * PASSAGE_WIDTH;
-const FLOOR_MARGIN = 3;
-const FLOOR_WIDTH = RACK_LENGTH + FLOOR_MARGIN * 2;
-const FLOOR_DEPTH = TOTAL_Z + FLOOR_MARGIN * 2;
+const RACK_ROWS = 12
+const PAIRS = 6
+const CELLS_LENGTH = 20
+const CELLS_DEPTH = 1
+const LEVELS = 4
+
+const RACK_LENGTH = CELLS_LENGTH * (CELL_SIZE + CELL_GAP) - CELL_GAP
+const RACK_DEPTH = CELLS_DEPTH * (CELL_SIZE + CELL_GAP) - CELL_GAP
+const PASSAGE_WIDTH = 2.5
+const BLOCK_WIDTH = 2 * RACK_DEPTH
+const TOTAL_Z = PAIRS * BLOCK_WIDTH + (PAIRS - 1) * PASSAGE_WIDTH
+const FLOOR_MARGIN = 3
+const FLOOR_WIDTH = RACK_LENGTH + FLOOR_MARGIN * 2
+const FLOOR_DEPTH = TOTAL_Z + FLOOR_MARGIN * 2
 
 function getRowZ(rowIndex: number): number {
-  const pair = Math.floor(rowIndex / 2);
-  const inPair = rowIndex % 2;
-  const blockStart = -TOTAL_Z / 2 + pair * (BLOCK_WIDTH + PASSAGE_WIDTH);
-  return blockStart + RACK_DEPTH / 2 + inPair * RACK_DEPTH;
+  const pair = Math.floor(rowIndex / 2)
+  const inPair = rowIndex % 2
+  const blockStart = -TOTAL_Z / 2 + pair * (BLOCK_WIDTH + PASSAGE_WIDTH)
+  return blockStart + RACK_DEPTH / 2 + inPair * RACK_DEPTH
 }
 
 function cellKey(row: number, level: number, ix: number, iz: number): string {
-  return `${row}-${level}-${ix}-${iz}`;
+  return `${row}-${level}-${ix}-${iz}`
 }
 
 function isCellFilled(
@@ -56,17 +63,17 @@ function isCellFilled(
   level: number,
   ix: number,
   iz: number,
-  occupiedCellKeys?: Set<string> | null
+  occupiedCellKeys?: Set<string> | null,
 ): boolean {
-  return Boolean(occupiedCellKeys?.has(cellKey(rackIndex, level, ix, iz)));
+  return Boolean(occupiedCellKeys?.has(cellKey(rackIndex, level, ix, iz)))
 }
 
 export interface CellInfo {
-  row: number;
-  level: number;
-  cellX: number;
-  cellZ: number;
-  filled: boolean;
+  row: number
+  level: number
+  cellX: number
+  cellZ: number
+  filled: boolean
 }
 
 /** Мировые координаты центра ячейки для всплывающего окна */
@@ -74,28 +81,28 @@ export function getCellWorldPosition(
   row: number,
   level: number,
   cellX: number,
-  cellZ: number
+  cellZ: number,
 ): [number, number, number] {
-  const baseZ = getRowZ(row);
-  const ox = (cellX - (CELLS_LENGTH - 1) / 2) * (CELL_SIZE + CELL_GAP);
-  const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02;
-  const oz = (cellZ - (CELLS_DEPTH - 1) / 2) * (CELL_SIZE + CELL_GAP);
-  return [ox, oy, baseZ + oz];
+  const baseZ = getRowZ(row)
+  const ox = (cellX - (CELLS_LENGTH - 1) / 2) * (CELL_SIZE + CELL_GAP)
+  const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02
+  const oz = (cellZ - (CELLS_DEPTH - 1) / 2) * (CELL_SIZE + CELL_GAP)
+  return [ox, oy, baseZ + oz]
 }
 
 export interface CellItemInfo {
-  id?: string;
-  title: string;
-  description?: string | null;
-  quantity?: number;
-  unit?: string | null;
-  sku?: string | null;
-  expires_at?: string | null;
-  location?: string | null;
-  status: string;
-  expiringSoon?: boolean;
-  isExpired?: boolean;
-  expiredDays?: number;
+  id?: string
+  title: string
+  description?: string | null
+  quantity?: number
+  unit?: string | null
+  sku?: string | null
+  expires_at?: string | null
+  location?: string | null
+  status: string
+  expiringSoon?: boolean
+  isExpired?: boolean
+  expiredDays?: number
 }
 
 function StorageCell({
@@ -111,81 +118,85 @@ function StorageCell({
   onEnter,
   onLeave,
 }: {
-  filled: boolean;
-  expiring: boolean;
-  expired: boolean;
-  x: number;
-  y: number;
-  z: number;
-  selected?: boolean;
-  darkMode?: boolean;
-  onCellClick?: () => void;
-  onEnter?: () => void;
-  onLeave?: () => void;
+  filled: boolean
+  expiring: boolean
+  expired: boolean
+  x: number
+  y: number
+  z: number
+  selected?: boolean
+  darkMode?: boolean
+  onCellClick?: () => void
+  onEnter?: () => void
+  onLeave?: () => void
 }) {
-  const [hover, setHover] = useState(false);
-  const materialRef = useRef<MeshStandardMaterial>(null);
-  useCursor(hover, 'pointer', 'auto');
+  const [hover, setHover] = useState(false)
+  const materialRef = useRef<MeshStandardMaterial>(null)
+  useCursor(hover, "pointer", "auto")
 
   useFrame((state) => {
-    const mat = materialRef.current;
-    if (!mat) return;
+    const mat = materialRef.current
+    if (!mat) return
     if (expired) {
-      const t = state.clock.elapsedTime;
-      mat.color.setStyle(CELL_EXPIRED_COLOR);
-      mat.emissive.setStyle(CELL_EXPIRED_COLOR);
-      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4);
-      return;
+      const t = state.clock.elapsedTime
+      mat.color.setStyle(CELL_EXPIRED_COLOR)
+      mat.emissive.setStyle(CELL_EXPIRED_COLOR)
+      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4)
+      return
     }
     if (expiring) {
-      const t = state.clock.elapsedTime;
-      mat.color.setStyle(CELL_EXPIRING_COLOR);
-      mat.emissive.setStyle(CELL_EXPIRING_COLOR);
-      mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4);
-      return;
+      const t = state.clock.elapsedTime
+      mat.color.setStyle(CELL_EXPIRING_COLOR)
+      mat.emissive.setStyle(CELL_EXPIRING_COLOR)
+      mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4)
+      return
     }
-    mat.emissiveIntensity = 0;
-    mat.emissive.setStyle('#000000');
+    mat.emissiveIntensity = 0
+    mat.emissive.setStyle("#000000")
     if (selected) {
-      mat.color.setStyle(CELL_SELECTED_COLOR);
-      mat.emissive.setStyle('#b45309');
-      mat.emissiveIntensity = 0.15;
+      mat.color.setStyle(CELL_SELECTED_COLOR)
+      mat.emissive.setStyle("#b45309")
+      mat.emissiveIntensity = 0.15
     } else if (hover) {
-      mat.color.setStyle(CELL_HOVER_COLOR);
+      mat.color.setStyle(CELL_HOVER_COLOR)
     } else if (filled) {
-      mat.color.setStyle(CELL_FILLED_COLOR);
+      mat.color.setStyle(CELL_FILLED_COLOR)
     } else {
-      mat.color.setStyle(darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT);
+      mat.color.setStyle(
+        darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT,
+      )
     }
-  });
+  })
 
   const baseColor = expired
     ? CELL_EXPIRED_COLOR
     : expiring
       ? CELL_EXPIRING_COLOR
       : selected
-      ? CELL_SELECTED_COLOR
-      : hover
-        ? CELL_HOVER_COLOR
-        : filled
-          ? CELL_FILLED_COLOR
-          : (darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT);
+        ? CELL_SELECTED_COLOR
+        : hover
+          ? CELL_HOVER_COLOR
+          : filled
+            ? CELL_FILLED_COLOR
+            : darkMode
+              ? CELL_EMPTY_COLOR_DARK
+              : CELL_EMPTY_COLOR_LIGHT
 
   return (
     <mesh
       position={[x, y, z]}
       onClick={(e) => {
-        e.stopPropagation();
-        onCellClick?.();
+        e.stopPropagation()
+        onCellClick?.()
       }}
       onPointerOver={(e) => {
-        e.stopPropagation();
-        setHover(true);
-        onEnter?.();
+        e.stopPropagation()
+        setHover(true)
+        onEnter?.()
       }}
       onPointerOut={() => {
-        setHover(false);
-        onLeave?.();
+        setHover(false)
+        onLeave?.()
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
@@ -197,7 +208,7 @@ function StorageCell({
         roughness={0.7}
       />
     </mesh>
-  );
+  )
 }
 
 function Rack({
@@ -213,25 +224,34 @@ function Rack({
   expiringCellKeys,
   expiredCellKeys,
 }: {
-  rackIndex: number;
-  baseX: number;
-  baseZ: number;
-  selectedCell: CellInfo | null;
-  darkMode?: boolean;
-  onCellClick: (info: CellInfo | null) => void;
-  onCellEnter?: (info: CellInfo) => void;
-  onCellLeave?: (info: CellInfo) => void;
-  occupiedCellKeys?: Set<string> | null;
-  expiringCellKeys?: Set<string> | null;
-  expiredCellKeys?: Set<string> | null;
+  rackIndex: number
+  baseX: number
+  baseZ: number
+  selectedCell: CellInfo | null
+  darkMode?: boolean
+  onCellClick: (info: CellInfo | null) => void
+  onCellEnter?: (info: CellInfo) => void
+  onCellLeave?: (info: CellInfo) => void
+  occupiedCellKeys?: Set<string> | null
+  expiringCellKeys?: Set<string> | null
+  expiredCellKeys?: Set<string> | null
 }) {
-  const rackFrameColor = darkMode ? RACK_FRAME_COLOR_DARK : RACK_FRAME_COLOR_LIGHT;
+  const rackFrameColor = darkMode
+    ? RACK_FRAME_COLOR_DARK
+    : RACK_FRAME_COLOR_LIGHT
   const cells = useMemo(() => {
-    const out: Array<{ level: number; ix: number; iz: number; filled: boolean; expiring: boolean; expired: boolean }> = [];
+    const out: Array<{
+      level: number
+      ix: number
+      iz: number
+      filled: boolean
+      expiring: boolean
+      expired: boolean
+    }> = []
     for (let level = 0; level < LEVELS; level++) {
       for (let ix = 0; ix < CELLS_LENGTH; ix++) {
         for (let iz = 0; iz < CELLS_DEPTH; iz++) {
-          const key = cellKey(rackIndex, level, ix, iz);
+          const key = cellKey(rackIndex, level, ix, iz)
           out.push({
             level,
             ix,
@@ -239,14 +259,14 @@ function Rack({
             filled: isCellFilled(rackIndex, level, ix, iz, occupiedCellKeys),
             expiring: Boolean(expiringCellKeys?.has(key)),
             expired: Boolean(expiredCellKeys?.has(key)),
-          });
+          })
         }
       }
     }
-    return out;
-  }, [rackIndex, occupiedCellKeys, expiringCellKeys, expiredCellKeys]);
+    return out
+  }, [rackIndex, occupiedCellKeys, expiringCellKeys, expiredCellKeys])
 
-  const rackH = LEVELS * LEVEL_HEIGHT;
+  const rackH = LEVELS * LEVEL_HEIGHT
 
   return (
     <group position={[baseX, 0, baseZ]}>
@@ -258,19 +278,29 @@ function Rack({
       ].map(([px, py, pz], i) => (
         <mesh key={i} position={[px, py, pz]}>
           <boxGeometry args={[0.08, rackH, 0.08]} />
-          <meshStandardMaterial color={rackFrameColor} metalness={0.3} roughness={0.6} />
+          <meshStandardMaterial
+            color={rackFrameColor}
+            metalness={0.3}
+            roughness={0.6}
+          />
         </mesh>
       ))}
       {cells.map(({ level, ix, iz, filled, expiring, expired }, i) => {
-        const ox = (ix - (CELLS_LENGTH - 1) / 2) * (CELL_SIZE + CELL_GAP);
-        const oz = (iz - (CELLS_DEPTH - 1) / 2) * (CELL_SIZE + CELL_GAP);
-        const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02;
+        const ox = (ix - (CELLS_LENGTH - 1) / 2) * (CELL_SIZE + CELL_GAP)
+        const oz = (iz - (CELLS_DEPTH - 1) / 2) * (CELL_SIZE + CELL_GAP)
+        const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02
         const isSelected =
           selectedCell?.row === rackIndex &&
           selectedCell?.level === level &&
           selectedCell?.cellX === ix &&
-          selectedCell?.cellZ === iz;
-        const info: CellInfo = { row: rackIndex, level, cellX: ix, cellZ: iz, filled };
+          selectedCell?.cellZ === iz
+        const info: CellInfo = {
+          row: rackIndex,
+          level,
+          cellX: ix,
+          cellZ: iz,
+          filled,
+        }
         return (
           <StorageCell
             key={i}
@@ -286,20 +316,20 @@ function Rack({
             onEnter={() => onCellEnter?.(info)}
             onLeave={() => onCellLeave?.(info)}
           />
-        );
+        )
       })}
     </group>
-  );
+  )
 }
 
 function Floor({ darkMode }: { darkMode?: boolean }) {
-  const color = darkMode ? FLOOR_COLOR_DARK : FLOOR_COLOR_LIGHT;
+  const color = darkMode ? FLOOR_COLOR_DARK : FLOOR_COLOR_LIGHT
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
       <planeGeometry args={[FLOOR_WIDTH, FLOOR_DEPTH]} />
       <meshStandardMaterial color={color} metalness={0.05} roughness={0.9} />
     </mesh>
-  );
+  )
 }
 
 function CellPopup({
@@ -308,35 +338,35 @@ function CellPopup({
   item,
   onClose,
 }: {
-  position: [number, number, number];
-  cellLabel: string;
-  item: CellItemInfo | null;
-  onClose: () => void;
+  position: [number, number, number]
+  cellLabel: string
+  item: CellItemInfo | null
+  onClose: () => void
 }) {
   // Для нижних уровней поднимаем попап выше ячейки, чтобы не обрезался по краю экрана
-  const cellY = position[1];
-  const liftY = cellY < 1.4 ? 1.1 : 0;
+  const cellY = position[1]
+  const liftY = cellY < 1.4 ? 1.1 : 0
   const offsetPosition: [number, number, number] = [
     position[0] + 1.2,
     cellY + liftY,
     position[2],
-  ];
+  ]
   return (
-    <Html position={offsetPosition} center style={{ pointerEvents: 'auto' }}>
+    <Html position={offsetPosition} center style={{ pointerEvents: "auto" }}>
       <div
         className="cell-popup"
         style={{
-          minWidth: '220px',
-          maxWidth: '320px',
-          padding: '12px 14px',
-          background: 'white',
-          borderRadius: '8px',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-          fontFamily: 'system-ui, sans-serif',
-          fontSize: '13px',
-          color: '#1a1a1a',
-          border: '1px solid #e2e8f0',
-          animation: 'cellPopupIn 0.18s ease-out',
+          minWidth: "220px",
+          maxWidth: "320px",
+          padding: "12px 14px",
+          background: "white",
+          borderRadius: "8px",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+          fontFamily: "system-ui, sans-serif",
+          fontSize: "13px",
+          color: "#1a1a1a",
+          border: "1px solid #e2e8f0",
+          animation: "cellPopupIn 0.18s ease-out",
         }}
       >
         <style>{`
@@ -345,43 +375,74 @@ function CellPopup({
             to { opacity: 1; transform: scale(1); }
           }
         `}</style>
-        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: '14px' }}>{cellLabel}</div>
+        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "14px" }}>
+          {cellLabel}
+        </div>
         {item ? (
           <>
             <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.title}</div>
             {item.description && (
-              <div style={{ color: '#64748b', marginBottom: 6, fontSize: '12px' }}>{item.description}</div>
+              <div
+                style={{ color: "#64748b", marginBottom: 6, fontSize: "12px" }}
+              >
+                {item.description}
+              </div>
             )}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+                marginBottom: 4,
+              }}
+            >
               <span>Кол-во: {item.quantity ?? 1}</span>
               {item.unit && <span>Ед.: {item.unit}</span>}
               {item.sku && <span>Артикул: {item.sku}</span>}
             </div>
             {item.expires_at && (
               <div style={{ marginBottom: 4 }}>
-                Срок годности: {new Date(item.expires_at).toLocaleDateString('ru-RU')}
+                Срок годности:{" "}
+                {new Date(item.expires_at).toLocaleDateString("ru-RU")}
                 {item.isExpired && item.expiredDays != null && (
-                  <span style={{ marginLeft: 6, color: '#7f1d1d', fontWeight: 600 }}>
-                    Просрочено на {item.expiredDays} {item.expiredDays === 1 ? 'день' : item.expiredDays < 5 ? 'дня' : 'дней'}
+                  <span
+                    style={{ marginLeft: 6, color: "#7f1d1d", fontWeight: 600 }}
+                  >
+                    Просрочено на {item.expiredDays}{" "}
+                    {item.expiredDays === 1
+                      ? "день"
+                      : item.expiredDays < 5
+                        ? "дня"
+                        : "дней"}
                   </span>
                 )}
                 {item.expiringSoon && !item.isExpired && (
-                  <span style={{ marginLeft: 6, color: '#dc2626', fontWeight: 600 }}>Скоро истекает</span>
+                  <span
+                    style={{ marginLeft: 6, color: "#dc2626", fontWeight: 600 }}
+                  >
+                    Скоро истекает
+                  </span>
                 )}
               </div>
             )}
-            {item.location && <div style={{ color: '#64748b', fontSize: '12px' }}>Место: {item.location}</div>}
-            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: 6 }}>Статус: {item.status}</div>
+            {item.location && (
+              <div style={{ color: "#64748b", fontSize: "12px" }}>
+                Место: {item.location}
+              </div>
+            )}
+            <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: 6 }}>
+              Статус: {item.status}
+            </div>
             {item.id && (
               <a
                 href={`/items?open=${encodeURIComponent(item.id)}`}
                 style={{
-                  display: 'inline-block',
+                  display: "inline-block",
                   marginTop: 8,
-                  fontSize: '12px',
-                  color: '#1f80aa',
+                  fontSize: "12px",
+                  color: "#1f80aa",
                   fontWeight: 600,
-                  textDecoration: 'none',
+                  textDecoration: "none",
                 }}
               >
                 Подробнее →
@@ -389,37 +450,40 @@ function CellPopup({
             )}
           </>
         ) : (
-          <div style={{ color: '#64748b' }}>Ячейка свободна</div>
+          <div style={{ color: "#64748b" }}>Ячейка свободна</div>
         )}
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onClose()
+          }}
           style={{
             marginTop: 10,
-            padding: '4px 10px',
-            fontSize: '12px',
-            cursor: 'pointer',
-            background: '#f1f5f9',
-            border: '1px solid #e2e8f0',
-            borderRadius: '6px',
+            padding: "4px 10px",
+            fontSize: "12px",
+            cursor: "pointer",
+            background: "#f1f5f9",
+            border: "1px solid #e2e8f0",
+            borderRadius: "6px",
           }}
         >
           Закрыть
         </button>
       </div>
     </Html>
-  );
+  )
 }
 
 function FloorMarkings({
   rowPositions,
   darkMode,
 }: {
-  rowPositions: Array<{ rowIndex: number; z: number }>;
-  darkMode?: boolean;
+  rowPositions: Array<{ rowIndex: number; z: number }>
+  darkMode?: boolean
 }) {
-  const labelX = -RACK_LENGTH / 2 - 0.6;
-  const labelColor = darkMode ? FLOOR_LABEL_COLOR_DARK : FLOOR_LABEL_COLOR_LIGHT;
+  const labelX = -RACK_LENGTH / 2 - 0.6
+  const labelColor = darkMode ? FLOOR_LABEL_COLOR_DARK : FLOOR_LABEL_COLOR_LIGHT
   return (
     <group>
       {rowPositions.map(({ rowIndex, z }) => (
@@ -437,29 +501,38 @@ function FloorMarkings({
         </Text>
       ))}
     </group>
-  );
+  )
 }
 
 function HoverLabel({ cell }: { cell: CellInfo }) {
-  const position = getCellWorldPosition(cell.row, cell.level, cell.cellX, cell.cellZ);
-  const labelPosition: [number, number, number] = [position[0], position[1] + 0.55, position[2]];
+  const position = getCellWorldPosition(
+    cell.row,
+    cell.level,
+    cell.cellX,
+    cell.cellZ,
+  )
+  const labelPosition: [number, number, number] = [
+    position[0],
+    position[1] + 0.55,
+    position[2],
+  ]
   return (
-    <Html position={labelPosition} center style={{ pointerEvents: 'none' }}>
+    <Html position={labelPosition} center style={{ pointerEvents: "none" }}>
       <div
         style={{
-          padding: '4px 8px',
-          background: 'rgba(0,0,0,0.75)',
-          color: 'white',
-          fontSize: '11px',
-          borderRadius: '4px',
-          whiteSpace: 'nowrap',
-          fontFamily: 'system-ui, sans-serif',
+          padding: "4px 8px",
+          background: "rgba(0,0,0,0.75)",
+          color: "white",
+          fontSize: "11px",
+          borderRadius: "4px",
+          whiteSpace: "nowrap",
+          fontFamily: "system-ui, sans-serif",
         }}
       >
         Ряд {cell.row + 1}, уровень {cell.level + 1}
       </div>
     </Html>
-  );
+  )
 }
 
 function WarehouseContent({
@@ -471,31 +544,38 @@ function WarehouseContent({
   selectedItem,
   darkMode,
 }: {
-  selectedCell: CellInfo | null;
-  onCellSelect: (info: CellInfo | null) => void;
-  occupiedCellKeys?: Set<string> | null;
-  expiringCellKeys?: Set<string> | null;
-  expiredCellKeys?: Set<string> | null;
-  selectedItem?: CellItemInfo | null;
-  darkMode?: boolean;
+  selectedCell: CellInfo | null
+  onCellSelect: (info: CellInfo | null) => void
+  occupiedCellKeys?: Set<string> | null
+  expiringCellKeys?: Set<string> | null
+  expiredCellKeys?: Set<string> | null
+  selectedItem?: CellItemInfo | null
+  darkMode?: boolean
 }) {
-  const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null);
-  const handleCellEnter = useCallback((cell: CellInfo) => setHoveredCell(cell), []);
+  const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null)
+  const handleCellEnter = useCallback(
+    (cell: CellInfo) => setHoveredCell(cell),
+    [],
+  )
   const handleCellLeave = useCallback((cell: CellInfo) => {
     setHoveredCell((prev) =>
-      prev && prev.row === cell.row && prev.level === cell.level && prev.cellX === cell.cellX && prev.cellZ === cell.cellZ
+      prev &&
+      prev.row === cell.row &&
+      prev.level === cell.level &&
+      prev.cellX === cell.cellX &&
+      prev.cellZ === cell.cellZ
         ? null
-        : prev
-    );
-  }, []);
+        : prev,
+    )
+  }, [])
 
   const rackPositions = useMemo(() => {
     return Array.from({ length: RACK_ROWS }, (_, row) => ({
       rackIndex: row,
       x: 0,
       z: getRowZ(row),
-    }));
-  }, []);
+    }))
+  }, [])
 
   const rowPositions = useMemo(
     () =>
@@ -503,30 +583,53 @@ function WarehouseContent({
         rowIndex: rackIndex + 1,
         z,
       })),
-    [rackPositions]
-  );
+    [rackPositions],
+  )
 
   return (
     <>
       <ambientLight intensity={0.85} />
-      <pointLight position={[0, 6, 0]} intensity={1.5} distance={50} decay={2} />
-      <pointLight position={[-8, 5, -6]} intensity={0.9} distance={35} decay={2} />
-      <pointLight position={[8, 5, -6]} intensity={0.9} distance={35} decay={2} />
-      <pointLight position={[-8, 5, 6]} intensity={0.9} distance={35} decay={2} />
-      <pointLight position={[8, 5, 6]} intensity={0.9} distance={35} decay={2} />
+      <pointLight
+        position={[0, 6, 0]}
+        intensity={1.5}
+        distance={50}
+        decay={2}
+      />
+      <pointLight
+        position={[-8, 5, -6]}
+        intensity={0.9}
+        distance={35}
+        decay={2}
+      />
+      <pointLight
+        position={[8, 5, -6]}
+        intensity={0.9}
+        distance={35}
+        decay={2}
+      />
+      <pointLight
+        position={[-8, 5, 6]}
+        intensity={0.9}
+        distance={35}
+        decay={2}
+      />
+      <pointLight
+        position={[8, 5, 6]}
+        intensity={0.9}
+        distance={35}
+        decay={2}
+      />
 
       <Floor darkMode={darkMode} />
       <FloorMarkings rowPositions={rowPositions} darkMode={darkMode} />
-      {hoveredCell && !selectedCell && (
-        <HoverLabel cell={hoveredCell} />
-      )}
+      {hoveredCell && !selectedCell && <HoverLabel cell={hoveredCell} />}
       {selectedCell && (
         <CellPopup
           position={getCellWorldPosition(
             selectedCell.row,
             selectedCell.level,
             selectedCell.cellX,
-            selectedCell.cellZ
+            selectedCell.cellZ,
           )}
           cellLabel={`Ячейка: ряд ${selectedCell.row + 1}, уровень ${selectedCell.level + 1}, позиция ${selectedCell.cellX + 1}`}
           item={selectedItem ?? null}
@@ -550,7 +653,7 @@ function WarehouseContent({
         />
       ))}
     </>
-  );
+  )
 }
 
 /** Фокус камеры только при переходе по «Показать на складе 3D» (focusCell), не при клике по ячейке. */
@@ -558,61 +661,115 @@ function CameraFocusOnCell({
   focusCell,
   onFocusDone,
 }: {
-  focusCell: CellInfo | null;
-  onFocusDone?: () => void;
+  focusCell: CellInfo | null
+  onFocusDone?: () => void
 }) {
-  const appliedKeyRef = useRef<string | null>(null);
-  const frameCountRef = useRef(0);
+  const appliedKeyRef = useRef<string | null>(null)
+  const frameCountRef = useRef(0)
 
   useFrame((state) => {
-    const { camera, controls, invalidate } = state;
+    const { camera, controls, invalidate } = state
     const c = controls as unknown as
-      | { target: { set: (x: number, y: number, z: number) => void }; update?: () => void }
-      | undefined;
+      | {
+          target: { set: (x: number, y: number, z: number) => void }
+          update?: () => void
+        }
+      | undefined
 
     if (!focusCell) {
-      appliedKeyRef.current = null;
-      frameCountRef.current = 0;
-      return;
+      appliedKeyRef.current = null
+      frameCountRef.current = 0
+      return
     }
 
-    const key = cellKey(focusCell.row, focusCell.level, focusCell.cellX, focusCell.cellZ);
-    if (appliedKeyRef.current === key) return;
+    const key = cellKey(
+      focusCell.row,
+      focusCell.level,
+      focusCell.cellX,
+      focusCell.cellZ,
+    )
+    if (appliedKeyRef.current === key) return
 
-    if (!c?.target?.set) return;
-    frameCountRef.current += 1;
-    if (frameCountRef.current < 2) return;
+    if (!c?.target?.set) return
+    frameCountRef.current += 1
+    if (frameCountRef.current < 2) return
 
     const [cx, cy, cz] = getCellWorldPosition(
       focusCell.row,
       focusCell.level,
       focusCell.cellX,
-      focusCell.cellZ
-    );
-    const dist = 14;
-    c.target.set(cx, cy, cz);
-    camera.position.set(cx, cy + 6, cz - dist);
-    c.update?.();
-    appliedKeyRef.current = key;
-    invalidate?.();
-    onFocusDone?.();
-  });
-  return null;
+      focusCell.cellZ,
+    )
+    const dist = 14
+    c.target.set(cx, cy, cz)
+    camera.position.set(cx, cy + 6, cz - dist)
+    c.update?.()
+    appliedKeyRef.current = key
+    invalidate?.()
+    onFocusDone?.()
+  })
+  return null
+}
+
+/** Индикатор загрузки сцены (Suspense / R3F 9). Показывается, пока активна загрузка ресурсов. */
+function SceneLoadOverlay() {
+  const { active, progress } = useProgress()
+  if (!active) return null
+  return (
+    <Html fullscreen center>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          width: "100%",
+          height: "100%",
+          background: "rgba(255,255,255,0.85)",
+          fontSize: 14,
+          color: "#374151",
+        }}
+      >
+        <span>Подготовка 3D сцены…</span>
+        {progress > 0 && (
+          <div
+            style={{
+              width: 120,
+              height: 4,
+              background: "#e5e7eb",
+              borderRadius: 2,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.min(100, progress)}%`,
+                height: "100%",
+                background: "#3b82f6",
+                transition: "width 0.2s ease",
+              }}
+            />
+          </div>
+        )}
+      </div>
+    </Html>
+  )
 }
 
 interface WarehouseSceneProps {
   /** Выбранная ячейка (показ попапа, подсветка). */
-  selectedCell?: CellInfo | null;
+  selectedCell?: CellInfo | null
   /** Ячейка, на которую нужно один раз навести камеру (только при переходе по «Показать на складе 3D»). */
-  focusCell?: CellInfo | null;
+  focusCell?: CellInfo | null
   /** Вызывается после применения фокуса камеры на focusCell (чтобы страница сбросила focusCell). */
-  onFocusDone?: () => void;
-  onCellSelect?: (info: CellInfo | null) => void;
-  occupiedCellKeys?: Set<string> | null;
-  expiringCellKeys?: Set<string> | null;
-  expiredCellKeys?: Set<string> | null;
-  selectedItem?: CellItemInfo | null;
-  darkMode?: boolean;
+  onFocusDone?: () => void
+  onCellSelect?: (info: CellInfo | null) => void
+  occupiedCellKeys?: Set<string> | null
+  expiringCellKeys?: Set<string> | null
+  expiredCellKeys?: Set<string> | null
+  selectedItem?: CellItemInfo | null
+  darkMode?: boolean
 }
 
 export function WarehouseScene({
@@ -626,17 +783,19 @@ export function WarehouseScene({
   selectedItem,
   darkMode,
 }: WarehouseSceneProps) {
-  const [internalCell, setInternalCell] = useState<CellInfo | null>(null);
-  const isControlled = selectedCellFromParent !== undefined;
-  const selectedCell = isControlled ? selectedCellFromParent ?? null : internalCell;
+  const [internalCell, setInternalCell] = useState<CellInfo | null>(null)
+  const isControlled = selectedCellFromParent !== undefined
+  const selectedCell = isControlled
+    ? (selectedCellFromParent ?? null)
+    : internalCell
 
   const handleCellSelect = useCallback(
     (info: CellInfo | null) => {
-      if (!isControlled) setInternalCell(info);
-      onCellSelect?.(info ?? null);
+      if (!isControlled) setInternalCell(info)
+      onCellSelect?.(info ?? null)
     },
-    [onCellSelect, isControlled]
-  );
+    [onCellSelect, isControlled],
+  )
 
   return (
     <Canvas
@@ -649,6 +808,7 @@ export function WarehouseScene({
       gl={{ antialias: true }}
       onPointerMissed={() => handleCellSelect(null)}
     >
+      <SceneLoadOverlay />
       <WarehouseContent
         selectedCell={selectedCell}
         onCellSelect={handleCellSelect}
@@ -658,7 +818,10 @@ export function WarehouseScene({
         selectedItem={selectedItem}
         darkMode={darkMode}
       />
-      <CameraFocusOnCell focusCell={focusCell ?? null} onFocusDone={onFocusDone} />
+      <CameraFocusOnCell
+        focusCell={focusCell ?? null}
+        onFocusDone={onFocusDone}
+      />
       <OrbitControls
         enablePan
         enableZoom
@@ -668,5 +831,5 @@ export function WarehouseScene({
         maxPolarAngle={Math.PI / 2 - 0.1}
       />
     </Canvas>
-  );
+  )
 }

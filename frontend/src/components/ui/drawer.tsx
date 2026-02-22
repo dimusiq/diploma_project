@@ -1,18 +1,22 @@
 import { Drawer as ChakraDrawer, Portal } from "@chakra-ui/react"
-import * as React from "react"
-import { CloseButton } from "./close-button"
+import type * as React from "react"
+import { CloseButton } from "./close-button.tsx"
 
 interface DrawerContentProps extends ChakraDrawer.ContentProps {
+  ref?: React.Ref<HTMLDivElement>
   portalled?: boolean
   portalRef?: React.RefObject<HTMLElement>
   offset?: ChakraDrawer.ContentProps["padding"]
 }
 
-export const DrawerContent = React.forwardRef<
-  HTMLDivElement,
-  DrawerContentProps
->(function DrawerContent(props, ref) {
-  const { children, portalled = true, portalRef, offset, ...rest } = props
+export function DrawerContent({
+  ref,
+  children,
+  portalled = true,
+  portalRef,
+  offset,
+  ...rest
+}: DrawerContentProps) {
   return (
     <Portal disabled={!portalled} container={portalRef}>
       <ChakraDrawer.Positioner padding={offset}>
@@ -22,12 +26,12 @@ export const DrawerContent = React.forwardRef<
       </ChakraDrawer.Positioner>
     </Portal>
   )
-})
+}
 
-export const DrawerCloseTrigger = React.forwardRef<
-  HTMLButtonElement,
-  ChakraDrawer.CloseTriggerProps
->(function DrawerCloseTrigger(props, ref) {
+export function DrawerCloseTrigger({
+  ref,
+  ...props
+}: ChakraDrawer.CloseTriggerProps & { ref?: React.Ref<HTMLButtonElement> }) {
   return (
     <ChakraDrawer.CloseTrigger
       position="absolute"
@@ -39,7 +43,7 @@ export const DrawerCloseTrigger = React.forwardRef<
       <CloseButton size="sm" ref={ref} />
     </ChakraDrawer.CloseTrigger>
   )
-})
+}
 
 export const DrawerTrigger = ChakraDrawer.Trigger
 export const DrawerRoot = ChakraDrawer.Root

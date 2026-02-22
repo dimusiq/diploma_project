@@ -1,6 +1,6 @@
 "use client"
 
-import { toaster } from "@/components/ui/toaster"
+import { toaster } from "@/components/ui/toaster.tsx"
 
 const useCustomToast = () => {
   const showSuccessToast = (description: string) => {

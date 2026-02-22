@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 
-import { type ApiError, UsersService } from "@/client"
+import { type ApiError, UsersService } from "@/client/index.ts"
 import {
   DialogActionTrigger,
   DialogBody,
@@ -14,10 +14,10 @@ import {
   DialogRoot,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import useAuth from "@/hooks/useAuth"
-import useCustomToast from "@/hooks/useCustomToast"
-import { handleError } from "@/utils"
+} from "@/components/ui/dialog.tsx"
+import useAuth from "@/hooks/useAuth.ts"
+import useCustomToast from "@/hooks/useCustomToast.ts"
+import { handleError } from "@/utils.ts"
 
 const DeleteConfirmation = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -49,60 +49,58 @@ const DeleteConfirmation = () => {
   }
 
   return (
-    <>
-      <DialogRoot
-        size={{ base: "xs", md: "md" }}
-        role="alertdialog"
-        placement="center"
-        open={isOpen}
-        onOpenChange={({ open }) => setIsOpen(open)}
-      >
-        <DialogTrigger asChild>
-          <Button variant="solid" colorPalette="red" mt={4}>
-            Delete
-          </Button>
-        </DialogTrigger>
+    <DialogRoot
+      size={{ base: "xs", md: "md" }}
+      role="alertdialog"
+      placement="center"
+      open={isOpen}
+      onOpenChange={({ open }) => setIsOpen(open)}
+    >
+      <DialogTrigger asChild>
+        <Button variant="solid" colorPalette="red" mt={4}>
+          Delete
+        </Button>
+      </DialogTrigger>
 
-        <DialogContent>
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <DialogCloseTrigger />
-            <DialogHeader>
-              <DialogTitle>Confirmation Required</DialogTitle>
-            </DialogHeader>
-            <DialogBody>
-              <Text mb={4}>
-                All your account data will be{" "}
-                <strong>permanently deleted.</strong> If you are sure, please
-                click <strong>"Confirm"</strong> to proceed. This action cannot
-                be undone.
-              </Text>
-            </DialogBody>
+      <DialogContent>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <DialogCloseTrigger />
+          <DialogHeader>
+            <DialogTitle>Confirmation Required</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <Text mb={4}>
+              All your account data will be{" "}
+              <strong>permanently deleted.</strong> If you are sure, please
+              click <strong>"Confirm"</strong> to proceed. This action cannot be
+              undone.
+            </Text>
+          </DialogBody>
 
-            <DialogFooter gap={2}>
-              <ButtonGroup>
-                <DialogActionTrigger asChild>
-                  <Button
-                    variant="subtle"
-                    colorPalette="gray"
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                </DialogActionTrigger>
+          <DialogFooter gap={2}>
+            <ButtonGroup>
+              <DialogActionTrigger asChild>
                 <Button
-                  variant="solid"
-                  colorPalette="red"
-                  type="submit"
-                  loading={isSubmitting}
+                  variant="subtle"
+                  colorPalette="gray"
+                  disabled={isSubmitting}
                 >
-                  Delete
+                  Cancel
                 </Button>
-              </ButtonGroup>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </DialogRoot>
-    </>
+              </DialogActionTrigger>
+              <Button
+                variant="solid"
+                colorPalette="red"
+                type="submit"
+                loading={isSubmitting}
+              >
+                Delete
+              </Button>
+            </ButtonGroup>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </DialogRoot>
   )
 }
 

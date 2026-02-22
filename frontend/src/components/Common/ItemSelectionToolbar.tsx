@@ -1,13 +1,13 @@
-import { Button, Flex, Text } from '@chakra-ui/react';
-import { FiEdit3, FiPrinter, FiTruck, FiX } from 'react-icons/fi';
+import { Button, Flex, Text } from "@chakra-ui/react"
+import { FiEdit3, FiPrinter, FiTruck, FiX } from "react-icons/fi"
 
 interface ItemSelectionToolbarProps {
-  selectedCount: number;
-  onClear: () => void;
-  onPrintShippingNote: () => void;
-  onMove: () => void;
-  onMassEdit?: () => void;
-  isPrinting?: boolean;
+  selectedCount: number
+  onClear: () => void
+  onPrintShippingNote: () => void
+  onMove: () => void
+  onMassEdit?: () => void
+  isPrinting?: boolean
 }
 
 export function ItemSelectionToolbar({
@@ -18,7 +18,7 @@ export function ItemSelectionToolbar({
   onMassEdit,
   isPrinting = false,
 }: ItemSelectionToolbarProps) {
-  if (selectedCount === 0) return null;
+  if (selectedCount === 0) return null
 
   return (
     <Flex
@@ -65,5 +65,5 @@ export function ItemSelectionToolbar({
         </Flex>
       </Button>
     </Flex>
-  );
+  )
 }

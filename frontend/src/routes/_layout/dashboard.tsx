@@ -9,177 +9,187 @@ import {
   SimpleGrid,
   Text,
   VStack,
-} from '@chakra-ui/react';
+} from "@chakra-ui/react"
+import { Stat, StatHelpText, StatLabel } from "@chakra-ui/stat"
+import { useQuery } from "@tanstack/react-query"
 import {
-  Stat,
-  StatLabel,
-  StatHelpText,
-} from '@chakra-ui/stat';
-import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link as RouterLink, redirect } from '@tanstack/react-router';
+  createFileRoute,
+  Link as RouterLink,
+  redirect,
+} from "@tanstack/react-router"
+import { useCallback, useState } from "react"
 import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
+  FiArrowDownRight,
+  FiBox,
+  FiCheckCircle,
+  FiDownload,
+  FiTruck,
+} from "react-icons/fi"
+import {
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Legend,
+  Line,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ComposedChart,
-  Line,
-} from 'recharts';
-import { FiArrowDownRight, FiBox, FiCheckCircle, FiDownload, FiTruck } from 'react-icons/fi';
-import { useCallback, useState } from 'react';
-
-import { downloadItemsExport } from '@/api/exportItems';
-import { getDashboardTrends } from '@/api/dashboard';
+} from "recharts"
+import { getDashboardTrends } from "@/api/dashboard.ts"
+import { downloadItemsExport } from "@/api/exportItems.ts"
+import { DashboardService } from "@/client/index.ts"
 import {
   MenuContent,
   MenuItem,
   MenuRoot,
   MenuTrigger,
-} from '@/components/ui/menu';
-import { DashboardService } from '@/client';
-import useCustomToast from '@/hooks/useCustomToast';
+} from "@/components/ui/menu.tsx"
+import useCustomToast from "@/hooks/useCustomToast.ts"
 
 interface LatestIncomingItem {
-  id: string;
-  title: string;
-  created_at: string;
-  status?: string;
+  id: string
+  title: string
+  created_at: string
+  status?: string
 }
 
 interface DashboardStats {
-  total_items: number;
-  total_users: number;
-  status_distribution: Record<string, number>;
-  top_owners: Array<{ owner_email?: string; item_count?: number }>;
-  latest_incoming?: LatestIncomingItem[];
+  total_items: number
+  total_users: number
+  status_distribution: Record<string, number>
+  top_owners: Array<{ owner_email?: string; item_count?: number }>
+  latest_incoming?: LatestIncomingItem[]
 }
 
-export const Route = createFileRoute('/_layout/dashboard')({
+export const Route = createFileRoute("/_layout/dashboard")({
   beforeLoad: () => {
-    throw redirect({ to: '/' });
+    throw redirect({ to: "/" })
   },
   component: () => null,
-});
+})
 
 function last30Days(): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date(to);
-  from.setDate(from.getDate() - 30);
+  const to = new Date()
+  const from = new Date(to)
+  from.setDate(from.getDate() - 30)
   return {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
-  };
+  }
 }
 
 export function Dashboard() {
   const { data: stats, isLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
+    queryKey: ["dashboard-stats"],
     queryFn: async () =>
       (await DashboardService.getDashboardStats()) as unknown as DashboardStats,
-  });
+  })
 
-  const { from: trendFrom, to: trendTo } = last30Days();
+  const { from: trendFrom, to: trendTo } = last30Days()
   const { data: trends, isLoading: trendsLoading } = useQuery({
-    queryKey: ['dashboard-trends', trendFrom, trendTo],
-    queryFn: () => getDashboardTrends({ from: trendFrom, to: trendTo, group_by: 'day' }),
-  });
+    queryKey: ["dashboard-trends", trendFrom, trendTo],
+    queryFn: () =>
+      getDashboardTrends({ from: trendFrom, to: trendTo, group_by: "day" }),
+  })
 
-  const [isExporting, setIsExporting] = useState(false);
-  const { showErrorToast } = useCustomToast();
+  const [isExporting, setIsExporting] = useState(false)
+  const { showErrorToast } = useCustomToast()
   const handleExport = useCallback(
-    async (format: 'csv' | 'xlsx') => {
-      setIsExporting(true);
+    async (format: "csv" | "xlsx") => {
+      setIsExporting(true)
       try {
-        await downloadItemsExport({ format });
+        await downloadItemsExport({ format })
       } catch (e) {
-        showErrorToast(e instanceof Error ? e.message : 'Ошибка выгрузки');
+        showErrorToast(e instanceof Error ? e.message : "Ошибка выгрузки")
       } finally {
-        setIsExporting(false);
+        setIsExporting(false)
       }
     },
-    [showErrorToast]
-  );
+    [showErrorToast],
+  )
 
   if (isLoading) {
     return (
-      <Container maxW='full'>
-        <Heading size='lg' pt={12}>
+      <Container maxW="full">
+        <Heading size="lg" pt={12}>
           Загрузка...
         </Heading>
       </Container>
-    );
+    )
   }
 
   if (!stats) {
     return (
-      <Container maxW='full'>
-        <Heading size='lg' pt={12}>
+      <Container maxW="full">
+        <Heading size="lg" pt={12}>
           Нет данных для отображения
         </Heading>
       </Container>
-    );
+    )
   }
 
   //Translation mapping for status names
   const StatusTranslation: Record<string, string> = {
-    shipment: 'Отгрузка',
-    incoming: 'Поступления',
-    warehouse: 'Склад',
-    shipped: 'Отгружено',
-  };
+    shipment: "Отгрузка",
+    incoming: "Поступления",
+    warehouse: "Склад",
+    shipped: "Отгружено",
+  }
 
   // Prepare data for status distribution pie chart
   const statusData = stats.status_distribution
-    ? Object.entries(stats.status_distribution).map(
-        ([status, count]) => ({
-          name: StatusTranslation[status] || status,
-          value: count as number,
-        })
-      )
-    : [];
+    ? Object.entries(stats.status_distribution).map(([status, count]) => ({
+        name: StatusTranslation[status] || status,
+        value: count as number,
+      }))
+    : []
 
   // Colors for pie chart
-  const COLORS = [
-    '#0088FE',
-    '#00C49F',
-    '#FFBB28',
-    '#FF8042',
-    '#8884D8',
-  ];
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
 
   // Merge trends into one array for chart: { period, incoming, shipped }
   const trendsChartData = (() => {
-    if (!trends?.incoming?.length && !trends?.shipped?.length) return [];
-    const map = new Map<string, { period: string; incoming: number; shipped: number }>();
-    const add = (key: string, field: 'incoming' | 'shipped', count: number) => {
-      const k = key.slice(0, 10);
-      if (!map.has(k)) map.set(k, { period: k, incoming: 0, shipped: 0 });
-      map.get(k)![field] = count;
-    };
-    trends?.incoming?.forEach((p) => add(p.period, 'incoming', p.count));
-    trends?.shipped?.forEach((p) => add(p.period, 'shipped', p.count));
-    return Array.from(map.values()).sort((a, b) => a.period.localeCompare(b.period));
-  })();
+    if (!trends?.incoming?.length && !trends?.shipped?.length) return []
+    const map = new Map<
+      string,
+      { period: string; incoming: number; shipped: number }
+    >()
+    const add = (key: string, field: "incoming" | "shipped", count: number) => {
+      const k = key.slice(0, 10)
+      if (!map.has(k)) map.set(k, { period: k, incoming: 0, shipped: 0 })
+      map.get(k)![field] = count
+    }
+    trends?.incoming?.forEach((p) => add(p.period, "incoming", p.count))
+    trends?.shipped?.forEach((p) => add(p.period, "shipped", p.count))
+    return Array.from(map.values()).sort((a, b) =>
+      a.period.localeCompare(b.period),
+    )
+  })()
 
   // Prepare data for top owners bar chart
   const topOwnersData = stats.top_owners
     ? stats.top_owners.map((owner) => ({
-        name: owner.owner_email?.split('@')[0] || 'Unknown', // Show only username part
+        name: owner.owner_email?.split("@")[0] || "Unknown", // Show only username part
         items: owner.item_count || 0,
       }))
-    : [];
+    : []
 
   return (
-    <Container maxW='full'>
-      <Flex justify="space-between" align="center" pt={12} pb={6} flexWrap="wrap" gap={3}>
-        <Heading size='lg'>Панель управления</Heading>
+    <Container maxW="full">
+      <Flex
+        justify="space-between"
+        align="center"
+        pt={12}
+        pb={6}
+        flexWrap="wrap"
+        gap={3}
+      >
+        <Heading size="lg">Панель управления</Heading>
         <MenuRoot>
           <MenuTrigger asChild>
             <Button size="sm" variant="outline" disabled={isExporting}>
@@ -190,34 +200,27 @@ export function Dashboard() {
             </Button>
           </MenuTrigger>
           <MenuContent>
-            <MenuItem value="csv" onClick={() => handleExport('csv')}>
+            <MenuItem value="csv" onClick={() => handleExport("csv")}>
               CSV
             </MenuItem>
-            <MenuItem value="xlsx" onClick={() => handleExport('xlsx')}>
+            <MenuItem value="xlsx" onClick={() => handleExport("xlsx")}>
               Excel
             </MenuItem>
           </MenuContent>
         </MenuRoot>
       </Flex>
 
-      <SimpleGrid
-        columns={{ base: 1, md: 2, lg: 3 }}
-        gap={6}
-      >
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
         <Card.Root>
           <Card.Body>
-            <Stat alignContent='start' gap={2}>
-              <Text fontSize='lg' fontWeight='bold'>
+            <Stat alignContent="start" gap={2}>
+              <Text fontSize="lg" fontWeight="bold">
                 Всего товаров
               </Text>
-              <Text
-                fontSize='2xl'
-                fontWeight='bold'
-                color='blue.500'
-              >
+              <Text fontSize="2xl" fontWeight="bold" color="blue.500">
                 {stats.total_items}
               </Text>
-              <Text fontSize='sm' color='gray.600'>
+              <Text fontSize="sm" color="gray.600">
                 Общее количество
               </Text>
             </Stat>
@@ -229,9 +232,7 @@ export function Dashboard() {
             <Stat>
               <StatLabel>Пользователей</StatLabel>
               <Text>{stats.total_users}</Text>
-              <StatHelpText>
-                Активных пользователей
-              </StatHelpText>
+              <StatHelpText>Активных пользователей</StatHelpText>
             </Stat>
           </Card.Body>
         </Card.Root>
@@ -240,8 +241,8 @@ export function Dashboard() {
           <Card.Body>
             <Stat>
               <StatLabel>Поступления</StatLabel>
-              <Text fontSize='2xl' fontWeight='bold' color='cyan.500'>
-                {(stats.status_distribution || {}).incoming ?? 0}
+              <Text fontSize="2xl" fontWeight="bold" color="cyan.500">
+                {stats.status_distribution?.incoming ?? 0}
               </Text>
               <StatHelpText>Ожидают приёмки на склад</StatHelpText>
             </Stat>
@@ -252,8 +253,8 @@ export function Dashboard() {
           <Card.Body>
             <Stat>
               <StatLabel>На складе</StatLabel>
-              <Text fontSize='2xl' fontWeight='bold' color='green.500'>
-                {(stats.status_distribution || {}).warehouse ?? 0}
+              <Text fontSize="2xl" fontWeight="bold" color="green.500">
+                {stats.status_distribution?.warehouse ?? 0}
               </Text>
               <StatHelpText>Готовы к отгрузке</StatHelpText>
             </Stat>
@@ -264,8 +265,8 @@ export function Dashboard() {
           <Card.Body>
             <Stat>
               <StatLabel>В отгрузке</StatLabel>
-              <Text fontSize='2xl' fontWeight='bold' color='orange.500'>
-                {(stats.status_distribution || {}).shipment ?? 0}
+              <Text fontSize="2xl" fontWeight="bold" color="orange.500">
+                {stats.status_distribution?.shipment ?? 0}
               </Text>
               <StatHelpText>Подготовлено к отправке</StatHelpText>
             </Stat>
@@ -276,8 +277,8 @@ export function Dashboard() {
           <Card.Body>
             <Stat>
               <StatLabel>Отгружено</StatLabel>
-              <Text fontSize='2xl' fontWeight='bold' color='gray.600'>
-                {(stats.status_distribution || {}).shipped ?? 0}
+              <Text fontSize="2xl" fontWeight="bold" color="gray.600">
+                {stats.status_distribution?.shipped ?? 0}
               </Text>
               <StatHelpText>Архив</StatHelpText>
             </Stat>
@@ -290,10 +291,15 @@ export function Dashboard() {
         <RouterLink to="/items">
           <Card.Root
             cursor="pointer"
-            _hover={{ bg: 'gray.50' }}
+            _hover={{ bg: "gray.50" }}
             transition="background 0.2s"
           >
-            <Card.Body display="flex" flexDirection="row" alignItems="center" gap={3}>
+            <Card.Body
+              display="flex"
+              flexDirection="row"
+              alignItems="center"
+              gap={3}
+            >
               <Box color="blue.500">
                 <FiArrowDownRight size={24} />
               </Box>
@@ -309,10 +315,15 @@ export function Dashboard() {
         <RouterLink to="/warehouse">
           <Card.Root
             cursor="pointer"
-            _hover={{ bg: 'gray.50' }}
+            _hover={{ bg: "gray.50" }}
             transition="background 0.2s"
           >
-            <Card.Body display="flex" flexDirection="row" alignItems="center" gap={3}>
+            <Card.Body
+              display="flex"
+              flexDirection="row"
+              alignItems="center"
+              gap={3}
+            >
               <Box color="green.500">
                 <FiBox size={24} />
               </Box>
@@ -328,10 +339,15 @@ export function Dashboard() {
         <RouterLink to="/shipment">
           <Card.Root
             cursor="pointer"
-            _hover={{ bg: 'gray.50' }}
+            _hover={{ bg: "gray.50" }}
             transition="background 0.2s"
           >
-            <Card.Body display="flex" flexDirection="row" alignItems="center" gap={3}>
+            <Card.Body
+              display="flex"
+              flexDirection="row"
+              alignItems="center"
+              gap={3}
+            >
               <Box color="orange.500">
                 <FiTruck size={24} />
               </Box>
@@ -347,10 +363,15 @@ export function Dashboard() {
         <RouterLink to="/shipped">
           <Card.Root
             cursor="pointer"
-            _hover={{ bg: 'gray.50' }}
+            _hover={{ bg: "gray.50" }}
             transition="background 0.2s"
           >
-            <Card.Body display="flex" flexDirection="row" alignItems="center" gap={3}>
+            <Card.Body
+              display="flex"
+              flexDirection="row"
+              alignItems="center"
+              gap={3}
+            >
               <Box color="green.500">
                 <FiCheckCircle size={24} />
               </Box>
@@ -387,8 +408,8 @@ export function Dashboard() {
                     </Text>
                     <Text fontSize="xs" color="gray.500">
                       {item.created_at
-                        ? new Date(item.created_at).toLocaleString('ru-RU')
-                        : ''}
+                        ? new Date(item.created_at).toLocaleString("ru-RU")
+                        : ""}
                     </Text>
                   </Box>
                 ))}
@@ -414,7 +435,7 @@ export function Dashboard() {
               В отгрузке
             </Heading>
             <Text fontSize="2xl" fontWeight="bold" color="orange.500">
-              {(stats.status_distribution || {}).shipment ?? 0}
+              {stats.status_distribution?.shipment ?? 0}
             </Text>
             <Text fontSize="sm" color="gray.600" mb={3}>
               товаров в отгрузке
@@ -429,42 +450,33 @@ export function Dashboard() {
       </SimpleGrid>
 
       {/* Visual Graphics Section */}
-      <SimpleGrid
-        columns={{ base: 1, lg: 2 }}
-        gap={6}
-        mt={8}
-      >
+      <SimpleGrid columns={{ base: 1, lg: 2 }} gap={6} mt={8}>
         {/* Status Distribution Pie Chart */}
         <Card.Root>
           <Card.Body>
-            <Heading size='md' mb={4}>
+            <Heading size="md" mb={4}>
               Распределение по статусам
             </Heading>
             {statusData.length > 0 ? (
-              <Box height='300px'>
-                <ResponsiveContainer
-                  width='100%'
-                  height='100%'
-                >
+              <Box height="300px">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={statusData}
-                      cx='50%'
-                      cy='50%'
+                      cx="50%"
+                      cy="50%"
                       labelLine={false}
                       label={({ name, percent }) =>
                         `${name} ${((percent as number) * 100).toFixed(0)}%`
                       }
                       outerRadius={80}
-                      fill='#8884d8'
-                      dataKey='value'
+                      fill="#8884d8"
+                      dataKey="value"
                     >
                       {statusData.map((_, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={
-                            COLORS[index % COLORS.length]
-                          }
+                          fill={COLORS[index % COLORS.length]}
                         />
                       ))}
                     </Pie>
@@ -481,28 +493,25 @@ export function Dashboard() {
         {/* Top Owners Bar Chart */}
         <Card.Root>
           <Card.Body>
-            <Heading size='md' mb={4}>
+            <Heading size="md" mb={4}>
               Топ владельцев по количеству товаров
             </Heading>
             {topOwnersData.length > 0 ? (
-              <Box height='300px'>
-                <ResponsiveContainer
-                  width='100%'
-                  height='100%'
-                >
+              <Box height="300px">
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={topOwnersData}>
-                    <CartesianGrid strokeDasharray='3 3' />
+                    <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
-                      dataKey='name'
+                      dataKey="name"
                       angle={-45}
-                      textAnchor='end'
+                      textAnchor="end"
                       height={80}
                       fontSize={12}
                     />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey='items' fill='#8884d8' />
+                    <Bar dataKey="items" fill="#8884d8" />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -524,20 +533,44 @@ export function Dashboard() {
           ) : trendsChartData.length > 0 ? (
             <Box height="300px">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={trendsChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <ComposedChart
+                  data={trendsChartData}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
                     dataKey="period"
-                    tickFormatter={(v) => (v ? new Date(v).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : v)}
+                    tickFormatter={(v) =>
+                      v
+                        ? new Date(v).toLocaleDateString("ru-RU", {
+                            day: "2-digit",
+                            month: "2-digit",
+                          })
+                        : v
+                    }
                     fontSize={11}
                   />
                   <YAxis fontSize={12} />
                   <Tooltip
-                    labelFormatter={(v) => (v ? new Date(v).toLocaleDateString('ru-RU') : v)}
+                    labelFormatter={(v) =>
+                      v ? new Date(v).toLocaleDateString("ru-RU") : v
+                    }
                   />
                   <Legend />
-                  <Bar dataKey="incoming" name="Поступления" fill="#00C49F" radius={[4, 4, 0, 0]} />
-                  <Line type="monotone" dataKey="shipped" name="Отгрузки" stroke="#FF8042" strokeWidth={2} dot={{ r: 3 }} />
+                  <Bar
+                    dataKey="incoming"
+                    name="Поступления"
+                    fill="#00C49F"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="shipped"
+                    name="Отгрузки"
+                    stroke="#FF8042"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
                 </ComposedChart>
               </ResponsiveContainer>
             </Box>
@@ -550,34 +583,25 @@ export function Dashboard() {
       </Card.Root>
 
       <Box mt={8}>
-        <Heading size='md' mb={4}>
+        <Heading size="md" mb={4}>
           Активные пользователи
         </Heading>
         <Card.Root>
           <Card.Body>
-            {stats.top_owners &&
-            stats.top_owners.length > 0 ? (
-              <SimpleGrid
-                columns={{ base: 1, md: 2, lg: 3 }}
-                gap={4}
-              >
+            {stats.top_owners && stats.top_owners.length > 0 ? (
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
                 {stats.top_owners.map((owner, index) => (
                   <Box
                     key={owner.owner_email}
                     p={3}
                     borderWidth={1}
-                    borderRadius='md'
+                    borderRadius="md"
                   >
-                    <Text fontWeight='bold'>
-                      #{index + 1}
-                    </Text>
-                    <Text fontSize='sm' color='gray.600'>
+                    <Text fontWeight="bold">#{index + 1}</Text>
+                    <Text fontSize="sm" color="gray.600">
                       {owner.owner_email}
                     </Text>
-                    <Text
-                      fontSize='lg'
-                      fontWeight='semibold'
-                    >
+                    <Text fontSize="lg" fontWeight="semibold">
                       {owner.item_count} товаров
                     </Text>
                   </Box>
@@ -590,5 +614,5 @@ export function Dashboard() {
         </Card.Root>
       </Box>
     </Container>
-  );
+  )
 }

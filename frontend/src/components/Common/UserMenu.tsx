@@ -1,22 +1,17 @@
-import { Box, Button, Flex, Text } from '@chakra-ui/react';
-import { Link } from '@tanstack/react-router';
-import { FaUserAstronaut } from 'react-icons/fa';
-import { FiLogOut, FiUser } from 'react-icons/fi';
+import { Box, Button, Flex, Text } from "@chakra-ui/react"
+import { Link } from "@tanstack/react-router"
+import { FaUserAstronaut } from "react-icons/fa"
+import { FiLogOut, FiUser } from "react-icons/fi"
 
-import useAuth from '@/hooks/useAuth';
-import {
-  MenuContent,
-  MenuItem,
-  MenuRoot,
-  MenuTrigger,
-} from '../ui/menu';
+import useAuth from "@/hooks/useAuth.ts"
+import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "../ui/menu.tsx"
 
 const UserMenu = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth()
 
   const handleLogout = async () => {
-    logout();
-  };
+    logout()
+  }
 
   return (
     <>
@@ -24,37 +19,32 @@ const UserMenu = () => {
       <Flex>
         <MenuRoot>
           <MenuTrigger asChild p={2}>
-            <Button
-              data-testid='user-menu'
-              variant='solid'
-              maxW='sm'
-              truncate
-            >
-              <FaUserAstronaut fontSize='18' />
-              <Text>{user?.full_name || 'Пользователь'}</Text>
+            <Button data-testid="user-menu" variant="solid" maxW="sm" truncate>
+              <FaUserAstronaut fontSize="18" />
+              <Text>{user?.full_name || "Пользователь"}</Text>
             </Button>
           </MenuTrigger>
 
           <MenuContent>
-            <Link to='settings'>
+            <Link to="settings">
               <MenuItem
                 closeOnSelect
-                value='user-settings'
+                value="user-settings"
                 gap={2}
                 py={2}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
-                <FiUser fontSize='18px' />
-                <Box flex='1'>Мой профиль</Box>
+                <FiUser fontSize="18px" />
+                <Box flex="1">Мой профиль</Box>
               </MenuItem>
             </Link>
 
             <MenuItem
-              value='logout'
+              value="logout"
               gap={2}
               py={2}
               onClick={handleLogout}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: "pointer" }}
             >
               <FiLogOut />
               Выйти
@@ -63,7 +53,7 @@ const UserMenu = () => {
         </MenuRoot>
       </Flex>
     </>
-  );
-};
+  )
+}
 
-export default UserMenu;
+export default UserMenu

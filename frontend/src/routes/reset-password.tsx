@@ -1,19 +1,18 @@
 import { Container, Heading, Text } from "@chakra-ui/react"
-import { useMutation } from "@tanstack/react-query"
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
-import { type SubmitHandler, useForm } from "react-hook-form"
+import {
+  createFileRoute,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router"
+import { useActionState, useEffect } from "react"
 import { FiLock } from "react-icons/fi"
 
-import { type ApiError, LoginService, type NewPassword } from "@/client"
-import { Button } from "@/components/ui/button"
-import { PasswordInput } from "@/components/ui/password-input"
-import { isLoggedIn } from "@/hooks/useAuth"
-import useCustomToast from "@/hooks/useCustomToast"
-import { confirmPasswordRules, handleError, passwordRules } from "@/utils"
-
-interface NewPasswordForm extends NewPassword {
-  confirm_password: string
-}
+import { LoginService } from "@/client/index.ts"
+import { Button } from "@/components/ui/button.tsx"
+import { PasswordInput } from "@/components/ui/password-input.tsx"
+import { isLoggedIn } from "@/hooks/useAuth.ts"
+import useCustomToast from "@/hooks/useCustomToast.ts"
+import { getApiErrorMessage } from "@/utils.ts"
 
 export const Route = createFileRoute("/reset-password")({
   component: ResetPassword,
@@ -26,51 +25,54 @@ export const Route = createFileRoute("/reset-password")({
   },
 })
 
-function ResetPassword() {
-  const {
-    register,
-    handleSubmit,
-    getValues,
-    reset,
-    formState: { errors },
-  } = useForm<NewPasswordForm>({
-    mode: "onBlur",
-    criteriaMode: "all",
-    defaultValues: {
-      new_password: "",
-    },
-  })
-  const { showSuccessToast } = useCustomToast()
-  const navigate = useNavigate()
+type ResetState = { error: string | null; success: boolean }
 
-  const resetPassword = async (data: NewPassword) => {
-    const token = new URLSearchParams(window.location.search).get("token")
-    if (!token) return
+async function resetPasswordAction(
+  _prevState: ResetState,
+  formData: FormData,
+): Promise<ResetState> {
+  const token = new URLSearchParams(window.location.search).get("token")
+  if (!token) {
+    return { error: "Отсутствует токен сброса пароля", success: false }
+  }
+  const newPassword = formData.get("new_password") as string
+  const confirmPassword = formData.get("confirm_password") as string
+  if (!newPassword || newPassword.length < 8) {
+    return {
+      error: "Пароль должен содержать не менее 8 символов",
+      success: false,
+    }
+  }
+  if (newPassword !== confirmPassword) {
+    return { error: "Пароль не совпадает", success: false }
+  }
+  try {
     await LoginService.resetPassword({
-      requestBody: { new_password: data.new_password, token: token },
+      requestBody: { new_password: newPassword, token },
     })
+    return { error: null, success: true }
+  } catch (err) {
+    return { error: getApiErrorMessage(err), success: false }
   }
+}
 
-  const mutation = useMutation({
-    mutationFn: resetPassword,
-    onSuccess: () => {
+function ResetPassword() {
+  const navigate = useNavigate()
+  const { showSuccessToast } = useCustomToast()
+  const [state, formAction, isPending] = useActionState(resetPasswordAction, {
+    error: null,
+    success: false,
+  } as ResetState)
+
+  useEffect(() => {
+    if (state.success) {
       showSuccessToast("Пароль успешно изменен.")
-      reset()
       navigate({ to: "/login" })
-    },
-    onError: (err: ApiError) => {
-      handleError(err)
-    },
-  })
-
-  const onSubmit: SubmitHandler<NewPasswordForm> = async (data) => {
-    mutation.mutate(data)
-  }
+    }
+  }, [state.success, showSuccessToast, navigate])
 
   return (
     <Container
-      as="form"
-      onSubmit={handleSubmit(onSubmit)}
       h="100vh"
       maxW="sm"
       alignItems="stretch"
@@ -78,29 +80,50 @@ function ResetPassword() {
       gap={4}
       centerContent
     >
+      <form
+        action={formAction}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+          gap: "1rem",
+          width: "100%",
+        }}
+      >
       <Heading size="xl" color="ui.main" textAlign="center" mb={2}>
         Сброс пароля
       </Heading>
       <Text textAlign="center">
         Пожалуйста, введите новый пароль для вашей учетной записи.
       </Text>
+      {state.error && (
+        <Text fontSize="sm" color="red.500" role="alert">
+          {state.error}
+        </Text>
+      )}
       <PasswordInput
-        startElement={<FiLock />}
+        name="new_password"
         type="new_password"
-        errors={errors}
-        {...register("new_password", passwordRules())}
+        startElement={<FiLock />}
         placeholder="Новый пароль"
+        required
+        minLength={8}
+        autoComplete="new-password"
+        errors={{}}
       />
       <PasswordInput
-        startElement={<FiLock />}
+        name="confirm_password"
         type="confirm_password"
-        errors={errors}
-        {...register("confirm_password", confirmPasswordRules(getValues))}
+        startElement={<FiLock />}
         placeholder="Подтвердите пароль"
+        required
+        autoComplete="new-password"
+        errors={{}}
       />
-      <Button variant="solid" type="submit">
-        Reset Password
+      <Button variant="solid" type="submit" loading={isPending}>
+        Сбросить пароль
       </Button>
+      </form>
     </Container>
   )
 }

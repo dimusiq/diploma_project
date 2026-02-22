@@ -3,45 +3,44 @@ import type {
   CircleProps,
 } from "@chakra-ui/react"
 import { Skeleton as ChakraSkeleton, Circle, Stack } from "@chakra-ui/react"
-import * as React from "react"
+import type * as React from "react"
 
 export interface SkeletonCircleProps extends ChakraSkeletonProps {
+  ref?: React.Ref<HTMLDivElement>
   size?: CircleProps["size"]
 }
 
-export const SkeletonCircle = React.forwardRef<
-  HTMLDivElement,
-  SkeletonCircleProps
->(function SkeletonCircle(props, ref) {
-  const { size, ...rest } = props
+export function SkeletonCircle({ ref, size, ...rest }: SkeletonCircleProps) {
   return (
     <Circle size={size} asChild ref={ref}>
       <ChakraSkeleton {...rest} />
     </Circle>
   )
-})
+}
 
 export interface SkeletonTextProps extends ChakraSkeletonProps {
+  ref?: React.Ref<HTMLDivElement>
   noOfLines?: number
 }
 
-export const SkeletonText = React.forwardRef<HTMLDivElement, SkeletonTextProps>(
-  function SkeletonText(props, ref) {
-    const { noOfLines = 3, gap, ...rest } = props
-    return (
-      <Stack gap={gap} width="full" ref={ref}>
-        {Array.from({ length: noOfLines }).map((_, index) => (
-          <ChakraSkeleton
-            height="4"
-            key={index}
-            {...props}
-            _last={{ maxW: "80%" }}
-            {...rest}
-          />
-        ))}
-      </Stack>
-    )
-  },
-)
+export function SkeletonText({
+  ref,
+  noOfLines = 3,
+  gap,
+  ...rest
+}: SkeletonTextProps) {
+  return (
+    <Stack gap={gap} width="full" ref={ref}>
+      {Array.from({ length: noOfLines }).map((_, index) => (
+        <ChakraSkeleton
+          height="4"
+          key={index}
+          _last={{ maxW: "80%" }}
+          {...rest}
+        />
+      ))}
+    </Stack>
+  )
+}
 
 export const Skeleton = ChakraSkeleton

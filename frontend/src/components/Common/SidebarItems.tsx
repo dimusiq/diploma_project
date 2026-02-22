@@ -1,7 +1,6 @@
-import { Box, Flex, Icon, Text } from '@chakra-ui/react';
-import { useQueryClient } from '@tanstack/react-query';
-import { Link as RouterLink } from '@tanstack/react-router';
-import { useState } from 'react';
+import { Box, Flex, Icon, Text } from "@chakra-ui/react"
+import { Link as RouterLink } from "@tanstack/react-router"
+import { useState } from "react"
 import {
   FiArrowDownRight,
   FiBarChart2,
@@ -13,134 +12,130 @@ import {
   FiSettings,
   FiTruck,
   FiUsers,
-} from 'react-icons/fi';
-import { TbForklift } from 'react-icons/tb';
-import type { IconType } from 'react-icons/lib';
-
-import type { UserPublic } from '@/client';
+} from "react-icons/fi"
+import type { IconType } from "react-icons/lib"
+import { TbForklift } from "react-icons/tb"
+import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 
 interface SubItem {
-  id: string;
-  title: string;
+  id: string
+  title: string
 }
 
 interface ItemBase {
-  icon: IconType;
-  title: string;
+  icon: IconType
+  title: string
 }
 interface ItemLink extends ItemBase {
-  path: string;
-  children?: never;
+  path: string
+  children?: never
 }
 interface ItemExpandable extends ItemBase {
-  path: null;
-  children: SubItem[];
+  path: null
+  children: SubItem[]
 }
-type Item = ItemLink | ItemExpandable;
+type Item = ItemLink | ItemExpandable
 
 const items: Item[] = [
   {
     icon: FiBarChart2,
-    title: 'Дашборд',
-    path: '/',
+    title: "Дашборд",
+    path: "/",
   },
   {
     icon: FiArrowDownRight,
-    title: 'Поступления',
-    path: '/items',
+    title: "Поступления",
+    path: "/items",
   },
   {
     icon: FiBox,
-    title: 'Склад',
-    path: '/warehouse',
+    title: "Склад",
+    path: "/warehouse",
   },
   {
     icon: FiLayers,
-    title: '3D Склад',
-    path: '/warehouse-3d',
+    title: "3D Склад",
+    path: "/warehouse-3d",
   },
   {
     icon: FiTruck,
-    title: 'Отгрузка',
-    path: '/shipment',
+    title: "Отгрузка",
+    path: "/shipment",
   },
   {
     icon: FiCheckCircle,
-    title: 'Отгружено',
-    path: '/shipped',
+    title: "Отгружено",
+    path: "/shipped",
   },
   {
     icon: TbForklift,
-    title: 'Техника',
+    title: "Техника",
     path: null as null,
     children: [
-      { id: 'assets', title: 'Список техники' },
-      { id: 'maintenance', title: 'График ТО' },
-      { id: 'maintenance-schedule', title: 'Расписание ТО' },
-      { id: 'work-orders', title: 'Рабочие заказы' },
-      { id: 'technicians', title: 'Управление задачами техников' },
-      { id: 'alerts', title: 'Мониторинг и уведомления' },
-      { id: 'spare-parts', title: 'Запасные части' },
-      { id: 'analytics', title: 'Аналитика' },
-      { id: 'integrations', title: 'Интеграции' },
-      { id: 'security', title: 'Безопасность' },
-      { id: 'predictive', title: 'Прогнозирование' },
+      { id: "assets", title: "Список техники" },
+      { id: "maintenance", title: "График ТО" },
+      { id: "maintenance-schedule", title: "Расписание ТО" },
+      { id: "work-orders", title: "Рабочие заказы" },
+      { id: "technicians", title: "Управление задачами техников" },
+      { id: "alerts", title: "Мониторинг и уведомления" },
+      { id: "spare-parts", title: "Запасные части" },
+      { id: "analytics", title: "Аналитика" },
+      { id: "integrations", title: "Интеграции" },
+      { id: "security", title: "Безопасность" },
+      { id: "predictive", title: "Прогнозирование" },
     ],
   },
   {
     icon: FiSettings,
-    title: 'Настройки Пользователя',
-    path: '/settings',
+    title: "Настройки Пользователя",
+    path: "/settings",
   },
-];
+]
 
 interface SidebarItemsProps {
-  onClose?: () => void;
+  onClose?: () => void
 }
 
 function isExpandable(item: Item): item is ItemExpandable {
-  return item.path === null && 'children' in item && item.children != null;
+  return item.path === null && "children" in item && item.children != null
 }
 
 const SidebarItems = ({ onClose }: SidebarItemsProps) => {
-  const queryClient = useQueryClient();
-  const currentUser = queryClient.getQueryData<UserPublic>([
-    'currentUser',
-  ]);
-  const [techniqueExpanded, setTechniqueExpanded] = useState(false);
+  const currentUser = useCurrentUser()
+  const [techniqueExpanded, setTechniqueExpanded] = useState(false)
 
   const finalItems: Item[] = currentUser?.is_superuser
     ? [
         ...items,
         {
           icon: FiUsers,
-          title: 'Панель Администрирования',
-          path: '/admin',
+          title: "Панель Администрирования",
+          path: "/admin",
         },
       ]
-    : items;
+    : items
 
   const listItems = finalItems.map((item) => {
     if (isExpandable(item)) {
       return (
         <Box key={item.title}>
           <Flex
-            as='button'
+            as="button"
             gap={4}
             px={4}
             py={2}
-            w='100%'
-            textAlign='left'
-            _hover={{ background: 'gray.subtle' }}
-            alignItems='center'
-            fontSize='sm'
+            w="100%"
+            textAlign="left"
+            _hover={{ background: "gray.subtle" }}
+            alignItems="center"
+            fontSize="sm"
             onClick={() => setTechniqueExpanded((v) => !v)}
           >
-            <Icon as={item.icon} alignSelf='center' />
+            <Icon as={item.icon} alignSelf="center" />
             <Text ml={2}>{item.title}</Text>
             <Icon
               as={techniqueExpanded ? FiChevronDown : FiChevronRight}
-              ml='auto'
+              ml="auto"
               boxSize={4}
             />
           </Flex>
@@ -149,7 +144,7 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
               {item.children.map((sub) => (
                 <RouterLink
                   key={sub.id}
-                  to='/technique'
+                  to="/technique"
                   search={{ section: sub.id }}
                   onClick={onClose}
                 >
@@ -157,21 +152,21 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
                     gap={2}
                     px={2}
                     py={1.5}
-                    _hover={{ background: 'gray.subtle' }}
-                    alignItems='center'
-                    fontSize='xs'
-                    borderRadius='md'
+                    _hover={{ background: "gray.subtle" }}
+                    alignItems="center"
+                    fontSize="xs"
+                    borderRadius="md"
                   >
-                    <Text fontWeight='medium'>{sub.title}</Text>
+                    <Text fontWeight="medium">{sub.title}</Text>
                   </Flex>
                 </RouterLink>
               ))}
             </Box>
           )}
         </Box>
-      );
+      )
     }
-    const { icon, title, path } = item;
+    const { icon, title, path } = item
     return (
       <RouterLink key={title} to={path} onClick={onClose}>
         <Flex
@@ -179,26 +174,26 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
           px={4}
           py={2}
           _hover={{
-            background: 'gray.subtle',
+            background: "gray.subtle",
           }}
-          alignItems='center'
-          fontSize='sm'
+          alignItems="center"
+          fontSize="sm"
         >
-          <Icon as={icon} alignSelf='center' />
+          <Icon as={icon} alignSelf="center" />
           <Text ml={2}>{title}</Text>
         </Flex>
       </RouterLink>
-    );
-  });
+    )
+  })
 
   return (
     <>
-      <Text fontSize='xs' px={4} py={2} fontWeight='bold'>
+      <Text fontSize="xs" px={4} py={2} fontWeight="bold">
         Меню
       </Text>
       <Box>{listItems}</Box>
     </>
-  );
-};
+  )
+}
 
-export default SidebarItems;
+export default SidebarItems

@@ -1,32 +1,20 @@
-import { IconButton } from '@chakra-ui/react';
-import { BsThreeDotsVertical } from 'react-icons/bs';
-import {
-  MenuContent,
-  MenuRoot,
-  MenuTrigger,
-} from '../ui/menu';
-
-import type { UserPublic } from '@/client';
-import DeleteUser from '../Admin/DeleteUser';
-import EditUser from '../Admin/EditUser';
+import { IconButton } from "@chakra-ui/react"
+import { BsThreeDotsVertical } from "react-icons/bs"
+import type { UserPublic } from "@/client/index.ts"
+import DeleteUser from "../Admin/DeleteUser.tsx"
+import EditUser from "../Admin/EditUser.tsx"
+import { MenuContent, MenuRoot, MenuTrigger } from "../ui/menu.tsx"
 
 interface UserActionsMenuProps {
-  user: UserPublic;
-  disabled?: boolean;
+  user: UserPublic
+  disabled?: boolean
 }
 
-export const UserActionsMenu = ({
-  user,
-  disabled,
-}: UserActionsMenuProps) => {
+export const UserActionsMenu = ({ user, disabled }: UserActionsMenuProps) => {
   return (
     <MenuRoot>
       <MenuTrigger asChild>
-        <IconButton
-          variant='ghost'
-          color='inherit'
-          disabled={disabled}
-        >
+        <IconButton variant="ghost" color="inherit" disabled={disabled}>
           <BsThreeDotsVertical />
         </IconButton>
       </MenuTrigger>
@@ -35,5 +23,5 @@ export const UserActionsMenu = ({
         <DeleteUser id={user.id} />
       </MenuContent>
     </MenuRoot>
-  );
-};
+  )
+}

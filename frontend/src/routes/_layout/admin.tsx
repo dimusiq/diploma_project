@@ -8,31 +8,32 @@ import {
   Input,
   Table,
   Text,
-} from '@chakra-ui/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
-import { z } from 'zod';
+} from "@chakra-ui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
+import { z } from "zod"
 
-import { brandsApi, type BrandPublic } from '@/api/brands';
-import { zonesApi, type ZonePublic } from '@/api/zones';
-import { CategoriesService, type UserPublic, UsersService, RolesService } from '@/client';
-import AddUser from '@/components/Admin/AddUser';
-import { ShortId } from '@/components/Common/ShortId';
-import { UserActionsMenu } from '@/components/Common/UserActionsMenu';
-import PendingUsers from '@/components/Pending/PendingUsers';
+import { type BrandPublic, brandsApi } from "@/api/brands.ts"
+import { type ZonePublic, zonesApi } from "@/api/zones.ts"
+import { CategoriesService, RolesService, UsersService } from "@/client/index.ts"
+import AddUser from "@/components/Admin/AddUser.tsx"
+import { ShortId } from "@/components/Common/ShortId.tsx"
+import { UserActionsMenu } from "@/components/Common/UserActionsMenu.tsx"
+import PendingUsers from "@/components/Pending/PendingUsers.tsx"
 import {
   PaginationItems,
   PaginationNextTrigger,
   PaginationPrevTrigger,
   PaginationRoot,
-} from '@/components/ui/pagination.tsx';
+} from "@/components/ui/pagination.tsx"
+import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 
 const usersSearchSchema = z.object({
   page: z.number().catch(1),
-});
+})
 
-const PER_PAGE = 5;
+const PER_PAGE = 5
 
 function getUsersQueryOptions({ page }: { page: number }) {
   return {
@@ -41,110 +42,88 @@ function getUsersQueryOptions({ page }: { page: number }) {
         skip: (page - 1) * PER_PAGE,
         limit: PER_PAGE,
       }),
-    queryKey: ['users', { page }],
-  };
+    queryKey: ["users", { page }],
+  }
 }
 
-export const Route = createFileRoute('/_layout/admin')({
+export const Route = createFileRoute("/_layout/admin")({
   component: Admin,
-  validateSearch: (search) =>
-    usersSearchSchema.parse(search),
-});
+  validateSearch: (search) => usersSearchSchema.parse(search),
+})
 
 function UsersTable() {
-  const queryClient = useQueryClient();
-  const currentUser = queryClient.getQueryData<UserPublic>([
-    'currentUser',
-  ]);
-  const navigate = useNavigate({ from: Route.fullPath });
-  const { page } = Route.useSearch();
+  const currentUser = useCurrentUser()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const { page } = Route.useSearch()
 
   const { data: roles = [] } = useQuery({
-    queryKey: ['roles'],
+    queryKey: ["roles"],
     queryFn: () => RolesService.readRoles(),
-  });
-  const roleNameById = Object.fromEntries(roles.map((r) => [r.id, r.name]));
+  })
+  const roleNameById = Object.fromEntries(roles.map((r) => [r.id, r.name]))
 
   const { data, isLoading, isPlaceholderData } = useQuery({
     ...getUsersQueryOptions({ page }),
     placeholderData: (prevData) => prevData,
-  });
+  })
 
   const setPage = (page: number) =>
-    navigate({
-      search: (prev: { [key: string]: string }) => ({
-        ...prev,
-        page,
-      }),
-    });
+    (navigate as unknown as (opts: { search: (prev: { page: number }) => { page: number } }) => void)({
+      search: (prev) => ({ ...prev, page }),
+    })
 
-  const users = data?.data.slice(0, PER_PAGE) ?? [];
-  const count = data?.count ?? 0;
+  const users = data?.data.slice(0, PER_PAGE) ?? []
+  const count = data?.count ?? 0
 
   if (isLoading) {
-    return <PendingUsers />;
+    return <PendingUsers />
   }
 
   return (
     <>
-      <Table.Root size={{ base: 'sm', md: 'md' }}>
+      <Table.Root size={{ base: "sm", md: "md" }}>
         <Table.Header>
           <Table.Row>
-            <Table.ColumnHeader w='sm'>
-              Полное имя
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>
-              Email
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>
-              Роль
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>
-              Статус
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>
-              Дейсвия
-            </Table.ColumnHeader>
+            <Table.ColumnHeader w="sm">Полное имя</Table.ColumnHeader>
+            <Table.ColumnHeader w="sm">Email</Table.ColumnHeader>
+            <Table.ColumnHeader w="sm">Роль</Table.ColumnHeader>
+            <Table.ColumnHeader w="sm">Статус</Table.ColumnHeader>
+            <Table.ColumnHeader w="sm">Дейсвия</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
         <Table.Body>
           {users?.map((user) => (
-            <Table.Row
-              key={user.id}
-              opacity={isPlaceholderData ? 0.5 : 1}
-            >
-              <Table.Cell
-                color={!user.full_name ? 'gray' : 'inherit'}
-              >
-                {user.full_name || 'N/A'}
-                {currentUser?.id === user.id && (
-                  <Badge ml='1' colorScheme='cyan'>
+            <Table.Row key={user.id} opacity={isPlaceholderData ? 0.5 : 1}>
+              <Table.Cell color={!user.full_name ? "gray" : "inherit"}>
+                {user.full_name || "N/A"}
+                {currentUser.id === user.id && (
+                  <Badge ml="1" colorScheme="cyan">
                     You
                   </Badge>
                 )}
               </Table.Cell>
-              <Table.Cell truncate maxW='sm'>
+              <Table.Cell truncate maxW="sm">
                 {user.email}
               </Table.Cell>
               <Table.Cell>
                 {user.is_superuser
-                  ? 'Суперпользователь'
-                  : (user.role_id && roleNameById[user.role_id]) || '—'}
+                  ? "Суперпользователь"
+                  : (user.role_id && roleNameById[user.role_id]) || "—"}
               </Table.Cell>
               <Table.Cell>
-                {user.is_active ? 'Активный' : 'Неактивный'}
+                {user.is_active ? "Активный" : "Неактивный"}
               </Table.Cell>
               <Table.Cell>
                 <UserActionsMenu
                   user={user}
-                  disabled={currentUser?.id === user.id}
+                  disabled={currentUser.id === user.id}
                 />
               </Table.Cell>
             </Table.Row>
           ))}
         </Table.Body>
       </Table.Root>
-      <Flex justifyContent='flex-end' mt={4}>
+      <Flex justifyContent="flex-end" mt={4}>
         <PaginationRoot
           count={count}
           pageSize={PER_PAGE}
@@ -158,28 +137,28 @@ function UsersTable() {
         </PaginationRoot>
       </Flex>
     </>
-  );
+  )
 }
 
 function AddCategory() {
-  const [name, setName] = useState('');
-  const [parentId, setParentId] = useState<string>('');
-  const queryClient = useQueryClient();
+  const [name, setName] = useState("")
+  const [parentId, setParentId] = useState<string>("")
+  const queryClient = useQueryClient()
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
+    queryKey: ["categories"],
     queryFn: () => CategoriesService.readCategories(),
-  });
+  })
   const create = useMutation({
     mutationFn: () =>
       CategoriesService.createCategory({
         requestBody: { name, parent_id: parentId || null },
       }),
     onSuccess: () => {
-      setName('');
-      setParentId('');
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      setName("")
+      setParentId("")
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
     },
-  });
+  })
   return (
     <Flex gap={2} mb={4} flexWrap="wrap" align="center">
       <Input
@@ -192,35 +171,41 @@ function AddCategory() {
         value={parentId}
         onChange={(e) => setParentId((e.target as HTMLSelectElement).value)}
         style={{
-          padding: '6px 10px',
-          borderRadius: '6px',
-          border: '1px solid #e2e8f0',
-          minWidth: '140px',
+          padding: "6px 10px",
+          borderRadius: "6px",
+          border: "1px solid #e2e8f0",
+          minWidth: "140px",
         }}
       >
         <option value="">— Категории —</option>
         {categories.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
         ))}
       </select>
-      <Button onClick={() => create.mutate()} disabled={!name.trim()} loading={create.isPending}>
+      <Button
+        onClick={() => create.mutate()}
+        disabled={!name.trim()}
+        loading={create.isPending}
+      >
         Добавить категорию
       </Button>
     </Flex>
-  );
+  )
 }
 
 function EditCategory({
   category,
   categories,
 }: {
-  category: { id: string; name: string; parent_id?: string | null };
-  categories: Array<{ id: string; name: string; parent_id?: string | null }>;
+  category: { id: string; name: string; parent_id?: string | null }
+  categories: Array<{ id: string; name: string; parent_id?: string | null }>
 }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(category.name);
-  const [parentId, setParentId] = useState(category.parent_id ?? '');
-  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState(category.name)
+  const [parentId, setParentId] = useState(category.parent_id ?? "")
+  const queryClient = useQueryClient()
   const update = useMutation({
     mutationFn: () =>
       CategoriesService.updateCategory({
@@ -228,74 +213,70 @@ function EditCategory({
         requestBody: { name: name || undefined, parent_id: parentId || null },
       }),
     onSuccess: () => {
-      setOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      setOpen(false)
+      queryClient.invalidateQueries({ queryKey: ["categories"] })
     },
-  });
-  const parentOpts = categories.filter((c) => c.id !== category.id);
+  })
+  const parentOpts = categories.filter((c) => c.id !== category.id)
 
   const onOpen = () => {
-    setName(category.name);
-    setParentId(category.parent_id ?? '');
-    setOpen(true);
-  };
+    setName(category.name)
+    setParentId(category.parent_id ?? "")
+    setOpen(true)
+  }
 
   return (
     <>
-      <Button size='xs' variant='ghost' onClick={onOpen}>
+      <Button size="xs" variant="ghost" onClick={onOpen}>
         Изменить
       </Button>
       {open && (
         <Box
-          position='fixed'
+          position="fixed"
           top={0}
           left={0}
           right={0}
           bottom={0}
           zIndex={50}
-          bg='blackAlpha.500'
-          display='flex'
-          alignItems='center'
-          justifyContent='center'
+          bg="blackAlpha.500"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
           onClick={() => setOpen(false)}
         >
           <Box
-            bg='bg'
-            color='fg'
+            bg="bg"
+            color="fg"
             p={4}
-            borderRadius='md'
-            shadow='lg'
-            minW='280px'
-            borderWidth='1px'
-            borderColor='border'
-            onClick={(e: React.MouseEvent) =>
-              e.stopPropagation()
-            }
+            borderRadius="md"
+            shadow="lg"
+            minW="280px"
+            borderWidth="1px"
+            borderColor="border"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
-            <Text fontWeight='bold' mb={3}>
+            <Text fontWeight="bold" mb={3}>
               Редактировать категорию
             </Text>
-            <Flex direction='column' gap={3} mb={4}>
+            <Flex direction="column" gap={3} mb={4}>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder='Название'
-                size='sm'
+                placeholder="Название"
+                size="sm"
               />
               <select
                 value={parentId}
                 onChange={(e) =>
-                  setParentId(
-                    (e.target as HTMLSelectElement).value,
-                  )
+                  setParentId((e.target as HTMLSelectElement).value)
                 }
                 style={{
                   padding: 8,
                   borderRadius: 6,
-                  border: '1px solid #e2e8f0',
+                  border: "1px solid #e2e8f0",
                 }}
               >
-                <option value=''>— Категории —</option>
+                <option value="">— Категории —</option>
                 {parentOpts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -303,16 +284,12 @@ function EditCategory({
                 ))}
               </select>
             </Flex>
-            <Flex gap={2} justifyContent='flex-end'>
-              <Button
-                size='sm'
-                variant='ghost'
-                onClick={() => setOpen(false)}
-              >
+            <Flex gap={2} justifyContent="flex-end">
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
                 Отмена
               </Button>
               <Button
-                size='sm'
+                size="sm"
                 onClick={() => update.mutate()}
                 loading={update.isPending}
               >
@@ -323,25 +300,26 @@ function EditCategory({
         </Box>
       )}
     </>
-  );
+  )
 }
 
 function CategoriesList() {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
+    queryKey: ["categories"],
     queryFn: () => CategoriesService.readCategories(),
-  });
-  const parentMap = Object.fromEntries(categories.map((c) => [c.id, c.name]));
+  })
+  const parentMap = Object.fromEntries(categories.map((c) => [c.id, c.name]))
 
   const deleteCat = useMutation({
     mutationFn: (id: string) => CategoriesService.deleteCategory({ id }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
-  });
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["categories"] }),
+  })
 
-  if (categories.length === 0) return null;
+  if (categories.length === 0) return null
   return (
-    <Table.Root size='sm'>
+    <Table.Root size="sm">
       <Table.Header>
         <Table.Row>
           <Table.ColumnHeader>Название</Table.ColumnHeader>
@@ -355,26 +333,19 @@ function CategoriesList() {
             <Table.Cell>{c.name}</Table.Cell>
             <Table.Cell>
               {c.parent_id
-                ? parentMap[c.parent_id] ?? (
-                    <ShortId id={c.parent_id} />
-                  )
-                : '—'}
+                ? (parentMap[c.parent_id] ?? <ShortId id={c.parent_id} />)
+                : "—"}
             </Table.Cell>
             <Table.Cell>
               <Flex gap={2}>
-                <EditCategory
-                  category={c}
-                  categories={categories}
-                />
+                <EditCategory category={c} categories={categories} />
                 <Button
-                  size='xs'
-                  variant='ghost'
-                  colorPalette='red'
+                  size="xs"
+                  variant="ghost"
+                  colorPalette="red"
                   onClick={() => {
-                    if (
-                      window.confirm(`Удалить «${c.name}»?`)
-                    )
-                      deleteCat.mutate(c.id);
+                    if (window.confirm(`Удалить «${c.name}»?`))
+                      deleteCat.mutate(c.id)
                   }}
                   disabled={deleteCat.isPending}
                 >
@@ -386,19 +357,19 @@ function CategoriesList() {
         ))}
       </Table.Body>
     </Table.Root>
-  );
+  )
 }
 
 function AddBrand() {
-  const [name, setName] = useState('');
-  const queryClient = useQueryClient();
+  const [name, setName] = useState("")
+  const queryClient = useQueryClient()
   const create = useMutation({
     mutationFn: () => brandsApi.create({ name: name.trim() }),
     onSuccess: () => {
-      setName('');
-      queryClient.invalidateQueries({ queryKey: ['brands'] });
+      setName("")
+      queryClient.invalidateQueries({ queryKey: ["brands"] })
     },
-  });
+  })
   return (
     <Flex gap={2} mb={4} flexWrap="wrap" align="center">
       <Input
@@ -415,26 +386,25 @@ function AddBrand() {
         Добавить бренд
       </Button>
     </Flex>
-  );
+  )
 }
 
 function EditBrand({ brand }: { brand: BrandPublic }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(brand.name);
-  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState(brand.name)
+  const queryClient = useQueryClient()
   const update = useMutation({
-    mutationFn: () =>
-      brandsApi.update(brand.id, { name: name.trim() }),
+    mutationFn: () => brandsApi.update(brand.id, { name: name.trim() }),
     onSuccess: () => {
-      setOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['brands'] });
+      setOpen(false)
+      queryClient.invalidateQueries({ queryKey: ["brands"] })
     },
-  });
+  })
 
   const onOpen = () => {
-    setName(brand.name);
-    setOpen(true);
-  };
+    setName(brand.name)
+    setOpen(true)
+  }
 
   return (
     <>
@@ -494,21 +464,21 @@ function EditBrand({ brand }: { brand: BrandPublic }) {
         </Box>
       )}
     </>
-  );
+  )
 }
 
 function BrandsList() {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
   const { data: brands = [] } = useQuery({
-    queryKey: ['brands'],
+    queryKey: ["brands"],
     queryFn: () => brandsApi.list(),
-  });
+  })
   const deleteBrand = useMutation({
     mutationFn: (id: string) => brandsApi.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['brands'] }),
-  });
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["brands"] }),
+  })
 
-  if (brands.length === 0) return null;
+  if (brands.length === 0) return null
   return (
     <Table.Root size="sm">
       <Table.Header>
@@ -529,8 +499,12 @@ function BrandsList() {
                   variant="ghost"
                   colorPalette="red"
                   onClick={() => {
-                    if (window.confirm(`Удалить бренд «${b.name}»? К нему не должна быть привязана техника.`))
-                      deleteBrand.mutate(b.id);
+                    if (
+                      window.confirm(
+                        `Удалить бренд «${b.name}»? К нему не должна быть привязана техника.`,
+                      )
+                    )
+                      deleteBrand.mutate(b.id)
                   }}
                   disabled={deleteBrand.isPending}
                 >
@@ -542,19 +516,19 @@ function BrandsList() {
         ))}
       </Table.Body>
     </Table.Root>
-  );
+  )
 }
 
 function AddZone() {
-  const [name, setName] = useState('');
-  const queryClient = useQueryClient();
+  const [name, setName] = useState("")
+  const queryClient = useQueryClient()
   const create = useMutation({
     mutationFn: () => zonesApi.create({ name: name.trim() }),
     onSuccess: () => {
-      setName('');
-      queryClient.invalidateQueries({ queryKey: ['zones'] });
+      setName("")
+      queryClient.invalidateQueries({ queryKey: ["zones"] })
     },
-  });
+  })
   return (
     <Flex gap={2} mb={4} flexWrap="wrap" align="center">
       <Input
@@ -571,26 +545,25 @@ function AddZone() {
         Добавить зону
       </Button>
     </Flex>
-  );
+  )
 }
 
 function EditZone({ zone }: { zone: ZonePublic }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState(zone.name);
-  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState(zone.name)
+  const queryClient = useQueryClient()
   const update = useMutation({
-    mutationFn: () =>
-      zonesApi.update(zone.id, { name: name.trim() }),
+    mutationFn: () => zonesApi.update(zone.id, { name: name.trim() }),
     onSuccess: () => {
-      setOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['zones'] });
+      setOpen(false)
+      queryClient.invalidateQueries({ queryKey: ["zones"] })
     },
-  });
+  })
 
   const onOpen = () => {
-    setName(zone.name);
-    setOpen(true);
-  };
+    setName(zone.name)
+    setOpen(true)
+  }
 
   return (
     <>
@@ -650,21 +623,21 @@ function EditZone({ zone }: { zone: ZonePublic }) {
         </Box>
       )}
     </>
-  );
+  )
 }
 
 function ZonesList() {
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
   const { data: zones = [] } = useQuery({
-    queryKey: ['zones'],
+    queryKey: ["zones"],
     queryFn: () => zonesApi.list(),
-  });
+  })
   const deleteZone = useMutation({
     mutationFn: (id: string) => zonesApi.delete(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['zones'] }),
-  });
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["zones"] }),
+  })
 
-  if (zones.length === 0) return null;
+  if (zones.length === 0) return null
   return (
     <Table.Root size="sm">
       <Table.Header>
@@ -686,7 +659,7 @@ function ZonesList() {
                   colorPalette="red"
                   onClick={() => {
                     if (window.confirm(`Удалить зону «${z.name}»?`))
-                      deleteZone.mutate(z.id);
+                      deleteZone.mutate(z.id)
                   }}
                   disabled={deleteZone.isPending}
                 >
@@ -698,7 +671,7 @@ function ZonesList() {
         ))}
       </Table.Body>
     </Table.Root>
-  );
+  )
 }
 
 function Admin() {
@@ -720,7 +693,8 @@ function Admin() {
         Бренды техники
       </Heading>
       <Text fontSize="sm" color="fg.muted" mb={2}>
-        Справочник брендов для раздела «Техника». Создание и изменение — только для суперпользователя.
+        Справочник брендов для раздела «Техника». Создание и изменение — только
+        для суперпользователя.
       </Text>
       <AddBrand />
       <BrandsList />
@@ -729,10 +703,11 @@ function Admin() {
         Зоны склада
       </Heading>
       <Text fontSize="sm" color="fg.muted" mb={2}>
-        Справочник зон для раздела «Техника». Создание и изменение — только для суперпользователя.
+        Справочник зон для раздела «Техника». Создание и изменение — только для
+        суперпользователя.
       </Text>
       <AddZone />
       <ZonesList />
     </Container>
-  );
+  )
 }

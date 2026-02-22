@@ -1,23 +1,15 @@
-import { Table } from '@chakra-ui/react';
-import { SkeletonText } from '../ui/skeleton';
+import { Table } from "@chakra-ui/react"
+import { SkeletonText } from "../ui/skeleton.tsx"
 
 const PendingUsers = () => (
-  <Table.Root size={{ base: 'sm', md: 'md' }}>
+  <Table.Root size={{ base: "sm", md: "md" }}>
     <Table.Header>
       <Table.Row>
-        <Table.ColumnHeader w='sm'>
-          Полное имя
-        </Table.ColumnHeader>
-        <Table.ColumnHeader w='sm'>
-          Email
-        </Table.ColumnHeader>
-        <Table.ColumnHeader w='sm'>Role</Table.ColumnHeader>
-        <Table.ColumnHeader w='sm'>
-          Статус
-        </Table.ColumnHeader>
-        <Table.ColumnHeader w='sm'>
-          Действия
-        </Table.ColumnHeader>
+        <Table.ColumnHeader w="sm">Полное имя</Table.ColumnHeader>
+        <Table.ColumnHeader w="sm">Email</Table.ColumnHeader>
+        <Table.ColumnHeader w="sm">Role</Table.ColumnHeader>
+        <Table.ColumnHeader w="sm">Статус</Table.ColumnHeader>
+        <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
       </Table.Row>
     </Table.Header>
     <Table.Body>
@@ -42,6 +34,6 @@ const PendingUsers = () => (
       ))}
     </Table.Body>
   </Table.Root>
-);
+)
 
-export default PendingUsers;
+export default PendingUsers

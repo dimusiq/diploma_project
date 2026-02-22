@@ -8,61 +8,73 @@ import {
   Input,
   Table,
   VStack,
-} from '@chakra-ui/react';
-import { useQuery } from '@tanstack/react-query';
+} from "@chakra-ui/react"
+import { useQuery } from "@tanstack/react-query"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useCallback, useState } from "react"
 import {
-  createFileRoute,
-  useNavigate,
-} from '@tanstack/react-router';
-import { FiChevronDown, FiChevronUp, FiDownload, FiSearch } from 'react-icons/fi';
-import { useCallback, useState } from 'react';
-import { z } from 'zod';
+  FiChevronDown,
+  FiChevronUp,
+  FiDownload,
+  FiSearch,
+} from "react-icons/fi"
+import { z } from "zod"
 
-import { downloadItemsExport } from '@/api/exportItems';
-import { openShippingNotePdf } from '@/api/printPdf';
-import { CategoriesService, ItemsService } from '@/client';
-import { ItemActionsMenu } from '@/components/Common/ItemActionsMenu';
-import { ItemSelectionToolbar } from '@/components/Common/ItemSelectionToolbar';
-import { ShortId } from '@/components/Common/ShortId';
-import AddItem from '@/components/Items/AddItem';
-import EditItem from '@/components/Items/EditItem';
-import { MassEditItemsDialog } from '@/components/Items/MassEditItemsDialog';
-import { MoveItemsDialog } from '@/components/Items/MoveItemsDialog';
-import PendingItems from '@/components/Pending/PendingItems';
+import { downloadItemsExport } from "@/api/exportItems.ts"
+import { openShippingNotePdf } from "@/api/printPdf.ts"
+import { CategoriesService, ItemsService } from "@/client/index.ts"
+import { ItemActionsMenu } from "@/components/Common/ItemActionsMenu.tsx"
+import { ItemSelectionToolbar } from "@/components/Common/ItemSelectionToolbar.tsx"
+import { ShortId } from "@/components/Common/ShortId.tsx"
+import AddItem from "@/components/Items/AddItem.tsx"
+import EditItem from "@/components/Items/EditItem.tsx"
+import { MassEditItemsDialog } from "@/components/Items/MassEditItemsDialog.tsx"
+import { MoveItemsDialog } from "@/components/Items/MoveItemsDialog.tsx"
+import PendingItems from "@/components/Pending/PendingItems.tsx"
+import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
   MenuContent,
   MenuItem,
   MenuRoot,
   MenuTrigger,
-} from '@/components/ui/menu';
+} from "@/components/ui/menu.tsx"
 import {
   PaginationItems,
   PaginationNextTrigger,
   PaginationPrevTrigger,
   PaginationRoot,
-} from '@/components/ui/pagination.tsx';
-import { Checkbox } from '@/components/ui/checkbox';
-import useCustomToast from '@/hooks/useCustomToast';
+} from "@/components/ui/pagination.tsx"
+import useCustomToast from "@/hooks/useCustomToast.ts"
+import { useOptimisticItems } from "@/hooks/useOptimisticItems.ts"
 
 const itemsSearchSchema = z.object({
   page: z.number().catch(1),
-  search: z.string().catch(''),
-  category_id: z.string().catch(''),
-  created_at_from: z.string().catch(''),
-  created_at_to: z.string().catch(''),
-  sort_by: z.enum(['title', 'created_at', 'quantity', 'sku']).catch('created_at'),
-  sort_order: z.enum(['asc', 'desc']).catch('desc'),
+  search: z.string().catch(""),
+  category_id: z.string().catch(""),
+  created_at_from: z.string().catch(""),
+  created_at_to: z.string().catch(""),
+  sort_by: z
+    .enum(["title", "created_at", "quantity", "sku"])
+    .catch("created_at"),
+  sort_order: z.enum(["asc", "desc"]).catch("desc"),
   open: z.string().optional(),
-});
+})
 
-const PER_PAGE = 5;
+const PER_PAGE = 5
 
-type ItemsSearch = z.infer<typeof itemsSearchSchema>;
+type ItemsSearch = z.infer<typeof itemsSearchSchema>
 
-function getItemsQueryOptions(
-  params: ItemsSearch & { status?: string }
-) {
-  const { page, search, category_id, created_at_from, created_at_to, sort_by, sort_order, status } = params;
+function getItemsQueryOptions(params: ItemsSearch & { status?: string }) {
+  const {
+    page,
+    search,
+    category_id,
+    created_at_from,
+    created_at_to,
+    sort_by,
+    sort_order,
+    status,
+  } = params
   return {
     queryFn: () =>
       ItemsService.readItems({
@@ -76,112 +88,125 @@ function getItemsQueryOptions(
         sort_order: sort_order || undefined,
         status: status || undefined,
       }),
-    queryKey: ['items', params],
-  };
+    queryKey: ["items", params],
+  }
 }
 
-export const Route = createFileRoute('/_layout/items')({
+export const Route = createFileRoute("/_layout/items")({
   component: Items,
-  validateSearch: (search) =>
-    itemsSearchSchema.parse(search),
-});
+  validateSearch: (search) => itemsSearchSchema.parse(search),
+})
 
 function ItemsTable() {
-  const navigate = useNavigate({ from: Route.fullPath });
-  const { showErrorToast } = useCustomToast();
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
-  const [massEditDialogOpen, setMassEditDialogOpen] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const searchParams = Route.useSearch() as ItemsSearch;
+  const navigate = useNavigate({ from: Route.fullPath })
+  const { showErrorToast } = useCustomToast()
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false)
+  const [massEditDialogOpen, setMassEditDialogOpen] = useState(false)
+  const [isPrinting, setIsPrinting] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const searchParams = Route.useSearch() as ItemsSearch
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
+    queryKey: ["categories"],
     queryFn: () => CategoriesService.readCategories(),
-  });
+  })
 
   const { data, isLoading, isPlaceholderData } = useQuery({
     ...getItemsQueryOptions(searchParams),
     placeholderData: (prevData) => prevData,
-  });
+  })
 
   const setSearchParams = (updates: Partial<ItemsSearch>) =>
-    navigate({
-      search: (prev: ItemsSearch) => ({ ...prev, ...updates }),
-    });
+    (navigate as unknown as (opts: { search: (prev: ItemsSearch) => ItemsSearch }) => void)({
+      search: (prev) => ({ ...prev, ...updates }),
+    })
 
-  const handleSort = (field: 'title' | 'created_at' | 'quantity' | 'sku') => {
+  const handleSort = (field: "title" | "created_at" | "quantity" | "sku") => {
     setSearchParams({
       sort_by: field,
-      sort_order: searchParams.sort_by === field && searchParams.sort_order === 'desc' ? 'asc' : 'desc',
+      sort_order:
+        searchParams.sort_by === field && searchParams.sort_order === "desc"
+          ? "asc"
+          : "desc",
       page: 1,
-    });
-  };
+    })
+  }
 
-  const SortHeader = ({ field, label }: { field: 'title' | 'created_at' | 'quantity' | 'sku'; label: string }) => (
+  const SortHeader = ({
+    field,
+    label,
+  }: {
+    field: "title" | "created_at" | "quantity" | "sku"
+    label: string
+  }) => (
     <Table.ColumnHeader
       w="sm"
       cursor="pointer"
       onClick={() => handleSort(field)}
-      _hover={{ bg: 'gray.100' }}
+      _hover={{ bg: "gray.100" }}
       whiteSpace="nowrap"
     >
       {label}
-      {searchParams.sort_by === field
-        ? searchParams.sort_order === 'desc'
-          ? <Box as={FiChevronDown} display="inline" ml={1} />
-          : <Box as={FiChevronUp} display="inline" ml={1} />
-        : null}
+      {searchParams.sort_by === field ? (
+        searchParams.sort_order === "desc" ? (
+          <Box as={FiChevronDown} display="inline" ml={1} />
+        ) : (
+          <Box as={FiChevronUp} display="inline" ml={1} />
+        )
+      ) : null}
     </Table.ColumnHeader>
-  );
+  )
 
-  const items = data?.data.slice(0, PER_PAGE) ?? [];
-  const count = data?.count ?? 0;
+  const items = data?.data.slice(0, PER_PAGE) ?? []
+  const count = data?.count ?? 0
+  const [optimisticItems, addOptimisticRemove] = useOptimisticItems(items)
 
   const toggleOne = useCallback((id: string) => {
     setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const toggleAll = useCallback(() => {
-    const ids = items.map((i) => i.id);
-    const allSelected = ids.every((id) => selectedIds.has(id));
+    const ids = optimisticItems.map((i) => i.id)
+    const allSelected = ids.every((id) => selectedIds.has(id))
     setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allSelected) ids.forEach((id) => next.delete(id));
-      else ids.forEach((id) => next.add(id));
-      return next;
-    });
-  }, [items, selectedIds]);
+      const next = new Set(prev)
+      if (allSelected) ids.forEach((id) => next.delete(id))
+      else ids.forEach((id) => next.add(id))
+      return next
+    })
+  }, [optimisticItems, selectedIds])
 
-  const isAllSelected = items.length > 0 && items.every((i) => selectedIds.has(i.id));
-  const isSomeSelected = items.some((i) => selectedIds.has(i.id));
+  const isAllSelected =
+    optimisticItems.length > 0 &&
+    optimisticItems.every((i) => selectedIds.has(i.id))
+  const isSomeSelected = optimisticItems.some((i) => selectedIds.has(i.id))
 
   const handlePrintShippingNote = useCallback(async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
-    setIsPrinting(true);
+    const ids = Array.from(selectedIds)
+    if (ids.length === 0) return
+    setIsPrinting(true)
     try {
-      await openShippingNotePdf(ids);
+      await openShippingNotePdf(ids)
     } catch (e) {
-      showErrorToast(e instanceof Error ? e.message : 'Ошибка печати накладной');
+      showErrorToast(e instanceof Error ? e.message : "Ошибка печати накладной")
     } finally {
-      setIsPrinting(false);
+      setIsPrinting(false)
     }
-  }, [selectedIds, showErrorToast]);
+  }, [selectedIds, showErrorToast])
 
   const handleMoveSuccess = useCallback(() => {
-    setSelectedIds(new Set());
-  }, []);
+    setSelectedIds(new Set())
+  }, [])
 
   const handleExport = useCallback(
-    async (format: 'csv' | 'xlsx') => {
-      setIsExporting(true);
+    async (format: "csv" | "xlsx") => {
+      setIsExporting(true)
       try {
         await downloadItemsExport({
           format,
@@ -190,18 +215,18 @@ function ItemsTable() {
           category_id: searchParams.category_id || undefined,
           created_at_from: searchParams.created_at_from || undefined,
           created_at_to: searchParams.created_at_to || undefined,
-        });
+        })
       } catch (e) {
-        showErrorToast(e instanceof Error ? e.message : 'Ошибка выгрузки');
+        showErrorToast(e instanceof Error ? e.message : "Ошибка выгрузки")
       } finally {
-        setIsExporting(false);
+        setIsExporting(false)
       }
     },
-    [searchParams, showErrorToast]
-  );
+    [searchParams, showErrorToast],
+  )
 
   if (isLoading) {
-    return <PendingItems />;
+    return <PendingItems />
   }
 
   const hasActiveFilters = !!(
@@ -209,23 +234,25 @@ function ItemsTable() {
     searchParams.category_id ||
     searchParams.created_at_from ||
     searchParams.created_at_to
-  );
+  )
 
-  if (items.length === 0) {
+  if (optimisticItems.length === 0) {
     return (
       <EmptyState.Root>
         <EmptyState.Content>
           <EmptyState.Indicator>
             <FiSearch />
           </EmptyState.Indicator>
-          <VStack textAlign='center' gap={3}>
+          <VStack textAlign="center" gap={3}>
             <EmptyState.Title>
-              {hasActiveFilters ? 'Ничего не найдено по заданным фильтрам' : 'Нет добавленных слотов'}
+              {hasActiveFilters
+                ? "Ничего не найдено по заданным фильтрам"
+                : "Нет добавленных слотов"}
             </EmptyState.Title>
             <EmptyState.Description>
               {hasActiveFilters
-                ? 'Измените условия поиска или сбросьте фильтры.'
-                : 'Добавьте слоты, чтобы они отображались здесь.'}
+                ? "Измените условия поиска или сбросьте фильтры."
+                : "Добавьте слоты, чтобы они отображались здесь."}
             </EmptyState.Description>
             {hasActiveFilters && (
               <Button
@@ -233,10 +260,10 @@ function ItemsTable() {
                 variant="outline"
                 onClick={() =>
                   setSearchParams({
-                    search: '',
-                    category_id: '',
-                    created_at_from: '',
-                    created_at_to: '',
+                    search: "",
+                    category_id: "",
+                    created_at_from: "",
+                    created_at_to: "",
                     page: 1,
                   })
                 }
@@ -247,7 +274,7 @@ function ItemsTable() {
           </VStack>
         </EmptyState.Content>
       </EmptyState.Root>
-    );
+    )
   }
 
   return (
@@ -270,13 +297,15 @@ function ItemsTable() {
         />
         <select
           value={searchParams.category_id}
-          onChange={(e) => setSearchParams({ category_id: e.target.value, page: 1 })}
+          onChange={(e) =>
+            setSearchParams({ category_id: e.target.value, page: 1 })
+          }
           style={{
-            padding: '6px 10px',
-            borderRadius: '6px',
-            border: '1px solid var(--chakra-colors-border)',
-            minWidth: '160px',
-            fontSize: '14px',
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid var(--chakra-colors-border)",
+            minWidth: "160px",
+            fontSize: "14px",
           }}
         >
           <option value="">Все категории</option>
@@ -291,7 +320,9 @@ function ItemsTable() {
           size="sm"
           maxW="40"
           value={searchParams.created_at_from}
-          onChange={(e) => setSearchParams({ created_at_from: e.target.value, page: 1 })}
+          onChange={(e) =>
+            setSearchParams({ created_at_from: e.target.value, page: 1 })
+          }
           placeholder="Дата от"
         />
         <Input
@@ -299,7 +330,9 @@ function ItemsTable() {
           size="sm"
           maxW="40"
           value={searchParams.created_at_to}
-          onChange={(e) => setSearchParams({ created_at_to: e.target.value, page: 1 })}
+          onChange={(e) =>
+            setSearchParams({ created_at_to: e.target.value, page: 1 })
+          }
           placeholder="Дата до"
         />
         <MenuRoot>
@@ -312,70 +345,91 @@ function ItemsTable() {
             </Button>
           </MenuTrigger>
           <MenuContent>
-            <MenuItem value="csv" onClick={() => handleExport('csv')}>
+            <MenuItem value="csv" onClick={() => handleExport("csv")}>
               CSV
             </MenuItem>
-            <MenuItem value="xlsx" onClick={() => handleExport('xlsx')}>
+            <MenuItem value="xlsx" onClick={() => handleExport("xlsx")}>
               Excel
             </MenuItem>
           </MenuContent>
         </MenuRoot>
       </Flex>
       <Box overflowX="auto" w="100%">
-      <Table.Root size={{ base: 'sm', md: 'md' }} minW={{ base: '800px' }}>
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader w='xs'>
-              <Checkbox
-                checked={isAllSelected ? true : isSomeSelected ? 'indeterminate' : false}
-                onCheckedChange={toggleAll}
-                aria-label="Выбрать все"
-              />
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>ID</Table.ColumnHeader>
-            <SortHeader field="title" label="Название" />
-            <Table.ColumnHeader w='sm'>Описание</Table.ColumnHeader>
-            <SortHeader field="quantity" label="Кол-во" />
-            <SortHeader field="sku" label="Артикул" />
-            <Table.ColumnHeader w='xs'>Ед.</Table.ColumnHeader>
-            <Table.ColumnHeader w='sm'>Категория</Table.ColumnHeader>
-            <SortHeader field="created_at" label="Дата" />
-            <Table.ColumnHeader w='sm'>Действия</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {items?.map((item) => (
-            <Table.Row key={item.id} opacity={isPlaceholderData ? 0.5 : 1}>
-              <Table.Cell>
+        <Table.Root size={{ base: "sm", md: "md" }} minW={{ base: "800px" }}>
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader w="xs">
                 <Checkbox
-                  checked={selectedIds.has(item.id)}
-                  onCheckedChange={() => toggleOne(item.id)}
-                  aria-label={`Выбрать ${item.title}`}
+                  checked={
+                    isAllSelected
+                      ? true
+                      : isSomeSelected
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={toggleAll}
+                  aria-label="Выбрать все"
                 />
-              </Table.Cell>
-              <Table.Cell truncate maxW='sm'><ShortId id={item.id} /></Table.Cell>
-              <Table.Cell truncate maxW='sm'>{item.title}</Table.Cell>
-              <Table.Cell color={!item.description ? 'gray' : 'inherit'} truncate maxW='30%'>
-                {item.description || 'N/A'}
-              </Table.Cell>
-              <Table.Cell>{item.quantity ?? 1}</Table.Cell>
-              <Table.Cell truncate maxW='sm'>{item.sku || '—'}</Table.Cell>
-              <Table.Cell>{item.unit || '—'}</Table.Cell>
-              <Table.Cell truncate maxW='sm'>
-                {item.category_id ? categories.find((c) => c.id === item.category_id)?.name ?? '—' : '—'}
-              </Table.Cell>
-              <Table.Cell whiteSpace="nowrap">
-                {item.created_at ? new Date(item.created_at).toLocaleDateString('ru-RU') : '—'}
-              </Table.Cell>
-              <Table.Cell>
-                <ItemActionsMenu item={item} />
-              </Table.Cell>
+              </Table.ColumnHeader>
+              <Table.ColumnHeader w="sm">ID</Table.ColumnHeader>
+              <SortHeader field="title" label="Название" />
+              <Table.ColumnHeader w="sm">Описание</Table.ColumnHeader>
+              <SortHeader field="quantity" label="Кол-во" />
+              <SortHeader field="sku" label="Артикул" />
+              <Table.ColumnHeader w="xs">Ед.</Table.ColumnHeader>
+              <Table.ColumnHeader w="sm">Категория</Table.ColumnHeader>
+              <SortHeader field="created_at" label="Дата" />
+              <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
             </Table.Row>
-          ))}
-        </Table.Body>
-      </Table.Root>
+          </Table.Header>
+          <Table.Body>
+            {optimisticItems.map((item) => (
+              <Table.Row key={item.id} opacity={isPlaceholderData ? 0.5 : 1}>
+                <Table.Cell>
+                  <Checkbox
+                    checked={selectedIds.has(item.id)}
+                    onCheckedChange={() => toggleOne(item.id)}
+                    aria-label={`Выбрать ${item.title}`}
+                  />
+                </Table.Cell>
+                <Table.Cell truncate maxW="sm">
+                  <ShortId id={item.id} />
+                </Table.Cell>
+                <Table.Cell truncate maxW="sm">
+                  {item.title}
+                </Table.Cell>
+                <Table.Cell
+                  color={!item.description ? "gray" : "inherit"}
+                  truncate
+                  maxW="30%"
+                >
+                  {item.description || "N/A"}
+                </Table.Cell>
+                <Table.Cell>{item.quantity ?? 1}</Table.Cell>
+                <Table.Cell truncate maxW="sm">
+                  {item.sku || "—"}
+                </Table.Cell>
+                <Table.Cell>{item.unit || "—"}</Table.Cell>
+                <Table.Cell truncate maxW="sm">
+                  {item.category_id
+                    ? (categories.find((c) => c.id === item.category_id)
+                        ?.name ?? "—")
+                    : "—"}
+                </Table.Cell>
+                <Table.Cell whiteSpace="nowrap">
+                  {item.created_at
+                    ? new Date(item.created_at).toLocaleDateString("ru-RU")
+                    : "—"}
+                </Table.Cell>
+                <Table.Cell>
+                  <ItemActionsMenu item={item} />
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table.Root>
       </Box>
-      <Flex justifyContent='flex-end' mt={4}>
+      <Flex justifyContent="flex-end" mt={4}>
         <PaginationRoot
           count={count}
           pageSize={PER_PAGE}
@@ -392,8 +446,11 @@ function ItemsTable() {
         open={moveDialogOpen}
         onOpenChange={setMoveDialogOpen}
         selectedIds={Array.from(selectedIds)}
-        selectedItems={items.filter((i) => selectedIds.has(i.id)).map((i) => ({ id: i.id, status: i.status }))}
+        selectedItems={optimisticItems
+          .filter((i) => selectedIds.has(i.id))
+          .map((i) => ({ id: i.id, status: i.status }))}
         onSuccess={handleMoveSuccess}
+        onOptimisticRemove={addOptimisticRemove}
       />
       <MassEditItemsDialog
         open={massEditDialogOpen}
@@ -402,27 +459,29 @@ function ItemsTable() {
         onSuccess={handleMoveSuccess}
       />
     </>
-  );
+  )
 }
 
 function Items() {
-  const searchParams = Route.useSearch() as ItemsSearch;
-  const navigate = useNavigate({ from: Route.fullPath });
-  const openItemId = searchParams.open;
+  const searchParams = Route.useSearch() as ItemsSearch
+  const navigate = useNavigate({ from: Route.fullPath })
+  const openItemId = searchParams.open
 
   const { data: openItem } = useQuery({
-    queryKey: ['item', openItemId],
+    queryKey: ["item", openItemId],
     queryFn: () => ItemsService.readItem({ id: openItemId! }),
     enabled: Boolean(openItemId),
-  });
+  })
 
   const clearOpenParam = useCallback(() => {
-    navigate({ search: (prev: ItemsSearch) => ({ ...prev, open: undefined }) });
-  }, [navigate]);
+    (navigate as unknown as (opts: { search: (prev: ItemsSearch) => ItemsSearch }) => void)({
+      search: (prev) => ({ ...prev, open: undefined }),
+    })
+  }, [navigate])
 
   return (
-    <Container maxW='full'>
-      <Heading size='lg' pt={12}>
+    <Container maxW="full">
+      <Heading size="lg" pt={12}>
         Поступления
       </Heading>
       <AddItem />
@@ -432,10 +491,10 @@ function Items() {
           item={openItem}
           open={true}
           onOpenChange={({ open }) => {
-            if (!open) clearOpenParam();
+            if (!open) clearOpenParam()
           }}
         />
       )}
     </Container>
-  );
+  )
 }

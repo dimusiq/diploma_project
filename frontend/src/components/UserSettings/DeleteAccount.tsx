@@ -1,6 +1,6 @@
 import { Container, Heading, Text } from "@chakra-ui/react"
 
-import DeleteConfirmation from "./DeleteConfirmation"
+import DeleteConfirmation from "./DeleteConfirmation.tsx"
 
 const DeleteAccount = () => {
   return (

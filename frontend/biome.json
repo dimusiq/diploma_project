@@ -1,26 +1,42 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.6.1/schema.json",
-  "organizeImports": {
-    "enabled": true
+  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
   },
   "files": {
-    "ignore": [
-      "node_modules",
-      "src/routeTree.gen.ts",
-      "playwright.config.ts",
-      "playwright-report"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/src/routeTree.gen.ts",
+      "!**/src/client",
+      "!**/playwright.config.ts",
+      "!**/playwright-report"
     ]
   },
   "linter": {
     "enabled": true,
+    "domains": {
+      "react": "recommended"
+    },
     "rules": {
       "recommended": true,
       "suspicious": {
         "noExplicitAny": "off",
-        "noArrayIndexKey": "off"
+        "noArrayIndexKey": "off",
+        "useIterableCallbackReturn": "off"
       },
       "style": {
         "noNonNullAssertion": "off"
+      },
+      "complexity": {
+        "noCommaOperator": "off"
+      },
+      "a11y": {
+        "noStaticElementInteractions": "off"
       }
     }
   },
@@ -31,6 +47,7 @@
     "formatter": {
       "quoteStyle": "double",
       "semicolons": "asNeeded"
-    }
+    },
+    "experimentalEmbeddedSnippetsEnabled": true
   }
 }

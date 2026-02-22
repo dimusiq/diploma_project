@@ -14,6 +14,12 @@ from app.models import (
     EquipmentList,
     EquipmentPublic,
     EquipmentUpdate,
+    MaintenanceRecord,
+    MaintenanceRecordCreate,
+    MaintenanceRecordList,
+    MaintenanceRecordListWithEquipment,
+    MaintenanceRecordPublic,
+    MaintenanceRecordWithEquipmentPublic,
     Message,
 )
 
@@ -34,6 +40,7 @@ def _equipment_to_public(eq: Equipment, brand: Brand | None = None) -> Equipment
         equipment_type=eq.equipment_type,
         vin=eq.vin,
         serial_number=eq.serial_number,
+        garage_number=eq.garage_number,
         brand_id=eq.brand_id,
         brand_name=name,
         model=eq.model,
@@ -73,6 +80,7 @@ def read_equipment_list(
         cond = (
             Equipment.vin.ilike(q)
             | Equipment.serial_number.ilike(q)
+            | Equipment.garage_number.ilike(q)
             | Brand.name.ilike(q)
             | Equipment.model.ilike(q)
         )
@@ -93,6 +101,115 @@ def read_equipment_list(
     rows = list(session.exec(statement).all())
     items = [_equipment_to_public(eq, brand) for eq, brand in rows]
     return EquipmentList(data=items, count=count)
+
+
+@router.get("/maintenance-records", response_model=MaintenanceRecordListWithEquipment)
+def read_all_maintenance_records(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    equipment_id: uuid.UUID | None = Query(None, description="Фильтр по единице техники"),
+) -> Any:
+    """Общий список проведённых ТО (для раздела «Рабочие заказы»)."""
+    statement = (
+        select(MaintenanceRecord, Equipment, Brand)
+        .join(Equipment, MaintenanceRecord.equipment_id == Equipment.id)
+        .join(Brand, Equipment.brand_id == Brand.id)
+        .where(Equipment.equipment_type.in_(EQUIPMENT_TYPES))
+    )
+    count_statement = (
+        select(func.count())
+        .select_from(MaintenanceRecord)
+        .join(Equipment, MaintenanceRecord.equipment_id == Equipment.id)
+        .where(Equipment.equipment_type.in_(EQUIPMENT_TYPES))
+    )
+    if equipment_id is not None:
+        statement = statement.where(MaintenanceRecord.equipment_id == equipment_id)
+        count_statement = count_statement.where(MaintenanceRecord.equipment_id == equipment_id)
+
+    count = session.exec(count_statement).one()
+    statement = (
+        statement.order_by(MaintenanceRecord.performed_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    rows = list(session.exec(statement).all())
+    items = [
+        MaintenanceRecordWithEquipmentPublic(
+            id=r.id,
+            equipment_id=r.equipment_id,
+            equipment_name=f"{brand.name} {eq.model}".strip(),
+            performed_at=r.performed_at,
+            engine_hours_at_service=r.engine_hours_at_service,
+            interval_hours=r.interval_hours,
+            comment=r.comment,
+        )
+        for r, eq, brand in rows
+    ]
+    return MaintenanceRecordListWithEquipment(data=items, count=count)
+
+
+@router.get("/{equipment_id}/maintenance-records", response_model=MaintenanceRecordList)
+def read_equipment_maintenance_records(
+    session: SessionDep,
+    current_user: CurrentUser,
+    equipment_id: uuid.UUID,
+) -> Any:
+    """Список проведённых ТО по единице техники."""
+    equipment = _get_or_404(session, equipment_id)
+    if equipment.equipment_type not in EQUIPMENT_TYPES:
+        raise HTTPException(status_code=404, detail="Техника не найдена")
+    statement = (
+        select(MaintenanceRecord)
+        .where(MaintenanceRecord.equipment_id == equipment_id)
+        .order_by(MaintenanceRecord.performed_at.desc())
+    )
+    records = list(session.exec(statement).all())
+    count = len(records)
+    items = [
+        MaintenanceRecordPublic(
+            id=r.id,
+            equipment_id=r.equipment_id,
+            performed_at=r.performed_at,
+            engine_hours_at_service=r.engine_hours_at_service,
+            interval_hours=r.interval_hours,
+            comment=r.comment,
+        )
+        for r in records
+    ]
+    return MaintenanceRecordList(data=items, count=count)
+
+
+@router.post("/{equipment_id}/maintenance-records", response_model=MaintenanceRecordPublic)
+def create_maintenance_record(
+    session: SessionDep,
+    current_user: CurrentUser,
+    equipment_id: uuid.UUID,
+    body: MaintenanceRecordCreate,
+) -> Any:
+    """Создать запись о проведённом ТО по единице техники."""
+    equipment = _get_or_404(session, equipment_id)
+    if equipment.equipment_type not in EQUIPMENT_TYPES:
+        raise HTTPException(status_code=404, detail="Техника не найдена")
+    record = MaintenanceRecord(
+        equipment_id=equipment_id,
+        performed_at=body.performed_at,
+        engine_hours_at_service=body.engine_hours_at_service,
+        interval_hours=body.interval_hours,
+        comment=body.comment,
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return MaintenanceRecordPublic(
+        id=record.id,
+        equipment_id=record.equipment_id,
+        performed_at=record.performed_at,
+        engine_hours_at_service=record.engine_hours_at_service,
+        interval_hours=record.interval_hours,
+        comment=record.comment,
+    )
 
 
 @router.get("/{id}", response_model=EquipmentPublic)

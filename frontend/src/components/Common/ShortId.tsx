@@ -1,13 +1,13 @@
-const DEFAULT_LENGTH = 8;
+const DEFAULT_LENGTH = 8
 
 function shortId(id: string, length: number = DEFAULT_LENGTH): string {
-  if (!id || id.length <= length) return id;
-  return id.slice(-length);
+  if (!id || id.length <= length) return id
+  return id.slice(-length)
 }
 
 interface ShortIdProps {
-  id: string;
-  length?: number;
+  id: string
+  length?: number
 }
 
 /**
@@ -15,5 +15,5 @@ interface ShortIdProps {
  * Полный ID отображается в title при наведении.
  */
 export function ShortId({ id, length = DEFAULT_LENGTH }: ShortIdProps) {
-  return <span title={id}>{shortId(id, length)}</span>;
+  return <span title={id}>{shortId(id, length)}</span>
 }

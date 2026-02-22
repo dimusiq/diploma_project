@@ -1,6 +1,3 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { type SubmitHandler, useForm } from "react-hook-form"
-
 import {
   Button,
   DialogActionTrigger,
@@ -10,13 +7,14 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
+import { type SubmitHandler, useForm } from "react-hook-form"
 import { FaPlus } from "react-icons/fa"
-
-import { CategoriesService, type ItemCreate, ItemsService } from "@/client"
-import type { ApiError } from "@/client/core/ApiError"
-import useCustomToast from "@/hooks/useCustomToast"
-import { handleError } from "@/utils"
+import type { ApiError } from "@/client/core/ApiError.ts"
+import { CategoriesService, type ItemCreate, ItemsService } from "@/client/index.ts"
+import useCustomToast from "@/hooks/useCustomToast.ts"
+import { handleError } from "@/utils.ts"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -25,8 +23,8 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTrigger,
-} from "../ui/dialog"
-import { Field } from "../ui/field"
+} from "../ui/dialog.tsx"
+import { Field } from "../ui/field.tsx"
 
 const STORAGE_ROWS = 12
 const STORAGE_LEVELS = 4
@@ -86,13 +84,19 @@ const AddItem = () => {
 
   const onSubmit: SubmitHandler<ItemCreate> = (data) => {
     const hasStorage =
-      data.storage_row != null && data.storage_level != null &&
+      data.storage_row != null &&
+      data.storage_level != null &&
       data.storage_cell_x != null
     const body: ItemCreate = {
       ...data,
-      quantity: (typeof data.quantity === "number" && data.quantity >= 1) ? data.quantity : 1,
-      category_id: data.category_id && data.category_id !== "" ? data.category_id : null,
-      expires_at: data.expires_at && data.expires_at !== "" ? data.expires_at : null,
+      quantity:
+        typeof data.quantity === "number" && data.quantity >= 1
+          ? data.quantity
+          : 1,
+      category_id:
+        data.category_id && data.category_id !== "" ? data.category_id : null,
+      expires_at:
+        data.expires_at && data.expires_at !== "" ? data.expires_at : null,
       storage_row: hasStorage ? data.storage_row : null,
       storage_level: hasStorage ? data.storage_level : null,
       storage_cell_x: hasStorage ? data.storage_cell_x : null,
@@ -166,7 +170,11 @@ const AddItem = () => {
                 />
               </Field>
 
-              <Field invalid={!!errors.sku} errorText={errors.sku?.message} label="Артикул (SKU)">
+              <Field
+                invalid={!!errors.sku}
+                errorText={errors.sku?.message}
+                label="Артикул (SKU)"
+              >
                 <Input
                   id="sku"
                   {...register("sku")}
@@ -175,7 +183,11 @@ const AddItem = () => {
                 />
               </Field>
 
-              <Field invalid={!!errors.barcode} errorText={errors.barcode?.message} label="Штрихкод">
+              <Field
+                invalid={!!errors.barcode}
+                errorText={errors.barcode?.message}
+                label="Штрихкод"
+              >
                 <Input
                   id="barcode"
                   {...register("barcode")}
@@ -184,7 +196,11 @@ const AddItem = () => {
                 />
               </Field>
 
-              <Field invalid={!!errors.unit} errorText={errors.unit?.message} label="Ед. измерения">
+              <Field
+                invalid={!!errors.unit}
+                errorText={errors.unit?.message}
+                label="Ед. измерения"
+              >
                 <Input
                   id="unit"
                   {...register("unit")}
@@ -214,7 +230,11 @@ const AddItem = () => {
                 </select>
               </Field>
 
-              <Field invalid={!!errors.expires_at} errorText={errors.expires_at?.message} label="Срок годности">
+              <Field
+                invalid={!!errors.expires_at}
+                errorText={errors.expires_at?.message}
+                label="Срок годности"
+              >
                 <Input
                   id="expires_at"
                   {...register("expires_at")}
@@ -222,12 +242,16 @@ const AddItem = () => {
                 />
               </Field>
 
-              <Text fontSize="sm" fontWeight="medium" mt={2}>Ячейка хранения (склад)</Text>
+              <Text fontSize="sm" fontWeight="medium" mt={2}>
+                Ячейка хранения (склад)
+              </Text>
               <Flex gap={3} flexWrap="wrap">
                 <Field label="Ряд (1–12)">
                   <select
                     id="storage_row"
-                    {...register("storage_row", { setValueAs: (v) => (v === "" ? null : Number(v)) })}
+                    {...register("storage_row", {
+                      setValueAs: (v) => (v === "" ? null : Number(v)),
+                    })}
                     style={{
                       width: "100%",
                       minWidth: "80px",
@@ -237,15 +261,21 @@ const AddItem = () => {
                     }}
                   >
                     <option value="">—</option>
-                    {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
+                    {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
+                      (n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ),
+                    )}
                   </select>
                 </Field>
                 <Field label="Уровень (1–4)">
                   <select
                     id="storage_level"
-                    {...register("storage_level", { setValueAs: (v) => (v === "" ? null : Number(v)) })}
+                    {...register("storage_level", {
+                      setValueAs: (v) => (v === "" ? null : Number(v)),
+                    })}
                     style={{
                       width: "100%",
                       minWidth: "80px",
@@ -255,15 +285,22 @@ const AddItem = () => {
                     }}
                   >
                     <option value="">—</option>
-                    {Array.from({ length: STORAGE_LEVELS }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>{n}</option>
+                    {Array.from(
+                      { length: STORAGE_LEVELS },
+                      (_, i) => i + 1,
+                    ).map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
                     ))}
                   </select>
                 </Field>
                 <Field label="Позиция в ряду (1–20)">
                   <select
                     id="storage_cell_x"
-                    {...register("storage_cell_x", { setValueAs: (v) => (v === "" ? null : Number(v)) })}
+                    {...register("storage_cell_x", {
+                      setValueAs: (v) => (v === "" ? null : Number(v)),
+                    })}
                     style={{
                       width: "100%",
                       minWidth: "100px",
@@ -273,14 +310,23 @@ const AddItem = () => {
                     }}
                   >
                     <option value="">—</option>
-                    {Array.from({ length: STORAGE_CELLS_LENGTH }, (_, i) => i + 1).map((n) => (
-                      <option key={n} value={n}>{n}</option>
+                    {Array.from(
+                      { length: STORAGE_CELLS_LENGTH },
+                      (_, i) => i + 1,
+                    ).map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
                     ))}
                   </select>
                 </Field>
               </Flex>
 
-              <Field invalid={!!errors.location} errorText={errors.location?.message} label="Зона / примечание">
+              <Field
+                invalid={!!errors.location}
+                errorText={errors.location?.message}
+                label="Зона / примечание"
+              >
                 <Input
                   id="location"
                   {...register("location")}
@@ -293,11 +339,20 @@ const AddItem = () => {
 
           <DialogFooter gap={2}>
             <DialogActionTrigger asChild>
-              <Button variant="subtle" colorPalette="gray" disabled={isSubmitting}>
+              <Button
+                variant="subtle"
+                colorPalette="gray"
+                disabled={isSubmitting}
+              >
                 Отмена
               </Button>
             </DialogActionTrigger>
-            <Button variant="solid" type="submit" disabled={!isValid} loading={isSubmitting}>
+            <Button
+              variant="solid"
+              type="submit"
+              disabled={!isValid}
+              loading={isSubmitting}
+            >
               Сохранить
             </Button>
           </DialogFooter>

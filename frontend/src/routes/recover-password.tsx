@@ -1,122 +1,99 @@
-import {
-  Container,
-  Heading,
-  Input,
-  Text,
-} from '@chakra-ui/react';
-import { useMutation } from '@tanstack/react-query';
-import {
-  createFileRoute,
-  redirect,
-} from '@tanstack/react-router';
-import {
-  type SubmitHandler,
-  useForm,
-} from 'react-hook-form';
-import { FiMail } from 'react-icons/fi';
+import { Container, Heading, Input, Text } from "@chakra-ui/react"
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import { useActionState, useEffect } from "react"
+import { FiMail } from "react-icons/fi"
 
-import { type ApiError, LoginService } from '@/client';
-import { Button } from '@/components/ui/button';
-import { Field } from '@/components/ui/field';
-import { InputGroup } from '@/components/ui/input-group';
-import { isLoggedIn } from '@/hooks/useAuth';
-import useCustomToast from '@/hooks/useCustomToast';
-import { emailPattern, handleError } from '@/utils';
+import { LoginService } from "@/client/index.ts"
+import { Button } from "@/components/ui/button.tsx"
+import { Field } from "@/components/ui/field.tsx"
+import { InputGroup } from "@/components/ui/input-group.tsx"
+import { isLoggedIn } from "@/hooks/useAuth.ts"
+import useCustomToast from "@/hooks/useCustomToast.ts"
+import { getApiErrorMessage } from "@/utils.ts"
 
-interface FormData {
-  email: string;
-}
-
-export const Route = createFileRoute('/recover-password')({
+export const Route = createFileRoute("/recover-password")({
   component: RecoverPassword,
   beforeLoad: async () => {
     if (isLoggedIn()) {
       throw redirect({
-        to: '/',
-      });
+        to: "/",
+      })
     }
   },
-});
+})
+
+type RecoverState = { error: string | null; success: boolean }
+
+async function recoverAction(
+  _prevState: RecoverState,
+  formData: FormData,
+): Promise<RecoverState> {
+  const email = (formData.get("email") as string)?.trim()
+  if (!email) {
+    return { error: "Введите email", success: false }
+  }
+  try {
+    await LoginService.recoverPassword({ email })
+    return { error: null, success: true }
+  } catch (err) {
+    return { error: getApiErrorMessage(err), success: false }
+  }
+}
 
 function RecoverPassword() {
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>();
-  const { showSuccessToast } = useCustomToast();
+  const { showSuccessToast } = useCustomToast()
+  const [state, formAction, isPending] = useActionState(recoverAction, {
+    error: null,
+    success: false,
+  } as RecoverState)
 
-  const recoverPassword = async (data: FormData) => {
-    await LoginService.recoverPassword({
-      email: data.email,
-    });
-  };
-
-  const mutation = useMutation({
-    mutationFn: recoverPassword,
-    onSuccess: () => {
-      showSuccessToast(
-        'Пароль успешно отправлен на email.'
-      );
-      reset();
-    },
-    onError: (err: ApiError) => {
-      handleError(err);
-    },
-  });
-
-  const onSubmit: SubmitHandler<FormData> = async (
-    data
-  ) => {
-    mutation.mutate(data);
-  };
+  useEffect(() => {
+    if (state.success) {
+      showSuccessToast("Пароль успешно отправлен на email.")
+    }
+  }, [state.success, showSuccessToast])
 
   return (
     <Container
-      as='form'
-      onSubmit={handleSubmit(onSubmit)}
-      h='100vh'
-      maxW='sm'
-      alignItems='stretch'
-      justifyContent='center'
+      h="100vh"
+      maxW="sm"
+      alignItems="stretch"
+      justifyContent="center"
       gap={4}
       centerContent
     >
-      <Heading
-        size='xl'
-        color='ui.main'
-        textAlign='center'
-        mb={2}
+      <form
+        action={formAction}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+          gap: "1rem",
+          width: "100%",
+        }}
       >
+      <Heading size="xl" color="ui.main" textAlign="center" mb={2}>
         Восстановление пароля
       </Heading>
-      <Text textAlign='center'>
+      <Text textAlign="center">
         Пароль будет отправлен на указанный вами email.
       </Text>
-      <Field
-        invalid={!!errors.email}
-        errorText={errors.email?.message}
-      >
-        <InputGroup w='100%' startElement={<FiMail />}>
+      <Field invalid={!!state.error} errorText={state.error ?? undefined}>
+        <InputGroup w="100%" startElement={<FiMail />}>
           <Input
-            id='email'
-            {...register('email', {
-              required: 'Email обязателен для заполнения',
-              pattern: emailPattern,
-            })}
-            placeholder='Email'
-            type='email'
+            id="email"
+            name="email"
+            placeholder="Email"
+            type="email"
+            required
+            autoComplete="email"
           />
         </InputGroup>
       </Field>
-      <Button
-        variant='solid'
-        type='submit'
-        loading={isSubmitting}
-      >
+      <Button variant="solid" type="submit" loading={isPending}>
         Продолжить
       </Button>
+      </form>
     </Container>
-  );
+  )
 }

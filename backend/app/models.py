@@ -266,6 +266,7 @@ class Equipment(SQLModel, table=True):
     equipment_type: str = Field(max_length=32)
     vin: str | None = Field(default=None, max_length=64)
     serial_number: str | None = Field(default=None, max_length=128)
+    garage_number: str | None = Field(default=None, max_length=64)
     brand_id: uuid.UUID = Field(foreign_key="brand.id", ondelete="RESTRICT")
     model: str = Field(max_length=128)
     commissioned_at: date | None = None
@@ -284,6 +285,7 @@ class EquipmentCreate(SQLModel):
     equipment_type: str = Field(max_length=32)
     vin: str | None = None
     serial_number: str | None = None
+    garage_number: str | None = None
     brand_id: uuid.UUID
     model: str = Field(min_length=1, max_length=128)
     commissioned_at: date | None = None
@@ -298,6 +300,7 @@ class EquipmentUpdate(SQLModel):
     equipment_type: str | None = Field(default=None, max_length=32)
     vin: str | None = None
     serial_number: str | None = None
+    garage_number: str | None = None
     brand_id: uuid.UUID | None = None
     model: str | None = Field(default=None, min_length=1, max_length=128)
     commissioned_at: date | None = None
@@ -313,6 +316,7 @@ class EquipmentPublic(SQLModel):
     equipment_type: str
     vin: str | None
     serial_number: str | None
+    garage_number: str | None
     brand_id: uuid.UUID
     brand_name: str
     model: str
@@ -327,6 +331,53 @@ class EquipmentPublic(SQLModel):
 
 class EquipmentList(SQLModel):
     data: list[EquipmentPublic]
+    count: int
+
+
+# --- MaintenanceRecord (проведённое ТО по единице техники) ---
+class MaintenanceRecord(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    equipment_id: uuid.UUID = Field(foreign_key="equipment.id", ondelete="CASCADE")
+    performed_at: date = Field(description="Дата проведения ТО")
+    engine_hours_at_service: int | None = Field(default=None, ge=0, description="Моточасы на момент проведения")
+    interval_hours: int = Field(ge=1, description="Интервал ТО в моточасах (500, 1000 и т.д.)")
+    comment: str | None = Field(default=None, max_length=512)
+
+
+class MaintenanceRecordCreate(SQLModel):
+    performed_at: date
+    engine_hours_at_service: int | None = None
+    interval_hours: int = Field(ge=1)
+    comment: str | None = None
+
+
+class MaintenanceRecordPublic(SQLModel):
+    id: uuid.UUID
+    equipment_id: uuid.UUID
+    performed_at: date
+    engine_hours_at_service: int | None
+    interval_hours: int
+    comment: str | None
+
+
+class MaintenanceRecordList(SQLModel):
+    data: list[MaintenanceRecordPublic]
+    count: int
+
+
+class MaintenanceRecordWithEquipmentPublic(SQLModel):
+    """Запись ТО с отображаемым названием техники для общего списка."""
+    id: uuid.UUID
+    equipment_id: uuid.UUID
+    equipment_name: str  # brand + model
+    performed_at: date
+    engine_hours_at_service: int | None
+    interval_hours: int
+    comment: str | None
+
+
+class MaintenanceRecordListWithEquipment(SQLModel):
+    data: list[MaintenanceRecordWithEquipmentPublic]
     count: int
 
 
