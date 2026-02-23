@@ -94,7 +94,7 @@ def get_dashboard_trends(
     current_user: CurrentUser,
     from_date: date | None = Query(None, alias="from"),
     to_date: date | None = Query(None, alias="to"),
-    group_by: str = Query("day", regex="^(day|week)$"),
+    group_by: str = Query("day", pattern="^(day|week)$"),
 ) -> Any:
     """
     Тренды: поступления (создание товара) и отгрузки (переход в shipped) по дням или неделям.

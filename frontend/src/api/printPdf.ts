@@ -3,41 +3,15 @@
  * Открывает PDF в новой вкладке (с учётом авторизации).
  */
 
-import { OpenAPI } from "@/client/index.ts"
-import { getAccessToken } from "@/lib/authStorage.ts"
-
-function getApiBase(): string {
-  return OpenAPI.BASE || "http://localhost:8000"
-}
+import { request } from "@/lib/apiClient.ts"
 
 /**
  * Открыть PDF этикетки товара в новой вкладке (со штрихкодом при наличии barcode).
  */
 export async function openLabelPdf(itemId: string): Promise<void> {
-  const token = getAccessToken() ?? ""
-  const base = getApiBase()
-  const url = `${base}/api/v1/items/${itemId}/label-pdf`
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const blob = await request<Blob>(`/api/v1/items/${itemId}/label-pdf`, {
+    responseType: "blob",
   })
-  if (!res.ok) {
-    if (res.status === 404) {
-      let msg = "Товар не найден или нет доступа"
-      try {
-        const body = await res.json()
-        if (body?.detail)
-          msg = typeof body.detail === "string" ? body.detail : msg
-      } catch {
-        // не JSON — оставляем msg по умолчанию
-      }
-      throw new Error(msg)
-    }
-    throw new Error(`Ошибка: ${res.status}`)
-  }
-  const blob = await res.blob()
   const objectUrl = URL.createObjectURL(blob)
   window.open(objectUrl, "_blank")
   URL.revokeObjectURL(objectUrl)
@@ -48,32 +22,11 @@ export async function openLabelPdf(itemId: string): Promise<void> {
  */
 export async function openShippingNotePdf(itemIds: string[]): Promise<void> {
   if (itemIds.length === 0) throw new Error("Выберите хотя бы один товар")
-  const token = getAccessToken() ?? ""
-  const base = getApiBase()
-  const url = `${base}/api/v1/items/shipping-note-pdf`
-  const res = await fetch(url, {
+  const blob = await request<Blob>("/api/v1/items/shipping-note-pdf", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ item_ids: itemIds }),
+    body: { item_ids: itemIds },
+    responseType: "blob",
   })
-  if (!res.ok) {
-    if (res.status === 404) {
-      let msg = "Один из товаров не найден или нет доступа"
-      try {
-        const body = await res.json()
-        if (body?.detail)
-          msg = typeof body.detail === "string" ? body.detail : msg
-      } catch {
-        // ignore
-      }
-      throw new Error(msg)
-    }
-    throw new Error(`Ошибка: ${res.status}`)
-  }
-  const blob = await res.blob()
   const objectUrl = URL.createObjectURL(blob)
   window.open(objectUrl, "_blank")
   URL.revokeObjectURL(objectUrl)

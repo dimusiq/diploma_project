@@ -2,37 +2,7 @@
  * API справочника зон склада (управление в админке).
  */
 
-import { OpenAPI } from "@/client/index.ts"
-import { getAccessToken } from "@/lib/authStorage.ts"
-
-const getBase = () => OpenAPI.BASE || "http://localhost:8000"
-
-async function request<T>(
-  path: string,
-  options: { method?: string; body?: unknown } = {},
-): Promise<T> {
-  const token = getAccessToken() ?? ""
-  const url = `${getBase()}${path}`
-  const res = await fetch(url, {
-    method: options.method || "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    ...(options.body !== undefined && { body: JSON.stringify(options.body) }),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    const msg =
-      err.detail ||
-      (Array.isArray(err.detail)
-        ? err.detail.map((e: { msg: string }) => e.msg).join(", ")
-        : res.statusText)
-    throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg))
-  }
-  if (res.status === 204) return undefined as T
-  return res.json()
-}
+import { request } from "@/lib/apiClient.ts"
 
 export interface ZonePublic {
   id: string

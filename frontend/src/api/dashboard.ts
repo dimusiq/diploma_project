@@ -2,12 +2,7 @@
  * Запрос трендов дашборда: поступления и отгрузки по дням/неделям.
  */
 
-import { OpenAPI } from "@/client/index.ts"
-import { getAccessToken } from "@/lib/authStorage.ts"
-
-function getApiBase(): string {
-  return OpenAPI.BASE || "http://localhost:8000"
-}
+import { request } from "@/lib/apiClient.ts"
 
 export interface DashboardTrendsParams {
   from?: string // YYYY-MM-DD
@@ -28,25 +23,15 @@ export interface DashboardTrendsResponse {
   shipped: TrendPoint[]
 }
 
-export async function getDashboardTrends(
+export function getDashboardTrends(
   params: DashboardTrendsParams = {},
 ): Promise<DashboardTrendsResponse> {
-  const token = getAccessToken() ?? ""
-  const base = getApiBase()
   const q = new URLSearchParams()
   if (params.from) q.set("from", params.from)
   if (params.to) q.set("to", params.to)
   if (params.group_by) q.set("group_by", params.group_by)
-  const url = `${base}/api/v1/dashboard/trends?${q.toString()}`
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/json",
-    },
-  })
-  if (!res.ok) {
-    throw new Error(`Ошибка: ${res.status}`)
-  }
-  return res.json() as Promise<DashboardTrendsResponse>
+  const query = q.toString()
+  return request<DashboardTrendsResponse>(
+    `/api/v1/dashboard/trends${query ? `?${query}` : ""}`,
+  )
 }

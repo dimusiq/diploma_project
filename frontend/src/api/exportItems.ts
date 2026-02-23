@@ -3,12 +3,7 @@
  * Скачивает файл с учётом авторизации и текущих фильтров.
  */
 
-import { OpenAPI } from "@/client/index.ts"
-import { getAccessToken } from "@/lib/authStorage.ts"
-
-function getApiBase(): string {
-  return OpenAPI.BASE || "http://localhost:8000"
-}
+import { fetchWithAuth } from "@/lib/apiClient.ts"
 
 export interface ExportItemsParams {
   format: "csv" | "xlsx"
@@ -36,23 +31,8 @@ function buildQuery(params: ExportItemsParams): string {
 export async function downloadItemsExport(
   params: ExportItemsParams,
 ): Promise<void> {
-  const token = getAccessToken() ?? ""
-  const base = getApiBase()
   const query = buildQuery(params)
-  const url = `${base}/api/v1/items/export?${query}`
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-  if (!res.ok) {
-    const msg =
-      res.status === 400
-        ? "Неверный формат (ожидается csv или xlsx)"
-        : `Ошибка: ${res.status}`
-    throw new Error(msg)
-  }
+  const res = await fetchWithAuth(`/api/v1/items/export?${query}`)
   const blob = await res.blob()
   const disposition = res.headers.get("Content-Disposition")
   const match = disposition?.match(/filename=(.+)/)
