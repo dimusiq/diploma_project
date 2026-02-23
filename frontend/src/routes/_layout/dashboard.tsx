@@ -10,20 +10,21 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import { Stat, StatHelpText, StatLabel } from "@chakra-ui/stat"
 import { useQuery } from "@tanstack/react-query"
 import {
   createFileRoute,
   Link as RouterLink,
   redirect,
 } from "@tanstack/react-router"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import {
   FiArrowDownRight,
   FiBox,
   FiCheckCircle,
   FiDownload,
+  FiPackage,
   FiTruck,
+  FiUsers,
 } from "react-icons/fi"
 import {
   Bar,
@@ -43,6 +44,8 @@ import {
 import { getDashboardTrends } from "@/api/dashboard.ts"
 import { downloadItemsExport } from "@/api/exportItems.ts"
 import { DashboardService } from "@/client/index.ts"
+import { DashboardStatCard } from "@/components/Dashboard/DashboardStatCard.tsx"
+import { Skeleton } from "@/components/ui/skeleton.tsx"
 import {
   MenuContent,
   MenuItem,
@@ -73,28 +76,43 @@ export const Route = createFileRoute("/_layout/dashboard")({
   component: () => null,
 })
 
-function last30Days(): { from: string; to: string } {
+function dateRangeDays(days: number): { from: string; to: string } {
   const to = new Date()
   const from = new Date(to)
-  from.setDate(from.getDate() - 30)
+  from.setDate(from.getDate() - days)
   return {
     from: from.toISOString().slice(0, 10),
     to: to.toISOString().slice(0, 10),
   }
 }
 
+const TREND_PERIODS = [
+  { label: "7 дней", days: 7 },
+  { label: "30 дней", days: 30 },
+  { label: "90 дней", days: 90 },
+] as const
+
 export function Dashboard() {
-  const { data: stats, isLoading } = useQuery({
+  const [trendDays, setTrendDays] = useState(30)
+  const trendRange = useMemo(
+    () => dateRangeDays(trendDays),
+    [trendDays],
+  )
+
+  const { data: stats, isLoading, isError, refetch } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () =>
       (await DashboardService.getDashboardStats()) as unknown as DashboardStats,
   })
 
-  const { from: trendFrom, to: trendTo } = last30Days()
   const { data: trends, isLoading: trendsLoading } = useQuery({
-    queryKey: ["dashboard-trends", trendFrom, trendTo],
+    queryKey: ["dashboard-trends", trendRange.from, trendRange.to],
     queryFn: () =>
-      getDashboardTrends({ from: trendFrom, to: trendTo, group_by: "day" }),
+      getDashboardTrends({
+        from: trendRange.from,
+        to: trendRange.to,
+        group_by: "day",
+      }),
   })
 
   const [isExporting, setIsExporting] = useState(false)
@@ -116,19 +134,40 @@ export function Dashboard() {
   if (isLoading) {
     return (
       <Container maxW="full">
-        <Heading size="lg" pt={12}>
-          Загрузка...
+        <Heading size="lg" pt={12} pb={6}>
+          Панель управления
         </Heading>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card.Root key={i}>
+              <Card.Body>
+                <Skeleton height="4" mb={2} />
+                <Skeleton height="10" width="60%" mb={2} />
+                <Skeleton height="3" width="80%" />
+              </Card.Body>
+            </Card.Root>
+          ))}
+        </SimpleGrid>
       </Container>
     )
   }
 
-  if (!stats) {
+  if (isError || !stats) {
     return (
       <Container maxW="full">
-        <Heading size="lg" pt={12}>
-          Нет данных для отображения
+        <Heading size="lg" pt={12} pb={4}>
+          Панель управления
         </Heading>
+        <Card.Root>
+          <Card.Body>
+            <Text color="gray.600" mb={4}>
+              Не удалось загрузить данные
+            </Text>
+            <Button onClick={() => refetch()} variant="outline" size="sm">
+              Повторить
+            </Button>
+          </Card.Body>
+        </Card.Root>
       </Container>
     )
   }
@@ -195,7 +234,7 @@ export function Dashboard() {
             <Button size="sm" variant="outline" disabled={isExporting}>
               <Flex as="span" gap={2} align="center">
                 <Box as={FiDownload} />
-                Выгрузить
+                {isExporting ? "Выгрузка…" : "Выгрузить (CSV/Excel)"}
               </Flex>
             </Button>
           </MenuTrigger>
@@ -211,87 +250,57 @@ export function Dashboard() {
       </Flex>
 
       <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
-        <Card.Root>
-          <Card.Body>
-            <Stat alignContent="start" gap={2}>
-              <Text fontSize="lg" fontWeight="bold">
-                Всего товаров
-              </Text>
-              <Text fontSize="2xl" fontWeight="bold" color="blue.500">
-                {stats.total_items}
-              </Text>
-              <Text fontSize="sm" color="gray.600">
-                Общее количество
-              </Text>
-            </Stat>
-          </Card.Body>
-        </Card.Root>
-
-        <Card.Root>
-          <Card.Body>
-            <Stat>
-              <StatLabel>Пользователей</StatLabel>
-              <Text>{stats.total_users}</Text>
-              <StatHelpText>Активных пользователей</StatHelpText>
-            </Stat>
-          </Card.Body>
-        </Card.Root>
-
-        <Card.Root>
-          <Card.Body>
-            <Stat>
-              <StatLabel>Поступления</StatLabel>
-              <Text fontSize="2xl" fontWeight="bold" color="cyan.500">
-                {stats.status_distribution?.incoming ?? 0}
-              </Text>
-              <StatHelpText>Ожидают приёмки на склад</StatHelpText>
-            </Stat>
-          </Card.Body>
-        </Card.Root>
-
-        <Card.Root>
-          <Card.Body>
-            <Stat>
-              <StatLabel>На складе</StatLabel>
-              <Text fontSize="2xl" fontWeight="bold" color="green.500">
-                {stats.status_distribution?.warehouse ?? 0}
-              </Text>
-              <StatHelpText>Готовы к отгрузке</StatHelpText>
-            </Stat>
-          </Card.Body>
-        </Card.Root>
-
-        <Card.Root>
-          <Card.Body>
-            <Stat>
-              <StatLabel>В отгрузке</StatLabel>
-              <Text fontSize="2xl" fontWeight="bold" color="orange.500">
-                {stats.status_distribution?.shipment ?? 0}
-              </Text>
-              <StatHelpText>Подготовлено к отправке</StatHelpText>
-            </Stat>
-          </Card.Body>
-        </Card.Root>
-
-        <Card.Root>
-          <Card.Body>
-            <Stat>
-              <StatLabel>Отгружено</StatLabel>
-              <Text fontSize="2xl" fontWeight="bold" color="gray.600">
-                {stats.status_distribution?.shipped ?? 0}
-              </Text>
-              <StatHelpText>Архив</StatHelpText>
-            </Stat>
-          </Card.Body>
-        </Card.Root>
+        <DashboardStatCard
+          label="Всего товаров"
+          value={stats.total_items}
+          helpText="Общее количество"
+          valueColor="info"
+          icon={<FiPackage />}
+        />
+        <DashboardStatCard
+          label="Пользователей"
+          value={stats.total_users}
+          helpText="Активных пользователей"
+          valueColor="info"
+          icon={<FiUsers />}
+        />
+        <DashboardStatCard
+          label="Поступления"
+          value={stats.status_distribution?.incoming ?? 0}
+          helpText="Ожидают приёмки на склад"
+          valueColor="info"
+          icon={<FiArrowDownRight />}
+        />
+        <DashboardStatCard
+          label="На складе"
+          value={stats.status_distribution?.warehouse ?? 0}
+          helpText="Готовы к отгрузке"
+          valueColor="success"
+          icon={<FiBox />}
+        />
+        <DashboardStatCard
+          label="В отгрузке"
+          value={stats.status_distribution?.shipment ?? 0}
+          helpText="Подготовлено к отправке"
+          valueColor="warning"
+          icon={<FiTruck />}
+        />
+        <DashboardStatCard
+          label="Отгружено"
+          value={stats.status_distribution?.shipped ?? 0}
+          helpText="Архив"
+          valueColor="muted"
+          icon={<FiCheckCircle />}
+        />
       </SimpleGrid>
 
       {/* Краткие ссылки */}
       <SimpleGrid columns={{ base: 1, sm: 3 }} gap={4} mt={6}>
-        <RouterLink to="/items">
+        <RouterLink to="/items" style={{ textDecoration: "none" }}>
           <Card.Root
             cursor="pointer"
-            _hover={{ bg: "gray.50" }}
+            color="fg"
+            _hover={{ bg: "gray.subtle" }}
             transition="background 0.2s"
           >
             <Card.Body
@@ -304,18 +313,21 @@ export function Dashboard() {
                 <FiArrowDownRight size={24} />
               </Box>
               <VStack align="start" gap={0}>
-                <Text fontWeight="semibold">Поступления</Text>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontWeight="semibold" color="fg">
+                  Поступления
+                </Text>
+                <Text fontSize="sm" color="fg.muted">
                   Новые товары
                 </Text>
               </VStack>
             </Card.Body>
           </Card.Root>
         </RouterLink>
-        <RouterLink to="/warehouse">
+        <RouterLink to="/warehouse" style={{ textDecoration: "none" }}>
           <Card.Root
             cursor="pointer"
-            _hover={{ bg: "gray.50" }}
+            color="fg"
+            _hover={{ bg: "gray.subtle" }}
             transition="background 0.2s"
           >
             <Card.Body
@@ -328,18 +340,21 @@ export function Dashboard() {
                 <FiBox size={24} />
               </Box>
               <VStack align="start" gap={0}>
-                <Text fontWeight="semibold">Склад</Text>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontWeight="semibold" color="fg">
+                  Склад
+                </Text>
+                <Text fontSize="sm" color="fg.muted">
                   На складе
                 </Text>
               </VStack>
             </Card.Body>
           </Card.Root>
         </RouterLink>
-        <RouterLink to="/shipment">
+        <RouterLink to="/shipment" style={{ textDecoration: "none" }}>
           <Card.Root
             cursor="pointer"
-            _hover={{ bg: "gray.50" }}
+            color="fg"
+            _hover={{ bg: "gray.subtle" }}
             transition="background 0.2s"
           >
             <Card.Body
@@ -352,18 +367,21 @@ export function Dashboard() {
                 <FiTruck size={24} />
               </Box>
               <VStack align="start" gap={0}>
-                <Text fontWeight="semibold">Отгрузка</Text>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontWeight="semibold" color="fg">
+                  Отгрузка
+                </Text>
+                <Text fontSize="sm" color="fg.muted">
                   В отгрузке
                 </Text>
               </VStack>
             </Card.Body>
           </Card.Root>
         </RouterLink>
-        <RouterLink to="/shipped">
+        <RouterLink to="/shipped" style={{ textDecoration: "none" }}>
           <Card.Root
             cursor="pointer"
-            _hover={{ bg: "gray.50" }}
+            color="fg"
+            _hover={{ bg: "gray.subtle" }}
             transition="background 0.2s"
           >
             <Card.Body
@@ -376,8 +394,10 @@ export function Dashboard() {
                 <FiCheckCircle size={24} />
               </Box>
               <VStack align="start" gap={0}>
-                <Text fontWeight="semibold">Отгружено</Text>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontWeight="semibold" color="fg">
+                  Отгружено
+                </Text>
+                <Text fontSize="sm" color="fg.muted">
                   Архив
                 </Text>
               </VStack>
@@ -525,9 +545,27 @@ export function Dashboard() {
       {/* Тренды: поступления и отгрузки по дням */}
       <Card.Root mt={8}>
         <Card.Body>
-          <Heading size="md" mb={4}>
-            Тренды за период
-          </Heading>
+          <Flex justify="space-between" align="center" flexWrap="wrap" gap={3} mb={4}>
+            <Heading size="md">Тренды за период</Heading>
+            <MenuRoot>
+              <MenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  {TREND_PERIODS.find((p) => p.days === trendDays)?.label ?? "30 дней"}
+                </Button>
+              </MenuTrigger>
+              <MenuContent>
+                {TREND_PERIODS.map((p) => (
+                  <MenuItem
+                    key={p.days}
+                    value={String(p.days)}
+                    onClick={() => setTrendDays(p.days)}
+                  >
+                    {p.label}
+                  </MenuItem>
+                ))}
+              </MenuContent>
+            </MenuRoot>
+          </Flex>
           {trendsLoading ? (
             <Text color="gray.500">Загрузка...</Text>
           ) : trendsChartData.length > 0 ? (

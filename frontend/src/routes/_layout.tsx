@@ -1,8 +1,11 @@
 import { Box, Flex, Splitter } from "@chakra-ui/react"
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import { UsersService } from "@/client/index.ts"
+import { ApiError, UsersService } from "@/client/index.ts"
+import { Breadcrumbs } from "@/components/Common/Breadcrumbs.tsx"
+import { removeAccessToken } from "@/lib/authStorage.ts"
 import Navbar from "@/components/Common/Navbar.tsx"
 import Sidebar, { SidebarDesktopContent } from "@/components/Common/Sidebar.tsx"
+import { SkipLink } from "@/components/Common/SkipLink.tsx"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
 
 export const Route = createFileRoute("/_layout")({
@@ -11,23 +14,39 @@ export const Route = createFileRoute("/_layout")({
     if (!isLoggedIn()) {
       throw redirect({ to: "/login" })
     }
-    const user = await context.queryClient.fetchQuery({
-      queryKey: ["currentUser"],
-      queryFn: UsersService.readUserMe,
-    })
-    return { user }
+    try {
+      const user = await context.queryClient.fetchQuery({
+        queryKey: ["currentUser"],
+        queryFn: UsersService.readUserMe,
+      })
+      return { user }
+    } catch (err) {
+      if (err instanceof ApiError && [401, 403, 404].includes(err.status)) {
+        removeAccessToken()
+        throw redirect({ to: "/login" })
+      }
+      throw err
+    }
   },
 })
 
 function Layout() {
   return (
-    <Flex direction="column" h="100vh">
+    <Flex direction="column" h="100vh" position="relative">
+      <SkipLink />
       <Navbar />
       <Flex flex="1" minH={0} overflow="hidden">
         <Sidebar />
         {/* Mobile: контент рядом с drawer */}
-        <Box flex="1" minW={0} display={{ base: "block", md: "none" }}>
+        <Box
+          id="main-content"
+          flex="1"
+          minW={0}
+          display={{ base: "block", md: "none" }}
+          as="main"
+        >
           <Flex h="100%" direction="column" p={4} overflowY="auto">
+            <Breadcrumbs />
             <Outlet />
           </Flex>
         </Box>
@@ -50,8 +69,15 @@ function Layout() {
               <SidebarDesktopContent />
             </Splitter.Panel>
             <Splitter.ResizeTrigger id="sidebar:content" />
-            <Splitter.Panel id="content" minW={0}>
-              <Flex h="100%" direction="column" p={4} overflowY="auto">
+            <Splitter.Panel id="content" minW={0} as="main">
+              <Flex
+                id="main-content"
+                h="100%"
+                direction="column"
+                p={4}
+                overflowY="auto"
+              >
+                <Breadcrumbs />
                 <Outlet />
               </Flex>
             </Splitter.Panel>

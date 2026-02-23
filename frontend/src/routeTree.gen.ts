@@ -25,6 +25,7 @@ import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutTechniqueIndexRouteImport } from './routes/_layout/technique/index'
+import { Route as LayoutTechniqueEquipmentNewRouteImport } from './routes/_layout/technique/equipment.new'
 import { Route as LayoutTechniqueEquipmentEquipmentIdRouteImport } from './routes/_layout/technique/equipment.$equipmentId'
 
 const SignupRoute = SignupRouteImport.update({
@@ -106,6 +107,12 @@ const LayoutTechniqueIndexRoute = LayoutTechniqueIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutTechniqueRoute,
 } as any)
+const LayoutTechniqueEquipmentNewRoute =
+  LayoutTechniqueEquipmentNewRouteImport.update({
+    id: '/equipment/new',
+    path: '/equipment/new',
+    getParentRoute: () => LayoutTechniqueRoute,
+  } as any)
 const LayoutTechniqueEquipmentEquipmentIdRoute =
   LayoutTechniqueEquipmentEquipmentIdRouteImport.update({
     id: '/equipment/$equipmentId',
@@ -130,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/warehouse-3d': typeof LayoutWarehouse3dRoute
   '/technique/': typeof LayoutTechniqueIndexRoute
   '/technique/equipment/$equipmentId': typeof LayoutTechniqueEquipmentEquipmentIdRoute
+  '/technique/equipment/new': typeof LayoutTechniqueEquipmentNewRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -147,6 +155,7 @@ export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/technique': typeof LayoutTechniqueIndexRoute
   '/technique/equipment/$equipmentId': typeof LayoutTechniqueEquipmentEquipmentIdRoute
+  '/technique/equipment/new': typeof LayoutTechniqueEquipmentNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -167,6 +176,7 @@ export interface FileRoutesById {
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/technique/': typeof LayoutTechniqueIndexRoute
   '/_layout/technique/equipment/$equipmentId': typeof LayoutTechniqueEquipmentEquipmentIdRoute
+  '/_layout/technique/equipment/new': typeof LayoutTechniqueEquipmentNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/warehouse-3d'
     | '/technique/'
     | '/technique/equipment/$equipmentId'
+    | '/technique/equipment/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/'
     | '/technique'
     | '/technique/equipment/$equipmentId'
+    | '/technique/equipment/new'
   id:
     | '__root__'
     | '/_layout'
@@ -223,6 +235,7 @@ export interface FileRouteTypes {
     | '/_layout/'
     | '/_layout/technique/'
     | '/_layout/technique/equipment/$equipmentId'
+    | '/_layout/technique/equipment/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -347,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutTechniqueIndexRouteImport
       parentRoute: typeof LayoutTechniqueRoute
     }
+    '/_layout/technique/equipment/new': {
+      id: '/_layout/technique/equipment/new'
+      path: '/equipment/new'
+      fullPath: '/technique/equipment/new'
+      preLoaderRoute: typeof LayoutTechniqueEquipmentNewRouteImport
+      parentRoute: typeof LayoutTechniqueRoute
+    }
     '/_layout/technique/equipment/$equipmentId': {
       id: '/_layout/technique/equipment/$equipmentId'
       path: '/equipment/$equipmentId'
@@ -360,12 +380,14 @@ declare module '@tanstack/react-router' {
 interface LayoutTechniqueRouteChildren {
   LayoutTechniqueIndexRoute: typeof LayoutTechniqueIndexRoute
   LayoutTechniqueEquipmentEquipmentIdRoute: typeof LayoutTechniqueEquipmentEquipmentIdRoute
+  LayoutTechniqueEquipmentNewRoute: typeof LayoutTechniqueEquipmentNewRoute
 }
 
 const LayoutTechniqueRouteChildren: LayoutTechniqueRouteChildren = {
   LayoutTechniqueIndexRoute: LayoutTechniqueIndexRoute,
   LayoutTechniqueEquipmentEquipmentIdRoute:
     LayoutTechniqueEquipmentEquipmentIdRoute,
+  LayoutTechniqueEquipmentNewRoute: LayoutTechniqueEquipmentNewRoute,
 }
 
 const LayoutTechniqueRouteWithChildren = LayoutTechniqueRoute._addFileChildren(

@@ -3,15 +3,15 @@
  */
 
 import { OpenAPI } from "@/client/index.ts"
+import { getAccessToken } from "@/lib/authStorage.ts"
 
 const getBase = () => OpenAPI.BASE || "http://localhost:8000"
-const getToken = () => localStorage.getItem("access_token") || ""
 
 async function request<T>(
   path: string,
   options: { method?: string; body?: unknown } = {},
 ): Promise<T> {
-  const token = await getToken()
+  const token = getAccessToken() ?? ""
   const url = `${getBase()}${path}`
   const res = await fetch(url, {
     method: options.method || "GET",

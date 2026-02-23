@@ -1,11 +1,10 @@
 """Роли и проверки прав: кто видит чужие items, кто может менять статус."""
 
-from app.models import User
 from app.models import (
     ROLE_ADMIN,
     ROLE_MANAGER,
-    ROLE_VIEWER,
     ROLE_WAREHOUSE,
+    User,
 )
 
 

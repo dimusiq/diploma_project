@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/menu.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { handleError } from "@/utils.ts"
-import { EquipmentFormDialog } from "./EquipmentFormDialog.tsx"
 
 const STATUS_LABELS: Record<string, string> = {
   active: "В эксплуатации",
@@ -42,7 +41,6 @@ export function EquipmentList() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [typeFilter, setTypeFilter] = useState<string>("")
-  const [formOpen, setFormOpen] = useState(false)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { showErrorToast } = useCustomToast()
@@ -79,7 +77,6 @@ export function EquipmentList() {
     if (!confirm(`Удалить технику «${item.brand_name} ${item.model}»?`)) return
     try {
       await equipmentApi.delete(item.id)
-      setFormOpen(false)
       queryClient.invalidateQueries({ queryKey: ["equipment"] })
     } catch (err) {
       if (err instanceof Error) {
@@ -91,11 +88,7 @@ export function EquipmentList() {
   }
 
   const handleAdd = () => {
-    setFormOpen(true)
-  }
-
-  const handleFormClose = (open: boolean) => {
-    setFormOpen(open)
+    navigate({ to: "/technique/equipment/new" })
   }
 
   return (
@@ -291,13 +284,6 @@ export function EquipmentList() {
           </Flex>
         </Flex>
       )}
-
-      <EquipmentFormDialog
-        open={formOpen}
-        onOpenChange={handleFormClose}
-        editItem={null}
-        asDrawer={false}
-      />
     </Box>
   )
 }

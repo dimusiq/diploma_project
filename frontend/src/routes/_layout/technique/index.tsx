@@ -20,7 +20,7 @@ const SECTION_LABELS: Record<string, { title: string }> = {
   assets: { title: "Список техники" },
   maintenance: { title: "График ТО" },
   "maintenance-schedule": { title: "Расписание ТО" },
-  "work-orders": { title: "Рабочие заказы" },
+  "work-orders": { title: "Обслуживание и ремонт техники" },
   technicians: { title: "Управление задачами техников" },
   alerts: { title: "Мониторинг и уведомления" },
   "spare-parts": { title: "Запасные части" },
@@ -30,35 +30,30 @@ const SECTION_LABELS: Record<string, { title: string }> = {
   predictive: { title: "Прогнозирование" },
 }
 
+/** По умолчанию при открытии «Техника» показываем список техники. */
+const DEFAULT_SECTION = "assets"
+
 function TechniqueIndexPage() {
-  const { section } = Route.useSearch()
-  const current = section ? SECTION_LABELS[section] : null
+  const { section: sectionParam } = Route.useSearch()
+  const section = sectionParam && sectionParam in SECTION_LABELS ? sectionParam : DEFAULT_SECTION
+  const current = SECTION_LABELS[section]
 
   return (
     <Container maxW="full">
-      {current ? (
-        <>
-          <Text fontSize="md" color="fg.muted" mb={4}>
-            {current.title}
-          </Text>
-          {section === "assets" ? (
-            <EquipmentList />
-          ) : section === "maintenance" ? (
-            <MaintenanceScheduleTable />
-          ) : section === "maintenance-schedule" ? (
-            <MaintenanceScheduleEditor />
-          ) : section === "work-orders" ? (
-            <PerformedMaintenanceList />
-          ) : (
-            <Text color="fg.muted">
-              Раздел в разработке. Здесь будет реализован функционал подраздела.
-            </Text>
-          )}
-        </>
+      <Text fontSize="md" color="fg.muted" mb={4}>
+        {current.title}
+      </Text>
+      {section === "assets" ? (
+        <EquipmentList />
+      ) : section === "maintenance" ? (
+        <MaintenanceScheduleTable />
+      ) : section === "maintenance-schedule" ? (
+        <MaintenanceScheduleEditor />
+      ) : section === "work-orders" ? (
+        <PerformedMaintenanceList />
       ) : (
         <Text color="fg.muted">
-          Выберите подраздел в меню слева. Каждый подраздел будет спроектирован
-          отдельно.
+          Раздел в разработке. Здесь будет реализован функционал подраздела.
         </Text>
       )}
     </Container>

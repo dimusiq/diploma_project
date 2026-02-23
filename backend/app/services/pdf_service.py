@@ -114,7 +114,7 @@ def build_shipping_note_pdf(items: list[Item]) -> bytes:
         pagesize=A4,
         rightMargin=20 * mm,
         leftMargin=20 * mm,
-        topMargin=5 * mm,  
+        topMargin=5 * mm,
         bottomMargin=20 * mm,
     )
     styles = getSampleStyleSheet()
@@ -122,7 +122,6 @@ def build_shipping_note_pdf(items: list[Item]) -> bytes:
     styles["Normal"].fontName = PDF_FONT
     story = []
 
-    content_width_pt = A4[0] - 40 * mm
     logo_table = _logo_flowable(max_width_pt=25 * mm)
     if logo_table is not None:
         story.append(logo_table)

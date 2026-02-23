@@ -40,7 +40,7 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
             .where(Item.owner_id == current_user.id)
             .group_by(Item.status)
         ).all()
-    status_counts = {status: count for status, count in status_results}
+    status_counts = dict(status_results)
 
     # Total users (owners of items) — только для тех, кто видит все
     total_users = 0

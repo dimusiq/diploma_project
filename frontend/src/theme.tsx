@@ -15,12 +15,23 @@ export const system = createSystem(defaultConfig, {
       color: "ui.main",
       fontWeight: "bold",
     },
+    "*:focus-visible": {
+      outline: "2px solid",
+      outlineColor: "blue.500",
+      outlineOffset: "2px",
+    },
   },
   theme: {
     tokens: {
       colors: {
         ui: {
           main: { value: "#1f80aa" },
+        },
+        semantic: {
+          success: { value: "#22c55e" },
+          warning: { value: "#f97316" },
+          error: { value: "#ef4444" },
+          info: { value: "#3b82f6" },
         },
       },
     },

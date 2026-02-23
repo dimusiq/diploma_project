@@ -12,13 +12,13 @@ router = APIRouter(prefix="/brands", tags=["brands"])
 
 
 @router.get("/", response_model=list[BrandPublic])
-def read_brands(session: SessionDep, current_user: CurrentUser) -> Any:
+def read_brands(session: SessionDep, _current_user: CurrentUser) -> Any:
     """Список брендов (для выбора в форме техники и в админке)."""
     return list(session.exec(select(Brand).order_by(Brand.name)).all())
 
 
 @router.get("/{id}", response_model=BrandPublic)
-def read_brand(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
+def read_brand(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
     """Получить бренд по ID."""
     brand = session.get(Brand, id)
     if not brand:

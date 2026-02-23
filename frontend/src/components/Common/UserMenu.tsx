@@ -1,6 +1,6 @@
 import { Box, Button, Flex, Text } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
-import { FaUserAstronaut } from "react-icons/fa"
+import { FaHardHat } from "react-icons/fa"
 import { FiLogOut, FiUser } from "react-icons/fi"
 
 import useAuth from "@/hooks/useAuth.ts"
@@ -20,13 +20,13 @@ const UserMenu = () => {
         <MenuRoot>
           <MenuTrigger asChild p={2}>
             <Button data-testid="user-menu" variant="solid" maxW="sm" truncate>
-              <FaUserAstronaut fontSize="18" />
+              <FaHardHat fontSize="18" />
               <Text>{user?.full_name || "Пользователь"}</Text>
             </Button>
           </MenuTrigger>
 
           <MenuContent>
-            <Link to="settings">
+            <Link to="/settings">
               <MenuItem
                 closeOnSelect
                 value="user-settings"

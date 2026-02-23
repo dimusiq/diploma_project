@@ -6,19 +6,25 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import select
 
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
-from app.models import Message, WarehouseZone, WarehouseZoneCreate, WarehouseZonePublic, WarehouseZoneUpdate
+from app.models import (
+    Message,
+    WarehouseZone,
+    WarehouseZoneCreate,
+    WarehouseZonePublic,
+    WarehouseZoneUpdate,
+)
 
 router = APIRouter(prefix="/zones", tags=["zones"])
 
 
 @router.get("/", response_model=list[WarehouseZonePublic])
-def read_zones(session: SessionDep, current_user: CurrentUser) -> Any:
+def read_zones(session: SessionDep, _current_user: CurrentUser) -> Any:
     """Список зон склада (для выбора в форме техники и в админке)."""
     return list(session.exec(select(WarehouseZone).order_by(WarehouseZone.name)).all())
 
 
 @router.get("/{id}", response_model=WarehouseZonePublic)
-def read_zone(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
+def read_zone(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
     """Получить зону по ID."""
     zone = session.get(WarehouseZone, id)
     if not zone:

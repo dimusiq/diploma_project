@@ -4,20 +4,17 @@
  */
 
 import { OpenAPI } from "@/client/index.ts"
+import { getAccessToken } from "@/lib/authStorage.ts"
 
 function getApiBase(): string {
   return OpenAPI.BASE || "http://localhost:8000"
-}
-
-async function getToken(): Promise<string> {
-  return localStorage.getItem("access_token") || ""
 }
 
 /**
  * Открыть PDF этикетки товара в новой вкладке (со штрихкодом при наличии barcode).
  */
 export async function openLabelPdf(itemId: string): Promise<void> {
-  const token = await getToken()
+  const token = getAccessToken() ?? ""
   const base = getApiBase()
   const url = `${base}/api/v1/items/${itemId}/label-pdf`
   const res = await fetch(url, {
@@ -51,7 +48,7 @@ export async function openLabelPdf(itemId: string): Promise<void> {
  */
 export async function openShippingNotePdf(itemIds: string[]): Promise<void> {
   if (itemIds.length === 0) throw new Error("Выберите хотя бы один товар")
-  const token = await getToken()
+  const token = getAccessToken() ?? ""
   const base = getApiBase()
   const url = `${base}/api/v1/items/shipping-note-pdf`
   const res = await fetch(url, {

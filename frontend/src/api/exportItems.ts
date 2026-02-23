@@ -4,13 +4,10 @@
  */
 
 import { OpenAPI } from "@/client/index.ts"
+import { getAccessToken } from "@/lib/authStorage.ts"
 
 function getApiBase(): string {
   return OpenAPI.BASE || "http://localhost:8000"
-}
-
-async function getToken(): Promise<string> {
-  return localStorage.getItem("access_token") || ""
 }
 
 export interface ExportItemsParams {
@@ -39,7 +36,7 @@ function buildQuery(params: ExportItemsParams): string {
 export async function downloadItemsExport(
   params: ExportItemsParams,
 ): Promise<void> {
-  const token = await getToken()
+  const token = getAccessToken() ?? ""
   const base = getApiBase()
   const query = buildQuery(params)
   const url = `${base}/api/v1/items/export?${query}`

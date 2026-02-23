@@ -2,11 +2,24 @@
  * График ТО — таблица с производными данными по моточасам.
  * Типичный UI: таблица, статусы с цветовой индикацией, фильтры, сводка.
  */
-import { Badge, Box, Button, Flex, Table, Text } from "@chakra-ui/react"
-import { useQuery } from "@tanstack/react-query"
+import {
+  Badge,
+  Box,
+  Button,
+  Flex,
+  Input,
+  Table,
+  Text,
+  Textarea,
+  VStack,
+} from "@chakra-ui/react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
 import { FiDownload } from "react-icons/fi"
+
+import type { MaintenanceRecordCreate } from "@/api/equipment"
+import useCustomToast from "@/hooks/useCustomToast"
 
 import {
   EQUIPMENT_TYPE_LABELS,
@@ -21,6 +34,7 @@ import {
   DialogBody,
   DialogCloseTrigger,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogRoot,
   DialogTitle,
@@ -153,6 +167,144 @@ function EquipmentMaintenanceRecordsList({
   )
 }
 
+/** Диалог «Записать проведённое ТО» для одной выбранной техники (из графика ТО). */
+function RecordMaintenanceDialog({
+  equipment,
+  open,
+  onOpenChange,
+  onSuccess,
+}: {
+  equipment: EquipmentPublic | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSuccess: () => void
+}) {
+  const toast = useCustomToast()
+  const [performedAt, setPerformedAt] = useState(() =>
+    new Date().toISOString().slice(0, 10),
+  )
+  const [intervalHours, setIntervalHours] = useState(500)
+  const [engineHoursAtService, setEngineHoursAtService] = useState("")
+  const [comment, setComment] = useState("")
+
+  const createMutation = useMutation({
+    mutationFn: (body: MaintenanceRecordCreate) =>
+      equipment
+        ? equipmentApi.createMaintenanceRecord(equipment.id, body)
+        : Promise.reject(new Error("Техника не выбрана")),
+    onSuccess: () => {
+      toast.showSuccessToast("Проведённое ТО записано")
+      onSuccess()
+      onOpenChange(false)
+      setEngineHoursAtService("")
+      setComment("")
+    },
+    onError: (err) => {
+      toast.showErrorToast(
+        err instanceof Error ? err.message : "Что-то пошло не так.",
+      )
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!equipment) return
+    createMutation.mutate({
+      performed_at: performedAt,
+      interval_hours: intervalHours,
+      engine_hours_at_service: engineHoursAtService.trim()
+        ? parseInt(engineHoursAtService, 10)
+        : undefined,
+      comment: comment.trim() || undefined,
+    })
+  }
+
+  if (!equipment) return null
+
+  return (
+    <DialogRoot open={open} onOpenChange={(e) => onOpenChange(e.open)}>
+      <DialogContent>
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>
+              Записать проведённое ТО — {equipment.brand_name} {equipment.model}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <VStack gap={3} align="stretch">
+              <Box>
+                <Text fontSize="sm" mb={1} fontWeight="medium">
+                  Дата проведения ТО
+                </Text>
+                <Input
+                  type="date"
+                  value={performedAt}
+                  onChange={(e) => setPerformedAt(e.target.value)}
+                  required
+                  size="sm"
+                />
+              </Box>
+              <Box>
+                <Text fontSize="sm" mb={1} fontWeight="medium">
+                  Интервал ТО (м/ч)
+                </Text>
+                <Input
+                  type="number"
+                  min={1}
+                  value={intervalHours}
+                  onChange={(e) =>
+                    setIntervalHours(parseInt(e.target.value, 10) || 500)
+                  }
+                  size="sm"
+                />
+              </Box>
+              <Box>
+                <Text fontSize="sm" mb={1} fontWeight="medium">
+                  Моточасы на момент ТО (необязательно)
+                </Text>
+                <Input
+                  type="number"
+                  min={0}
+                  value={engineHoursAtService}
+                  onChange={(e) => setEngineHoursAtService(e.target.value)}
+                  placeholder="—"
+                  size="sm"
+                />
+              </Box>
+              <Box>
+                <Text fontSize="sm" mb={1} fontWeight="medium">
+                  Комментарий (необязательно)
+                </Text>
+                <Textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="—"
+                  size="sm"
+                  rows={2}
+                />
+              </Box>
+            </VStack>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="subtle"
+              colorPalette="gray"
+              onClick={() => onOpenChange(false)}
+            >
+              Отмена
+            </Button>
+            <Button type="submit" loading={createMutation.isPending}>
+              Записать
+            </Button>
+          </DialogFooter>
+          <DialogCloseTrigger />
+        </form>
+      </DialogContent>
+    </DialogRoot>
+  )
+}
+
 const FILTERS_STORAGE_KEY = "maintenance_schedule_filters"
 
 function loadFilters(): {
@@ -213,6 +365,8 @@ function saveFilters(f: {
 
 export function MaintenanceScheduleTable() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const toast = useCustomToast()
   const [statusFilter, setStatusFilter] = useState<ScheduleStatus | "">(
     () => loadFilters().statusFilter,
   )
@@ -228,6 +382,38 @@ export function MaintenanceScheduleTable() {
   const [isExporting, setIsExporting] = useState(false)
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentPublic | null>(null)
+  const [equipmentForRecord, setEquipmentForRecord] =
+    useState<EquipmentPublic | null>(null)
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({
+      id,
+      current_status,
+    }: {
+      id: string
+      current_status: string
+    }) => equipmentApi.update(id, { current_status }),
+    onSuccess: () => {
+      toast.showSuccessToast("Техника переведена на обслуживание")
+      queryClient.invalidateQueries({ queryKey: ["equipment"] })
+    },
+    onError: (err) => {
+      toast.showErrorToast(
+        err instanceof Error ? err.message : "Что-то пошло не так.",
+      )
+    },
+  })
+
+  const refreshMaintenanceData = () => {
+    queryClient.invalidateQueries({ queryKey: ["equipment"] })
+    queryClient.invalidateQueries({
+      queryKey: ["equipment", "all-maintenance-records"],
+    })
+    queryClient.invalidateQueries({
+      queryKey: ["equipment-maintenance-records"],
+    })
+  }
+
   const intervalHours = getDefaultIntervalHours()
   const defaultRemindBefore = getRemindBeforeHours()
   const chains = getMaintenanceChains()
@@ -493,6 +679,13 @@ export function MaintenanceScheduleTable() {
         </DialogContent>
       </DialogRoot>
 
+      <RecordMaintenanceDialog
+        equipment={equipmentForRecord}
+        open={equipmentForRecord != null}
+        onOpenChange={(open) => !open && setEquipmentForRecord(null)}
+        onSuccess={refreshMaintenanceData}
+      />
+
       {filteredRows.length === 0 ? (
         <Text color="fg.muted">Нет техники по выбранным фильтрам.</Text>
       ) : (
@@ -500,7 +693,7 @@ export function MaintenanceScheduleTable() {
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader>Техника</Table.ColumnHeader>
-              <Table.ColumnHeader>Тип</Table.ColumnHeader>
+              <Table.ColumnHeader>Серийный номер</Table.ColumnHeader>
               <Table.ColumnHeader>Гаражный номер</Table.ColumnHeader>
               <Table.ColumnHeader>Последовательность ТО</Table.ColumnHeader>
               <Table.ColumnHeader>Предыдущее ТО (м/ч)</Table.ColumnHeader>
@@ -539,13 +732,13 @@ export function MaintenanceScheduleTable() {
                         {equipment.brand_name} {equipment.model}
                       </Text>
                       <Text fontSize="xs" color="fg.muted">
-                        {equipment.serial_number || "—"}
+                        {EQUIPMENT_TYPE_LABELS[equipment.equipment_type] ??
+                          equipment.equipment_type}
                       </Text>
                     </Table.Cell>
                     <Table.Cell>
                       <Text fontSize="sm">
-                        {EQUIPMENT_TYPE_LABELS[equipment.equipment_type] ??
-                          equipment.equipment_type}
+                        {equipment.serial_number || "—"}
                       </Text>
                     </Table.Cell>
                     <Table.Cell>
@@ -554,7 +747,26 @@ export function MaintenanceScheduleTable() {
                       </Text>
                     </Table.Cell>
                     <Table.Cell>
-                      <Text fontSize="sm">{primaryChainName || "—"}</Text>
+                      <Flex direction="column" gap="1" align="flex-start">
+                        <Text fontSize="sm">{primaryChainName || "—"}</Text>
+                        {primaryChainName && (() => {
+                          const chain = chains.find(
+                            (c) => c.name === primaryChainName,
+                          )
+                          const colorTag = chain?.colorTag ?? "gray"
+                          return (
+                            <Box
+                              aria-hidden
+                              w="100%"
+                              maxW="32px"
+                              h="6px"
+                              borderRadius="2px"
+                              bg={`${colorTag}.400`}
+                              flexShrink={0}
+                            />
+                          )
+                        })()}
+                      </Flex>
                     </Table.Cell>
                     <Table.Cell>
                       <Text fontSize="sm">
@@ -582,10 +794,40 @@ export function MaintenanceScheduleTable() {
                             : "—"}
                       </Text>
                     </Table.Cell>
-                    <Table.Cell>
-                      <Badge size="sm" colorPalette={STATUS_COLOR[status]}>
-                        {STATUS_LABELS[status]}
-                      </Badge>
+                    <Table.Cell onClick={(e) => e.stopPropagation()}>
+                      <MenuRoot>
+                        <MenuTrigger asChild>
+                          <Badge
+                            size="sm"
+                            colorPalette={STATUS_COLOR[status]}
+                            cursor="pointer"
+                            _hover={{ opacity: 0.9 }}
+                            aria-label="Действия по статусу ТО"
+                          >
+                            {STATUS_LABELS[status]}
+                          </Badge>
+                        </MenuTrigger>
+                        <MenuContent>
+                          <MenuItem
+                            value="to-maintenance"
+                            onClick={() =>
+                              updateStatusMutation.mutate({
+                                id: equipment.id,
+                                current_status: "maintenance",
+                              })
+                            }
+                            disabled={updateStatusMutation.isPending}
+                          >
+                            Перевести на обслуживание
+                          </MenuItem>
+                          <MenuItem
+                            value="record"
+                            onClick={() => setEquipmentForRecord(equipment)}
+                          >
+                            Записать проведённое ТО
+                          </MenuItem>
+                        </MenuContent>
+                      </MenuRoot>
                     </Table.Cell>
                   </Table.Row>
                 )

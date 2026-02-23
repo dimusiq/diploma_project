@@ -10,11 +10,10 @@ import {
   type UserRegister,
   UsersService,
 } from "@/client/index.ts"
+import { hasAccessToken, removeAccessToken, setAccessToken } from "@/lib/authStorage.ts"
 import { handleError } from "@/utils.ts"
 
-const isLoggedIn = () => {
-  return localStorage.getItem("access_token") !== null
-}
+const isLoggedIn = () => hasAccessToken()
 
 const useAuth = () => {
   const [error, setError] = useState<string | null>(null)
@@ -43,11 +42,13 @@ const useAuth = () => {
     },
   })
 
-  const login = async (data: AccessToken) => {
+  const login = async (
+    data: AccessToken & { remember?: boolean },
+  ) => {
     const response = await LoginService.loginAccessToken({
       formData: data,
     })
-    localStorage.setItem("access_token", response.access_token)
+    setAccessToken(response.access_token, data.remember ?? false)
   }
 
   const loginMutation = useMutation({
@@ -61,7 +62,7 @@ const useAuth = () => {
   })
 
   const logout = () => {
-    localStorage.removeItem("access_token")
+    removeAccessToken()
     navigate({ to: "/login" })
   }
 

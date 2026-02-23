@@ -4,7 +4,6 @@ from datetime import date, datetime, timezone
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
-
 # --- Role (роли: admin, manager, warehouse, viewer) ---
 ROLE_ADMIN = "admin"
 ROLE_MANAGER = "manager"

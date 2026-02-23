@@ -3,13 +3,10 @@
  */
 
 import { OpenAPI } from "@/client/index.ts"
+import { getAccessToken } from "@/lib/authStorage.ts"
 
 function getApiBase(): string {
   return OpenAPI.BASE || "http://localhost:8000"
-}
-
-async function getToken(): Promise<string> {
-  return localStorage.getItem("access_token") || ""
 }
 
 export interface DashboardTrendsParams {
@@ -34,7 +31,7 @@ export interface DashboardTrendsResponse {
 export async function getDashboardTrends(
   params: DashboardTrendsParams = {},
 ): Promise<DashboardTrendsResponse> {
-  const token = await getToken()
+  const token = getAccessToken() ?? ""
   const base = getApiBase()
   const q = new URLSearchParams()
   if (params.from) q.set("from", params.from)

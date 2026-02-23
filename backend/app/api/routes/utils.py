@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 from pydantic.networks import EmailStr
+from sqlmodel import select
 
-from app.api.deps import get_current_active_superuser
+from app.api.deps import SessionDep, get_current_active_superuser
 from app.models import Message
 from app.utils import generate_test_email, send_email
 
@@ -29,3 +30,16 @@ def test_email(email_to: EmailStr) -> Message:
 @router.get("/health-check/")
 async def health_check() -> bool:
     return True
+
+
+@router.get("/health", response_model=None)
+def health_with_db(session: SessionDep) -> dict:
+    """
+    Health check for load balancers/monitoring. Returns 200 with database status.
+    """
+    try:
+        session.exec(select(1)).one()
+        db_status = "ok"
+    except Exception:
+        db_status = "error"
+    return {"status": "ok" if db_status == "ok" else "degraded", "database": db_status}

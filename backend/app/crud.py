@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
 from app.models import (
+    ROLE_VIEWER,
     Item,
     ItemCreate,
     Role,
@@ -12,7 +13,6 @@ from app.models import (
     UserCreate,
     UserUpdate,
 )
-from app.models import ROLE_VIEWER
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:

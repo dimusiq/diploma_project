@@ -9,6 +9,7 @@ from fastapi.responses import Response
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlmodel import func, select
 
@@ -26,7 +27,6 @@ from app.models import (
     Message,
 )
 from app.services.pdf_service import build_label_pdf, build_shipping_note_pdf
-from pydantic import BaseModel
 
 router = APIRouter(prefix="/items", tags=["items"])
 

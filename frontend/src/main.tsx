@@ -6,10 +6,11 @@ import {
 } from "@tanstack/react-query"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
-import { StrictMode } from "react"
+import React, { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { ApiError, OpenAPI } from "./client/index.ts"
 import { CustomProvider } from "./components/ui/provider.tsx"
+import { getAccessToken, removeAccessToken } from "./lib/authStorage.ts"
 import { routeTree } from "./routeTree.gen.ts"
 
 // Типы для переменных окружения Vite
@@ -28,10 +29,8 @@ if (!apiUrl) {
 }
 OpenAPI.BASE = apiUrl || "http://localhost:8000"
 
-// Настройка токена для API запросов
-OpenAPI.TOKEN = async () => {
-  return localStorage.getItem("access_token") || ""
-}
+// Настройка токена для API запросов (из sessionStorage или localStorage)
+OpenAPI.TOKEN = async () => getAccessToken() ?? ""
 
 // Роутер создаётся после queryClient (нужен context). Обработчик ошибок получает его по ссылке.
 let router: ReturnType<typeof createRouter>
@@ -48,7 +47,7 @@ const handleApiError = (error: Error) => {
     console.error("API Error:", error)
   }
   if (error instanceof ApiError && [401, 403].includes(error.status)) {
-    localStorage.removeItem("access_token")
+    removeAccessToken()
     getRouter().navigate({ to: "/login" })
   }
 }

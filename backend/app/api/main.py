@@ -1,6 +1,18 @@
 from fastapi import APIRouter
 
-from app.api.routes import brands, categories, dashboard, equipment, items, login, private, roles, users, utils, zones
+from app.api.routes import (
+    brands,
+    categories,
+    dashboard,
+    equipment,
+    items,
+    login,
+    private,
+    roles,
+    users,
+    utils,
+    zones,
+)
 from app.core.config import settings
 
 api_router = APIRouter()

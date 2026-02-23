@@ -10,12 +10,13 @@ import { FiLock, FiMail } from "react-icons/fi"
 
 import { LoginService } from "@/client/index.ts"
 import { Button } from "@/components/ui/button.tsx"
+import { Checkbox } from "@/components/ui/checkbox.tsx"
 import { Field } from "@/components/ui/field.tsx"
 import { InputGroup } from "@/components/ui/input-group.tsx"
 import { PasswordInput } from "@/components/ui/password-input.tsx"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
+import { setAccessToken } from "@/lib/authStorage.ts"
 import { getApiErrorMessage } from "@/utils.ts"
-import Logo from "/images/fastapi-logo.svg"
 
 export const Route = createFileRoute("/login")({
   component: Login,
@@ -30,20 +31,33 @@ export const Route = createFileRoute("/login")({
 
 type LoginState = { error: string | null; success: boolean }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MIN_PASSWORD_LENGTH = 8
+
 async function loginAction(
   _prevState: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
   const username = (formData.get("username") as string)?.trim()
   const password = formData.get("password") as string
+  const remember = formData.get("remember") === "on"
   if (!username || !password) {
     return { error: "Заполните email и пароль", success: false }
+  }
+  if (!EMAIL_RE.test(username)) {
+    return { error: "Введите корректный email", success: false }
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return {
+      error: `Пароль должен быть не менее ${MIN_PASSWORD_LENGTH} символов`,
+      success: false,
+    }
   }
   try {
     const response = await LoginService.loginAccessToken({
       formData: { username, password },
     })
-    localStorage.setItem("access_token", response.access_token)
+    setAccessToken(response.access_token, remember)
     return { error: null, success: true }
   } catch (err) {
     return { error: getApiErrorMessage(err), success: false }
@@ -83,14 +97,19 @@ function Login() {
         }}
       >
       <Image
-        src={Logo}
-        alt="FastAPI logo"
+        src="/images/fastapi-logo.svg"
+        alt="Logo"
         height="auto"
         maxW="2xs"
         alignSelf="center"
         mb={4}
       />
-      <Field invalid={!!state.error} errorText={state.error ?? undefined}>
+      {state.error && (
+        <Text fontSize="sm" color="red.500" role="alert">
+          {state.error}
+        </Text>
+      )}
+      <Field invalid={!!state.error} errorText={undefined}>
         <InputGroup w="100%" startElement={<FiMail />}>
           <Input
             id="username"
@@ -99,6 +118,7 @@ function Login() {
             type="email"
             required
             autoComplete="username"
+            minLength={3}
           />
         </InputGroup>
       </Field>
@@ -110,11 +130,21 @@ function Login() {
         required
         autoComplete="current-password"
         errors={{}}
+        minLength={MIN_PASSWORD_LENGTH}
       />
+      <Checkbox inputProps={{ name: "remember", value: "on" }}>
+        Запомнить меня
+      </Checkbox>
       <RouterLink to="/recover-password" className="main-link">
         Забыли пароль?
       </RouterLink>
-      <Button variant="solid" type="submit" loading={isPending} size="md">
+      <Button
+        variant="solid"
+        type="submit"
+        loading={isPending}
+        disabled={isPending}
+        size="md"
+      >
         Войти
       </Button>
       <Text>

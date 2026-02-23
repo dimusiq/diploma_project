@@ -7,8 +7,8 @@ from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
-    Brand,
     EQUIPMENT_TYPES,
+    Brand,
     Equipment,
     EquipmentCreate,
     EquipmentList,
@@ -57,7 +57,7 @@ def _equipment_to_public(eq: Equipment, brand: Brand | None = None) -> Equipment
 @router.get("/", response_model=EquipmentList)
 def read_equipment_list(
     session: SessionDep,
-    current_user: CurrentUser,
+    _current_user: CurrentUser,
     skip: int = 0,
     limit: int = 100,
     search: str | None = Query(None, description="Поиск по VIN, серийному номеру, бренду, модели"),
@@ -106,7 +106,7 @@ def read_equipment_list(
 @router.get("/maintenance-records", response_model=MaintenanceRecordListWithEquipment)
 def read_all_maintenance_records(
     session: SessionDep,
-    current_user: CurrentUser,
+    _current_user: CurrentUser,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     equipment_id: uuid.UUID | None = Query(None, description="Фильтр по единице техники"),
@@ -153,7 +153,7 @@ def read_all_maintenance_records(
 @router.get("/{equipment_id}/maintenance-records", response_model=MaintenanceRecordList)
 def read_equipment_maintenance_records(
     session: SessionDep,
-    current_user: CurrentUser,
+    _current_user: CurrentUser,
     equipment_id: uuid.UUID,
 ) -> Any:
     """Список проведённых ТО по единице техники."""
@@ -184,7 +184,7 @@ def read_equipment_maintenance_records(
 @router.post("/{equipment_id}/maintenance-records", response_model=MaintenanceRecordPublic)
 def create_maintenance_record(
     session: SessionDep,
-    current_user: CurrentUser,
+    _current_user: CurrentUser,
     equipment_id: uuid.UUID,
     body: MaintenanceRecordCreate,
 ) -> Any:
@@ -213,7 +213,7 @@ def create_maintenance_record(
 
 
 @router.get("/{id}", response_model=EquipmentPublic)
-def read_equipment(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
+def read_equipment(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
     """Получить единицу техники по ID."""
     equipment = _get_or_404(session, id)
     if equipment.equipment_type not in EQUIPMENT_TYPES:
@@ -234,7 +234,7 @@ def _validate_equipment_type(equipment_type: str | None) -> None:
 def create_equipment(
     *,
     session: SessionDep,
-    current_user: CurrentUser,
+    _current_user: CurrentUser,
     body: EquipmentCreate,
 ) -> Any:
     """Добавить единицу складской техники. Бренд выбирается из справочника."""
@@ -253,7 +253,7 @@ def create_equipment(
 def update_equipment(
     *,
     session: SessionDep,
-    current_user: CurrentUser,
+    _current_user: CurrentUser,
     id: uuid.UUID,
     body: EquipmentUpdate,
 ) -> Any:
@@ -275,7 +275,7 @@ def update_equipment(
 @router.delete("/{id}", response_model=Message)
 def delete_equipment(
     session: SessionDep,
-    current_user: CurrentUser,
+    _current_user: CurrentUser,
     id: uuid.UUID,
 ) -> Message:
     """Удалить единицу техники."""

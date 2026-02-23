@@ -27,12 +27,6 @@ export default defineConfig({
         start_url: "/",
         icons: [
           {
-            src: "/vite.svg",
-            sizes: "192x192",
-            type: "image/svg+xml",
-            purpose: "any maskable",
-          },
-          {
             src: "/images/favicon.png",
             sizes: "192x192",
             type: "image/png",

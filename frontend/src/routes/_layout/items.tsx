@@ -112,7 +112,7 @@ function ItemsTable() {
     queryFn: () => CategoriesService.readCategories(),
   })
 
-  const { data, isLoading, isPlaceholderData } = useQuery({
+  const { data, isLoading, isError, refetch, isPlaceholderData } = useQuery({
     ...getItemsQueryOptions(searchParams),
     placeholderData: (prevData) => prevData,
   })
@@ -224,6 +224,23 @@ function ItemsTable() {
     },
     [searchParams, showErrorToast],
   )
+
+  if (isError) {
+    return (
+      <Container>
+        <EmptyState.Root>
+          <EmptyState.Content>
+            <VStack gap={3}>
+              <EmptyState.Title>Не удалось загрузить список</EmptyState.Title>
+              <Button size="sm" variant="outline" onClick={() => refetch()}>
+                Повторить
+              </Button>
+            </VStack>
+          </EmptyState.Content>
+        </EmptyState.Root>
+      </Container>
+    )
+  }
 
   if (isLoading) {
     return <PendingItems />
@@ -354,8 +371,17 @@ function ItemsTable() {
           </MenuContent>
         </MenuRoot>
       </Flex>
-      <Box overflowX="auto" w="100%">
-        <Table.Root size={{ base: "sm", md: "md" }} minW={{ base: "800px" }}>
+      <Box w="100%">
+        <Box
+          fontSize="xs"
+          color="gray.500"
+          mb={2}
+          display={{ base: "block", md: "none" }}
+        >
+          Свайпните влево для просмотра всех колонок
+        </Box>
+        <Box overflowX="auto" w="100%">
+          <Table.Root size={{ base: "sm", md: "md" }} minW={{ base: "800px" }}>
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader w="xs">
@@ -427,7 +453,8 @@ function ItemsTable() {
               </Table.Row>
             ))}
           </Table.Body>
-        </Table.Root>
+          </Table.Root>
+        </Box>
       </Box>
       <Flex justifyContent="flex-end" mt={4}>
         <PaginationRoot

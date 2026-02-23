@@ -3,7 +3,6 @@ import { useState } from "react"
 import { FaBars } from "react-icons/fa"
 import { FiLogOut } from "react-icons/fi"
 
-import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 import useAuth from "@/hooks/useAuth.ts"
 import {
   DrawerBackdrop,
@@ -17,7 +16,6 @@ import SidebarItems from "./SidebarItems.tsx"
 
 /** Контент сайдбара для вставки в Splitter.Panel на десктопе (resizable). */
 export function SidebarDesktopContent() {
-  const currentUser = useCurrentUser()
   const { logout } = useAuth()
   return (
     <Box
@@ -41,11 +39,6 @@ export function SidebarDesktopContent() {
         <FiLogOut />
         <Text>Выйти</Text>
       </Flex>
-      {currentUser?.email && (
-        <Text fontSize="sm" pt={2} truncate maxW="full">
-          Logged in as: {currentUser.email}
-        </Text>
-      )}
     </Box>
   )
 }
@@ -101,22 +94,12 @@ const Sidebar = () => {
                 <Text>Выйти</Text>
               </Flex>
             </Box>
-            <SidebarEmailBlock />
           </DrawerBody>
           <DrawerCloseTrigger />
         </DrawerContent>
       </DrawerRoot>
     </>
   )
-}
-
-function SidebarEmailBlock() {
-  const currentUser = useCurrentUser()
-  return currentUser?.email ? (
-    <Text fontSize="sm" p={4} truncate maxW="sm" flexShrink={0}>
-      Logged in as: {currentUser.email}
-    </Text>
-  ) : null
 }
 
 export default Sidebar

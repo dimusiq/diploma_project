@@ -7,6 +7,7 @@ import {
 import React, { Suspense } from "react"
 
 import NotFound from "@/components/Common/NotFound.tsx"
+import { OfflineBanner } from "@/components/Common/OfflineBanner.tsx"
 import { useDocumentTitle } from "@/hooks/useDocumentTitle.ts"
 
 /** Контекст роутера: передаётся в createRouter, дополняется в beforeLoad дочерних маршрутов. */
@@ -38,6 +39,7 @@ function RootComponent() {
 
   return (
     <>
+      <OfflineBanner />
       <Outlet />
       <Suspense>
         <TanStackDevtools />

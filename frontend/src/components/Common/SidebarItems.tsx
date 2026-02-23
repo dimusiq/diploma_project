@@ -1,5 +1,5 @@
 import { Box, Flex, Icon, Text } from "@chakra-ui/react"
-import { Link as RouterLink } from "@tanstack/react-router"
+import { Link as RouterLink, useLocation } from "@tanstack/react-router"
 import { useState } from "react"
 import {
   FiArrowDownRight,
@@ -75,7 +75,7 @@ const items: Item[] = [
       { id: "assets", title: "Список техники" },
       { id: "maintenance", title: "График ТО" },
       { id: "maintenance-schedule", title: "Расписание ТО" },
-      { id: "work-orders", title: "Рабочие заказы" },
+      { id: "work-orders", title: "Обслуживание и ремонт техники" },
       { id: "technicians", title: "Управление задачами техников" },
       { id: "alerts", title: "Мониторинг и уведомления" },
       { id: "spare-parts", title: "Запасные части" },
@@ -102,6 +102,8 @@ function isExpandable(item: Item): item is ItemExpandable {
 
 const SidebarItems = ({ onClose }: SidebarItemsProps) => {
   const currentUser = useCurrentUser()
+  const location = useLocation()
+  const pathname = location.pathname
   const [techniqueExpanded, setTechniqueExpanded] = useState(false)
 
   const finalItems: Item[] = currentUser?.is_superuser
@@ -167,17 +169,20 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
       )
     }
     const { icon, title, path } = item
+    const isActive = pathname === path || (path === "/" && pathname === "/")
     return (
       <RouterLink key={title} to={path} onClick={onClose}>
         <Flex
           gap={4}
           px={4}
           py={2}
-          _hover={{
-            background: "gray.subtle",
-          }}
+          _hover={{ background: "gray.subtle" }}
           alignItems="center"
           fontSize="sm"
+          bg={isActive ? "gray.subtle" : undefined}
+          fontWeight={isActive ? "bold" : undefined}
+          borderLeftWidth={isActive ? "3px" : 0}
+          borderLeftColor="blue.500"
         >
           <Icon as={icon} alignSelf="center" />
           <Text ml={2}>{title}</Text>

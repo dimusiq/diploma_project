@@ -11,7 +11,7 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 
 
 @router.get("/", response_model=list[CategoryPublic])
-def read_categories(session: SessionDep, current_user: CurrentUser) -> Any:
+def read_categories(session: SessionDep, _current_user: CurrentUser) -> Any:
     """
     Список категорий (для выбора в формах и фильтрах).
     """
@@ -19,7 +19,7 @@ def read_categories(session: SessionDep, current_user: CurrentUser) -> Any:
 
 
 @router.get("/{id}", response_model=CategoryPublic)
-def read_category(session: SessionDep, current_user: CurrentUser, id: uuid.UUID) -> Any:
+def read_category(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
     """
     Получить категорию по ID.
     """
