@@ -14,6 +14,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { z } from "zod"
 
+import {
+  auditApi,
+  AUDIT_ACTION_LABELS,
+  AUDIT_RESOURCE_LABELS,
+  type AuditLogPublic,
+} from "@/api/audit.ts"
 import { type BrandPublic, brandsApi } from "@/api/brands.ts"
 import { type ZonePublic, zonesApi } from "@/api/zones.ts"
 import { CategoriesService, RolesService, UsersService } from "@/client/index.ts"
@@ -34,6 +40,7 @@ const usersSearchSchema = z.object({
 })
 
 const PER_PAGE = 5
+const AUDIT_PAGE_SIZE = 20
 
 function getUsersQueryOptions({ page }: { page: number }) {
   return {
@@ -626,6 +633,124 @@ function EditZone({ zone }: { zone: ZonePublic }) {
   )
 }
 
+function AuditLogSection() {
+  const [auditPage, setAuditPage] = useState(1)
+  const [resourceTypeFilter, setResourceTypeFilter] = useState<string>("")
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: [
+      "audit",
+      {
+        skip: (auditPage - 1) * AUDIT_PAGE_SIZE,
+        limit: AUDIT_PAGE_SIZE,
+        resource_type: resourceTypeFilter || undefined,
+      },
+    ],
+    queryFn: () =>
+      auditApi.list({
+        skip: (auditPage - 1) * AUDIT_PAGE_SIZE,
+        limit: AUDIT_PAGE_SIZE,
+        resource_type: resourceTypeFilter || undefined,
+      }),
+  })
+
+  const rows = data?.data ?? []
+  const count = data?.count ?? 0
+
+  const formatDate = (s: string) =>
+    new Date(s).toLocaleString("ru-RU", {
+      dateStyle: "short",
+      timeStyle: "short",
+    })
+
+  return (
+    <>
+      <Flex gap={2} mb={4} flexWrap="wrap" align="center">
+        <Text fontSize="sm" color="fg.muted">
+          Тип ресурса:
+        </Text>
+        <select
+          value={resourceTypeFilter}
+          onChange={(e) => {
+            setResourceTypeFilter(e.target.value)
+            setAuditPage(1)
+          }}
+          style={{
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid var(--chakra-colors-border)",
+            minWidth: "140px",
+          }}
+        >
+          <option value="">— Все —</option>
+          {Object.entries(AUDIT_RESOURCE_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </Flex>
+      {isLoading ? (
+        <Text color="fg.muted">Загрузка журнала…</Text>
+      ) : isError ? (
+        <Text color="red.500">Не удалось загрузить журнал аудита.</Text>
+      ) : rows.length === 0 ? (
+        <Text color="fg.muted">Записей пока нет.</Text>
+      ) : (
+        <>
+          <Table.Root size="sm" overflowX="auto">
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeader whiteSpace="nowrap">
+                  Дата и время
+                </Table.ColumnHeader>
+                <Table.ColumnHeader>Пользователь</Table.ColumnHeader>
+                <Table.ColumnHeader>Действие</Table.ColumnHeader>
+                <Table.ColumnHeader>Ресурс</Table.ColumnHeader>
+                <Table.ColumnHeader>Детали</Table.ColumnHeader>
+                <Table.ColumnHeader>IP</Table.ColumnHeader>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {rows.map((r: AuditLogPublic) => (
+                <Table.Row key={r.id}>
+                  <Table.Cell whiteSpace="nowrap" fontSize="xs">
+                    {formatDate(r.created_at)}
+                  </Table.Cell>
+                  <Table.Cell>{r.user_email ?? "—"}</Table.Cell>
+                  <Table.Cell>
+                    {AUDIT_ACTION_LABELS[r.action] ?? r.action}
+                  </Table.Cell>
+                  <Table.Cell>
+                    {AUDIT_RESOURCE_LABELS[r.resource_type] ?? r.resource_type}
+                  </Table.Cell>
+                  <Table.Cell maxW="200px" truncate title={r.details ?? undefined}>
+                    {r.details ?? "—"}
+                  </Table.Cell>
+                  <Table.Cell fontSize="xs">{r.ip_address ?? "—"}</Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Root>
+          <Flex justifyContent="flex-end" mt={4}>
+            <PaginationRoot
+              count={count}
+              pageSize={AUDIT_PAGE_SIZE}
+              onPageChange={({ page }) => setAuditPage(page)}
+            >
+              <Flex>
+                <PaginationPrevTrigger />
+                <PaginationItems />
+                <PaginationNextTrigger />
+              </Flex>
+            </PaginationRoot>
+          </Flex>
+        </>
+      )}
+    </>
+  )
+}
+
 function ZonesList() {
   const queryClient = useQueryClient()
   const { data: zones = [] } = useQuery({
@@ -708,6 +833,15 @@ function Admin() {
       </Text>
       <AddZone />
       <ZonesList />
+
+      <Heading size="md" mt={10} mb={2}>
+        Журнал аудита
+      </Heading>
+      <Text fontSize="sm" color="fg.muted" mb={2}>
+        Критичные действия администраторов: создание и изменение пользователей,
+        категорий, брендов, зон, запросы сброса пароля.
+      </Text>
+      <AuditLogSection />
     </Container>
   )
 }

@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app import crud
 from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
 from app.core import security
+from app.core.audit import get_client_ip, log_audit
 from app.core.config import settings
 from app.core.rate_limit import check_login_rate_limit
 from app.core.security import get_password_hash
@@ -120,9 +121,14 @@ def reset_password(session: SessionDep, body: NewPassword) -> Message:
     dependencies=[Depends(get_current_active_superuser)],
     response_class=HTMLResponse,
 )
-def recover_password_html_content(email: str, session: SessionDep) -> Any:
+def recover_password_html_content(
+    email: str,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+) -> Any:
     """
-    HTML Content for Password Recovery
+    HTML Content for Password Recovery (только суперпользователь).
     """
     user = crud.get_user_by_email(session=session, email=email)
 
@@ -132,6 +138,15 @@ def recover_password_html_content(email: str, session: SessionDep) -> Any:
             detail="The user with this username does not exist in the system.",
         )
     password_reset_token = generate_password_reset_token(email=email)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="password_recovery.requested",
+        resource_type="user",
+        resource_id=user.id,
+        details={"email": email},
+        ip_address=get_client_ip(request),
+    )
     email_data = generate_reset_password_email(
         email_to=user.email, email=email, token=password_reset_token
     )

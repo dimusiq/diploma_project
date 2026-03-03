@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    audit,
     brands,
     categories,
     dashboard,
@@ -26,6 +27,7 @@ api_router.include_router(zones.router)
 api_router.include_router(items.router)
 api_router.include_router(equipment.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(audit.router)
 
 
 if settings.ENVIRONMENT == "local":

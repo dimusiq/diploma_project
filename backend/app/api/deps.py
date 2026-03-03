@@ -12,7 +12,7 @@ from sqlmodel import Session
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
-from app.core.permissions import can_manage_users
+from app.core.permissions import can_manage_users, user_has_permission
 from app.models import TokenPayload, User
 
 reusable_oauth2 = OAuth2PasswordBearer(
@@ -69,10 +69,26 @@ def get_current_active_superuser(current_user: CurrentUser) -> User:
     return current_user
 
 
-def get_current_user_can_manage_users(current_user: CurrentUser) -> User:
-    """Доступ: суперпользователь или роль admin (управление пользователями)."""
-    if not can_manage_users(current_user):
+def get_current_user_can_manage_users(
+    session: SessionDep, current_user: CurrentUser
+) -> User:
+    """Доступ: суперпользователь или право users.manage."""
+    if not can_manage_users(session, current_user):
         raise HTTPException(
             status_code=403, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+def require_permission(permission_code: str):
+    """Зависимость: текущий пользователь должен иметь указанное право."""
+
+    def _dependency(session: SessionDep, current_user: CurrentUser) -> User:
+        if not user_has_permission(session, current_user, permission_code):
+            raise HTTPException(
+                status_code=403,
+                detail="The user doesn't have enough privileges",
+            )
+        return current_user
+
+    return Depends(_dependency)

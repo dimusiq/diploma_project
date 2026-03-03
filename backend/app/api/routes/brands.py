@@ -2,10 +2,12 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import func, select
 
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep, require_permission
+from app.core.audit import get_client_ip, log_audit
+from app.core.permissions import PERM_BRANDS_MANAGE
 from app.models import Brand, BrandCreate, BrandPublic, BrandUpdate, Equipment, Message
 
 router = APIRouter(prefix="/brands", tags=["brands"])
@@ -29,10 +31,16 @@ def read_brand(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -
 @router.post(
     "/",
     response_model=BrandPublic,
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[require_permission(PERM_BRANDS_MANAGE)],
 )
-def create_brand(*, session: SessionDep, body: BrandCreate) -> Any:
-    """Создать бренд (только суперпользователь)."""
+def create_brand(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    body: BrandCreate,
+) -> Any:
+    """Создать бренд."""
     existing = session.exec(select(Brand).where(Brand.name == body.name)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Бренд с таким названием уже существует")
@@ -40,16 +48,32 @@ def create_brand(*, session: SessionDep, body: BrandCreate) -> Any:
     session.add(brand)
     session.commit()
     session.refresh(brand)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="brand.create",
+        resource_type="brand",
+        resource_id=brand.id,
+        details={"name": brand.name},
+        ip_address=get_client_ip(request),
+    )
     return brand
 
 
 @router.put(
     "/{id}",
     response_model=BrandPublic,
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[require_permission(PERM_BRANDS_MANAGE)],
 )
-def update_brand(*, session: SessionDep, id: uuid.UUID, body: BrandUpdate) -> Any:
-    """Обновить бренд (только суперпользователь)."""
+def update_brand(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+    body: BrandUpdate,
+) -> Any:
+    """Обновить бренд."""
     brand = session.get(Brand, id)
     if not brand:
         raise HTTPException(status_code=404, detail="Бренд не найден")
@@ -62,16 +86,30 @@ def update_brand(*, session: SessionDep, id: uuid.UUID, body: BrandUpdate) -> An
     session.add(brand)
     session.commit()
     session.refresh(brand)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="brand.update",
+        resource_type="brand",
+        resource_id=brand.id,
+        details={"name": brand.name, "updated_fields": list(update_data.keys())},
+        ip_address=get_client_ip(request),
+    )
     return brand
 
 
 @router.delete(
     "/{id}",
     response_model=Message,
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[require_permission(PERM_BRANDS_MANAGE)],
 )
-def delete_brand(session: SessionDep, id: uuid.UUID) -> Message:
-    """Удалить бренд (только суперпользователь). Нельзя удалить бренд, если к нему привязана техника."""
+def delete_brand(
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+) -> Message:
+    """Удалить бренд. Нельзя удалить, если к нему привязана техника."""
     brand = session.get(Brand, id)
     if not brand:
         raise HTTPException(status_code=404, detail="Бренд не найден")
@@ -81,6 +119,15 @@ def delete_brand(session: SessionDep, id: uuid.UUID) -> Message:
             status_code=400,
             detail="Нельзя удалить бренд, к которому привязана техника. Сначала измените бренд у единиц техники.",
         )
+    name = brand.name
     session.delete(brand)
-    session.commit()
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="brand.delete",
+        resource_type="brand",
+        resource_id=id,
+        details={"name": name},
+        ip_address=get_client_ip(request),
+    )
     return Message(message="Бренд удалён")

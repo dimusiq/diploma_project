@@ -117,7 +117,7 @@ def read_items(
         "created_at_from": created_at_from,
         "created_at_to": created_at_to,
     }
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         count_statement = select(func.count()).select_from(Item)
         count_statement = _item_filters(count_statement, **filters)
         count = session.exec(count_statement).one()
@@ -160,7 +160,7 @@ def _items_for_export(
         "created_at_from": created_at_from,
         "created_at_to": created_at_to,
     }
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         statement = select(Item)
     else:
         statement = select(Item).where(Item.owner_id == current_user.id)
@@ -277,7 +277,7 @@ def _get_item_or_404(
     item = session.get(Item, id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    if not can_see_all_items(current_user) and (item.owner_id != current_user.id):
+    if not can_see_all_items(session, current_user) and (item.owner_id != current_user.id):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return item
 
@@ -331,7 +331,7 @@ def shipping_note_pdf(
         item = session.get(Item, item_id)
         if not item:
             raise HTTPException(status_code=404, detail=f"Item {item_id} not found")
-        if not can_see_all_items(current_user) and item.owner_id != current_user.id:
+        if not can_see_all_items(session, current_user) and item.owner_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not enough permissions")
         items.append(item)
     pdf_bytes = build_shipping_note_pdf(items)
@@ -440,7 +440,7 @@ def update_item(
     """
     item = _get_item_or_404(session, current_user, id)
     update_dict = item_in.model_dump(exclude_unset=True)
-    if "status" in update_dict and not can_change_status(current_user):
+    if "status" in update_dict and not can_change_status(session, current_user):
         raise HTTPException(
             status_code=403,
             detail="Not enough permissions to change item status",

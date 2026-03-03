@@ -173,3 +173,18 @@ export function getChainNameForEquipment(
     .sort((a, b) => a.name.localeCompare(b.name))[0]
   return chain ? chain.name : null
 }
+
+/**
+ * Интервалы ТО (м/ч) из цепочки, к которой принадлежит техника.
+ * Если техника в нескольких цепочках — интервалы первой по имени.
+ * Если ни в одной — пустой массив (интервал задаётся вручную).
+ */
+export function getIntervalHoursForEquipment(
+  equipmentId: string,
+): number[] {
+  if (!equipmentId.trim()) return []
+  const chain = getMaintenanceChains()
+    .filter((c) => c.equipmentIds.includes(equipmentId))
+    .sort((a, b) => a.name.localeCompare(b.name))[0]
+  return chain?.intervalHours ?? []
+}

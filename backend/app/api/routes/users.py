@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import col, delete, func, select
 
 from app import crud
@@ -10,7 +10,9 @@ from app.api.deps import (
     SessionDep,
     get_current_user_can_manage_users,
 )
+from app.core.audit import get_client_ip, log_audit
 from app.core.config import settings
+from app.core.permissions import PERM_USERS_MANAGE, user_has_permission
 from app.core.security import get_password_hash, verify_password
 from app.models import (
     Item,
@@ -51,7 +53,13 @@ def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
 @router.post(
     "/", dependencies=[Depends(get_current_user_can_manage_users)], response_model=UserPublic
 )
-def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
+def create_user(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    user_in: UserCreate,
+) -> Any:
     """
     Create new user.
     """
@@ -63,6 +71,15 @@ def create_user(*, session: SessionDep, user_in: UserCreate) -> Any:
         )
 
     user = crud.create_user(session=session, user_create=user_in)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="user.create",
+        resource_type="user",
+        resource_id=user.id,
+        details={"email": user.email},
+        ip_address=get_client_ip(request),
+    )
     if settings.emails_enabled and user_in.email:
         email_data = generate_new_account_email(
             email_to=user_in.email, username=user_in.email, password=user_in.password
@@ -157,15 +174,17 @@ def register_user(session: SessionDep, user_in: UserRegister) -> Any:
 
 @router.get("/{user_id}", response_model=UserPublic)
 def read_user_by_id(
-    user_id: uuid.UUID, session: SessionDep, current_user: CurrentUser
+    user_id: uuid.UUID,
+    session: SessionDep,
+    current_user: CurrentUser,
 ) -> Any:
     """
-    Get a specific user by id.
+    Get a specific user by id (себя или при праве users.manage).
     """
     user = session.get(User, user_id)
     if user == current_user:
         return user
-    if not current_user.is_superuser:
+    if not (current_user.is_superuser or user_has_permission(session, current_user, PERM_USERS_MANAGE)):
         raise HTTPException(
             status_code=403,
             detail="The user doesn't have enough privileges",
@@ -181,6 +200,8 @@ def read_user_by_id(
 def update_user(
     *,
     session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
     user_id: uuid.UUID,
     user_in: UserUpdate,
 ) -> Any:
@@ -202,12 +223,24 @@ def update_user(
             )
 
     db_user = crud.update_user(session=session, db_user=db_user, user_in=user_in)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="user.update",
+        resource_type="user",
+        resource_id=db_user.id,
+        details={"email": db_user.email, "updated_fields": list(user_in.model_dump(exclude_unset=True).keys())},
+        ip_address=get_client_ip(request),
+    )
     return db_user
 
 
 @router.delete("/{user_id}", dependencies=[Depends(get_current_user_can_manage_users)])
 def delete_user(
-    session: SessionDep, current_user: CurrentUser, user_id: uuid.UUID
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    user_id: uuid.UUID,
 ) -> Message:
     """
     Delete a user.
@@ -219,8 +252,17 @@ def delete_user(
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
+    email = user.email
     statement = delete(Item).where(col(Item.owner_id) == user_id)
     session.exec(statement)  # type: ignore
     session.delete(user)
-    session.commit()
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="user.delete",
+        resource_type="user",
+        resource_id=user_id,
+        details={"email": email},
+        ip_address=get_client_ip(request),
+    )
     return Message(message="User deleted successfully")

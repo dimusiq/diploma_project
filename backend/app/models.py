@@ -11,15 +11,76 @@ ROLE_WAREHOUSE = "warehouse"
 ROLE_VIEWER = "viewer"
 
 
+class RolePermission(SQLModel, table=True):
+    """Связь роли и права (шаблон роли = набор permission для роли)."""
+    __tablename__ = "role_permission"
+    role_id: uuid.UUID = Field(foreign_key="role.id", ondelete="CASCADE", primary_key=True)
+    permission_id: uuid.UUID = Field(
+        foreign_key="permission.id", ondelete="CASCADE", primary_key=True
+    )
+
+
 class Role(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field(unique=True, max_length=32)
     users: list["User"] = Relationship(back_populates="role")
+    permissions: list["Permission"] = Relationship(
+        back_populates="roles", link_model=RolePermission
+    )
 
 
 class RolePublic(SQLModel):
     id: uuid.UUID
     name: str
+
+
+# --- Permission (гранулярные права, привязка к ролям через RolePermission) ---
+class Permission(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    code: str = Field(unique=True, max_length=64, index=True)
+    description: str | None = Field(default=None, max_length=255)
+    roles: list["Role"] = Relationship(
+        back_populates="permissions", link_model=RolePermission
+    )
+
+
+class PermissionPublic(SQLModel):
+    id: uuid.UUID
+    code: str
+    description: str | None = None
+
+
+# --- AuditLog (аудит критичных действий администраторов) ---
+class AuditLog(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+    action: str = Field(max_length=128)
+    resource_type: str = Field(max_length=64)
+    resource_id: uuid.UUID | None = Field(default=None)
+    details: str | None = Field(default=None, max_length=4096)
+    ip_address: str | None = Field(default=None, max_length=64)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class AuditLogPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID | None
+    user_email: str | None = None
+    action: str
+    resource_type: str
+    resource_id: uuid.UUID | None
+    details: str | None
+    ip_address: str | None
+    created_at: datetime
+
+
+class AuditLogList(SQLModel):
+    data: list[AuditLogPublic]
+    count: int
 
 
 # Shared properties

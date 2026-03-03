@@ -2,10 +2,12 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlmodel import select
 
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser
+from app.api.deps import CurrentUser, SessionDep, require_permission
+from app.core.audit import get_client_ip, log_audit
+from app.core.permissions import PERM_ZONES_MANAGE
 from app.models import (
     Message,
     WarehouseZone,
@@ -35,10 +37,16 @@ def read_zone(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) ->
 @router.post(
     "/",
     response_model=WarehouseZonePublic,
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[require_permission(PERM_ZONES_MANAGE)],
 )
-def create_zone(*, session: SessionDep, body: WarehouseZoneCreate) -> Any:
-    """Создать зону (только суперпользователь)."""
+def create_zone(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    body: WarehouseZoneCreate,
+) -> Any:
+    """Создать зону."""
     existing = session.exec(select(WarehouseZone).where(WarehouseZone.name == body.name)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Зона с таким названием уже существует")
@@ -46,16 +54,32 @@ def create_zone(*, session: SessionDep, body: WarehouseZoneCreate) -> Any:
     session.add(zone)
     session.commit()
     session.refresh(zone)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="zone.create",
+        resource_type="zone",
+        resource_id=zone.id,
+        details={"name": zone.name},
+        ip_address=get_client_ip(request),
+    )
     return zone
 
 
 @router.put(
     "/{id}",
     response_model=WarehouseZonePublic,
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[require_permission(PERM_ZONES_MANAGE)],
 )
-def update_zone(*, session: SessionDep, id: uuid.UUID, body: WarehouseZoneUpdate) -> Any:
-    """Обновить зону (только суперпользователь)."""
+def update_zone(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+    body: WarehouseZoneUpdate,
+) -> Any:
+    """Обновить зону."""
     zone = session.get(WarehouseZone, id)
     if not zone:
         raise HTTPException(status_code=404, detail="Зона не найдена")
@@ -70,19 +94,42 @@ def update_zone(*, session: SessionDep, id: uuid.UUID, body: WarehouseZoneUpdate
     session.add(zone)
     session.commit()
     session.refresh(zone)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="zone.update",
+        resource_type="zone",
+        resource_id=zone.id,
+        details={"name": zone.name, "updated_fields": list(update_data.keys())},
+        ip_address=get_client_ip(request),
+    )
     return zone
 
 
 @router.delete(
     "/{id}",
     response_model=Message,
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[require_permission(PERM_ZONES_MANAGE)],
 )
-def delete_zone(session: SessionDep, id: uuid.UUID) -> Message:
-    """Удалить зону (только суперпользователь)."""
+def delete_zone(
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+) -> Message:
+    """Удалить зону."""
     zone = session.get(WarehouseZone, id)
     if not zone:
         raise HTTPException(status_code=404, detail="Зона не найдена")
+    name = zone.name
     session.delete(zone)
-    session.commit()
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="zone.delete",
+        resource_type="zone",
+        resource_id=id,
+        details={"name": name},
+        ip_address=get_client_ip(request),
+    )
     return Message(message="Зона удалена")

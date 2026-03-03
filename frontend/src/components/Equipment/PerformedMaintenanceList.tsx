@@ -13,7 +13,7 @@ import {
 } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { FaPlus } from "react-icons/fa"
 
 import {
@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import { getIntervalHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
 function CreateOrderDialog({
   open,
@@ -49,6 +50,17 @@ function CreateOrderDialog({
   const [intervalHours, setIntervalHours] = useState(500)
   const [engineHoursAtService, setEngineHoursAtService] = useState<string>("")
   const [comment, setComment] = useState("")
+
+  const chainIntervals = getIntervalHoursForEquipment(equipmentId)
+
+  useEffect(() => {
+    if (
+      chainIntervals.length > 0 &&
+      !chainIntervals.includes(intervalHours)
+    ) {
+      setIntervalHours(chainIntervals[0])
+    }
+  }, [equipmentId, chainIntervals, intervalHours])
 
   const { data: equipmentData } = useQuery({
     queryKey: ["equipment", "all"],
@@ -106,7 +118,20 @@ function CreateOrderDialog({
                 </Text>
                 <select
                   value={equipmentId}
-                  onChange={(e) => setEquipmentId(e.target.value)}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setEquipmentId(id)
+                    const intervals = getIntervalHoursForEquipment(id)
+                    if (intervals.length > 0) {
+                      setIntervalHours(
+                        intervals.includes(intervalHours)
+                          ? intervalHours
+                          : intervals[0],
+                      )
+                    } else {
+                      setIntervalHours(500)
+                    }
+                  }}
                   required
                   style={{
                     width: "100%",
@@ -140,15 +165,49 @@ function CreateOrderDialog({
                 <Text fontSize="sm" mb={1} fontWeight="medium">
                   Интервал ТО (м/ч)
                 </Text>
-                <Input
-                  type="number"
-                  min={1}
-                  value={intervalHours}
-                  onChange={(e) =>
-                    setIntervalHours(parseInt(e.target.value, 10) || 500)
-                  }
-                  size="sm"
-                />
+                {chainIntervals.length > 0 ? (
+                  <select
+                    value={
+                      chainIntervals.includes(intervalHours)
+                        ? intervalHours
+                        : chainIntervals[0]
+                    }
+                    onChange={(e) =>
+                      setIntervalHours(parseInt(e.target.value, 10))
+                    }
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--chakra-colors-border)",
+                    }}
+                  >
+                    {chainIntervals.map((h) => (
+                      <option key={h} value={h}>
+                        {h} м/ч
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={intervalHours}
+                      onChange={(e) =>
+                        setIntervalHours(
+                          parseInt(e.target.value, 10) || 500,
+                        )
+                      }
+                      size="sm"
+                    />
+                    <Text fontSize="xs" color="fg.muted" mt={1}>
+                      Техника не привязана к цепочке ТО — укажите интервал
+                      вручную
+                    </Text>
+                  </>
+                )}
               </Box>
               <Box>
                 <Text fontSize="sm" mb={1} fontWeight="medium">

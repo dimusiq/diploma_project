@@ -22,7 +22,7 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
     latest_incoming — последние поступления (с учётом прав: viewer видит только свои).
     """
     # Total items count (with permission: viewer sees only own)
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         total_items = session.exec(select(func.count()).select_from(Item)).one()
     else:
         total_items = session.exec(
@@ -30,7 +30,7 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
         ).one()
 
     # Items by status (with permission)
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         status_results = session.exec(
             select(Item.status, func.count(Item.id)).group_by(Item.status)
         ).all()
@@ -44,12 +44,12 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
 
     # Total users (owners of items) — только для тех, кто видит все
     total_users = 0
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         total_users = session.exec(select(func.count()).select_from(User)).one()
 
     # Items per user (top owners) — только для тех, кто видит все
     top_owners: list[dict[str, Any]] = []
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         user_item_counts = session.exec(
             select(User.email, func.count(Item.id))
             .join(Item)
@@ -63,7 +63,7 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
         ]
 
     # Последние поступления (5 шт., status=incoming, по created_at desc)
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         latest_stmt = (
             select(Item)
             .where(Item.status == "incoming")
@@ -121,7 +121,7 @@ def get_dashboard_trends(
         date_expr_hist = cast(ItemHistory.changed_at, Date)
 
     # Incoming: count items created per period (with permission filter)
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         incoming_stmt = (
             select(date_expr.label("period"), func.count(Item.id).label("count"))
             .where(Item.created_at >= dt_from, Item.created_at <= dt_to)
@@ -142,7 +142,7 @@ def get_dashboard_trends(
     incoming_rows = session.exec(incoming_stmt).all()
 
     # Shipped: from ItemHistory where field_name='status' and new_value='shipped'
-    if can_see_all_items(current_user):
+    if can_see_all_items(session, current_user):
         shipped_stmt = (
             select(date_expr_hist.label("period"), func.count(ItemHistory.id).label("count"))
             .where(
