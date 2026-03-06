@@ -1,5 +1,11 @@
 import { Button, Flex, Text } from "@chakra-ui/react"
-import { FiEdit3, FiPrinter, FiTruck, FiX } from "react-icons/fi"
+import { FiDownload, FiEdit3, FiPrinter, FiTruck, FiX } from "react-icons/fi"
+import {
+  MenuContent,
+  MenuItem,
+  MenuRoot,
+  MenuTrigger,
+} from "@/components/ui/menu.tsx"
 
 interface ItemSelectionToolbarProps {
   selectedCount: number
@@ -7,7 +13,10 @@ interface ItemSelectionToolbarProps {
   onPrintShippingNote: () => void
   onMove: () => void
   onMassEdit?: () => void
+  /** Экспорт только выбранных товаров (CSV/Excel). */
+  onExportSelected?: (format: "csv" | "xlsx") => void
   isPrinting?: boolean
+  isExporting?: boolean
 }
 
 export function ItemSelectionToolbar({
@@ -16,7 +25,9 @@ export function ItemSelectionToolbar({
   onPrintShippingNote,
   onMove,
   onMassEdit,
+  onExportSelected,
   isPrinting = false,
+  isExporting = false,
 }: ItemSelectionToolbarProps) {
   if (selectedCount === 0) return null
 
@@ -57,6 +68,36 @@ export function ItemSelectionToolbar({
             Изменить выбранные
           </Flex>
         </Button>
+      )}
+      {onExportSelected && (
+        <MenuRoot>
+          <MenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isExporting}
+            >
+              <Flex as="span" gap={2} align="center">
+                <FiDownload />
+                Выгрузить выбранные
+              </Flex>
+            </Button>
+          </MenuTrigger>
+          <MenuContent>
+            <MenuItem
+              value="csv"
+              onClick={() => onExportSelected("csv")}
+            >
+              CSV
+            </MenuItem>
+            <MenuItem
+              value="xlsx"
+              onClick={() => onExportSelected("xlsx")}
+            >
+              Excel
+            </MenuItem>
+          </MenuContent>
+        </MenuRoot>
       )}
       <Button size="sm" variant="ghost" onClick={onClear}>
         <Flex as="span" gap={2} align="center">

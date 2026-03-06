@@ -109,6 +109,17 @@ export interface MaintenanceRecordListWithEquipmentResponse {
   count: number
 }
 
+export type EquipmentSortField =
+  | "brand_model"
+  | "serial_number"
+  | "garage_number"
+  | "equipment_type"
+  | "zone"
+  | "engine_hours"
+  | "commissioned_at"
+  | "current_status"
+export type EquipmentSortOrder = "asc" | "desc"
+
 export const equipmentApi = {
   list: (params?: {
     skip?: number
@@ -117,6 +128,8 @@ export const equipmentApi = {
     current_status?: string
     equipment_type?: string
     brand_id?: string
+    sort_by?: EquipmentSortField
+    order?: EquipmentSortOrder
   }) => {
     const q = new URLSearchParams()
     if (params?.skip != null) q.set("skip", String(params.skip))
@@ -125,6 +138,8 @@ export const equipmentApi = {
     if (params?.current_status) q.set("current_status", params.current_status)
     if (params?.equipment_type) q.set("equipment_type", params.equipment_type)
     if (params?.brand_id) q.set("brand_id", params.brand_id)
+    if (params?.sort_by) q.set("sort_by", params.sort_by)
+    if (params?.order) q.set("order", params.order)
     const query = q.toString()
     return request<EquipmentListResponse>(
       `/api/v1/equipment/${query ? `?${query}` : ""}`,

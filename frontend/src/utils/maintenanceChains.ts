@@ -141,21 +141,23 @@ export function getMaintenanceChain(id: string): MaintenanceChain | undefined {
 export function getRemindBeforeHoursForEquipment(
   equipmentId: string,
   defaultRemind: number,
+  chains?: MaintenanceChain[],
 ): number {
-  const chains = getMaintenanceChains().filter((c) =>
-    c.equipmentIds.includes(equipmentId),
-  )
-  if (chains.length === 0) return defaultRemind
-  return Math.min(...chains.map((c) => c.remindBeforeHours))
+  const list = chains ?? getMaintenanceChains()
+  const inChains = list.filter((c) => c.equipmentIds.includes(equipmentId))
+  if (inChains.length === 0) return defaultRemind
+  return Math.min(...inChains.map((c) => c.remindBeforeHours))
 }
 
 /** ID техники, которые уже входят в другие цепочки (кроме excludeChainId). excludeChainId = null — все цепочки. */
 export function getEquipmentIdsInOtherChains(
   excludeChainId: string | null,
+  chains?: MaintenanceChain[],
 ): Set<string> {
-  const chains = getMaintenanceChains().filter((c) => c.id !== excludeChainId)
+  const list = chains ?? getMaintenanceChains()
+  const filtered = list.filter((c) => c.id !== excludeChainId)
   const set = new Set<string>()
-  for (const c of chains) {
+  for (const c of filtered) {
     for (const id of c.equipmentIds) set.add(id)
   }
   return set
@@ -165,8 +167,10 @@ export function getEquipmentIdsInOtherChains(
 export function getChainNameForEquipment(
   equipmentId: string,
   excludeChainId: string | null,
+  chains?: MaintenanceChain[],
 ): string | null {
-  const chain = getMaintenanceChains()
+  const list = chains ?? getMaintenanceChains()
+  const chain = list
     .filter(
       (c) => c.id !== excludeChainId && c.equipmentIds.includes(equipmentId),
     )
@@ -181,9 +185,11 @@ export function getChainNameForEquipment(
  */
 export function getIntervalHoursForEquipment(
   equipmentId: string,
+  chains?: MaintenanceChain[],
 ): number[] {
   if (!equipmentId.trim()) return []
-  const chain = getMaintenanceChains()
+  const list = chains ?? getMaintenanceChains()
+  const chain = list
     .filter((c) => c.equipmentIds.includes(equipmentId))
     .sort((a, b) => a.name.localeCompare(b.name))[0]
   return chain?.intervalHours ?? []

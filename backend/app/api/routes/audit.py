@@ -20,6 +20,7 @@ def read_audit_log(
     skip: int = 0,
     limit: int = Query(100, le=500),
     resource_type: str | None = Query(None, description="Фильтр по типу ресурса"),
+    resource_id: uuid.UUID | None = Query(None, description="Фильтр по ID ресурса"),
     user_id: uuid.UUID | None = Query(None, description="Фильтр по пользователю"),
 ) -> Any:
     """Список записей аудита с пагинацией."""
@@ -28,6 +29,9 @@ def read_audit_log(
     if resource_type:
         stmt = stmt.where(AuditLog.resource_type == resource_type)
         count_stmt = count_stmt.where(AuditLog.resource_type == resource_type)
+    if resource_id is not None:
+        stmt = stmt.where(AuditLog.resource_id == resource_id)
+        count_stmt = count_stmt.where(AuditLog.resource_id == resource_id)
     if user_id is not None:
         stmt = stmt.where(AuditLog.user_id == user_id)
         count_stmt = count_stmt.where(AuditLog.user_id == user_id)

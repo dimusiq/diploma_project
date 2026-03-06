@@ -7,6 +7,8 @@ import { fetchWithAuth } from "@/lib/apiClient.ts"
 
 export interface ExportItemsParams {
   format: "csv" | "xlsx"
+  /** Выгрузить только выбранные товары (при наличии остальные фильтры игнорируются). */
+  item_ids?: string[]
   status?: string
   search?: string
   category_id?: string
@@ -17,11 +19,15 @@ export interface ExportItemsParams {
 function buildQuery(params: ExportItemsParams): string {
   const q = new URLSearchParams()
   q.set("format", params.format)
-  if (params.status) q.set("status", params.status)
-  if (params.search) q.set("search", params.search)
-  if (params.category_id) q.set("category_id", params.category_id)
-  if (params.created_at_from) q.set("created_at_from", params.created_at_from)
-  if (params.created_at_to) q.set("created_at_to", params.created_at_to)
+  if (params.item_ids?.length) {
+    params.item_ids.forEach((id) => q.append("item_ids", id))
+  } else {
+    if (params.status) q.set("status", params.status)
+    if (params.search) q.set("search", params.search)
+    if (params.category_id) q.set("category_id", params.category_id)
+    if (params.created_at_from) q.set("created_at_from", params.created_at_from)
+    if (params.created_at_to) q.set("created_at_to", params.created_at_to)
+  }
   return q.toString()
 }
 

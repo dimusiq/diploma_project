@@ -1,6 +1,6 @@
 import { Box, Flex, Icon, Text } from "@chakra-ui/react"
 import { Link as RouterLink, useLocation } from "@tanstack/react-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   FiArrowDownRight,
   FiBarChart2,
@@ -106,12 +106,23 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
   const pathname = location.pathname
   const [techniqueExpanded, setTechniqueExpanded] = useState(false)
 
+  const currentSection =
+    pathname === "/technique"
+      ? location.search && typeof location.search === "object" && "section" in location.search
+        ? (location.search as { section?: string }).section
+        : "assets"
+      : undefined
+
+  useEffect(() => {
+    if (pathname === "/technique") setTechniqueExpanded(true)
+  }, [pathname])
+
   const finalItems: Item[] = currentUser?.is_superuser
     ? [
         ...items,
         {
           icon: FiUsers,
-          title: "Панель Администрирования",
+          title: "Администратирование",
           path: "/admin",
         },
       ]
@@ -143,26 +154,33 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
           </Flex>
           {techniqueExpanded && (
             <Box pl={6} pr={2} pb={1}>
-              {item.children.map((sub) => (
-                <RouterLink
-                  key={sub.id}
-                  to="/technique"
-                  search={{ section: sub.id }}
-                  onClick={onClose}
-                >
-                  <Flex
-                    gap={2}
-                    px={2}
-                    py={1.5}
-                    _hover={{ background: "gray.subtle" }}
-                    alignItems="center"
-                    fontSize="xs"
-                    borderRadius="md"
+              {item.children.map((sub) => {
+                const isActive = currentSection === sub.id
+                return (
+                  <RouterLink
+                    key={sub.id}
+                    to="/technique"
+                    search={{ section: sub.id }}
+                    onClick={onClose}
                   >
-                    <Text fontWeight="medium">{sub.title}</Text>
-                  </Flex>
-                </RouterLink>
-              ))}
+                    <Flex
+                      gap={2}
+                      px={2}
+                      py={1.5}
+                      _hover={{ background: "gray.subtle" }}
+                      alignItems="center"
+                      fontSize="xs"
+                      borderRadius="md"
+                      bg={isActive ? "gray.subtle" : undefined}
+                      fontWeight={isActive ? "bold" : "medium"}
+                      borderLeftWidth={isActive ? "3px" : 0}
+                      borderLeftColor="blue.500"
+                    >
+                      <Text>{sub.title}</Text>
+                    </Flex>
+                  </RouterLink>
+                )
+              })}
             </Box>
           )}
         </Box>

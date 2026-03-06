@@ -22,6 +22,10 @@ import {
   type MaintenanceRecordCreate,
 } from "@/api/equipment.ts"
 import {
+  apiChainToLegacyFormat,
+  maintenanceScheduleApi,
+} from "@/api/maintenanceSchedule.ts"
+import {
   DialogBody,
   DialogCloseTrigger,
   DialogContent,
@@ -51,7 +55,13 @@ function CreateOrderDialog({
   const [engineHoursAtService, setEngineHoursAtService] = useState<string>("")
   const [comment, setComment] = useState("")
 
-  const chainIntervals = getIntervalHoursForEquipment(equipmentId)
+  const { data: chainsData } = useQuery({
+    queryKey: ["maintenance-chains"],
+    queryFn: () => maintenanceScheduleApi.listChains(),
+    enabled: open,
+  })
+  const chains = (chainsData?.data ?? []).map(apiChainToLegacyFormat)
+  const chainIntervals = getIntervalHoursForEquipment(equipmentId, chains)
 
   useEffect(() => {
     if (
@@ -121,7 +131,7 @@ function CreateOrderDialog({
                   onChange={(e) => {
                     const id = e.target.value
                     setEquipmentId(id)
-                    const intervals = getIntervalHoursForEquipment(id)
+                    const intervals = getIntervalHoursForEquipment(id, chains)
                     if (intervals.length > 0) {
                       setIntervalHours(
                         intervals.includes(intervalHours)

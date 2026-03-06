@@ -34,9 +34,11 @@ def _ensure_roles(session: Session) -> None:
 def init_db(session: Session) -> None:
     _ensure_roles(session)
 
-    user = session.exec(
-        select(User).where(User.email == settings.FIRST_SUPERUSER)
-    ).first()
+    user = crud.get_user_by_email(
+        session=session,
+        email=settings.FIRST_SUPERUSER,
+        include_deleted=True,
+    )
     if not user:
         admin_role = session.exec(select(Role).where(Role.name == ROLE_ADMIN)).first()
         user_in = UserCreate(
@@ -47,6 +49,12 @@ def init_db(session: Session) -> None:
         )
         crud.create_user(session=session, user_create=user_in)
     else:
+        if user.deleted_at is not None:
+            user.deleted_at = None
+            user.is_active = True
+            session.add(user)
+            session.commit()
+            session.refresh(user)
         admin_role = session.exec(select(Role).where(Role.name == ROLE_ADMIN)).first()
         if admin_role and (user.role_id is None or (user.role and user.role.name != ROLE_ADMIN)):
             user.role_id = admin_role.id

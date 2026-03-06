@@ -13,12 +13,19 @@ import {
   Text,
   VStack,
 } from "@chakra-ui/react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FiTrash2 } from "react-icons/fi"
 
 import { EQUIPMENT_TYPE_LABELS, equipmentApi } from "@/api/equipment.ts"
+import {
+  maintenanceScheduleApi,
+  apiChainToLegacyFormat,
+  type MaintenanceChainCreateBody,
+  type MaintenanceChainUpdateBody,
+} from "@/api/maintenanceSchedule.ts"
+import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
   MenuContent,
@@ -29,39 +36,35 @@ import {
 import {
   CHAIN_COLOR_OPTIONS,
   DEFAULT_REMIND_BEFORE_HOURS,
-  deleteMaintenanceChain,
   getChainNameForEquipment,
   getEquipmentIdsInOtherChains,
   getMaintenanceChains,
   type MaintenanceChain,
-  saveMaintenanceChain,
 } from "@/utils/maintenanceChains.ts"
-import {
-  getMaintenanceIntervals,
-  setMaintenanceIntervals,
-} from "@/utils/maintenanceIntervals.ts"
+
+const STORAGE_KEY_IMPORT_DONE = "maintenance_schedule_import_done"
+
+type UnsavedConfirmAction =
+  | { action: "new" }
+  | { action: "cancel" }
+  | { action: "switch"; chain: MaintenanceChain }
 
 export function MaintenanceScheduleEditor() {
-  const [intervals, setIntervals] = useState<number[]>(() =>
-    getMaintenanceIntervals(),
-  )
+  const queryClient = useQueryClient()
   const [newValue, setNewValue] = useState("")
   const [error, setError] = useState("")
+  const [deleteChainId, setDeleteChainId] = useState<string | null>(null)
+  const [unsavedConfirm, setUnsavedConfirm] =
+    useState<UnsavedConfirmAction | null>(null)
 
-  const [chains, setChains] = useState<MaintenanceChain[]>(() =>
-    getMaintenanceChains(),
-  )
   const [editingChainId, setEditingChainId] = useState<string | null>(null)
   const [chainName, setChainName] = useState("")
-  /** Цветовое обозначение цепочки (не red/yellow/green — зарезервированы для графика ТО) */
   const [chainColorTag, setChainColorTag] = useState<string>("blue")
-  /** Упорядоченная последовательность интервалов в цепочке (м/ч) */
   const [chainIntervals, setChainIntervals] = useState<number[]>([])
   const [selectedEquipmentIds, setSelectedEquipmentIds] = useState<Set<string>>(
     new Set(),
   )
   const [addIntervalValue, setAddIntervalValue] = useState<number>(500)
-  /** За сколько моточасов до ТО показывать «Скоро» на графике ТО (в этой цепочке). */
   const [chainRemindBeforeHours, setChainRemindBeforeHours] = useState<number>(
     DEFAULT_REMIND_BEFORE_HOURS,
   )
@@ -73,11 +76,107 @@ export function MaintenanceScheduleEditor() {
   })
   const equipmentList = equipmentData?.data ?? []
 
-  useEffect(() => {
-    setMaintenanceIntervals(intervals)
-  }, [intervals])
+  const { data: chainsData } = useQuery({
+    queryKey: ["maintenance-chains"],
+    queryFn: () => maintenanceScheduleApi.listChains(),
+  })
+  const { data: configData } = useQuery({
+    queryKey: ["maintenance-schedule-config"],
+    queryFn: () => maintenanceScheduleApi.getConfig(),
+  })
+  const { data: permissionsData } = useQuery({
+    queryKey: ["maintenance-schedule-permissions"],
+    queryFn: () => maintenanceScheduleApi.getPermissions(),
+  })
 
-  const refreshChains = () => setChains(getMaintenanceChains())
+  const chains: MaintenanceChain[] = useMemo(
+    () => (chainsData?.data ?? []).map(apiChainToLegacyFormat),
+    [chainsData?.data],
+  )
+  const canEdit = permissionsData?.can_edit ?? false
+  const intervals = useMemo(
+    () => configData?.default_intervals ?? [500, 1000, 1500, 2000, 2500],
+    [configData?.default_intervals],
+  )
+
+  const updateConfigMutation = useMutation({
+    mutationFn: (body: {
+      default_intervals: number[]
+      default_remind_before_hours: number
+    }) => maintenanceScheduleApi.updateConfig(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["maintenance-schedule-config"] })
+    },
+  })
+
+  const createChainMutation = useMutation({
+    mutationFn: (body: MaintenanceChainCreateBody) =>
+      maintenanceScheduleApi.createChain(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["maintenance-chains"] })
+    },
+  })
+  const updateChainMutation = useMutation({
+    mutationFn: ({
+      chainId,
+      body,
+    }: {
+      chainId: string
+      body: MaintenanceChainUpdateBody
+    }) => maintenanceScheduleApi.updateChain(chainId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["maintenance-chains"] })
+    },
+  })
+  const deleteChainMutation = useMutation({
+    mutationFn: (chainId: string) => maintenanceScheduleApi.deleteChain(chainId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["maintenance-chains"] })
+    },
+  })
+
+  useEffect(() => {
+    if (
+      !permissionsData?.can_edit ||
+      !chainsData ||
+      chainsData.data.length > 0
+    )
+      return
+    if (typeof localStorage === "undefined") return
+    if (localStorage.getItem(STORAGE_KEY_IMPORT_DONE)) return
+    const localChains = getMaintenanceChains()
+    if (localChains.length === 0) return
+    const payload = localChains.map((c) => ({
+      id: c.id,
+      name: c.name,
+      intervalHours: c.intervalHours,
+      colorTag: c.colorTag,
+      remindBeforeHours: c.remindBeforeHours,
+      equipmentIds: c.equipmentIds,
+    }))
+    maintenanceScheduleApi
+      .importFromLocal(payload)
+      .then(() => {
+        localStorage.setItem(STORAGE_KEY_IMPORT_DONE, "1")
+        queryClient.invalidateQueries({ queryKey: ["maintenance-chains"] })
+      })
+      .catch(() => {})
+  }, [
+    permissionsData?.can_edit,
+    chainsData?.data?.length,
+    queryClient,
+  ])
+
+  const setIntervals = (next: number[] | ((prev: number[]) => number[])) => {
+    const value = typeof next === "function" ? next(intervals) : next
+    const valid = [...new Set(value)].filter((x) => x > 0 && Number.isInteger(x)).sort((a, b) => a - b)
+    if (valid.length > 0)
+      updateConfigMutation.mutate({
+        default_intervals: valid,
+        default_remind_before_hours:
+          configData?.default_remind_before_hours ?? 50,
+      })
+  }
 
   const handleAddInterval = () => {
     setError("")
@@ -98,14 +197,7 @@ export function MaintenanceScheduleEditor() {
     setIntervals((prev) => prev.filter((x) => x !== value))
   }
 
-  const startNewChain = () => {
-    if (
-      isFormDirty &&
-      !window.confirm(
-        "Есть несохранённые изменения. Переключиться без сохранения?",
-      )
-    )
-      return
+  const doStartNewChain = () => {
     setEditingChainId("new")
     setChainName("")
     setChainColorTag("blue")
@@ -120,6 +212,14 @@ export function MaintenanceScheduleEditor() {
       intervalHours: [],
       equipmentIds: [],
     }
+  }
+
+  const startNewChain = () => {
+    if (isFormDirty) {
+      setUnsavedConfirm({ action: "new" })
+      return
+    }
+    doStartNewChain()
   }
 
   const startEditChain = (chain: MaintenanceChain) => {
@@ -217,27 +317,27 @@ export function MaintenanceScheduleEditor() {
     selectedEquipmentIds,
   ])
 
-  const cancelChainForm = () => {
-    if (
-      isFormDirty &&
-      !window.confirm("Есть несохранённые изменения. Закрыть без сохранения?")
-    )
-      return
+  const doCancelChainForm = () => {
     initialFormSnapshot.current = null
     setEditingChainId(null)
+  }
+
+  const cancelChainForm = () => {
+    if (isFormDirty) {
+      setUnsavedConfirm({ action: "cancel" })
+      return
+    }
+    doCancelChainForm()
   }
 
   const handleRowClick = (c: MaintenanceChain) => {
     if (editingChainId === c.id) {
       cancelChainForm()
     } else {
-      if (
-        isFormDirty &&
-        !window.confirm(
-          "Есть несохранённые изменения. Переключиться без сохранения?",
-        )
-      )
+      if (isFormDirty) {
+        setUnsavedConfirm({ action: "switch", chain: c })
         return
+      }
       startEditChain(c)
     }
   }
@@ -256,8 +356,9 @@ export function MaintenanceScheduleEditor() {
     () =>
       getEquipmentIdsInOtherChains(
         editingChainId && editingChainId !== "new" ? editingChainId : null,
+        chains,
       ),
-    [editingChainId],
+    [editingChainId, chains],
   )
 
   const filteredEquipmentList = useMemo(() => {
@@ -292,8 +393,7 @@ export function MaintenanceScheduleEditor() {
       setError("Введите название последовательности")
       return
     }
-    const existing = getMaintenanceChains()
-    const duplicate = existing.find(
+    const duplicate = chains.find(
       (c) =>
         c.id !== (editingChainId === "new" ? undefined : editingChainId) &&
         c.name.trim().toLowerCase() === name.toLowerCase(),
@@ -316,6 +416,7 @@ export function MaintenanceScheduleEditor() {
           getChainNameForEquipment(
             id,
             editingChainId && editingChainId !== "new" ? editingChainId : null,
+            chains,
           ),
         )
         .filter(Boolean)
@@ -325,25 +426,54 @@ export function MaintenanceScheduleEditor() {
       return
     }
     setError("")
-    saveMaintenanceChain({
-      id: editingChainId === "new" ? undefined : editingChainId!,
+    const body = {
       name,
-      intervalHours: chainIntervals,
-      colorTag: chainColorTag,
-      remindBeforeHours: chainRemindBeforeHours,
-      equipmentIds: Array.from(selectedEquipmentIds),
-    })
-    refreshChains()
-    initialFormSnapshot.current = null
-    setEditingChainId(null)
+      interval_hours: chainIntervals,
+      color_tag: chainColorTag,
+      remind_before_hours: chainRemindBeforeHours,
+      equipment_ids: Array.from(selectedEquipmentIds),
+    }
+    if (editingChainId === "new") {
+      createChainMutation.mutate(body, {
+        onSuccess: () => {
+          initialFormSnapshot.current = null
+          setEditingChainId(null)
+        },
+      })
+    } else {
+      updateChainMutation.mutate(
+        { chainId: editingChainId!, body },
+        {
+          onSuccess: () => {
+            initialFormSnapshot.current = null
+            setEditingChainId(null)
+          },
+        },
+      )
+    }
   }
 
   const handleDeleteChain = (id: string) => {
-    if (window.confirm("Удалить эту последовательность ТО?")) {
-      deleteMaintenanceChain(id)
-      refreshChains()
-      if (editingChainId === id) setEditingChainId(null)
-    }
+    setDeleteChainId(id)
+  }
+
+  const handleDeleteChainConfirm = () => {
+    if (!deleteChainId) return
+    deleteChainMutation.mutate(deleteChainId, {
+      onSuccess: () => {
+        if (editingChainId === deleteChainId) setEditingChainId(null)
+        setDeleteChainId(null)
+      },
+    })
+  }
+
+  const handleUnsavedConfirm = () => {
+    if (!unsavedConfirm) return
+    if (unsavedConfirm.action === "new") doStartNewChain()
+    else if (unsavedConfirm.action === "cancel") doCancelChainForm()
+    else if (unsavedConfirm.action === "switch")
+      startEditChain(unsavedConfirm.chain)
+    setUnsavedConfirm(null)
   }
 
   return (
@@ -381,9 +511,16 @@ export function MaintenanceScheduleEditor() {
             технику. Одна последовательность — один интервал и список техники.
           </Text>
 
-          <Button size="sm" mb={4} onClick={startNewChain}>
-            Создать последовательность ТО
-          </Button>
+          {canEdit && (
+            <Button size="sm" mb={4} onClick={startNewChain}>
+              Создать последовательность ТО
+            </Button>
+          )}
+          {!canEdit && (
+            <Text fontSize="sm" color="fg.muted" mb={4}>
+              Только просмотр. Редактирование расписания недоступно.
+            </Text>
+          )}
           {chains.length === 0 ? (
             <Box
               mb={4}
@@ -401,9 +538,11 @@ export function MaintenanceScheduleEditor() {
                 Создайте первую последовательность, выберите интервалы и
                 назначьте технику.
               </Text>
-              <Button size="sm" onClick={startNewChain}>
-                Создать последовательность ТО
-              </Button>
+              {canEdit && (
+                <Button size="sm" onClick={startNewChain}>
+                  Создать последовательность ТО
+                </Button>
+              )}
             </Box>
           ) : (
             <Table.Root size="sm" mb={4}>
@@ -473,17 +612,19 @@ export function MaintenanceScheduleEditor() {
                       textAlign="right"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        colorPalette="red"
-                        onClick={() => handleDeleteChain(c.id)}
-                        title="Удалить"
-                        aria-label="Удалить последовательность"
-                        px={1.5}
-                      >
-                        <FiTrash2 />
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          colorPalette="red"
+                          onClick={() => handleDeleteChain(c.id)}
+                          title="Удалить"
+                          aria-label="Удалить последовательность"
+                          px={1.5}
+                        >
+                          <FiTrash2 />
+                        </Button>
+                      )}
                     </Table.Cell>
                   </Table.Row>
                 ))}
@@ -533,6 +674,7 @@ export function MaintenanceScheduleEditor() {
                     onChange={(e) => setChainName(e.target.value)}
                     flex="1"
                     minW="200px"
+                    disabled={!canEdit}
                   />
                 </Flex>
                 <Flex gap={2} align="center" flexWrap="wrap">
@@ -550,6 +692,7 @@ export function MaintenanceScheduleEditor() {
                         minW="140px"
                         justifyContent="flex-start"
                         gap={2}
+                        disabled={!canEdit}
                       >
                         <Badge
                           size="md"
@@ -619,6 +762,7 @@ export function MaintenanceScheduleEditor() {
                       if (!Number.isNaN(n) && n >= 0)
                         setChainRemindBeforeHours(n)
                     }}
+                    disabled={!canEdit}
                   />
                   <Text fontSize="sm" color="fg.muted">
                     моточасов до ТО (статус «Скоро»)
@@ -632,34 +776,36 @@ export function MaintenanceScheduleEditor() {
                     Порядок можно менять кнопками ↑ ↓. Первый интервал
                     используется для расчёта «следующее ТО» в графике.
                   </Text>
-                  <Flex gap={2} align="center" flexWrap="wrap" mb={2}>
-                    <select
-                      value={addIntervalValue}
-                      onChange={(e) =>
-                        setAddIntervalValue(Number(e.target.value))
-                      }
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--chakra-colors-border)",
-                        fontSize: "14px",
-                        minWidth: "120px",
-                      }}
-                    >
-                      {intervals.map((val) => (
-                        <option key={val} value={val}>
-                          {val} м/ч
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={addIntervalToChain}
-                    >
-                      Добавить в цепочку
-                    </Button>
-                  </Flex>
+                  {canEdit && (
+                    <Flex gap={2} align="center" flexWrap="wrap" mb={2}>
+                      <select
+                        value={addIntervalValue}
+                        onChange={(e) =>
+                          setAddIntervalValue(Number(e.target.value))
+                        }
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "6px",
+                          border: "1px solid var(--chakra-colors-border)",
+                          fontSize: "14px",
+                          minWidth: "120px",
+                        }}
+                      >
+                        {intervals.map((val) => (
+                          <option key={val} value={val}>
+                            {val} м/ч
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={addIntervalToChain}
+                      >
+                        Добавить в цепочку
+                      </Button>
+                    </Flex>
+                  )}
                   {chainIntervals.length === 0 ? (
                     <Text fontSize="sm" color="fg.muted">
                       Нет интервалов. Выберите интервал выше и нажмите «Добавить
@@ -672,33 +818,37 @@ export function MaintenanceScheduleEditor() {
                           <Badge size="md" colorPalette="blue">
                             {val} м/ч
                           </Badge>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => moveChainIntervalUp(index)}
-                            title="Поднять"
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => moveChainIntervalDown(index)}
-                            title="Опустить"
-                          >
-                            ↓
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            colorPalette="red"
-                            onClick={() => removeIntervalFromChain(index)}
-                            title="Удалить"
-                            aria-label="Удалить интервал из последовательности"
-                            px={1.5}
-                          >
-                            <FiTrash2 />
-                          </Button>
+                          {canEdit && (
+                            <>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => moveChainIntervalUp(index)}
+                                title="Поднять"
+                              >
+                                ↑
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => moveChainIntervalDown(index)}
+                                title="Опустить"
+                              >
+                                ↓
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                colorPalette="red"
+                                onClick={() => removeIntervalFromChain(index)}
+                                title="Удалить"
+                                aria-label="Удалить интервал из последовательности"
+                                px={1.5}
+                              >
+                                <FiTrash2 />
+                              </Button>
+                            </>
+                          )}
                         </Flex>
                       ))}
                     </VStack>
@@ -709,18 +859,20 @@ export function MaintenanceScheduleEditor() {
                     <Text fontWeight="medium" fontSize="sm">
                       Техника в последовательности:
                     </Text>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={selectAllEquipment}
-                    >
-                      {selectedEquipmentIds.size ===
-                      filteredEquipmentList.filter(
-                        (e) => !equipmentIdsInOtherChains.has(e.id),
-                      ).length
-                        ? "Снять все"
-                        : "Выбрать всю"}
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        onClick={selectAllEquipment}
+                      >
+                        {selectedEquipmentIds.size ===
+                        filteredEquipmentList.filter(
+                          (e) => !equipmentIdsInOtherChains.has(e.id),
+                        ).length
+                          ? "Снять все"
+                          : "Выбрать всю"}
+                      </Button>
+                    )}
                   </Flex>
                   <Input
                     size="sm"
@@ -769,15 +921,16 @@ export function MaintenanceScheduleEditor() {
                                 editingChainId && editingChainId !== "new"
                                   ? editingChainId
                                   : null,
+                                chains,
                               )
                             : null
                           return (
                             <Checkbox
                               key={eq.id}
                               checked={selectedEquipmentIds.has(eq.id)}
-                              disabled={inOtherChain}
+                              disabled={inOtherChain || !canEdit}
                               onCheckedChange={() =>
-                                !inOtherChain && toggleEquipment(eq.id)
+                                !inOtherChain && canEdit && toggleEquipment(eq.id)
                               }
                             >
                               <Text
@@ -828,11 +981,13 @@ export function MaintenanceScheduleEditor() {
                   </Text>
                 )}
                 <Flex gap={2}>
-                  <Button size="sm" onClick={handleSaveChain}>
-                    Сохранить
-                  </Button>
+                  {canEdit && (
+                    <Button size="sm" onClick={handleSaveChain}>
+                      Сохранить
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={cancelChainForm}>
-                    Отмена
+                    {canEdit ? "Отмена" : "Закрыть"}
                   </Button>
                 </Flex>
               </VStack>
@@ -849,24 +1004,26 @@ export function MaintenanceScheduleEditor() {
             Отметки в моточасах для ТО (500, 1000, 1500 и т.д.). Первый период
             используется в «График ТО» по умолчанию.
           </Text>
-          <Flex gap={2} align="center" flexWrap="wrap" mb={2}>
-            <Input
-              type="number"
-              min={1}
-              step={100}
-              placeholder="Моточасы (например 500)"
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === "Enter" && (e.preventDefault(), handleAddInterval())
-              }
-              size="sm"
-              w="180px"
-            />
-            <Button size="sm" onClick={handleAddInterval}>
-              Добавить период
-            </Button>
-          </Flex>
+          {canEdit && (
+            <Flex gap={2} align="center" flexWrap="wrap" mb={2}>
+              <Input
+                type="number"
+                min={1}
+                step={100}
+                placeholder="Моточасы (например 500)"
+                value={newValue}
+                onChange={(e) => setNewValue(e.target.value)}
+                onKeyDown={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), handleAddInterval())
+                }
+                size="sm"
+                w="180px"
+              />
+              <Button size="sm" onClick={handleAddInterval}>
+                Добавить период
+              </Button>
+            </Flex>
+          )}
           {error && !editingChainId && (
             <Text fontSize="sm" color="red" mb={2}>
               {error}
@@ -895,14 +1052,16 @@ export function MaintenanceScheduleEditor() {
                       </Badge>
                     </Table.Cell>
                     <Table.Cell textAlign="right">
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        colorPalette="red"
-                        onClick={() => handleRemoveInterval(value)}
-                      >
-                        Удалить
-                      </Button>
+                      {canEdit && (
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          colorPalette="red"
+                          onClick={() => handleRemoveInterval(value)}
+                        >
+                          Удалить
+                        </Button>
+                      )}
                     </Table.Cell>
                   </Table.Row>
                 ))}
@@ -911,6 +1070,32 @@ export function MaintenanceScheduleEditor() {
           )}
         </Box>
       </VStack>
+      <ConfirmDialog
+        open={deleteChainId != null}
+        onOpenChange={(open) => !open && setDeleteChainId(null)}
+        title="Удалить последовательность ТО?"
+        description="Удалить эту последовательность? Это действие нельзя отменить."
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        variant="danger"
+        isLoading={deleteChainMutation.isPending}
+        onConfirm={handleDeleteChainConfirm}
+      />
+      <ConfirmDialog
+        open={unsavedConfirm != null}
+        onOpenChange={(open) => !open && setUnsavedConfirm(null)}
+        title="Несохранённые изменения"
+        description={
+          unsavedConfirm?.action === "new"
+            ? "Есть несохранённые изменения. Переключиться без сохранения?"
+            : unsavedConfirm?.action === "cancel"
+              ? "Есть несохранённые изменения. Закрыть без сохранения?"
+              : "Есть несохранённые изменения. Переключиться без сохранения?"
+        }
+        confirmLabel="Да, не сохранять"
+        cancelLabel="Отмена"
+        onConfirm={handleUnsavedConfirm}
+      />
     </Box>
   )
 }

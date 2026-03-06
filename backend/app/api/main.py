@@ -8,6 +8,7 @@ from app.api.routes import (
     equipment,
     items,
     login,
+    maintenance_schedule,
     private,
     roles,
     users,
@@ -26,6 +27,7 @@ api_router.include_router(brands.router)
 api_router.include_router(zones.router)
 api_router.include_router(items.router)
 api_router.include_router(equipment.router)
+api_router.include_router(maintenance_schedule.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(audit.router)
 

@@ -24,6 +24,7 @@ import { CategoriesService, ItemsService } from "@/client/index.ts"
 import { ItemActionsMenu } from "@/components/Common/ItemActionsMenu.tsx"
 import { ItemSelectionToolbar } from "@/components/Common/ItemSelectionToolbar.tsx"
 import { ShortId } from "@/components/Common/ShortId.tsx"
+import { MassEditItemsDialog } from "@/components/Items/MassEditItemsDialog.tsx"
 import { MoveItemsDialog } from "@/components/Items/MoveItemsDialog.tsx"
 import PendingItems from "@/components/Pending/PendingItems.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
@@ -107,6 +108,7 @@ function ShipmentTable() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [moveDialogOpen, setMoveDialogOpen] = useState(false)
+  const [massEditDialogOpen, setMassEditDialogOpen] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
@@ -177,6 +179,22 @@ function ShipmentTable() {
     [search, category_id, showErrorToast],
   )
 
+  const handleExportSelected = useCallback(
+    async (format: "csv" | "xlsx") => {
+      const ids = Array.from(selectedIds)
+      if (ids.length === 0) return
+      setIsExporting(true)
+      try {
+        await downloadItemsExport({ format, item_ids: ids })
+      } catch (e) {
+        showErrorToast(e instanceof Error ? e.message : "Ошибка выгрузки")
+      } finally {
+        setIsExporting(false)
+      }
+    },
+    [selectedIds, showErrorToast],
+  )
+
   if (isLoading) return <PendingItems />
 
   const hasActiveFilters = !!(search?.trim() || category_id)
@@ -229,7 +247,10 @@ function ShipmentTable() {
         onClear={() => setSelectedIds(new Set())}
         onPrintShippingNote={handlePrintSelected}
         onMove={() => setMoveDialogOpen(true)}
+        onMassEdit={() => setMassEditDialogOpen(true)}
+        onExportSelected={handleExportSelected}
         isPrinting={isPrinting}
+        isExporting={isExporting}
       />
       <Flex gap={3} mb={4} flexWrap="wrap" align="center">
         <Input
@@ -370,6 +391,12 @@ function ShipmentTable() {
           .map((i) => ({ id: i.id, status: i.status }))}
         onSuccess={handleMoveSuccess}
         onOptimisticRemove={addOptimisticRemove}
+      />
+      <MassEditItemsDialog
+        open={massEditDialogOpen}
+        onOpenChange={setMassEditDialogOpen}
+        selectedIds={Array.from(selectedIds)}
+        onSuccess={handleMoveSuccess}
       />
     </>
   )

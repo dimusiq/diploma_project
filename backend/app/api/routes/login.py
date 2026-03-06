@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -53,6 +53,10 @@ def login_access_token(
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     elif not user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
+    user.last_login_at = datetime.now(timezone.utc)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return Token(
         access_token=security.create_access_token(

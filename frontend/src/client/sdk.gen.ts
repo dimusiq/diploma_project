@@ -43,6 +43,8 @@ import type {
   UsersDeleteUserMeResponse,
   UsersDeleteUserResponse,
   UsersReadUserByIdData,
+  UsersRestoreUserData,
+  UsersRestoreUserResponse,
   UsersReadUserByIdResponse,
   UsersReadUserMeResponse,
   UsersReadUsersData,
@@ -485,6 +487,7 @@ export class UsersService {
       query: {
         skip: data.skip,
         limit: data.limit,
+        deleted: data.deleted,
       },
       errors: {
         422: "Validation Error",
@@ -669,6 +672,29 @@ export class UsersService {
     return __request(OpenAPI, {
       method: "DELETE",
       url: "/api/v1/users/{user_id}",
+      path: {
+        user_id: data.userId,
+      },
+      errors: {
+        422: "Validation Error",
+      },
+    })
+  }
+
+  /**
+   * Restore User
+   * Restore a soft-deleted user.
+   * @param data The data for the request.
+   * @param data.userId
+   * @returns UserPublic Successful Response
+   * @throws ApiError
+   */
+  public static restoreUser(
+    data: UsersRestoreUserData,
+  ): CancelablePromise<UsersRestoreUserResponse> {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/users/{user_id}/restore",
       path: {
         user_id: data.userId,
       },

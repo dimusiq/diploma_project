@@ -149,6 +149,8 @@ export type UserPublic = {
   full_name?: string | null
   id: string
   role_id?: string | null
+  last_login_at?: string | null
+  deleted_at?: string | null
 }
 
 export type UserRegister = {
@@ -293,6 +295,7 @@ export type PrivateCreateUserResponse = UserPublic
 export type UsersReadUsersData = {
   limit?: number
   skip?: number
+  deleted?: boolean
 }
 
 export type UsersReadUsersResponse = UsersPublic
@@ -343,6 +346,12 @@ export type UsersDeleteUserData = {
 }
 
 export type UsersDeleteUserResponse = Message
+
+export type UsersRestoreUserData = {
+  userId: string
+}
+
+export type UsersRestoreUserResponse = UserPublic
 
 export type UtilsTestEmailData = {
   emailTo: string

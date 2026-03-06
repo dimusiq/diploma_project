@@ -225,6 +225,22 @@ function ItemsTable() {
     [searchParams, showErrorToast],
   )
 
+  const handleExportSelected = useCallback(
+    async (format: "csv" | "xlsx") => {
+      const ids = Array.from(selectedIds)
+      if (ids.length === 0) return
+      setIsExporting(true)
+      try {
+        await downloadItemsExport({ format, item_ids: ids })
+      } catch (e) {
+        showErrorToast(e instanceof Error ? e.message : "Ошибка выгрузки")
+      } finally {
+        setIsExporting(false)
+      }
+    },
+    [selectedIds, showErrorToast],
+  )
+
   if (isError) {
     return (
       <Container>
@@ -302,7 +318,9 @@ function ItemsTable() {
         onPrintShippingNote={handlePrintShippingNote}
         onMove={() => setMoveDialogOpen(true)}
         onMassEdit={() => setMassEditDialogOpen(true)}
+        onExportSelected={handleExportSelected}
         isPrinting={isPrinting}
+        isExporting={isExporting}
       />
       <Flex gap={3} mb={4} flexWrap="wrap" align="center">
         <Input

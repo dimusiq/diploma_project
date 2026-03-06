@@ -25,6 +25,7 @@ export interface AuditLogParams {
   skip?: number
   limit?: number
   resource_type?: string
+  resource_id?: string
   user_id?: string
 }
 
@@ -34,7 +35,8 @@ export const auditApi = {
     if (params?.skip != null) search.set("skip", String(params.skip))
     if (params?.limit != null) search.set("limit", String(params.limit))
     if (params?.resource_type) search.set("resource_type", params.resource_type)
-    if (params?.user_id) search.set("user_id", params.user_id)
+    if (params?.resource_id) search.set("resource_id", params.resource_id)
+  if (params?.user_id) search.set("user_id", params.user_id)
     const query = search.toString()
     return request<AuditLogListResponse>(
       `/api/v1/audit/${query ? `?${query}` : ""}`,
@@ -47,6 +49,7 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "user.create": "Создание пользователя",
   "user.update": "Изменение пользователя",
   "user.delete": "Удаление пользователя",
+  "user.restore": "Восстановление пользователя",
   "category.create": "Создание категории",
   "category.update": "Изменение категории",
   "category.delete": "Удаление категории",

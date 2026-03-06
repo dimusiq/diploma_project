@@ -14,6 +14,8 @@ PERM_CATEGORIES_MANAGE = "categories.manage"
 PERM_BRANDS_MANAGE = "brands.manage"
 PERM_ZONES_MANAGE = "zones.manage"
 PERM_AUDIT_READ = "audit.read"
+PERM_MAINTENANCE_SCHEDULE_VIEW = "maintenance_schedule.view"
+PERM_MAINTENANCE_SCHEDULE_EDIT = "maintenance_schedule.edit"
 
 ALL_PERMISSION_CODES = [
     PERM_ITEMS_READ_ALL,
@@ -24,6 +26,8 @@ ALL_PERMISSION_CODES = [
     PERM_BRANDS_MANAGE,
     PERM_ZONES_MANAGE,
     PERM_AUDIT_READ,
+    PERM_MAINTENANCE_SCHEDULE_VIEW,
+    PERM_MAINTENANCE_SCHEDULE_EDIT,
 ]
 
 
@@ -87,3 +91,13 @@ def can_manage_zones(session: Session, user: User) -> bool:
 def can_read_audit(session: Session, user: User) -> bool:
     """Просмотр журнала аудита."""
     return user_has_permission(session, user, PERM_AUDIT_READ)
+
+
+def can_view_maintenance_schedule(session: Session, user: User) -> bool:
+    """Просмотр расписания ТО (цепочки, интервалы)."""
+    return user_has_permission(session, user, PERM_MAINTENANCE_SCHEDULE_VIEW)
+
+
+def can_edit_maintenance_schedule(session: Session, user: User) -> bool:
+    """Редактирование расписания ТО (создание/изменение/удаление цепочек)."""
+    return user_has_permission(session, user, PERM_MAINTENANCE_SCHEDULE_EDIT)

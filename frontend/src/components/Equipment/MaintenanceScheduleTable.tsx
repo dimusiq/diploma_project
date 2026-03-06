@@ -16,7 +16,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
-import { FiDownload } from "react-icons/fi"
+import { FiChevronDown, FiChevronUp, FiDownload } from "react-icons/fi"
 
 import type { MaintenanceRecordCreate } from "@/api/equipment"
 import useCustomToast from "@/hooks/useCustomToast"
@@ -26,6 +26,10 @@ import {
   type EquipmentPublic,
   equipmentApi,
 } from "@/api/equipment.ts"
+import {
+  apiChainToLegacyFormat,
+  maintenanceScheduleApi,
+} from "@/api/maintenanceSchedule.ts"
 import {
   downloadMaintenanceScheduleCsv,
   downloadMaintenanceScheduleXlsx,
@@ -45,14 +49,7 @@ import {
   MenuRoot,
   MenuTrigger,
 } from "@/components/ui/menu.tsx"
-import {
-  getMaintenanceChains,
-  getRemindBeforeHoursForEquipment,
-} from "@/utils/maintenanceChains.ts"
-import {
-  getDefaultIntervalHours,
-  getRemindBeforeHours,
-} from "@/utils/maintenanceIntervals.ts"
+import { getRemindBeforeHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
 type ScheduleStatus = "overdue" | "due_soon" | "ok"
 
@@ -107,6 +104,73 @@ const STATUS_COLOR: Record<ScheduleStatus, string> = {
   overdue: "red",
   due_soon: "yellow",
   ok: "green",
+}
+
+type ScheduleSortField =
+  | "equipment"
+  | "serial_number"
+  | "garage_number"
+  | "primaryChainName"
+  | "lastMaintenanceAtHours"
+  | "engineHours"
+  | "nextServiceAtHours"
+  | "remaining"
+  | "status"
+type ScheduleSortOrder = "asc" | "desc"
+
+const STATUS_ORDER: Record<ScheduleStatus, number> = {
+  overdue: 0,
+  due_soon: 1,
+  ok: 2,
+}
+
+function getRemaining(r: RowData): number | null {
+  const { engineHours, nextServiceAtHours, status } = r
+  if (
+    engineHours != null &&
+    nextServiceAtHours != null &&
+    engineHours < nextServiceAtHours
+  )
+    return nextServiceAtHours - engineHours
+  return status === "overdue" ? 0 : null
+}
+
+function ScheduleSortableHeader({
+  label,
+  sortKey,
+  currentSort,
+  currentOrder,
+  onSort,
+}: {
+  label: string
+  sortKey: ScheduleSortField
+  currentSort: ScheduleSortField | undefined
+  currentOrder: ScheduleSortOrder
+  onSort: (key: ScheduleSortField) => void
+}) {
+  const isActive = currentSort === sortKey
+  return (
+    <Table.ColumnHeader
+      cursor="pointer"
+      userSelect="none"
+      onClick={() => onSort(sortKey)}
+      _hover={{ bg: "gray.subtle" }}
+      whiteSpace="nowrap"
+    >
+      <Flex align="center" gap={1}>
+        <Text>{label}</Text>
+        {isActive ? (
+          currentOrder === "asc" ? (
+            <Box as={FiChevronUp} boxSize={4} aria-hidden />
+          ) : (
+            <Box as={FiChevronDown} boxSize={4} aria-hidden />
+          )
+        ) : (
+          <Box as={FiChevronUp} boxSize={4} opacity={0.3} aria-hidden />
+        )}
+      </Flex>
+    </Table.ColumnHeader>
+  )
 }
 
 function EquipmentMaintenanceRecordsList({
@@ -384,6 +448,20 @@ export function MaintenanceScheduleTable() {
     useState<EquipmentPublic | null>(null)
   const [equipmentForRecord, setEquipmentForRecord] =
     useState<EquipmentPublic | null>(null)
+  const [scheduleSortBy, setScheduleSortBy] = useState<
+    ScheduleSortField | undefined
+  >(undefined)
+  const [scheduleSortOrder, setScheduleSortOrder] =
+    useState<ScheduleSortOrder>("asc")
+
+  const handleScheduleSort = (key: ScheduleSortField) => {
+    if (scheduleSortBy === key) {
+      setScheduleSortOrder((o) => (o === "asc" ? "desc" : "asc"))
+    } else {
+      setScheduleSortBy(key)
+      setScheduleSortOrder("asc")
+    }
+  }
 
   const updateStatusMutation = useMutation({
     mutationFn: ({
@@ -414,9 +492,23 @@ export function MaintenanceScheduleTable() {
     })
   }
 
-  const intervalHours = getDefaultIntervalHours()
-  const defaultRemindBefore = getRemindBeforeHours()
-  const chains = getMaintenanceChains()
+  const { data: chainsData } = useQuery({
+    queryKey: ["maintenance-chains"],
+    queryFn: () => maintenanceScheduleApi.listChains(),
+  })
+  const { data: configData } = useQuery({
+    queryKey: ["maintenance-schedule-config"],
+    queryFn: () => maintenanceScheduleApi.getConfig(),
+  })
+
+  const chains = useMemo(
+    () => (chainsData?.data ?? []).map(apiChainToLegacyFormat),
+    [chainsData?.data],
+  )
+  const intervalHours =
+    (configData?.default_intervals ?? [500])[0] ?? 500
+  const defaultRemindBefore =
+    configData?.default_remind_before_hours ?? 50
 
   useEffect(() => {
     saveFilters({ statusFilter, typeFilter, chainFilter, sortByChain })
@@ -436,6 +528,7 @@ export function MaintenanceScheduleTable() {
       const remindBefore = getRemindBeforeHoursForEquipment(
         equipment.id,
         defaultRemindBefore,
+        chains,
       )
       const status = getScheduleStatus(engineHours, nextAt, remindBefore)
       const chainNames = chains
@@ -469,24 +562,93 @@ export function MaintenanceScheduleTable() {
         list = list.filter((r) => idSet.has(r.equipment.id))
       }
     }
-    return [...list].sort((a, b) => {
+    const arr = [...list]
+
+    if (scheduleSortBy != null) {
+      const mult = scheduleSortOrder === "asc" ? 1 : -1
+      arr.sort((a, b) => {
+        let cmp = 0
+        switch (scheduleSortBy) {
+          case "equipment": {
+            const sa = `${a.equipment.brand_name ?? ""} ${a.equipment.model ?? ""}`.trim()
+            const sb = `${b.equipment.brand_name ?? ""} ${b.equipment.model ?? ""}`.trim()
+            cmp = sa.localeCompare(sb)
+            break
+          }
+          case "serial_number": {
+            const sa = a.equipment.serial_number ?? ""
+            const sb = b.equipment.serial_number ?? ""
+            cmp = sa.localeCompare(sb)
+            break
+          }
+          case "garage_number": {
+            const sa = a.equipment.garage_number ?? ""
+            const sb = b.equipment.garage_number ?? ""
+            cmp = sa.localeCompare(sb)
+            break
+          }
+          case "primaryChainName":
+            cmp = a.primaryChainName.localeCompare(b.primaryChainName)
+            break
+          case "lastMaintenanceAtHours": {
+            const nullVal = scheduleSortOrder === "asc" ? 1e9 : -1
+            const va = a.lastMaintenanceAtHours ?? nullVal
+            const vb = b.lastMaintenanceAtHours ?? nullVal
+            cmp = va - vb
+            break
+          }
+          case "engineHours": {
+            const nullVal = scheduleSortOrder === "asc" ? 1e9 : -1
+            const va = a.engineHours ?? nullVal
+            const vb = b.engineHours ?? nullVal
+            cmp = va - vb
+            break
+          }
+          case "nextServiceAtHours": {
+            const nullVal = scheduleSortOrder === "asc" ? 1e9 : -1
+            const va = a.nextServiceAtHours ?? nullVal
+            const vb = b.nextServiceAtHours ?? nullVal
+            cmp = va - vb
+            break
+          }
+          case "remaining": {
+            const nullVal = scheduleSortOrder === "asc" ? 1e9 : -1
+            const va = getRemaining(a) ?? nullVal
+            const vb = getRemaining(b) ?? nullVal
+            cmp = va - vb
+            break
+          }
+          case "status":
+            cmp = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+            break
+        }
+        return mult * cmp
+      })
+      return arr
+    }
+
+    return arr.sort((a, b) => {
       if (sortByChain) {
         if (a.primaryChainName !== b.primaryChainName) {
           return a.primaryChainName.localeCompare(b.primaryChainName)
         }
       }
-      const order: Record<ScheduleStatus, number> = {
-        overdue: 0,
-        due_soon: 1,
-        ok: 2,
-      }
-      if (order[a.status] !== order[b.status])
-        return order[a.status] - order[b.status]
+      if (STATUS_ORDER[a.status] !== STATUS_ORDER[b.status])
+        return STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
       const nextA = a.nextServiceAtHours ?? 1e9
       const nextB = b.nextServiceAtHours ?? 1e9
       return nextA - nextB
     })
-  }, [rows, statusFilter, typeFilter, chainFilter, sortByChain, chains])
+  }, [
+    rows,
+    statusFilter,
+    typeFilter,
+    chainFilter,
+    sortByChain,
+    chains,
+    scheduleSortBy,
+    scheduleSortOrder,
+  ])
 
   const summary = useMemo(() => {
     const overdue = rows.filter((r) => r.status === "overdue").length
@@ -692,15 +854,69 @@ export function MaintenanceScheduleTable() {
         <Table.Root size="sm">
           <Table.Header>
             <Table.Row>
-              <Table.ColumnHeader>Техника</Table.ColumnHeader>
-              <Table.ColumnHeader>Серийный номер</Table.ColumnHeader>
-              <Table.ColumnHeader>Гаражный номер</Table.ColumnHeader>
-              <Table.ColumnHeader>Последовательность ТО</Table.ColumnHeader>
-              <Table.ColumnHeader>Предыдущее ТО (м/ч)</Table.ColumnHeader>
-              <Table.ColumnHeader>Моточасы</Table.ColumnHeader>
-              <Table.ColumnHeader>След. ТО (м/ч)</Table.ColumnHeader>
-              <Table.ColumnHeader>Осталось м/ч</Table.ColumnHeader>
-              <Table.ColumnHeader>Статус</Table.ColumnHeader>
+              <ScheduleSortableHeader
+                label="Техника"
+                sortKey="equipment"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
+              <ScheduleSortableHeader
+                label="Серийный номер"
+                sortKey="serial_number"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
+              <ScheduleSortableHeader
+                label="Гаражный номер"
+                sortKey="garage_number"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
+              <ScheduleSortableHeader
+                label="Последовательность ТО"
+                sortKey="primaryChainName"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
+              <ScheduleSortableHeader
+                label="Предыдущее ТО (м/ч)"
+                sortKey="lastMaintenanceAtHours"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
+              <ScheduleSortableHeader
+                label="Моточасы"
+                sortKey="engineHours"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
+              <ScheduleSortableHeader
+                label="След. ТО (м/ч)"
+                sortKey="nextServiceAtHours"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
+              <ScheduleSortableHeader
+                label="Осталось м/ч"
+                sortKey="remaining"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
+              <ScheduleSortableHeader
+                label="Статус"
+                sortKey="status"
+                currentSort={scheduleSortBy}
+                currentOrder={scheduleSortOrder}
+                onSort={handleScheduleSort}
+              />
             </Table.Row>
           </Table.Header>
           <Table.Body>

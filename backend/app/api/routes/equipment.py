@@ -54,6 +54,18 @@ def _equipment_to_public(eq: Equipment, brand: Brand | None = None) -> Equipment
     )
 
 
+SORT_FIELDS = {
+    "brand_model",
+    "engine_hours",
+    "commissioned_at",
+    "current_status",
+    "serial_number",
+    "garage_number",
+    "equipment_type",
+    "zone",
+}
+
+
 @router.get("/", response_model=EquipmentList)
 def read_equipment_list(
     session: SessionDep,
@@ -64,6 +76,11 @@ def read_equipment_list(
     current_status: str | None = Query(None, description="Фильтр по состоянию"),
     equipment_type: str | None = Query(None, description="Фильтр по типу техники"),
     brand_id: uuid.UUID | None = Query(None, description="Фильтр по бренду"),
+    sort_by: str | None = Query(
+        None,
+        description="Сортировка: brand_model, serial_number, garage_number, equipment_type, zone, engine_hours, commissioned_at, current_status",
+    ),
+    order: str = Query("asc", description="Направление: asc или desc"),
 ) -> Any:
     """Список складской техники. Бренды задаются в панели администрирования."""
     statement = (
@@ -97,7 +114,52 @@ def read_equipment_list(
         count_statement = count_statement.where(Equipment.brand_id == brand_id)
 
     count = session.exec(count_statement).one()
-    statement = statement.order_by(Equipment.created_at.desc()).offset(skip).limit(limit)
+
+    if sort_by in SORT_FIELDS and order in ("asc", "desc"):
+        if sort_by == "brand_model":
+            if order == "asc":
+                statement = statement.order_by(Brand.name.asc(), Equipment.model.asc())
+            else:
+                statement = statement.order_by(Brand.name.desc(), Equipment.model.desc())
+        elif sort_by == "engine_hours":
+            if order == "asc":
+                statement = statement.order_by(Equipment.engine_hours.asc().nulls_last())
+            else:
+                statement = statement.order_by(Equipment.engine_hours.desc().nulls_first())
+        elif sort_by == "commissioned_at":
+            if order == "asc":
+                statement = statement.order_by(Equipment.commissioned_at.asc().nulls_last())
+            else:
+                statement = statement.order_by(Equipment.commissioned_at.desc().nulls_first())
+        elif sort_by == "current_status":
+            if order == "asc":
+                statement = statement.order_by(Equipment.current_status.asc())
+            else:
+                statement = statement.order_by(Equipment.current_status.desc())
+        elif sort_by == "serial_number":
+            if order == "asc":
+                statement = statement.order_by(Equipment.serial_number.asc().nulls_last())
+            else:
+                statement = statement.order_by(Equipment.serial_number.desc().nulls_first())
+        elif sort_by == "garage_number":
+            if order == "asc":
+                statement = statement.order_by(Equipment.garage_number.asc().nulls_last())
+            else:
+                statement = statement.order_by(Equipment.garage_number.desc().nulls_first())
+        elif sort_by == "equipment_type":
+            if order == "asc":
+                statement = statement.order_by(Equipment.equipment_type.asc())
+            else:
+                statement = statement.order_by(Equipment.equipment_type.desc())
+        elif sort_by == "zone":
+            if order == "asc":
+                statement = statement.order_by(Equipment.zone.asc().nulls_last())
+            else:
+                statement = statement.order_by(Equipment.zone.desc().nulls_first())
+    else:
+        statement = statement.order_by(Equipment.created_at.desc())
+
+    statement = statement.offset(skip).limit(limit)
     rows = list(session.exec(statement).all())
     items = [_equipment_to_public(eq, brand) for eq, brand in rows]
     return EquipmentList(data=items, count=count)

@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -179,16 +179,25 @@ def export_items(
     category_id: uuid.UUID | None = None,
     created_at_from: date | None = None,
     created_at_to: date | None = None,
+    item_ids: list[uuid.UUID] | None = Query(None),
 ) -> Response:
     """
     Экспорт товаров в CSV или XLSX.
-    Параметры фильтрации: format=csv|xlsx, status, search, category_id, created_at_from, created_at_to.
+    Параметры: format=csv|xlsx, item_ids (опционально — выгрузить только выбранные),
+    иначе status, search, category_id, created_at_from, created_at_to.
     """
     if format not in ("csv", "xlsx"):
         raise HTTPException(status_code=400, detail="format must be csv or xlsx")
-    items = _items_for_export(
-        session, current_user, status, search, category_id, created_at_from, created_at_to
-    )
+    if item_ids:
+        statement = select(Item).where(Item.id.in_(item_ids))
+        if not can_see_all_items(session, current_user):
+            statement = statement.where(Item.owner_id == current_user.id)
+        statement = _apply_order(statement, "created_at", "desc")
+        items = list(session.exec(statement).all())
+    else:
+        items = _items_for_export(
+            session, current_user, status, search, category_id, created_at_from, created_at_to
+        )
     headers_ru: list[str] = [
         "ID", "Название", "Описание", "Кол-во", "Артикул", "Штрихкод", "Ед. изм.",
         "Срок годности", "Местоположение", "Статус", "Категория", "Дата создания", "Владелец (ID)",

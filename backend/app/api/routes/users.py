@@ -1,8 +1,9 @@
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlmodel import col, delete, func, select
+from sqlmodel import func, select
 
 from app import crud
 from app.api.deps import (
@@ -15,7 +16,6 @@ from app.core.config import settings
 from app.core.permissions import PERM_USERS_MANAGE, user_has_permission
 from app.core.security import get_password_hash, verify_password
 from app.models import (
-    Item,
     Message,
     UpdatePassword,
     User,
@@ -36,17 +36,34 @@ router = APIRouter(prefix="/users", tags=["users"])
     dependencies=[Depends(get_current_user_can_manage_users)],
     response_model=UsersPublic,
 )
-def read_users(session: SessionDep, skip: int = 0, limit: int = 100) -> Any:
+def read_users(
+    session: SessionDep,
+    skip: int = 0,
+    limit: int = 100,
+    deleted: bool = False,
+) -> Any:
     """
-    Retrieve users.
+    Retrieve users. Use deleted=true for soft-deleted users only.
     """
-
-    count_statement = select(func.count()).select_from(User)
+    if deleted:
+        count_statement = select(func.count()).select_from(User).where(
+            User.deleted_at.isnot(None)
+        )
+        statement = (
+            select(User)
+            .where(User.deleted_at.isnot(None))
+            .offset(skip)
+            .limit(limit)
+        )
+    else:
+        count_statement = select(func.count()).select_from(User).where(
+            User.deleted_at.is_(None)
+        )
+        statement = (
+            select(User).where(User.deleted_at.is_(None)).offset(skip).limit(limit)
+        )
     count = session.exec(count_statement).one()
-
-    statement = select(User).offset(skip).limit(limit)
     users = session.exec(statement).all()
-
     return UsersPublic(data=users, count=count)
 
 
@@ -145,13 +162,15 @@ def read_user_me(current_user: CurrentUser) -> Any:
 @router.delete("/me", response_model=Message)
 def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     """
-    Delete own user.
+    Soft-delete own user (moved to deleted list, can be restored by admin).
     """
     if current_user.is_superuser:
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
-    session.delete(current_user)
+    current_user.deleted_at = datetime.now(timezone.utc)
+    current_user.is_active = False
+    session.add(current_user)
     session.commit()
     return Message(message="User deleted successfully")
 
@@ -215,6 +234,11 @@ def update_user(
             status_code=404,
             detail="The user with this id does not exist in the system",
         )
+    if db_user.deleted_at is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot update a deleted user. Restore the user first.",
+        )
     if user_in.email:
         existing_user = crud.get_user_by_email(session=session, email=user_in.email)
         if existing_user and existing_user.id != user_id:
@@ -243,19 +267,22 @@ def delete_user(
     user_id: uuid.UUID,
 ) -> Message:
     """
-    Delete a user.
+    Soft-delete a user (moved to deleted list, items preserved, can be restored).
     """
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if user.deleted_at is not None:
+        raise HTTPException(status_code=400, detail="User is already deleted")
     if user == current_user:
         raise HTTPException(
             status_code=403, detail="Super users are not allowed to delete themselves"
         )
     email = user.email
-    statement = delete(Item).where(col(Item.owner_id) == user_id)
-    session.exec(statement)  # type: ignore
-    session.delete(user)
+    user.deleted_at = datetime.now(timezone.utc)
+    user.is_active = False
+    session.add(user)
+    session.commit()
     log_audit(
         session,
         user_id=current_user.id,
@@ -266,3 +293,39 @@ def delete_user(
         ip_address=get_client_ip(request),
     )
     return Message(message="User deleted successfully")
+
+
+@router.post(
+    "/{user_id}/restore",
+    dependencies=[Depends(get_current_user_can_manage_users)],
+    response_model=UserPublic,
+)
+def restore_user(
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    user_id: uuid.UUID,
+) -> Any:
+    """
+    Restore a soft-deleted user.
+    """
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.deleted_at is None:
+        raise HTTPException(status_code=400, detail="User is not deleted")
+    user.deleted_at = None
+    user.is_active = True
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="user.restore",
+        resource_type="user",
+        resource_id=user_id,
+        details={"email": user.email},
+        ip_address=get_client_ip(request),
+    )
+    return user

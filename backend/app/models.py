@@ -124,6 +124,8 @@ class UpdatePassword(SQLModel):
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
+    last_login_at: datetime | None = Field(default=None)
+    deleted_at: datetime | None = Field(default=None)
     role: Role | None = Relationship(back_populates="users")
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
@@ -131,6 +133,8 @@ class User(UserBase, table=True):
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
     id: uuid.UUID
+    last_login_at: datetime | None = None
+    deleted_at: datetime | None = None
 
 
 class UsersPublic(SQLModel):
@@ -439,6 +443,115 @@ class MaintenanceRecordWithEquipmentPublic(SQLModel):
 class MaintenanceRecordListWithEquipment(SQLModel):
     data: list[MaintenanceRecordWithEquipmentPublic]
     count: int
+
+
+# --- Расписание ТО: цепочки, шаги, привязка техники, журнал изменений ---
+
+class MaintenanceChain(SQLModel, table=True):
+    __tablename__ = "maintenance_chain"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=128)
+    color_tag: str = Field(default="blue", max_length=32)
+    remind_before_hours: int = Field(default=50, ge=0)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class MaintenanceChainStep(SQLModel, table=True):
+    __tablename__ = "maintenance_chain_step"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    chain_id: uuid.UUID = Field(foreign_key="maintenance_chain.id", ondelete="CASCADE")
+    position: int = Field(ge=0, description="Порядок шага в цепочке")
+    interval_hours: int = Field(ge=1, description="Интервал ТО в моточасах")
+
+
+class ChainAssignment(SQLModel, table=True):
+    __tablename__ = "chain_assignment"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    chain_id: uuid.UUID = Field(foreign_key="maintenance_chain.id", ondelete="CASCADE")
+    equipment_id: uuid.UUID = Field(foreign_key="equipment.id", ondelete="CASCADE")
+
+
+class MaintenanceChainAudit(SQLModel, table=True):
+    """Журнал изменений цепочек ТО: кто и когда поменял интервалы/настройки."""
+    __tablename__ = "maintenance_chain_audit"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    chain_id: uuid.UUID | None = Field(default=None, foreign_key="maintenance_chain.id", ondelete="SET NULL")
+    user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", ondelete="SET NULL")
+    action: str = Field(max_length=64, description="intervals_updated, name_changed, created, deleted")
+    old_intervals: str | None = Field(default=None, max_length=2048, description="JSON array до изменения")
+    new_intervals: str | None = Field(default=None, max_length=2048, description="JSON array после")
+    details: str | None = Field(default=None, max_length=1024)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class MaintenanceScheduleConfig(SQLModel, table=True):
+    """Глобальные настройки расписания ТО: доступные интервалы и напоминание по умолчанию."""
+    __tablename__ = "maintenance_schedule_config"
+    key: str = Field(max_length=64, primary_key=True)
+    value: str = Field(max_length=2048, description="JSON")
+
+
+# Schemas for API
+class MaintenanceChainStepPublic(SQLModel):
+    id: uuid.UUID
+    chain_id: uuid.UUID
+    position: int
+    interval_hours: int
+
+
+class MaintenanceChainPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    color_tag: str
+    remind_before_hours: int
+    interval_hours: list[int]  # ordered by position
+    equipment_ids: list[uuid.UUID]
+    created_at: datetime
+    updated_at: datetime
+
+
+class MaintenanceChainCreate(SQLModel):
+    name: str = Field(min_length=1, max_length=128)
+    color_tag: str = Field(default="blue", max_length=32)
+    remind_before_hours: int = Field(default=50, ge=0)
+    interval_hours: list[int] = Field(description="Упорядоченный список интервалов (м/ч)")
+    equipment_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class MaintenanceChainUpdate(SQLModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    color_tag: str | None = Field(default=None, max_length=32)
+    remind_before_hours: int | None = Field(default=None, ge=0)
+    interval_hours: list[int] | None = None
+    equipment_ids: list[uuid.UUID] | None = None
+
+
+class MaintenanceChainAuditPublic(SQLModel):
+    id: uuid.UUID
+    chain_id: uuid.UUID | None
+    user_id: uuid.UUID | None
+    user_email: str | None = None
+    action: str
+    old_intervals: str | None
+    new_intervals: str | None
+    details: str | None
+    created_at: datetime
+
+
+class MaintenanceChainList(SQLModel):
+    data: list[MaintenanceChainPublic]
+    count: int
+
+
+class MaintenanceScheduleConfigPublic(SQLModel):
+    default_intervals: list[int]
+    default_remind_before_hours: int
+
+
+class MaintenanceChainImportBody(SQLModel):
+    """Тело запроса импорта из localStorage (массив цепочек в старом формате)."""
+    chains: list[dict]
 
 
 # Generic message
