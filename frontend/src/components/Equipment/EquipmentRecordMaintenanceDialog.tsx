@@ -191,6 +191,7 @@ export function EquipmentRecordMaintenanceDialog({
               Отмена
             </Button>
             <Button
+              variant="solid"
               type="submit"
               size="sm"
               loading={createMutation.isPending}

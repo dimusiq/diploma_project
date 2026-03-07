@@ -113,7 +113,7 @@ const AddItem = () => {
       onOpenChange={({ open }) => setIsOpen(open)}
     >
       <DialogTrigger asChild>
-        <Button value="add-item" my={4}>
+        <Button variant="solid" size="sm" value="add-item" my={4}>
           <FaPlus fontSize="16px" />
           Добавить
         </Button>
@@ -339,16 +339,13 @@ const AddItem = () => {
 
           <DialogFooter gap={2}>
             <DialogActionTrigger asChild>
-              <Button
-                variant="subtle"
-                colorPalette="gray"
-                disabled={isSubmitting}
-              >
+              <Button variant="outline" size="sm" disabled={isSubmitting}>
                 Отмена
               </Button>
             </DialogActionTrigger>
             <Button
               variant="solid"
+              size="sm"
               type="submit"
               disabled={!isValid}
               loading={isSubmitting}

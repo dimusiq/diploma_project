@@ -55,11 +55,13 @@ export function ConfirmDialog({
         <DialogFooter>
           <ButtonGroup>
             <DialogActionTrigger asChild>
-              <Button variant="outline" disabled={isLoading}>
+              <Button variant="outline" size="sm" disabled={isLoading}>
                 {cancelLabel}
               </Button>
             </DialogActionTrigger>
             <Button
+              variant="solid"
+              size="sm"
               colorPalette={variant === "danger" ? "red" : "blue"}
               onClick={handleConfirm}
               loading={isLoading}

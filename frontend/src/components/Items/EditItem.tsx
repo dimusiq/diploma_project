@@ -147,7 +147,7 @@ const EditItem = ({
     >
       {!isControlled && (
         <DialogTrigger asChild>
-          <Button variant="ghost">
+          <Button variant="ghost" size="sm">
             <FaExchangeAlt fontSize="16px" />
             Изменить поступление
           </Button>
@@ -364,15 +364,11 @@ const EditItem = ({
           <DialogFooter gap={2}>
             <ButtonGroup>
               <DialogActionTrigger asChild>
-                <Button
-                  variant="subtle"
-                  colorPalette="gray"
-                  disabled={isSubmitting}
-                >
+                <Button variant="outline" size="sm" disabled={isSubmitting}>
                   Отменить
                 </Button>
               </DialogActionTrigger>
-              <Button variant="solid" type="submit" loading={isSubmitting}>
+              <Button variant="solid" size="sm" type="submit" loading={isSubmitting}>
                 Сохранить
               </Button>
             </ButtonGroup>

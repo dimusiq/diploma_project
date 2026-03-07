@@ -261,10 +261,12 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
           </DialogBody>
           <DialogFooter>
             <ButtonGroup>
-              <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>
                 Отмена
               </Button>
               <Button
+                variant="solid"
+                size="sm"
                 onClick={handleConfirmMove}
                 loading={move.isPending}
                 disabled={move.isPending}
@@ -380,11 +382,14 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
             <ButtonGroup>
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => setDuplicateDialogOpen(false)}
               >
                 Отмена
               </Button>
               <Button
+                variant="solid"
+                size="sm"
                 onClick={() => duplicateItem.mutate(duplicateCell)}
                 loading={duplicateItem.isPending}
                 disabled={duplicateItem.isPending || isCellOccupied}

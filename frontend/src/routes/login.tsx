@@ -97,8 +97,8 @@ function Login() {
         }}
       >
       <Image
-        src="/images/fastapi-logo.svg"
-        alt="Logo"
+        src="/images/nebardak-logo.svg"
+        alt="Nebardak"
         height="auto"
         maxW="2xs"
         alignSelf="center"
@@ -140,10 +140,10 @@ function Login() {
       </RouterLink>
       <Button
         variant="solid"
+        size="sm"
         type="submit"
         loading={isPending}
         disabled={isPending}
-        size="md"
       >
         Войти
       </Button>

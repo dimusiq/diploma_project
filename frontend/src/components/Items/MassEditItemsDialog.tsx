@@ -118,10 +118,12 @@ export function MassEditItemsDialog({
         </DialogBody>
         <DialogFooter>
           <ButtonGroup>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Отмена
             </Button>
             <Button
+              variant="solid"
+              size="sm"
               onClick={handleApply}
               disabled={!hasChange || mutation.isPending}
               loading={mutation.isPending}

@@ -77,16 +77,13 @@ const DeleteUser = ({ id }: { id: string }) => {
 
           <DialogFooter gap={2}>
             <DialogActionTrigger asChild>
-              <Button
-                variant="subtle"
-                colorPalette="gray"
-                disabled={isSubmitting}
-              >
+              <Button variant="outline" size="sm" disabled={isSubmitting}>
                 Отменить
               </Button>
             </DialogActionTrigger>
             <Button
               variant="solid"
+              size="sm"
               colorPalette="red"
               type="submit"
               loading={isSubmitting}

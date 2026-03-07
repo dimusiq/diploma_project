@@ -25,7 +25,6 @@ import { openShippingNotePdf } from "@/api/printPdf.ts"
 import { CategoriesService, ItemsService } from "@/client/index.ts"
 import { ItemActionsMenu } from "@/components/Common/ItemActionsMenu.tsx"
 import { ItemSelectionToolbar } from "@/components/Common/ItemSelectionToolbar.tsx"
-import { ShortId } from "@/components/Common/ShortId.tsx"
 import AddItem from "@/components/Items/AddItem.tsx"
 import EditItem from "@/components/Items/EditItem.tsx"
 import { MassEditItemsDialog } from "@/components/Items/MassEditItemsDialog.tsx"
@@ -54,7 +53,7 @@ const itemsSearchSchema = z.object({
   created_at_from: z.string().catch(""),
   created_at_to: z.string().catch(""),
   sort_by: z
-    .enum(["title", "created_at", "quantity", "sku"])
+    .enum(["title", "created_at", "quantity", "sku", "description", "unit"])
     .catch("created_at"),
   sort_order: z.enum(["asc", "desc"]).catch("desc"),
   open: z.string().optional(),
@@ -122,7 +121,9 @@ function ItemsTable() {
       search: (prev) => ({ ...prev, ...updates }),
     })
 
-  const handleSort = (field: "title" | "created_at" | "quantity" | "sku") => {
+  type SortField = "title" | "created_at" | "quantity" | "sku" | "description" | "unit"
+
+  const handleSort = (field: SortField) => {
     setSearchParams({
       sort_by: field,
       sort_order:
@@ -133,19 +134,15 @@ function ItemsTable() {
     })
   }
 
-  const SortHeader = ({
-    field,
-    label,
-  }: {
-    field: "title" | "created_at" | "quantity" | "sku"
-    label: string
-  }) => (
+  const SortHeader = ({ field, label }: { field: SortField; label: string }) => (
     <Table.ColumnHeader
       w="sm"
       cursor="pointer"
       onClick={() => handleSort(field)}
       _hover={{ bg: "gray.100" }}
+      _dark={{ _hover: { bg: "gray.800" } }}
       whiteSpace="nowrap"
+      userSelect="none"
     >
       {label}
       {searchParams.sort_by === field ? (
@@ -415,12 +412,11 @@ function ItemsTable() {
                   aria-label="Выбрать все"
                 />
               </Table.ColumnHeader>
-              <Table.ColumnHeader w="sm">ID</Table.ColumnHeader>
               <SortHeader field="title" label="Название" />
-              <Table.ColumnHeader w="sm">Описание</Table.ColumnHeader>
+              <SortHeader field="description" label="Описание" />
               <SortHeader field="quantity" label="Кол-во" />
               <SortHeader field="sku" label="Артикул" />
-              <Table.ColumnHeader w="xs">Ед.</Table.ColumnHeader>
+              <SortHeader field="unit" label="Ед." />
               <Table.ColumnHeader w="sm">Категория</Table.ColumnHeader>
               <SortHeader field="created_at" label="Дата" />
               <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
@@ -428,16 +424,18 @@ function ItemsTable() {
           </Table.Header>
           <Table.Body>
             {optimisticItems.map((item) => (
-              <Table.Row key={item.id} opacity={isPlaceholderData ? 0.5 : 1}>
+              <Table.Row
+                key={item.id}
+                opacity={isPlaceholderData ? 0.5 : 1}
+                _hover={{ bg: "gray.50" }}
+                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+              >
                 <Table.Cell>
                   <Checkbox
                     checked={selectedIds.has(item.id)}
                     onCheckedChange={() => toggleOne(item.id)}
                     aria-label={`Выбрать ${item.title}`}
                   />
-                </Table.Cell>
-                <Table.Cell truncate maxW="sm">
-                  <ShortId id={item.id} />
                 </Table.Cell>
                 <Table.Cell truncate maxW="sm">
                   {item.title}

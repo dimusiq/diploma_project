@@ -79,7 +79,7 @@ def _item_filters(
     return statement
 
 
-_VALID_SORT_FIELDS = {"title", "created_at", "quantity", "sku"}
+_VALID_SORT_FIELDS = {"title", "created_at", "quantity", "sku", "description", "unit"}
 
 
 def _apply_order(statement: Any, sort_by: str | None, sort_order: str | None) -> Any:

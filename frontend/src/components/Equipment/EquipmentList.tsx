@@ -254,7 +254,7 @@ export function EquipmentList() {
             <option value="maintenance">На обслуживании</option>
             <option value="decommissioned">Выведена из эксплуатации</option>
           </select>
-          <Button size="sm" onClick={handleAdd}>
+          <Button variant="solid" size="sm" onClick={handleAdd}>
             <FaPlus />
             Добавить
           </Button>
@@ -274,7 +274,7 @@ export function EquipmentList() {
               Складская техника: бренды задаются в разделе «Администрирование» →
               Бренды.
             </EmptyState.Description>
-            <Button onClick={handleAdd}>Добавить технику</Button>
+            <Button variant="solid" size="sm" onClick={handleAdd}>Добавить технику</Button>
           </EmptyState.Content>
         </EmptyState.Root>
       ) : (

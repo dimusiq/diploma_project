@@ -120,7 +120,7 @@ function ResetPassword() {
         autoComplete="new-password"
         errors={{}}
       />
-      <Button variant="solid" type="submit" loading={isPending}>
+      <Button variant="solid" size="sm" type="submit" loading={isPending}>
         Сбросить пароль
       </Button>
       </form>

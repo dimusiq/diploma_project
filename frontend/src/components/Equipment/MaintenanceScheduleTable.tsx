@@ -352,13 +352,13 @@ function RecordMaintenanceDialog({
           <DialogFooter>
             <Button
               type="button"
-              variant="subtle"
-              colorPalette="gray"
+              variant="outline"
+              size="sm"
               onClick={() => onOpenChange(false)}
             >
               Отмена
             </Button>
-            <Button type="submit" loading={createMutation.isPending}>
+            <Button variant="solid" size="sm" type="submit" loading={createMutation.isPending}>
               Записать
             </Button>
           </DialogFooter>

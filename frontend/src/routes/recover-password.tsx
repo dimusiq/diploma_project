@@ -90,7 +90,7 @@ function RecoverPassword() {
           />
         </InputGroup>
       </Field>
-      <Button variant="solid" type="submit" loading={isPending}>
+      <Button variant="solid" size="sm" type="submit" loading={isPending}>
         Продолжить
       </Button>
       </form>

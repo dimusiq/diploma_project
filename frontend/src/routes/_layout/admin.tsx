@@ -379,6 +379,8 @@ function AddCategory() {
         ))}
       </select>
       <Button
+        variant="solid"
+        size="sm"
         onClick={() => create.mutate()}
         disabled={!name.trim()}
         loading={create.isPending}
@@ -479,10 +481,11 @@ function EditCategory({
               </select>
             </Flex>
             <Flex gap={2} justifyContent="flex-end">
-              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
                 Отмена
               </Button>
               <Button
+                variant="solid"
                 size="sm"
                 onClick={() => update.mutate()}
                 loading={update.isPending}
@@ -595,6 +598,8 @@ function AddBrand() {
         maxW="xs"
       />
       <Button
+        variant="solid"
+        size="sm"
         onClick={() => create.mutate()}
         disabled={!name.trim()}
         loading={create.isPending}
@@ -664,10 +669,11 @@ function EditBrand({ brand }: { brand: BrandPublic }) {
               />
             </Flex>
             <Flex gap={2} justifyContent="flex-end">
-              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
                 Отмена
               </Button>
               <Button
+                variant="solid"
                 size="sm"
                 onClick={() => update.mutate()}
                 loading={update.isPending}
@@ -775,6 +781,8 @@ function AddZone() {
         maxW="xs"
       />
       <Button
+        variant="solid"
+        size="sm"
         onClick={() => create.mutate()}
         disabled={!name.trim()}
         loading={create.isPending}
@@ -844,10 +852,11 @@ function EditZone({ zone }: { zone: ZonePublic }) {
               />
             </Flex>
             <Flex gap={2} justifyContent="flex-end">
-              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
                 Отмена
               </Button>
               <Button
+                variant="solid"
                 size="sm"
                 onClick={() => update.mutate()}
                 loading={update.isPending}

@@ -512,7 +512,7 @@ export function MaintenanceScheduleEditor() {
           </Text>
 
           {canEdit && (
-            <Button size="sm" mb={4} onClick={startNewChain}>
+            <Button variant="solid" size="sm" mb={4} onClick={startNewChain}>
               Создать последовательность ТО
             </Button>
           )}
@@ -538,11 +538,6 @@ export function MaintenanceScheduleEditor() {
                 Создайте первую последовательность, выберите интервалы и
                 назначьте технику.
               </Text>
-              {canEdit && (
-                <Button size="sm" onClick={startNewChain}>
-                  Создать последовательность ТО
-                </Button>
-              )}
             </Box>
           ) : (
             <Table.Root size="sm" mb={4}>
@@ -982,7 +977,7 @@ export function MaintenanceScheduleEditor() {
                 )}
                 <Flex gap={2}>
                   {canEdit && (
-                    <Button size="sm" onClick={handleSaveChain}>
+                    <Button variant="solid" size="sm" onClick={handleSaveChain}>
                       Сохранить
                     </Button>
                   )}
@@ -1019,7 +1014,7 @@ export function MaintenanceScheduleEditor() {
                 size="sm"
                 w="180px"
               />
-              <Button size="sm" onClick={handleAddInterval}>
+              <Button variant="solid" size="sm" onClick={handleAddInterval}>
                 Добавить период
               </Button>
             </Flex>

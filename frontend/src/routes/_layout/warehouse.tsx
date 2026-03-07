@@ -16,14 +16,18 @@ import {
   useNavigate,
 } from "@tanstack/react-router"
 import { useCallback, useState } from "react"
-import { FiDownload, FiSearch } from "react-icons/fi"
+import {
+  FiChevronDown,
+  FiChevronUp,
+  FiDownload,
+  FiSearch,
+} from "react-icons/fi"
 import { z } from "zod"
 import { downloadItemsExport } from "@/api/exportItems.ts"
 import { openShippingNotePdf } from "@/api/printPdf.ts"
 import { CategoriesService, ItemsService } from "@/client/index.ts"
 import { ItemActionsMenu } from "@/components/Common/ItemActionsMenu.tsx"
 import { ItemSelectionToolbar } from "@/components/Common/ItemSelectionToolbar.tsx"
-import { ShortId } from "@/components/Common/ShortId.tsx"
 import { MassEditItemsDialog } from "@/components/Items/MassEditItemsDialog.tsx"
 import { MoveItemsDialog } from "@/components/Items/MoveItemsDialog.tsx"
 import PendingItems from "@/components/Pending/PendingItems.tsx"
@@ -47,19 +51,18 @@ const warehouseSearchSchema = z.object({
   page: z.number().catch(1),
   search: z.string().catch(""),
   category_id: z.string().catch(""),
+  sort_by: z
+    .enum(["title", "created_at", "quantity", "sku", "description", "unit"])
+    .catch("created_at"),
+  sort_order: z.enum(["asc", "desc"]).catch("desc"),
 })
 
 const PER_PAGE = 5
 
-function getItemsQueryOptions({
-  page,
-  search,
-  category_id,
-}: {
-  page: number
-  search: string
-  category_id: string
-}) {
+type WarehouseSearch = z.infer<typeof warehouseSearchSchema>
+
+function getItemsQueryOptions(params: WarehouseSearch) {
+  const { page, search, category_id, sort_by, sort_order } = params
   return {
     queryFn: () =>
       ItemsService.readItems({
@@ -68,8 +71,10 @@ function getItemsQueryOptions({
         status: "warehouse",
         search: search || undefined,
         category_id: category_id || undefined,
+        sort_by: sort_by || undefined,
+        sort_order: sort_order || undefined,
       }),
-    queryKey: ["items", "warehouse", { page, search, category_id }],
+    queryKey: ["items", "warehouse", params],
   }
 }
 
@@ -86,7 +91,8 @@ function WarehouseTable() {
   const [massEditDialogOpen, setMassEditDialogOpen] = useState(false)
   const [isPrinting, setIsPrinting] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const { page, search, category_id } = Route.useSearch()
+  const searchParams = Route.useSearch() as WarehouseSearch
+  const { search, category_id } = searchParams
 
   const { data: categories = [] } = useQuery({
     queryKey: ["categories"],
@@ -94,16 +100,45 @@ function WarehouseTable() {
   })
 
   const { data, isLoading, isPlaceholderData } = useQuery({
-    ...getItemsQueryOptions({ page, search, category_id }),
+    ...getItemsQueryOptions(searchParams),
     placeholderData: (prev) => prev,
   })
 
-  const setSearchParams = (updates: {
-    page?: number
-    search?: string
-    category_id?: string
-  }) =>
-    (navigate as unknown as (opts: { search: (prev: z.infer<typeof warehouseSearchSchema>) => z.infer<typeof warehouseSearchSchema> }) => void)({
+  type SortField = "title" | "created_at" | "quantity" | "sku" | "description" | "unit"
+  const handleSort = (field: SortField) => {
+    ;(navigate as unknown as (opts: { search: (prev: WarehouseSearch) => WarehouseSearch }) => void)({
+      search: (prev) => ({
+        ...prev,
+        sort_by: field,
+        sort_order:
+          prev.sort_by === field && prev.sort_order === "desc" ? "asc" : "desc",
+        page: 1,
+      }),
+    })
+  }
+  const SortHeader = ({ field, label }: { field: SortField; label: string }) => (
+    <Table.ColumnHeader
+      w="sm"
+      cursor="pointer"
+      onClick={() => handleSort(field)}
+      _hover={{ bg: "gray.100" }}
+      _dark={{ _hover: { bg: "gray.800" } }}
+      whiteSpace="nowrap"
+      userSelect="none"
+    >
+      {label}
+      {searchParams.sort_by === field ? (
+        searchParams.sort_order === "desc" ? (
+          <Box as={FiChevronDown} display="inline" ml={1} />
+        ) : (
+          <Box as={FiChevronUp} display="inline" ml={1} />
+        )
+      ) : null}
+    </Table.ColumnHeader>
+  )
+
+  const setSearchParams = (updates: Partial<WarehouseSearch>) =>
+    (navigate as unknown as (opts: { search: (prev: WarehouseSearch) => WarehouseSearch }) => void)({
       search: (prev) => ({ ...prev, ...updates }),
     })
 
@@ -307,28 +342,30 @@ function WarehouseTable() {
                   aria-label="Выбрать все"
                 />
               </Table.ColumnHeader>
-              <Table.ColumnHeader w="sm">ID</Table.ColumnHeader>
-              <Table.ColumnHeader w="sm">Название</Table.ColumnHeader>
-              <Table.ColumnHeader w="sm">Описание</Table.ColumnHeader>
-              <Table.ColumnHeader w="xs">Кол-во</Table.ColumnHeader>
-              <Table.ColumnHeader w="sm">Артикул</Table.ColumnHeader>
-              <Table.ColumnHeader w="xs">Ед.</Table.ColumnHeader>
+              <SortHeader field="title" label="Название" />
+              <SortHeader field="description" label="Описание" />
+              <SortHeader field="quantity" label="Кол-во" />
+              <SortHeader field="sku" label="Артикул" />
+              <SortHeader field="unit" label="Ед." />
               <Table.ColumnHeader w="sm">Категория</Table.ColumnHeader>
+              <SortHeader field="created_at" label="Дата" />
               <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
             </Table.Row>
           </Table.Header>
           <Table.Body>
             {optimisticItems.map((item) => (
-              <Table.Row key={item.id} opacity={isPlaceholderData ? 0.5 : 1}>
+              <Table.Row
+                key={item.id}
+                opacity={isPlaceholderData ? 0.5 : 1}
+                _hover={{ bg: "gray.50" }}
+                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+              >
                 <Table.Cell>
                   <Checkbox
                     checked={selectedIds.has(item.id)}
                     onCheckedChange={() => toggleOne(item.id)}
                     aria-label={`Выбрать ${item.title}`}
                   />
-                </Table.Cell>
-                <Table.Cell>
-                  <ShortId id={item.id} />
                 </Table.Cell>
                 <Table.Cell>{item.title}</Table.Cell>
                 <Table.Cell>{item.description || "N/A"}</Table.Cell>
@@ -339,6 +376,11 @@ function WarehouseTable() {
                   {item.category_id
                     ? (categories.find((c) => c.id === item.category_id)
                         ?.name ?? "—")
+                    : "—"}
+                </Table.Cell>
+                <Table.Cell whiteSpace="nowrap">
+                  {item.created_at
+                    ? new Date(item.created_at).toLocaleDateString("ru-RU")
                     : "—"}
                 </Table.Cell>
                 <Table.Cell>

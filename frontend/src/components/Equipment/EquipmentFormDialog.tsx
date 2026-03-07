@@ -412,13 +412,14 @@ export function EquipmentFormDialog({
           <Flex gap={3} pt={2}>
             <Button
               variant="outline"
+              size="sm"
               type="button"
               disabled={loading}
               onClick={() => onOpenChange(false)}
             >
               Назад
             </Button>
-            <Button type="submit" disabled={loading} loading={loading}>
+            <Button variant="solid" size="sm" type="submit" disabled={loading} loading={loading}>
               {isEdit ? "Сохранить" : "Добавить"}
             </Button>
           </Flex>
@@ -449,15 +450,15 @@ export function EquipmentFormDialog({
             <DrawerBody overflowY="auto">{formContent}</DrawerBody>
             <DrawerFooter gap={2} borderTopWidth="1px">
               <Button
-                variant="subtle"
-                colorPalette="gray"
+                variant="outline"
+                size="sm"
                 disabled={loading}
                 type="button"
                 onClick={() => onOpenChange(false)}
               >
                 Закрыть
               </Button>
-              <Button type="submit" disabled={loading} loading={loading}>
+              <Button variant="solid" size="sm" type="submit" disabled={loading} loading={loading}>
                 {isEdit ? "Сохранить" : "Добавить"}
               </Button>
             </DrawerFooter>
@@ -484,11 +485,11 @@ export function EquipmentFormDialog({
           <DialogBody>{formContent}</DialogBody>
           <DialogFooter gap={2}>
             <DialogActionTrigger asChild>
-              <Button variant="subtle" colorPalette="gray" disabled={loading}>
+              <Button variant="outline" size="sm" disabled={loading}>
                 Отмена
               </Button>
             </DialogActionTrigger>
-            <Button type="submit" disabled={loading} loading={loading}>
+            <Button variant="solid" size="sm" type="submit" disabled={loading} loading={loading}>
               {isEdit ? "Сохранить" : "Добавить"}
             </Button>
           </DialogFooter>

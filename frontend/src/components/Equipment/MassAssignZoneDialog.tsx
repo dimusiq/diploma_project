@@ -108,11 +108,13 @@ export function MassAssignZoneDialog({
         <DialogFooter>
           <ButtonGroup>
             <DialogActionTrigger asChild>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 Отмена
               </Button>
             </DialogActionTrigger>
             <Button
+              variant="solid"
+              size="sm"
               onClick={handleConfirm}
               loading={mutation.isPending}
             >

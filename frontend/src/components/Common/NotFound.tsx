@@ -32,7 +32,7 @@ const NotFound = () => {
       </Text>
       <Center zIndex={1}>
         <Link to="/">
-          <Button variant="solid" colorScheme="cyan" mt={4} alignSelf="center">
+          <Button variant="solid" colorPalette="blue" size="sm" mt={4} alignSelf="center">
             Вернуться на главную
           </Button>
         </Link>

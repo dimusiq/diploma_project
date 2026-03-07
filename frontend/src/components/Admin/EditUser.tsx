@@ -244,15 +244,11 @@ const EditUser = ({ user }: EditUserProps) => {
 
           <DialogFooter gap={2}>
             <DialogActionTrigger asChild>
-              <Button
-                variant="subtle"
-                colorPalette="gray"
-                disabled={isSubmitting}
-              >
+              <Button variant="outline" size="sm" disabled={isSubmitting}>
                 Отменить
               </Button>
             </DialogActionTrigger>
-            <Button variant="solid" type="submit" loading={isSubmitting}>
+            <Button variant="solid" size="sm" type="submit" loading={isSubmitting}>
               Сохранить
             </Button>
           </DialogFooter>

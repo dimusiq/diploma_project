@@ -16,7 +16,7 @@ import { InputGroup } from "@/components/ui/input-group.tsx"
 import { PasswordInput } from "@/components/ui/password-input.tsx"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
 import { getApiErrorMessage } from "@/utils.ts"
-import Logo from "/images/fastapi-logo.svg"
+import Logo from "/images/nebardak-logo.svg"
 
 const EMAIL_PATTERN = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i
 
@@ -108,7 +108,7 @@ function SignUp() {
         >
         <Image
           src={Logo}
-          alt="FastAPI logo"
+          alt="Nebardak"
           height="auto"
           maxW="2xs"
           alignSelf="center"
@@ -161,7 +161,7 @@ function SignUp() {
           required
           errors={{}}
         />
-        <Button variant="solid" type="submit" loading={isPending}>
+        <Button variant="solid" size="sm" type="submit" loading={isPending}>
           Зарегистрироваться
         </Button>
         <Text>

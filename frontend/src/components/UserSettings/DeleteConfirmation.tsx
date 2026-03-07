@@ -57,7 +57,7 @@ const DeleteConfirmation = () => {
       onOpenChange={({ open }) => setIsOpen(open)}
     >
       <DialogTrigger asChild>
-        <Button variant="solid" colorPalette="red" mt={4}>
+        <Button variant="solid" size="sm" colorPalette="red" mt={4}>
           Delete
         </Button>
       </DialogTrigger>
@@ -80,16 +80,13 @@ const DeleteConfirmation = () => {
           <DialogFooter gap={2}>
             <ButtonGroup>
               <DialogActionTrigger asChild>
-                <Button
-                  variant="subtle"
-                  colorPalette="gray"
-                  disabled={isSubmitting}
-                >
+                <Button variant="outline" size="sm" disabled={isSubmitting}>
                   Cancel
                 </Button>
               </DialogActionTrigger>
               <Button
                 variant="solid"
+                size="sm"
                 colorPalette="red"
                 type="submit"
                 loading={isSubmitting}

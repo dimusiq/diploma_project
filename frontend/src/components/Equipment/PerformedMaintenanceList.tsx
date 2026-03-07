@@ -249,13 +249,13 @@ function CreateOrderDialog({
           <DialogFooter>
             <Button
               type="button"
-              variant="subtle"
-              colorPalette="gray"
+              variant="outline"
+              size="sm"
               onClick={() => onOpenChange(false)}
             >
               Отмена
             </Button>
-            <Button type="submit" loading={createMutation.isPending}>
+            <Button variant="solid" size="sm" type="submit" loading={createMutation.isPending}>
               Создать
             </Button>
           </DialogFooter>
@@ -292,7 +292,7 @@ export function PerformedMaintenanceList() {
   return (
     <Box>
       <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button variant="solid" size="sm" onClick={() => setCreateOpen(true)}>
           <Flex as="span" align="center" gap={2}>
             <Box as={FaPlus} />
             Создать заказ

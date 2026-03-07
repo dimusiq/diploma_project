@@ -1,7 +1,7 @@
 import { Flex, Image, useBreakpointValue } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
 
-import Logo from "/images/fastapi-logo.svg"
+import Logo from "/images/nebardak-logo.svg"
 import UserMenu from "./UserMenu.tsx"
 
 function Navbar() {
@@ -23,7 +23,7 @@ function Navbar() {
       p={4}
     >
       <Link to="/">
-        <Image src={Logo} alt="Logo" maxW="3xs" p={2} />
+        <Image src={Logo} alt="Nebardak" maxW="3xs" p={2} />
       </Link>
       <Flex gap={2} alignItems="center">
         <UserMenu />

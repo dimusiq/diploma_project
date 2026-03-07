@@ -123,6 +123,7 @@ const UserInformation = () => {
         <Flex mt={4} gap={3}>
           <Button
             variant="solid"
+            size="sm"
             onClick={toggleEditMode}
             type={editMode ? "button" : "submit"}
             loading={editMode ? isSubmitting : false}
@@ -132,8 +133,8 @@ const UserInformation = () => {
           </Button>
           {editMode && (
             <Button
-              variant="subtle"
-              colorPalette="gray"
+              variant="outline"
+              size="sm"
               onClick={onCancel}
               disabled={isSubmitting}
             >
