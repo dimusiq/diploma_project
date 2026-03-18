@@ -1,0 +1,34 @@
+---
+description: Prevent list/table "jumping" from loading states (no layout shift)
+globs: frontend/src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# UI: avoid layout shift in lists/tables
+
+When a list/table reloads (filters, search, sorting, pagination), the UI must **not jump** due to height changes.
+
+- **Do not replace** a table/list with a small `Загрузка…` text during refetch (this collapses height).
+- **Keep previous data visible** while fetching new data:
+  - React Query: use `placeholderData: (prev) => prev` (or equivalent) and render based on `isLoading && !data` for initial load only.
+- **Use `isFetching`** to show a subtle “Обновление…” indicator.
+- **Reserve space** for indicators so height doesn't change:
+  - e.g. `minH="20px"` + `visibility={isFetching ? "visible" : "hidden"}` (or an overlay inside a fixed-height container).
+- If charts/cards have a fixed visual size, **keep a fixed container height** and center the loading/empty state inside it.
+
+## Quick pattern
+
+```tsx
+const { data, isLoading, isFetching } = useQuery({
+  queryKey: [...],
+  queryFn: ...,
+  placeholderData: (prev) => prev,
+})
+
+<Text minH="20px" visibility={isFetching && !!data ? "visible" : "hidden"}>
+  Обновление…
+</Text>
+
+{isLoading && !data ? <Text>Загрузка…</Text> : <YourTable data={data?.data ?? []} />}
+```
+

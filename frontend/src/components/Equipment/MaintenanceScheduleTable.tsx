@@ -9,6 +9,7 @@ import {
   Flex,
   Input,
   Table,
+  Tag,
   Text,
   Textarea,
   VStack,
@@ -963,26 +964,27 @@ export function MaintenanceScheduleTable() {
                       </Text>
                     </Table.Cell>
                     <Table.Cell>
-                      <Flex direction="column" gap="1" align="flex-start">
-                        <Text fontSize="sm">{primaryChainName || "—"}</Text>
-                        {primaryChainName && (() => {
+                      {primaryChainName ? (
+                        (() => {
                           const chain = chains.find(
                             (c) => c.name === primaryChainName,
                           )
-                          const colorTag = chain?.colorTag ?? "gray"
+                          const colorPalette = chain?.colorTag ?? "gray"
                           return (
-                            <Box
-                              aria-hidden
-                              w="100%"
-                              maxW="32px"
-                              h="6px"
-                              borderRadius="2px"
-                              bg={`${colorTag}.400`}
-                              flexShrink={0}
-                            />
+                            <Tag.Root
+                              size="sm"
+                              colorPalette={colorPalette}
+                              variant="subtle"
+                            >
+                              <Tag.Label>{primaryChainName}</Tag.Label>
+                            </Tag.Root>
                           )
-                        })()}
-                      </Flex>
+                        })()
+                      ) : (
+                        <Text fontSize="sm" color="fg.muted">
+                          —
+                        </Text>
+                      )}
                     </Table.Cell>
                     <Table.Cell>
                       <Text fontSize="sm">

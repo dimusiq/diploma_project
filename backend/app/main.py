@@ -5,6 +5,9 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.core.config import settings
+from app.core.report_scheduler import report_scheduler_loop
+
+import asyncio
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -31,3 +34,25 @@ if settings.all_cors_origins:
     )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+_report_stop_event: asyncio.Event | None = None
+_report_task: asyncio.Task | None = None
+
+
+@app.on_event("startup")
+async def _start_report_scheduler() -> None:
+    global _report_stop_event, _report_task
+    if not settings.emails_enabled:
+        return
+    _report_stop_event = asyncio.Event()
+    _report_task = asyncio.create_task(report_scheduler_loop(_report_stop_event))
+
+
+@app.on_event("shutdown")
+async def _stop_report_scheduler() -> None:
+    global _report_stop_event, _report_task
+    if _report_stop_event is None:
+        return
+    _report_stop_event.set()
+    if _report_task is not None:
+        _report_task.cancel()

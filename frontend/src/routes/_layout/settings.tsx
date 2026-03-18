@@ -4,12 +4,18 @@ import { createFileRoute } from "@tanstack/react-router"
 import Appearance from "@/components/UserSettings/Appearance.tsx"
 import ChangePassword from "@/components/UserSettings/ChangePassword.tsx"
 import DeleteAccount from "@/components/UserSettings/DeleteAccount.tsx"
+import NotificationsAndReports from "@/components/UserSettings/NotificationsAndReports.tsx"
 import UserInformation from "@/components/UserSettings/UserInformation.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 
 const tabsConfig = [
   { value: "my-profile", title: "Мой профиль", component: UserInformation },
   { value: "password", title: "Пароль", component: ChangePassword },
+  {
+    value: "notifications",
+    title: "Уведомления и отчёты",
+    component: NotificationsAndReports,
+  },
   { value: "appearance", title: "Настройка темы", component: Appearance },
   { value: "danger-zone", title: "Опасная зона", component: DeleteAccount },
 ]

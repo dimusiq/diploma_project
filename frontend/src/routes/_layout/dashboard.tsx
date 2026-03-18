@@ -566,10 +566,14 @@ export function Dashboard() {
               </MenuContent>
             </MenuRoot>
           </Flex>
-          {trendsLoading ? (
-            <Text color="gray.500">Загрузка...</Text>
-          ) : trendsChartData.length > 0 ? (
-            <Box height="300px">
+          <Box height="300px">
+            {trendsLoading ? (
+              <Flex h="100%" align="center" justify="center">
+                <Text color="gray.500" fontSize="sm">
+                  Загрузка...
+                </Text>
+              </Flex>
+            ) : trendsChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
                   data={trendsChartData}
@@ -611,12 +615,14 @@ export function Dashboard() {
                   />
                 </ComposedChart>
               </ResponsiveContainer>
-            </Box>
-          ) : (
-            <Text color="gray.500" fontSize="sm">
-              Нет данных за выбранный период
-            </Text>
-          )}
+            ) : (
+              <Flex h="100%" align="center" justify="center">
+                <Text color="gray.500" fontSize="sm">
+                  Нет данных за выбранный период
+                </Text>
+              </Flex>
+            )}
+          </Box>
         </Card.Body>
       </Card.Root>
 

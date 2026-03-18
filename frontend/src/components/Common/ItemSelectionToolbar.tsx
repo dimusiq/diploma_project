@@ -29,7 +29,7 @@ export function ItemSelectionToolbar({
   isPrinting = false,
   isExporting = false,
 }: ItemSelectionToolbarProps) {
-  if (selectedCount === 0) return null
+  const active = selectedCount > 0
 
   return (
     <Flex
@@ -40,6 +40,11 @@ export function ItemSelectionToolbar({
       borderRadius="md"
       align="center"
       flexWrap="wrap"
+      // Важно: панель не должна "вставляться" в поток и сдвигать таблицу вниз.
+      // Держим постоянную высоту и просто прячем содержимое, пока ничего не выбрано.
+      minH="52px"
+      visibility={active ? "visible" : "hidden"}
+      pointerEvents={active ? "auto" : "none"}
     >
       <Text fontSize="sm" fontWeight="medium">
         Выбрано: {selectedCount}

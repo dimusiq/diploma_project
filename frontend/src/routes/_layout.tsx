@@ -58,9 +58,9 @@ function Layout() {
           display={{ base: "none", md: "block" }}
         >
           <Splitter.Root
-            defaultSize={[22, 78]}
+            defaultSize={[16, 78]}
             panels={[
-              { id: "sidebar", minSize: 16, maxSize: 40 },
+              { id: "sidebar", minSize: 16, maxSize: 28 },
               { id: "content", minSize: 50 },
             ]}
             h="100%"

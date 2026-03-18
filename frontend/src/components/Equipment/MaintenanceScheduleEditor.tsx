@@ -393,6 +393,10 @@ export function MaintenanceScheduleEditor() {
       setError("Введите название последовательности")
       return
     }
+    if (name.length > 40) {
+      setError("Название цепочки ТО не должно превышать 40 символов.")
+      return
+    }
     const duplicate = chains.find(
       (c) =>
         c.id !== (editingChainId === "new" ? undefined : editingChainId) &&
@@ -666,7 +670,8 @@ export function MaintenanceScheduleEditor() {
                     size="sm"
                     placeholder="Например: ТО каждые 500 м/ч"
                     value={chainName}
-                    onChange={(e) => setChainName(e.target.value)}
+                    maxLength={40}
+                    onChange={(e) => setChainName(e.target.value.slice(0, 40))}
                     flex="1"
                     minW="200px"
                     disabled={!canEdit}

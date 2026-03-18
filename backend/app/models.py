@@ -445,6 +445,317 @@ class MaintenanceRecordListWithEquipment(SQLModel):
     count: int
 
 
+# --- Work Order (заявка на обслуживание/ремонт): жизненный цикл, исполнитель, приоритет, чек-листы, вложения ---
+WORK_ORDER_STATUS_OPEN = "open"
+WORK_ORDER_STATUS_IN_PROGRESS = "in_progress"
+WORK_ORDER_STATUS_WAITING_PARTS = "waiting_parts"
+WORK_ORDER_STATUS_DONE = "done"
+WORK_ORDER_STATUS_CANCELED = "canceled"
+WORK_ORDER_STATUSES = [
+    WORK_ORDER_STATUS_OPEN,
+    WORK_ORDER_STATUS_IN_PROGRESS,
+    WORK_ORDER_STATUS_WAITING_PARTS,
+    WORK_ORDER_STATUS_DONE,
+    WORK_ORDER_STATUS_CANCELED,
+]
+
+WORK_ORDER_PRIORITY_LOW = "low"
+WORK_ORDER_PRIORITY_MEDIUM = "medium"
+WORK_ORDER_PRIORITY_HIGH = "high"
+WORK_ORDER_PRIORITY_CRITICAL = "critical"
+WORK_ORDER_PRIORITIES = [
+    WORK_ORDER_PRIORITY_LOW,
+    WORK_ORDER_PRIORITY_MEDIUM,
+    WORK_ORDER_PRIORITY_HIGH,
+    WORK_ORDER_PRIORITY_CRITICAL,
+]
+
+ATTACHMENT_KIND_BEFORE = "before_photo"
+ATTACHMENT_KIND_AFTER = "after_photo"
+ATTACHMENT_KIND_FILE = "attachment"
+ATTACHMENT_KINDS = [ATTACHMENT_KIND_BEFORE, ATTACHMENT_KIND_AFTER, ATTACHMENT_KIND_FILE]
+
+
+class WorkOrder(SQLModel, table=True):
+    __tablename__ = "workorder"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    equipment_id: uuid.UUID = Field(foreign_key="equipment.id", ondelete="CASCADE")
+    title: str = Field(max_length=256)
+    description: str | None = Field(default=None, max_length=4096)
+    status: str = Field(default=WORK_ORDER_STATUS_OPEN, max_length=32)
+    priority: str = Field(default=WORK_ORDER_PRIORITY_MEDIUM, max_length=32)
+    assigned_to_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", ondelete="SET NULL")
+    start_at: datetime | None = Field(default=None, description="Временное окно выполнения (начало)")
+    end_at: datetime | None = Field(default=None, description="Временное окно выполнения (конец)")
+    due_at: datetime | None = Field(default=None)
+    created_by_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", ondelete="SET NULL")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WorkOrderStatusHistory(SQLModel, table=True):
+    __tablename__ = "workorder_status_history"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    work_order_id: uuid.UUID = Field(foreign_key="workorder.id", ondelete="CASCADE")
+    from_status: str | None = Field(default=None, max_length=32)
+    to_status: str = Field(max_length=32)
+    changed_by_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", ondelete="SET NULL")
+    comment: str | None = Field(default=None, max_length=1024)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WorkOrderComment(SQLModel, table=True):
+    __tablename__ = "workorder_comment"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    work_order_id: uuid.UUID = Field(foreign_key="workorder.id", ondelete="CASCADE")
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE")
+    body: str = Field(max_length=4096)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WorkOrderChecklistItem(SQLModel, table=True):
+    __tablename__ = "workorder_checklist_item"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    work_order_id: uuid.UUID = Field(foreign_key="workorder.id", ondelete="CASCADE")
+    title: str = Field(max_length=512)
+    sort_order: int = Field(default=0, ge=0)
+    completed: bool = Field(default=False)
+
+
+class WorkOrderAttachment(SQLModel, table=True):
+    __tablename__ = "workorder_attachment"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    work_order_id: uuid.UUID = Field(foreign_key="workorder.id", ondelete="CASCADE")
+    file_path: str = Field(max_length=1024, description="Путь или URL к файлу")
+    filename: str | None = Field(default=None, max_length=256)
+    kind: str = Field(default=ATTACHMENT_KIND_FILE, max_length=32)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+# API schemas for WorkOrder
+class WorkOrderCreate(SQLModel):
+    equipment_id: uuid.UUID
+    title: str = Field(min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=4096)
+    priority: str = Field(default=WORK_ORDER_PRIORITY_MEDIUM, max_length=32)
+    assigned_to_id: uuid.UUID | None = None
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    due_at: datetime | None = None
+
+
+class WorkOrderUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=256)
+    description: str | None = None
+    status: str | None = None
+    status_comment: str | None = Field(default=None, max_length=1024)
+    priority: str | None = None
+    assigned_to_id: uuid.UUID | None = None
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    due_at: datetime | None = None
+
+
+class WorkOrderFromMaintenanceEventCreate(SQLModel):
+    """Создание work order из расчетного события календаря ТО."""
+
+    equipment_id: uuid.UUID
+    interval_hours: int | None = Field(default=None, ge=1)
+    start_at: datetime
+    end_at: datetime
+    assigned_to_id: uuid.UUID | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=4096)
+
+
+class WorkOrderStatusHistoryPublic(SQLModel):
+    id: uuid.UUID
+    work_order_id: uuid.UUID
+    from_status: str | None
+    to_status: str
+    changed_by_id: uuid.UUID | None
+    changed_by_email: str | None = None
+    comment: str | None
+    created_at: datetime
+
+
+class WorkOrderCommentCreate(SQLModel):
+    body: str = Field(min_length=1, max_length=4096)
+
+
+class WorkOrderCommentPublic(SQLModel):
+    id: uuid.UUID
+    work_order_id: uuid.UUID
+    user_id: uuid.UUID
+    user_email: str | None = None
+    body: str
+    created_at: datetime
+
+
+class WorkOrderChecklistItemPublic(SQLModel):
+    id: uuid.UUID
+    work_order_id: uuid.UUID
+    title: str
+    sort_order: int
+    completed: bool
+
+
+class WorkOrderChecklistItemCreate(SQLModel):
+    title: str = Field(min_length=1, max_length=512)
+    sort_order: int = Field(default=0, ge=0)
+
+
+class WorkOrderChecklistItemUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=512)
+    completed: bool | None = None
+    sort_order: int | None = Field(default=None, ge=0)
+
+
+class WorkOrderAttachmentCreate(SQLModel):
+    file_path: str = Field(min_length=1, max_length=1024)
+    filename: str | None = Field(default=None, max_length=256)
+    kind: str = Field(default=ATTACHMENT_KIND_FILE, max_length=32)
+
+
+class WorkOrderAttachmentPublic(SQLModel):
+    id: uuid.UUID
+    work_order_id: uuid.UUID
+    file_path: str
+    filename: str | None
+    kind: str
+    created_at: datetime
+
+
+# --- Склад запчастей (отдельная сущность, не Item) ---
+class SparePart(SQLModel, table=True):
+    __tablename__ = "spare_part"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    title: str = Field(max_length=255)
+    sku: str | None = Field(default=None, max_length=64)
+    description: str | None = Field(default=None, max_length=512)
+    quantity: int = Field(default=0, ge=0)
+    min_quantity: int | None = Field(default=None, ge=0, description="Минимальный остаток для алерта")
+    unit: str | None = Field(default=None, max_length=32)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SparePartCreate(SQLModel):
+    title: str = Field(min_length=1, max_length=255)
+    sku: str | None = None
+    description: str | None = None
+    quantity: int = Field(default=0, ge=0)
+    min_quantity: int | None = Field(default=None, ge=0)
+    unit: str | None = None
+
+
+class SparePartUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    sku: str | None = None
+    description: str | None = None
+    quantity: int | None = Field(default=None, ge=0)
+    min_quantity: int | None = Field(default=None, ge=0)
+    unit: str | None = None
+
+
+class SparePartPublic(SQLModel):
+    id: uuid.UUID
+    title: str
+    sku: str | None
+    description: str | None
+    quantity: int
+    min_quantity: int | None
+    unit: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class SparePartsPublic(SQLModel):
+    data: list[SparePartPublic]
+    count: int
+
+
+# --- Резерв запчастей под заявку и фактическое списание (привязка к SparePart) ---
+class WorkOrderPartReservation(SQLModel, table=True):
+    __tablename__ = "workorder_part_reservation"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    work_order_id: uuid.UUID = Field(foreign_key="workorder.id", ondelete="CASCADE")
+    spare_part_id: uuid.UUID = Field(foreign_key="spare_part.id", ondelete="CASCADE")
+    quantity: int = Field(ge=1, description="Зарезервировано единиц")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WorkOrderPartConsumption(SQLModel, table=True):
+    __tablename__ = "workorder_part_consumption"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    work_order_id: uuid.UUID = Field(foreign_key="workorder.id", ondelete="CASCADE")
+    spare_part_id: uuid.UUID = Field(foreign_key="spare_part.id", ondelete="CASCADE")
+    quantity: int = Field(ge=1, description="Списано единиц")
+    consumed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WorkOrderPartReservationCreate(SQLModel):
+    spare_part_id: uuid.UUID
+    quantity: int = Field(ge=1)
+
+
+class WorkOrderPartReservationPublic(SQLModel):
+    id: uuid.UUID
+    work_order_id: uuid.UUID
+    spare_part_id: uuid.UUID
+    spare_part_title: str | None = None
+    spare_part_sku: str | None = None
+    quantity: int
+    created_at: datetime
+
+
+class WorkOrderPartConsumptionCreate(SQLModel):
+    spare_part_id: uuid.UUID
+    quantity: int = Field(ge=1)
+
+
+class WorkOrderPartConsumptionPublic(SQLModel):
+    id: uuid.UUID
+    work_order_id: uuid.UUID
+    spare_part_id: uuid.UUID
+    spare_part_title: str | None = None
+    spare_part_sku: str | None = None
+    quantity: int
+    consumed_at: datetime
+
+
+class WorkOrderPublic(SQLModel):
+    id: uuid.UUID
+    equipment_id: uuid.UUID
+    equipment_name: str | None = None
+    title: str
+    description: str | None
+    status: str
+    priority: str
+    assigned_to_id: uuid.UUID | None
+    assigned_to_email: str | None = None
+    start_at: datetime | None
+    end_at: datetime | None
+    due_at: datetime | None
+    created_by_id: uuid.UUID | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkOrderDetailPublic(WorkOrderPublic):
+    status_history: list[WorkOrderStatusHistoryPublic] = Field(default_factory=list)
+    comments: list[WorkOrderCommentPublic] = Field(default_factory=list)
+    checklist_items: list[WorkOrderChecklistItemPublic] = Field(default_factory=list)
+    attachments: list[WorkOrderAttachmentPublic] = Field(default_factory=list)
+    part_reservations: list[WorkOrderPartReservationPublic] = Field(default_factory=list)
+    part_consumptions: list[WorkOrderPartConsumptionPublic] = Field(default_factory=list)
+
+
+class WorkOrderList(SQLModel):
+    data: list[WorkOrderPublic]
+    count: int
+
+
 # --- Расписание ТО: цепочки, шаги, привязка техники, журнал изменений ---
 
 class MaintenanceChain(SQLModel, table=True):
@@ -490,6 +801,42 @@ class MaintenanceScheduleConfig(SQLModel, table=True):
     __tablename__ = "maintenance_schedule_config"
     key: str = Field(max_length=64, primary_key=True)
     value: str = Field(max_length=2048, description="JSON")
+
+
+class MaintenanceReglamentTemplate(SQLModel, table=True):
+    """Шаблон регламента обслуживания по типу техники (+ опционально интервалу)."""
+
+    __tablename__ = "maintenance_reglament_template"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    equipment_type: str = Field(max_length=32, index=True)
+    # Если интервал не задан - шаблон общий для типа техники.
+    interval_hours: int | None = Field(default=None, ge=1, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class MaintenanceTemplateChecklistItem(SQLModel, table=True):
+    __tablename__ = "maintenance_template_checklist_item"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    template_id: uuid.UUID = Field(
+        foreign_key="maintenance_reglament_template.id", ondelete="CASCADE"
+    )
+    title: str = Field(max_length=512)
+    sort_order: int = Field(default=0, ge=0, index=True)
+
+
+class MaintenanceTemplateSparePartRequirement(SQLModel, table=True):
+    """Требуемые запчасти для шаблона регламента."""
+
+    __tablename__ = "maintenance_template_spare_part_requirement"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    template_id: uuid.UUID = Field(
+        foreign_key="maintenance_reglament_template.id", ondelete="CASCADE"
+    )
+    spare_part_id: uuid.UUID = Field(
+        foreign_key="spare_part.id", ondelete="RESTRICT", index=True
+    )
+    quantity: int = Field(ge=1)
 
 
 # Schemas for API
@@ -549,9 +896,205 @@ class MaintenanceScheduleConfigPublic(SQLModel):
     default_remind_before_hours: int
 
 
+class MaintenanceTemplateChecklistItemPublic(SQLModel):
+    id: uuid.UUID
+    title: str
+    sort_order: int
+
+
+class MaintenanceTemplateSparePartRequirementPublic(SQLModel):
+    id: uuid.UUID
+    spare_part_id: uuid.UUID
+    spare_part_title: str | None = None
+    spare_part_sku: str | None = None
+    quantity: int
+
+
+class MaintenanceReglamentTemplatePublic(SQLModel):
+    id: uuid.UUID
+    equipment_type: str
+    interval_hours: int | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MaintenanceReglamentTemplateDetailPublic(MaintenanceReglamentTemplatePublic):
+    checklist_items: list[MaintenanceTemplateChecklistItemPublic] = Field(default_factory=list)
+    spare_part_requirements: list[MaintenanceTemplateSparePartRequirementPublic] = Field(default_factory=list)
+
+
+class MaintenanceTemplateChecklistItemCreate(SQLModel):
+    title: str = Field(min_length=1, max_length=512)
+    sort_order: int | None = Field(default=None, ge=0)
+
+
+class MaintenanceTemplateSparePartRequirementCreate(SQLModel):
+    spare_part_id: uuid.UUID
+    quantity: int = Field(ge=1)
+
+
+class MaintenanceReglamentTemplateCreate(SQLModel):
+    equipment_type: str = Field(min_length=1, max_length=32)
+    interval_hours: int | None = Field(default=None, ge=1)
+    checklist_items: list[MaintenanceTemplateChecklistItemCreate] = Field(default_factory=list)
+    spare_part_requirements: list[MaintenanceTemplateSparePartRequirementCreate] = Field(default_factory=list)
+
+
+class MaintenanceReglamentTemplateUpdate(MaintenanceReglamentTemplateCreate):
+    pass
+
+
+class MaintenanceReglamentTemplateList(SQLModel):
+    data: list[MaintenanceReglamentTemplatePublic]
+    count: int
+
+
+class MaintenanceCalendarEventPublic(SQLModel):
+    id: uuid.UUID
+    equipment_id: uuid.UUID
+    equipment_name: str | None
+    chain_id: uuid.UUID | None
+    interval_hours: int
+    engine_hours: int | None
+    next_service_at_hours: int | None
+    remaining_hours: int | None
+    status: str  # overdue | due_soon | ok
+
+
+class MaintenanceCalendarEventList(SQLModel):
+    data: list[MaintenanceCalendarEventPublic]
+    count: int
+
+
 class MaintenanceChainImportBody(SQLModel):
     """Тело запроса импорта из localStorage (массив цепочек в старом формате)."""
     chains: list[dict]
+
+
+# --- Notification (центр уведомлений: тип, severity, прочитано, entity) ---
+NOTIFICATION_SEVERITY_CRITICAL = "critical"
+NOTIFICATION_SEVERITY_WARNING = "warning"
+NOTIFICATION_SEVERITY_INFO = "info"
+NOTIFICATION_SEVERITIES = (
+    NOTIFICATION_SEVERITY_CRITICAL,
+    NOTIFICATION_SEVERITY_WARNING,
+    NOTIFICATION_SEVERITY_INFO,
+)
+
+
+class Notification(SQLModel, table=True):
+    __tablename__ = "notification"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE")
+    type: str = Field(max_length=64, index=True, description="Тип события: overdue_maintenance, soon_maintenance, item_stuck, etc.")
+    severity: str = Field(max_length=16, default=NOTIFICATION_SEVERITY_INFO)
+    title: str = Field(max_length=256)
+    body: str | None = Field(default=None, max_length=2048)
+    source: str | None = Field(default=None, max_length=128, description="Источник: График ТО, Склад, Аудит")
+    entity_type: str | None = Field(default=None, max_length=64)
+    entity_id: uuid.UUID | None = Field(default=None)
+    is_read: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    read_at: datetime | None = Field(default=None)
+    archived_at: datetime | None = Field(
+        default=None,
+        description="Если задано — уведомление скрыто (архивировано) и не показывается по умолчанию",
+    )
+
+
+class NotificationPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    type: str
+    severity: str
+    title: str
+    body: str | None
+    source: str | None
+    entity_type: str | None
+    entity_id: uuid.UUID | None
+    is_read: bool
+    created_at: datetime
+    read_at: datetime | None
+
+
+class NotificationList(SQLModel):
+    data: list[NotificationPublic]
+    count: int
+
+
+# --- UserCommunicationPreference (настройки уведомлений/отчётов: in-app/email) ---
+COMM_PREF_KIND_NOTIFICATION = "notification"
+COMM_PREF_KIND_REPORT = "report"
+COMM_PREF_KINDS = (COMM_PREF_KIND_NOTIFICATION, COMM_PREF_KIND_REPORT)
+
+
+class UserCommunicationPreference(SQLModel, table=True):
+    """
+    Пользовательские настройки подписок на уведомления и email-рассылки.
+
+    Запись существует только если пользователь менял дефолт.
+    Дефолт для отсутствующей записи: включено (in_app/email зависят от вида).
+    """
+
+    __tablename__ = "user_communication_preference"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, index=True, ondelete="CASCADE"
+    )
+    kind: str = Field(max_length=32, index=True, description="notification|report")
+    key: str = Field(max_length=64, index=True, description="Идентификатор типа (например overdue_maintenance)")
+    in_app_enabled: bool = Field(default=True, description="Показывать в центре уведомлений приложения")
+    email_enabled: bool = Field(default=False, description="Отправлять по email (уведомление/отчёт)")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class UserCommunicationPreferencePublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    kind: str
+    key: str
+    in_app_enabled: bool
+    email_enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class UserCommunicationPreferenceUpsert(SQLModel):
+    kind: str = Field(max_length=32)
+    key: str = Field(max_length=64)
+    in_app_enabled: bool
+    email_enabled: bool
+
+
+class UserCommunicationPreferenceList(SQLModel):
+    data: list[UserCommunicationPreferencePublic]
+
+
+# --- ReportEmailDeliveryLog (идемпотентность и аудит отправок отчётов) ---
+class ReportEmailDeliveryLog(SQLModel, table=True):
+    __tablename__ = "report_email_delivery_log"
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(
+        foreign_key="user.id", nullable=False, index=True, ondelete="CASCADE"
+    )
+    report_key: str = Field(max_length=64, index=True)
+    period_start: date = Field(index=True)
+    period_end: date = Field(index=True)
+    sent_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: str = Field(default="sent", max_length=16, description="sent|failed")
+    error: str | None = Field(default=None, max_length=2048)
+
+
+class ReportEmailDeliveryLogPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    report_key: str
+    period_start: date
+    period_end: date
+    sent_at: datetime
+    status: str
+    error: str | None = None
 
 
 # Generic message

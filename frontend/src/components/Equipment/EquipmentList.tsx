@@ -9,7 +9,7 @@ import {
 } from "@chakra-ui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { FaPlus } from "react-icons/fa"
 import { FiChevronDown, FiChevronUp, FiSearch } from "react-icons/fi"
 
@@ -22,6 +22,7 @@ import {
 } from "@/api/equipment.ts"
 import { zonesApi } from "@/api/zones.ts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
+import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import { MassAssignZoneDialog } from "@/components/Equipment/MassAssignZoneDialog.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
@@ -39,7 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
   decommissioned: "Выведена из эксплуатации",
 }
 
-const PER_PAGE = 10
+const PAGE_SIZE = 500
 
 function SortableHeader({
   label,
@@ -79,8 +80,39 @@ function SortableHeader({
   )
 }
 
+async function fetchAllEquipment(params: {
+  search?: string
+  current_status?: string
+  equipment_type?: string
+  sort_by?: EquipmentSortField
+  order?: EquipmentSortOrder
+}) {
+  const all: EquipmentPublic[] = []
+  let skip = 0
+  let expectedCount: number | null = null
+
+  // Грузим порциями, пока не соберём всё (или пока бэк не начнёт возвращать пустые страницы).
+  // Это убирает зависимость от пагинации на UI и гарантирует полный список.
+  for (let guard = 0; guard < 1000; guard++) {
+    const res = await equipmentApi.list({ skip, limit: PAGE_SIZE, ...params })
+    expectedCount ??= res.count ?? 0
+
+    if (!res.data?.length) break
+    all.push(...res.data)
+
+    // Если бэк уже отдал все записи — выходим.
+    if (all.length >= expectedCount) break
+
+    // Если бэк вернул меньше лимита — дальше страниц скорее всего нет.
+    if (res.data.length < PAGE_SIZE) break
+
+    skip += PAGE_SIZE
+  }
+
+  return { data: all, count: expectedCount ?? all.length }
+}
+
 export function EquipmentList() {
-  const [page, setPage] = useState(0)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [typeFilter, setTypeFilter] = useState<string>("")
@@ -103,7 +135,6 @@ export function EquipmentList() {
       setSortBy(key)
       setSortOrder("asc")
     }
-    setPage(0)
   }
 
   const { data: zones = [] } = useQuery({
@@ -111,23 +142,97 @@ export function EquipmentList() {
     queryFn: () => zonesApi.list(),
   })
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["equipment", page, search, statusFilter, typeFilter, sortBy, sortOrder],
-    queryFn: () =>
-      equipmentApi.list({
-        skip: page * PER_PAGE,
-        limit: PER_PAGE,
-        search: search || undefined,
-        current_status: statusFilter || undefined,
-        equipment_type: typeFilter || undefined,
-        sort_by: sortBy,
-        order: sortOrder,
-      }),
+  const { data, isLoading, isFetching } = useQuery({
+    // Загружаем весь список один раз, а фильтры/поиск/сортировка делаем локально,
+    // чтобы UI не прыгал при каждом изменении фильтра (как в «Графике ТО»).
+    queryKey: ["equipment", "all"],
+    queryFn: () => fetchAllEquipment({}),
+    // Чтобы при изменении фильтров/поиска не моргала таблица: держим предыдущие данные,
+    // пока загружаются новые.
+    placeholderData: (prev) => prev,
   })
 
-  const items = data?.data ?? []
-  const count = data?.count ?? 0
-  const totalPages = Math.max(1, Math.ceil(count / PER_PAGE))
+  const allItems = data?.data ?? []
+  const totalCount = data?.count ?? allItems.length
+
+  const items = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    let list = allItems
+
+    if (q) {
+      list = list.filter((i) => {
+        const hay = [
+          i.serial_number,
+          i.garage_number,
+          i.vin,
+          i.brand_name,
+          i.model,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+        return hay.includes(q)
+      })
+    }
+
+    if (statusFilter) {
+      list = list.filter((i) => i.current_status === statusFilter)
+    }
+
+    if (typeFilter) {
+      list = list.filter((i) => i.equipment_type === typeFilter)
+    }
+
+    if (!sortBy) return list
+
+    const mult = sortOrder === "asc" ? 1 : -1
+    const arr = [...list]
+    arr.sort((a, b) => {
+      let cmp = 0
+      switch (sortBy) {
+        case "brand_model": {
+          const sa = `${a.brand_name ?? ""} ${a.model ?? ""}`.trim()
+          const sb = `${b.brand_name ?? ""} ${b.model ?? ""}`.trim()
+          cmp = sa.localeCompare(sb)
+          break
+        }
+        case "serial_number":
+          cmp = (a.serial_number ?? "").localeCompare(b.serial_number ?? "")
+          break
+        case "garage_number":
+          cmp = (a.garage_number ?? "").localeCompare(b.garage_number ?? "")
+          break
+        case "equipment_type":
+          cmp = (a.equipment_type ?? "").localeCompare(b.equipment_type ?? "")
+          break
+        case "zone":
+          cmp = (a.zone ?? "").localeCompare(b.zone ?? "")
+          break
+        case "commissioned_at": {
+          const da = a.commissioned_at ? Date.parse(a.commissioned_at) : NaN
+          const db = b.commissioned_at ? Date.parse(b.commissioned_at) : NaN
+          const va = Number.isFinite(da) ? da : sortOrder === "asc" ? 1e18 : -1
+          const vb = Number.isFinite(db) ? db : sortOrder === "asc" ? 1e18 : -1
+          cmp = va - vb
+          break
+        }
+        case "engine_hours": {
+          const nullVal = sortOrder === "asc" ? 1e18 : -1
+          const va = a.engine_hours ?? nullVal
+          const vb = b.engine_hours ?? nullVal
+          cmp = va - vb
+          break
+        }
+        case "current_status":
+          cmp = (a.current_status ?? "").localeCompare(b.current_status ?? "")
+          break
+      }
+      return mult * cmp
+    })
+    return arr
+  }, [allItems, search, statusFilter, typeFilter, sortBy, sortOrder])
+
+  const count = items.length
 
   const handleEdit = (item: EquipmentPublic) => {
     navigate({
@@ -174,35 +279,28 @@ export function EquipmentList() {
 
   return (
     <Box>
-      {selectedIds.size > 0 && (
-        <Flex
-          gap={3}
-          mb={4}
-          p={3}
-          bg="bg.subtle"
-          borderRadius="md"
-          align="center"
-          flexWrap="wrap"
-        >
-          <Text fontSize="sm" fontWeight="medium">
-            Выбрано: {selectedIds.size}
-          </Text>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setZoneDialogOpen(true)}
-          >
-            Назначить зону
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setSelectedIds(new Set())}
-          >
-            Снять выделение
-          </Button>
-        </Flex>
-      )}
+      <Flex
+        gap={3}
+        mb={4}
+        p={3}
+        bg="bg.subtle"
+        borderRadius="md"
+        align="center"
+        flexWrap="wrap"
+        minH="52px"
+        visibility={selectedIds.size > 0 ? "visible" : "hidden"}
+        pointerEvents={selectedIds.size > 0 ? "auto" : "none"}
+      >
+        <Text fontSize="sm" fontWeight="medium">
+          Выбрано: {selectedIds.size}
+        </Text>
+        <Button size="sm" variant="outline" onClick={() => setZoneDialogOpen(true)}>
+          Назначить зону
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+          Снять выделение
+        </Button>
+      </Flex>
       <Flex
         direction={{ base: "column", md: "row" }}
         gap={4}
@@ -261,7 +359,7 @@ export function EquipmentList() {
         </Flex>
       </Flex>
 
-      {isLoading ? (
+      {isLoading && !data ? (
         <Text color="fg.muted">Загрузка...</Text>
       ) : items.length === 0 ? (
         <EmptyState.Root>
@@ -278,207 +376,190 @@ export function EquipmentList() {
           </EmptyState.Content>
         </EmptyState.Root>
       ) : (
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader w="8" minW="8" onClick={(e) => e.stopPropagation()}>
-                <Checkbox
-                  checked={
-                    isAllSelected
-                      ? true
-                      : isSomeSelected
-                        ? "indeterminate"
-                        : false
-                  }
-                  onCheckedChange={toggleAll}
-                  aria-label="Выбрать все"
-                />
-              </Table.ColumnHeader>
-              <SortableHeader
-                label="Модель"
-                sortKey="brand_model"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Серийный номер"
-                sortKey="serial_number"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Гаражный номер"
-                sortKey="garage_number"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Тип"
-                sortKey="equipment_type"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Зона склада"
-                sortKey="zone"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Дата ввода"
-                sortKey="commissioned_at"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Моточасы"
-                sortKey="engine_hours"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <SortableHeader
-                label="Состояние"
-                sortKey="current_status"
-                currentSort={sortBy}
-                currentOrder={sortOrder}
-                onSort={handleSort}
-              />
-              <Table.ColumnHeader textAlign="end">Действия</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {items.map((item) => (
-              <Table.Row
-                key={item.id}
-                cursor="pointer"
-                transition="background 0.15s ease"
-                _hover={{ bg: "gray.subtle" }}
-                _active={{ bg: "gray.muted" }}
-                onClick={() => handleEdit(item)}
-              >
-                <Table.Cell w="8" minW="8" onClick={(e) => e.stopPropagation()}>
+        <Box>
+          <FetchingIndicator active={isFetching && !!data} mb={2} />
+          <Table.Root size="sm">
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeader
+                  w="8"
+                  minW="8"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Checkbox
-                    checked={selectedIds.has(item.id)}
-                    onCheckedChange={() => {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev)
-                        if (next.has(item.id)) next.delete(item.id)
-                        else next.add(item.id)
-                        return next
-                      })
-                    }}
-                    aria-label={`Выбрать ${item.brand_name} ${item.model}`}
+                    checked={
+                      isAllSelected
+                        ? true
+                        : isSomeSelected
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={toggleAll}
+                    aria-label="Выбрать все"
                   />
-                </Table.Cell>
-                <Table.Cell>
-                  <Flex direction="column" gap={0.5}>
-                    <Text fontWeight="medium">
-                      {item.brand_name} {item.model}
+                </Table.ColumnHeader>
+                <SortableHeader
+                  label="Модель"
+                  sortKey="brand_model"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Серийный номер"
+                  sortKey="serial_number"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Гаражный номер"
+                  sortKey="garage_number"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Тип"
+                  sortKey="equipment_type"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Зона склада"
+                  sortKey="zone"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Дата ввода"
+                  sortKey="commissioned_at"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Моточасы"
+                  sortKey="engine_hours"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Состояние"
+                  sortKey="current_status"
+                  currentSort={sortBy}
+                  currentOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <Table.ColumnHeader textAlign="end">Действия</Table.ColumnHeader>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {items.map((item) => (
+                <Table.Row
+                  key={item.id}
+                  cursor="pointer"
+                  transition="background 0.15s ease"
+                  _hover={{ bg: "gray.subtle" }}
+                  _active={{ bg: "gray.muted" }}
+                  onClick={() => handleEdit(item)}
+                >
+                  <Table.Cell w="8" minW="8" onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(item.id)}
+                      onCheckedChange={() => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(item.id)) next.delete(item.id)
+                          else next.add(item.id)
+                          return next
+                        })
+                      }}
+                      aria-label={`Выбрать ${item.brand_name} ${item.model}`}
+                    />
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Flex direction="column" gap={0.5}>
+                      <Text fontWeight="medium">
+                        {item.brand_name} {item.model}
+                      </Text>
+                      <Text fontSize="xs" color="fg.muted">
+                        Ввод в эксплуатацию:{" "}
+                        {item.commissioned_at
+                          ? new Date(item.commissioned_at).toLocaleDateString(
+                              "ru-RU",
+                            )
+                          : "—"}
+                      </Text>
+                    </Flex>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm">{item.serial_number || "—"}</Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm">{item.garage_number || "—"}</Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm">
+                      {EQUIPMENT_TYPE_LABELS[item.equipment_type] ??
+                        item.equipment_type}
                     </Text>
-                    <Text fontSize="xs" color="fg.muted">
-                      Ввод в эксплуатацию:{" "}
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm">
+                      {zones.some((z) => z.name === item.zone) ? item.zone : "—"}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm">
                       {item.commissioned_at
                         ? new Date(item.commissioned_at).toLocaleDateString(
                             "ru-RU",
                           )
                         : "—"}
                     </Text>
-                  </Flex>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text fontSize="sm">{item.serial_number || "—"}</Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text fontSize="sm">{item.garage_number || "—"}</Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text fontSize="sm">
-                    {EQUIPMENT_TYPE_LABELS[item.equipment_type] ??
-                      item.equipment_type}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text fontSize="sm">
-                    {zones.some((z) => z.name === item.zone) ? item.zone : "—"}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text fontSize="sm">
-                    {item.commissioned_at
-                      ? new Date(item.commissioned_at).toLocaleDateString(
-                          "ru-RU",
-                        )
-                      : "—"}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text fontSize="sm">
-                    {item.engine_hours != null ? item.engine_hours : "—"}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text fontSize="sm">
-                    {STATUS_LABELS[item.current_status] ?? item.current_status}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell
-                  textAlign="end"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MenuRoot>
-                    <MenuTrigger asChild>
-                      <Button size="xs" variant="ghost" aria-label="Действия">
-                        ⋮
-                      </Button>
-                    </MenuTrigger>
-                    <MenuContent>
-                      <MenuItem
-                        value="delete"
-                        onClick={() => handleDeleteClick(item)}
-                        color="red"
-                      >
-                        Удалить
-                      </MenuItem>
-                    </MenuContent>
-                  </MenuRoot>
-                </Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </Table.Root>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm">
+                      {item.engine_hours != null ? item.engine_hours : "—"}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm">
+                      {STATUS_LABELS[item.current_status] ?? item.current_status}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell textAlign="end" onClick={(e) => e.stopPropagation()}>
+                    <MenuRoot>
+                      <MenuTrigger asChild>
+                        <Button size="xs" variant="ghost" aria-label="Действия">
+                          ⋮
+                        </Button>
+                      </MenuTrigger>
+                      <MenuContent>
+                        <MenuItem
+                          value="delete"
+                          onClick={() => handleDeleteClick(item)}
+                          color="red"
+                        >
+                          Удалить
+                        </MenuItem>
+                      </MenuContent>
+                    </MenuRoot>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Root>
+        </Box>
       )}
-
-      {totalPages > 1 && (
-        <Flex justify="space-between" align="center" mt={4}>
-          <Text fontSize="sm" color="fg.muted">
-            Показано {items.length} из {count}
-          </Text>
-          <Flex gap={2}>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page === 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
-              Назад
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={page >= totalPages - 1}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Вперёд
-            </Button>
-          </Flex>
-        </Flex>
+      {totalCount > 0 && (
+        <Text fontSize="sm" color="fg.muted" mt={4}>
+          Показано: {count} из {totalCount}
+        </Text>
       )}
       <MassAssignZoneDialog
         open={zoneDialogOpen}

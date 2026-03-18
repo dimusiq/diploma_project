@@ -27,6 +27,7 @@ import { CategoriesService, RolesService, UsersService } from "@/client/index.ts
 import AddUser from "@/components/Admin/AddUser.tsx"
 import RestoreUser from "@/components/Admin/RestoreUser.tsx"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
+import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import { ShortId } from "@/components/Common/ShortId.tsx"
 import { UserActionsMenu } from "@/components/Common/UserActionsMenu.tsx"
 import PendingUsers from "@/components/Pending/PendingUsers.tsx"
@@ -876,7 +877,7 @@ function AuditLogSection() {
   const [auditPage, setAuditPage] = useState(1)
   const [resourceTypeFilter, setResourceTypeFilter] = useState<string>("")
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: [
       "audit",
       {
@@ -891,6 +892,8 @@ function AuditLogSection() {
         limit: AUDIT_PAGE_SIZE,
         resource_type: resourceTypeFilter || undefined,
       }),
+    // Держим предыдущую страницу/фильтр на экране, чтобы таблица не "прыгала".
+    placeholderData: (prev) => prev,
   })
 
   const rows = data?.data ?? []
@@ -929,7 +932,10 @@ function AuditLogSection() {
           ))}
         </select>
       </Flex>
-      {isLoading ? (
+
+      <FetchingIndicator active={isFetching && !!data} mb={2} />
+
+      {isLoading && !data ? (
         <Text color="fg.muted">Загрузка журнала…</Text>
       ) : isError ? (
         <Text color="red.500">Не удалось загрузить журнал аудита.</Text>
@@ -1097,38 +1103,47 @@ function AppSettingsContent() {
 
 function Admin() {
   return (
-    <Container maxW="full">
-      <Heading size="lg" pt={12}>
-        Администратирование
+    <Container maxW='full'>
+      <Heading size='lg' pt={12}>
+        Администрирование
       </Heading>
 
-      <Tabs.Root defaultValue="app-settings" variant="subtle" mt={6}>
+      <Tabs.Root
+        defaultValue='app-settings'
+        variant='subtle'
+        mt={6}
+      >
         <Tabs.List>
-          <Tabs.Trigger value="app-settings">
+          <Tabs.Trigger value='app-settings'>
             Управление и настройка приложения
           </Tabs.Trigger>
-          <Tabs.Trigger value="users">Управление пользователями</Tabs.Trigger>
-          <Tabs.Trigger value="audit">Журнал аудита</Tabs.Trigger>
+          <Tabs.Trigger value='users'>
+            Управление пользователями
+          </Tabs.Trigger>
+          <Tabs.Trigger value='audit'>
+            Журнал аудита
+          </Tabs.Trigger>
         </Tabs.List>
-        <Tabs.Content value="app-settings">
+        <Tabs.Content value='app-settings'>
           <AppSettingsContent />
         </Tabs.Content>
-        <Tabs.Content value="users">
+        <Tabs.Content value='users'>
           <Box pt={4}>
             <AddUser />
             <UsersTable />
           </Box>
         </Tabs.Content>
-        <Tabs.Content value="audit">
+        <Tabs.Content value='audit'>
           <Box pt={4}>
-            <Text fontSize="sm" color="fg.muted" mb={4}>
-              Критичные действия администраторов: создание и изменение
-              пользователей, категорий, брендов, зон, запросы сброса пароля.
+            <Text fontSize='sm' color='fg.muted' mb={4}>
+              Критичные действия администраторов: создание и
+              изменение пользователей, категорий, брендов,
+              зон, запросы сброса пароля.
             </Text>
             <AuditLogSection />
           </Box>
         </Tabs.Content>
       </Tabs.Root>
     </Container>
-  )
+  );
 }

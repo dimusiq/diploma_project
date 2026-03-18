@@ -75,6 +75,7 @@ const items: Item[] = [
       { id: "assets", title: "Список техники" },
       { id: "maintenance", title: "График ТО" },
       { id: "maintenance-schedule", title: "Расписание ТО" },
+      { id: "maintenance-settings", title: "Настройка ТО" },
       { id: "work-orders", title: "Обслуживание и ремонт техники" },
       { id: "technicians", title: "Управление задачами техников" },
       { id: "alerts", title: "Мониторинг и уведомления" },
@@ -122,11 +123,11 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
         ...items,
         {
           icon: FiUsers,
-          title: "Администратирование",
-          path: "/admin",
+          title: 'Администрирование',
+          path: '/admin',
         },
       ]
-    : items
+    : items;
 
   const listItems = finalItems.map((item) => {
     if (isExpandable(item)) {

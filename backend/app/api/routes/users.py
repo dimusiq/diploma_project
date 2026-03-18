@@ -20,6 +20,10 @@ from app.models import (
     UpdatePassword,
     User,
     UserCreate,
+    UserCommunicationPreference,
+    UserCommunicationPreferenceList,
+    UserCommunicationPreferencePublic,
+    UserCommunicationPreferenceUpsert,
     UserPublic,
     UserRegister,
     UsersPublic,
@@ -157,6 +161,68 @@ def read_user_me(current_user: CurrentUser) -> Any:
     Get current user.
     """
     return current_user
+
+
+@router.get("/me/communication-preferences", response_model=UserCommunicationPreferenceList)
+def read_my_communication_preferences(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Получить пользовательские настройки подписок (уведомления/отчёты).
+
+    Возвращаются только явно сохранённые настройки (override). Отсутствие записи = дефолт.
+    """
+    prefs = session.exec(
+        select(UserCommunicationPreference).where(
+            UserCommunicationPreference.user_id == current_user.id
+        )
+    ).all()
+    return UserCommunicationPreferenceList(
+        data=[UserCommunicationPreferencePublic.model_validate(p) for p in prefs]
+    )
+
+
+@router.put("/me/communication-preferences", response_model=UserCommunicationPreferencePublic)
+def upsert_my_communication_preference(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: UserCommunicationPreferenceUpsert,
+) -> Any:
+    """
+    Создать/обновить одну настройку подписки.
+    """
+    now = datetime.now(timezone.utc)
+    existing = session.exec(
+        select(UserCommunicationPreference).where(
+            UserCommunicationPreference.user_id == current_user.id,
+            UserCommunicationPreference.kind == body.kind,
+            UserCommunicationPreference.key == body.key,
+        )
+    ).first()
+    if existing:
+        existing.in_app_enabled = body.in_app_enabled
+        existing.email_enabled = body.email_enabled
+        existing.updated_at = now
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        return UserCommunicationPreferencePublic.model_validate(existing)
+
+    pref = UserCommunicationPreference(
+        user_id=current_user.id,
+        kind=body.kind,
+        key=body.key,
+        in_app_enabled=body.in_app_enabled,
+        email_enabled=body.email_enabled,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(pref)
+    session.commit()
+    session.refresh(pref)
+    return UserCommunicationPreferencePublic.model_validate(pref)
 
 
 @router.delete("/me", response_model=Message)

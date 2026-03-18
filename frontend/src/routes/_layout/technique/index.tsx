@@ -1,11 +1,14 @@
-import { Container, Text } from "@chakra-ui/react"
+import { Box, Container, Text } from "@chakra-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 
 import { EquipmentList } from "@/components/Equipment/EquipmentList.tsx"
-import { MaintenanceScheduleEditor } from "@/components/Equipment/MaintenanceScheduleEditor.tsx"
 import { MaintenanceScheduleTable } from "@/components/Equipment/MaintenanceScheduleTable.tsx"
-import { PerformedMaintenanceList } from "@/components/Equipment/PerformedMaintenanceList.tsx"
+import { MaintenanceCalendarPage } from "@/components/Equipment/MaintenanceCalendarPage.tsx"
+import { MaintenanceSettingsPage } from "@/components/Equipment/MaintenanceSettingsPage.tsx"
+import { ParkHealthAnalytics } from "@/components/Equipment/ParkHealthAnalytics.tsx"
+import { SparePartsList } from "@/components/Equipment/SparePartsList.tsx"
+import { WorkOrderList } from "@/components/Equipment/WorkOrderList.tsx"
 
 const techniqueSearchSchema = z.object({
   section: z.string().optional(),
@@ -20,6 +23,7 @@ const SECTION_LABELS: Record<string, { title: string }> = {
   assets: { title: "Список техники" },
   maintenance: { title: "График ТО" },
   "maintenance-schedule": { title: "Расписание ТО" },
+  "maintenance-settings": { title: "Настройка ТО" },
   "work-orders": { title: "Обслуживание и ремонт техники" },
   technicians: { title: "Управление задачами техников" },
   alerts: { title: "Мониторинг и уведомления" },
@@ -48,9 +52,17 @@ function TechniqueIndexPage() {
       ) : section === "maintenance" ? (
         <MaintenanceScheduleTable />
       ) : section === "maintenance-schedule" ? (
-        <MaintenanceScheduleEditor />
+        <Box>
+          <MaintenanceCalendarPage />
+        </Box>
+      ) : section === "maintenance-settings" ? (
+        <MaintenanceSettingsPage />
       ) : section === "work-orders" ? (
-        <PerformedMaintenanceList />
+        <WorkOrderList />
+      ) : section === "analytics" ? (
+        <ParkHealthAnalytics />
+      ) : section === "spare-parts" ? (
+        <SparePartsList />
       ) : (
         <Text color="fg.muted">
           Раздел в разработке. Здесь будет реализован функционал подраздела.

@@ -2,6 +2,7 @@ import { Flex, Image, useBreakpointValue } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
 
 import Logo from "/images/nebardak-logo.svg"
+import { NotificationCenter } from "./NotificationCenter.tsx"
 import UserMenu from "./UserMenu.tsx"
 
 function Navbar() {
@@ -26,6 +27,7 @@ function Navbar() {
         <Image src={Logo} alt="Nebardak" maxW="3xs" p={2} />
       </Link>
       <Flex gap={2} alignItems="center">
+        <NotificationCenter />
         <UserMenu />
       </Flex>
     </Flex>

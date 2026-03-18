@@ -18,7 +18,23 @@ const PATH_LABELS: Record<string, string> = {
   "/admin": "Администрирование",
 }
 
-function pathToCrumbs(pathname: string): Crumb[] {
+/** Подразделы «Техника» для хлебных крошек (section → заголовок). */
+const TECHNIQUE_SECTION_LABELS: Record<string, string> = {
+  assets: "Список техники",
+  maintenance: "График ТО",
+  "maintenance-schedule": "Расписание ТО",
+  "maintenance-settings": "Настройка ТО",
+  "work-orders": "Обслуживание и ремонт техники",
+  technicians: "Управление задачами техников",
+  alerts: "Мониторинг и уведомления",
+  "spare-parts": "Запасные части",
+  analytics: "Аналитика",
+  integrations: "Интеграции",
+  security: "Безопасность",
+  predictive: "Прогнозирование",
+}
+
+function pathToCrumbs(pathname: string, search?: { section?: string }): Crumb[] {
   const segments = pathname.split("/").filter(Boolean)
   const crumbs: Crumb[] = [{ label: PATH_LABELS["/"] ?? "Главная", to: "/" }]
   let acc = ""
@@ -28,6 +44,12 @@ function pathToCrumbs(pathname: string): Crumb[] {
       PATH_LABELS[acc] ??
       (seg.length > 10 ? `${seg.slice(0, 8)}…` : decodeURIComponent(seg))
     crumbs.push({ label, to: acc })
+  }
+  if (pathname === "/technique" && search?.section && TECHNIQUE_SECTION_LABELS[search.section]) {
+    crumbs.push({
+      label: TECHNIQUE_SECTION_LABELS[search.section],
+      to: undefined,
+    })
   }
   return crumbs
 }
@@ -39,7 +61,8 @@ interface BreadcrumbsProps {
 export function Breadcrumbs({ extra = [] }: BreadcrumbsProps) {
   const location = useLocation()
   const pathname = location.pathname
-  const baseCrumbs = pathToCrumbs(pathname)
+  const section = new URLSearchParams(location.search).get("section") ?? undefined
+  const baseCrumbs = pathToCrumbs(pathname, section ? { section } : undefined)
   const crumbs =
     extra.length > 0 ? [...baseCrumbs.slice(0, -1), ...extra] : baseCrumbs
   if (crumbs.length <= 1) return null
