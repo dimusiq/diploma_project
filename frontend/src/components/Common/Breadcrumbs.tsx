@@ -22,7 +22,7 @@ const PATH_LABELS: Record<string, string> = {
 const TECHNIQUE_SECTION_LABELS: Record<string, string> = {
   assets: "Список техники",
   maintenance: "График ТО",
-  "maintenance-schedule": "Расписание ТО",
+  "maintenance-schedule": "Календарь ТО",
   "maintenance-settings": "Настройка ТО",
   "work-orders": "Обслуживание и ремонт техники",
   technicians: "Управление задачами техников",

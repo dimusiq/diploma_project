@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_layout/technique/")({
 const SECTION_LABELS: Record<string, { title: string }> = {
   assets: { title: "Список техники" },
   maintenance: { title: "График ТО" },
-  "maintenance-schedule": { title: "Расписание ТО" },
+  "maintenance-schedule": { title: "Календарь ТО" },
   "maintenance-settings": { title: "Настройка ТО" },
   "work-orders": { title: "Обслуживание и ремонт техники" },
   technicians: { title: "Управление задачами техников" },

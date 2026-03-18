@@ -74,7 +74,7 @@ const items: Item[] = [
     children: [
       { id: "assets", title: "Список техники" },
       { id: "maintenance", title: "График ТО" },
-      { id: "maintenance-schedule", title: "Расписание ТО" },
+      { id: "maintenance-schedule", title: "Календарь ТО" },
       { id: "maintenance-settings", title: "Настройка ТО" },
       { id: "work-orders", title: "Обслуживание и ремонт техники" },
       { id: "technicians", title: "Управление задачами техников" },
