@@ -4,17 +4,18 @@ import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import Response
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import Response, StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import func, select
+from sqlmodel import Session, func, select
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CurrentUser, SessionDep, get_user_from_token_string
+from app.core.db import engine
 from app.core.permissions import can_change_status, can_see_all_items
 from app.core.storage_slot import (
     format_storage_slot_key,
@@ -30,6 +31,12 @@ from app.models import (
     ItemsPublic,
     ItemUpdate,
     Message,
+)
+from app.realtime.item_sse_hub import (
+    items_sse_stream,
+    publish_items_changed,
+    subscribe_items_queue,
+    unsubscribe_items_queue,
 )
 from app.services.domain_events import (
     EVENT_ITEM_CREATED,
@@ -156,6 +163,46 @@ def read_items(
         items = session.exec(statement).all()
 
     return ItemsPublic(data=items, count=count)
+
+
+@router.get("/stream")
+async def items_realtime_sse(_current_user: CurrentUser) -> StreamingResponse:
+    """SSE: события об изменении товаров (`type`: `items_updated`). Heartbeat — comment ping."""
+    return StreamingResponse(
+        items_sse_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.websocket("/ws")
+async def items_realtime_ws(websocket: WebSocket) -> None:
+    """WebSocket: те же события, что и SSE. Токен: query `token` или `access_token`."""
+    token = websocket.query_params.get("token") or websocket.query_params.get(
+        "access_token"
+    )
+    if not token:
+        await websocket.close(code=1008)
+        return
+    with Session(engine) as session:
+        user = get_user_from_token_string(session, token)
+    if user is None:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    q = subscribe_items_queue()
+    try:
+        while True:
+            msg = await q.get()
+            await websocket.send_json(msg)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        unsubscribe_items_queue(q)
 
 
 def _items_for_export(
@@ -512,6 +559,7 @@ def create_item(
     sync_projection_for_item(session, item)
     _commit_item_session_or_conflict(session)
     session.refresh(item)
+    publish_items_changed()
     return item
 
 
@@ -646,6 +694,7 @@ def update_item(
     sync_projection_for_item(session, item)
     _commit_item_session_or_conflict(session)
     session.refresh(item)
+    publish_items_changed()
     return item
 
 
@@ -677,4 +726,5 @@ def delete_item(
     )
     session.delete(item)
     _commit_item_session_or_conflict(session)
+    publish_items_changed()
     return Message(message="Item deleted successfully")

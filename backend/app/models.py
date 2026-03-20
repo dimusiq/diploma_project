@@ -2,11 +2,13 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from pydantic import EmailStr, computed_field
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.core.agent_vector import AGENT_EMBEDDING_VECTOR_DIMENSIONS
 from app.core.storage_slot import format_storage_slot_key
 
 # --- Role (роли: admin, manager, warehouse, viewer) ---
@@ -67,9 +69,70 @@ class AgentKnowledgeChunk(SQLModel, table=True):
         default=None,
         sa_column=Column(JSONB, nullable=True),
     )
+    embedding_vec: list[float] | None = Field(
+        default=None,
+        sa_column=Column(Vector(AGENT_EMBEDDING_VECTOR_DIMENSIONS), nullable=True),
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+
+
+class AgentKnowledgeChunkCreate(SQLModel):
+    title: str = Field(min_length=1, max_length=255)
+    content: str = Field(min_length=1, max_length=32000)
+    source: str = Field(default="manual", max_length=128)
+
+
+class AgentKnowledgeChunkUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    content: str | None = Field(default=None, min_length=1, max_length=32000)
+    source: str | None = Field(default=None, max_length=128)
+
+
+class AgentKnowledgeChunkAdminPublic(SQLModel):
+    id: uuid.UUID
+    source: str
+    title: str
+    content: str
+    created_at: datetime
+    embedding_ready: bool
+
+
+class AgentKnowledgeChunkList(SQLModel):
+    data: list[AgentKnowledgeChunkAdminPublic]
+    count: int
+
+
+# --- Журнал запросов к чат-ассистенту (для суперпользователя / аудита использования) ---
+class AgentChatLog(SQLModel, table=True):
+    __tablename__ = "agent_chat_log"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    message_preview: str = Field(max_length=500)
+    reply_preview: str = Field(max_length=500)
+    ollama_available: bool = Field(default=False)
+    model: str | None = Field(default=None, max_length=128)
+
+
+class AgentChatLogPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    created_at: datetime
+    message_preview: str
+    reply_preview: str
+    ollama_available: bool
+    model: str | None = None
+
+
+class AgentChatLogList(SQLModel):
+    data: list[AgentChatLogPublic]
+    count: int
 
 
 # --- AuditLog (аудит критичных действий администраторов) ---

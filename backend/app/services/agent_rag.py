@@ -7,9 +7,11 @@ import re
 from typing import Any
 
 import httpx
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlmodel import Session, select
 
+from app.core.agent_vector import AGENT_EMBEDDING_VECTOR_DIMENSIONS
 from app.core.config import settings
 from app.models import AgentKnowledgeChunk
 
@@ -71,6 +73,41 @@ async def ollama_embed(text: str) -> list[float] | None:
             out.append(float(x))
         else:
             return None
+    if len(out) != AGENT_EMBEDDING_VECTOR_DIMENSIONS:
+        return None
+    return out
+
+
+def _vector_literal(vec: list[float]) -> str:
+    return "[" + ",".join(str(float(x)) for x in vec) + "]"
+
+
+def _pgvector_top_chunks(
+    session: Session, query_embedding: list[float], k: int
+) -> list[AgentKnowledgeChunk]:
+    if len(query_embedding) != AGENT_EMBEDDING_VECTOR_DIMENSIONS:
+        return []
+    lit = _vector_literal(query_embedding)
+    try:
+        r = session.execute(
+            text(
+                """
+                SELECT id FROM agent_knowledge_chunk
+                WHERE embedding_vec IS NOT NULL
+                ORDER BY embedding_vec <=> CAST(:qv AS vector)
+                LIMIT :k
+                """
+            ),
+            {"qv": lit, "k": k},
+        )
+        ids = [row[0] for row in r]
+    except (ProgrammingError, SQLAlchemyError):
+        return []
+    out: list[AgentKnowledgeChunk] = []
+    for cid in ids:
+        c = session.get(AgentKnowledgeChunk, cid)
+        if c:
+            out.append(c)
     return out
 
 
@@ -86,15 +123,19 @@ def build_rag_context_block(session: Session, user_query: str, query_embedding: 
     selected: list[AgentKnowledgeChunk] = []
 
     if query_embedding:
-        scored_emb: list[tuple[float, AgentKnowledgeChunk]] = []
-        for c in chunks:
-            if c.embedding and isinstance(c.embedding, list):
-                emb = [float(x) for x in c.embedding if isinstance(x, (int, float))]
-                if len(emb) == len(query_embedding):
-                    scored_emb.append((_cosine(query_embedding, emb), c))
-        scored_emb.sort(key=lambda x: x[0], reverse=True)
-        if scored_emb and scored_emb[0][0] > 0.05:
-            selected = [c for _, c in scored_emb[:top_k]]
+        pv = _pgvector_top_chunks(session, query_embedding, top_k)
+        if pv:
+            selected = pv
+        else:
+            scored_emb: list[tuple[float, AgentKnowledgeChunk]] = []
+            for c in chunks:
+                if c.embedding and isinstance(c.embedding, list):
+                    emb = [float(x) for x in c.embedding if isinstance(x, (int, float))]
+                    if len(emb) == len(query_embedding):
+                        scored_emb.append((_cosine(query_embedding, emb), c))
+            scored_emb.sort(key=lambda x: x[0], reverse=True)
+            if scored_emb and scored_emb[0][0] > 0.05:
+                selected = [c for _, c in scored_emb[:top_k]]
     if not selected:
         kw = _keyword_scores(user_query, chunks)
         qtok = _tokenize(user_query)

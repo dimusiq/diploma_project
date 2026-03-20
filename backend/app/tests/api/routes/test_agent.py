@@ -15,7 +15,22 @@ def test_agent_permissions_requires_auth(client: TestClient) -> None:
     assert r.status_code in (401, 403)
 
 
-def test_agent_permissions_viewer_can_use_false(
+def test_agent_chat_logs_requires_auth(client: TestClient) -> None:
+    r = client.get(f"{settings.API_V1_STR}/agent/chat/logs")
+    assert r.status_code in (401, 403)
+
+
+def test_agent_chat_logs_forbidden_for_viewer(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    r = client.get(
+        f"{settings.API_V1_STR}/agent/chat/logs",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 403
+
+
+def test_agent_permissions_viewer_can_use(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     r = client.get(
@@ -23,18 +38,21 @@ def test_agent_permissions_viewer_can_use_false(
         headers=normal_user_token_headers,
     )
     assert r.status_code == 200
-    assert r.json()["can_use"] is False
+    assert r.json()["can_use"] is True
 
 
-def test_agent_chat_forbidden_for_viewer(
-    client: TestClient, normal_user_token_headers: dict[str, str]
+def test_agent_chat_viewer_fallback_without_ollama(
+    client: TestClient, normal_user_token_headers: dict[str, str], monkeypatch
 ) -> None:
+    monkeypatch.setattr(settings, "OLLAMA_BASE_URL", None)
     r = client.post(
         f"{settings.API_V1_STR}/agent/chat",
         headers=normal_user_token_headers,
-        json={"message": "Привет"},
+        json={"message": "Какой layout?"},
     )
-    assert r.status_code == 403
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ollama_available"] is False
 
 
 def test_agent_permissions_superuser_can_use(
@@ -46,6 +64,19 @@ def test_agent_permissions_superuser_can_use(
     )
     assert r.status_code == 200
     assert r.json()["can_use"] is True
+
+
+def test_agent_chat_logs_superuser(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    r = client.get(
+        f"{settings.API_V1_STR}/agent/chat/logs",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert "data" in data
+    assert "count" in data
 
 
 def test_agent_chat_fallback_without_ollama(

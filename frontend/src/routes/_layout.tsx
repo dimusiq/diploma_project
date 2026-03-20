@@ -7,6 +7,7 @@ import Navbar from "@/components/Common/Navbar.tsx"
 import Sidebar, { SidebarDesktopContent } from "@/components/Common/Sidebar.tsx"
 import { SkipLink } from "@/components/Common/SkipLink.tsx"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
+import { useItemsRealtime } from "@/hooks/useItemsRealtime.ts"
 
 export const Route = createFileRoute("/_layout")({
   component: Layout,
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/_layout")({
 })
 
 function Layout() {
+  useItemsRealtime()
   return (
     <Flex direction="column" h="100vh" position="relative">
       <SkipLink />

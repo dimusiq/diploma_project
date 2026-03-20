@@ -4,6 +4,7 @@ import { Link as RouterLink, useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { fetchAgentPermissions } from "@/api/agent.ts"
 import {
+  FiActivity,
   FiArrowDownRight,
   FiBarChart2,
   FiBox,
@@ -54,6 +55,11 @@ const items: Item[] = [
     icon: FiBox,
     title: "Склад",
     path: "/warehouse",
+  },
+  {
+    icon: FiActivity,
+    title: "Аналитика двойника",
+    path: "/warehouse-twin",
   },
   {
     icon: FiLayers,

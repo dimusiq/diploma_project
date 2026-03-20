@@ -110,6 +110,10 @@ class Settings(BaseSettings):
     # Лимит запросов к POST /agent/chat на пользователя в минуту (0 = без лимита).
     AGENT_CHAT_RATE_LIMIT_PER_MINUTE: int = 30
 
+    # Уведомления «Аналитика двойника» (ensure /notifications/ensure).
+    TWIN_NOTIFICATION_ROW_ITEMS_MIN: int = 30
+    TWIN_NOTIFICATION_UTILIZATION_MIN: float = 0.9
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (

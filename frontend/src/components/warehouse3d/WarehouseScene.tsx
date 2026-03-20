@@ -4,17 +4,24 @@
 
 import {
   Html,
+  Line,
   OrbitControls,
   Text,
   useCursor,
   useProgress,
 } from "@react-three/drei"
 import { Canvas, useFrame } from "@react-three/fiber"
-import { useCallback, useMemo, useRef, useState } from "react"
-import type { MeshStandardMaterial } from "three"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { Group, MeshStandardMaterial } from "three"
+import { Vector3 } from "three"
 
 import {
+  WarehouseEquipmentMesh,
+  type WarehouseEquipmentKind,
+} from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
+import {
   buildWarehouseGeometry,
+  cellWorldOnFloor,
   CELL_GAP,
   CELL_SIZE,
   DEFAULT_WAREHOUSE_LAYOUT_SPEC,
@@ -24,6 +31,13 @@ import {
   type WarehouseGeometry,
   type WarehouseLayoutSpec,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
+import {
+  polylineLength,
+  samplePolyline3D,
+} from "@/components/warehouse3d/warehousePathFollow.ts"
+
+export type { WarehouseEquipmentKind }
+export type WarehouseInteractionMode = "view" | "route"
 
 export type { WarehouseLayoutSpec }
 
@@ -110,7 +124,7 @@ function StorageCell({
   z: number
   selected?: boolean
   darkMode?: boolean
-  onCellClick?: () => void
+  onCellClick?: (shiftKey: boolean) => void
   onEnter?: () => void
   onLeave?: () => void
 }) {
@@ -171,7 +185,7 @@ function StorageCell({
       position={[x, y, z]}
       onClick={(e) => {
         e.stopPropagation()
-        onCellClick?.()
+        onCellClick?.(e.shiftKey)
       }}
       onPointerOver={(e) => {
         e.stopPropagation()
@@ -207,6 +221,8 @@ function Rack({
   occupiedCellKeys,
   expiringCellKeys,
   expiredCellKeys,
+  routeMode,
+  onRouteWaypointAdd,
 }: {
   rackIndex: number
   baseX: number
@@ -219,6 +235,8 @@ function Rack({
   occupiedCellKeys?: Set<string> | null
   expiringCellKeys?: Set<string> | null
   expiredCellKeys?: Set<string> | null
+  routeMode?: boolean
+  onRouteWaypointAdd?: (info: CellInfo) => void
 }) {
   const geom = useWarehouseGeometry()
   const rackFrameColor = darkMode
@@ -328,7 +346,17 @@ function Rack({
             z={oz}
             selected={isSelected}
             darkMode={darkMode}
-            onCellClick={() => onCellClick(isSelected ? null : info)}
+            onCellClick={(shiftKey) => {
+              if (routeMode) {
+                onRouteWaypointAdd?.(info)
+                return
+              }
+              if (shiftKey && onRouteWaypointAdd) {
+                onRouteWaypointAdd(info)
+                return
+              }
+              onCellClick(isSelected ? null : info)
+            }}
             onEnter={() => onCellEnter?.(info)}
             onLeave={() => onCellLeave?.(info)}
           />
@@ -554,6 +582,101 @@ function HoverLabel({ cell }: { cell: CellInfo }) {
   )
 }
 
+const ROUTE_LINE_COLOR = "#ea580c"
+
+function RoutePathLayer({ waypoints }: { waypoints: CellInfo[] }) {
+  const geom = useWarehouseGeometry()
+  const points = useMemo(() => {
+    return waypoints.map(
+      (w) =>
+        new Vector3(
+          ...cellWorldOnFloor(geom, w.row, w.level, w.cellX, w.cellZ),
+        ),
+    )
+  }, [geom, waypoints])
+  if (waypoints.length === 0) return null
+  return (
+    <group>
+      {points.map((p, i) => (
+        <mesh key={i} position={[p.x, p.y + 0.04, p.z]}>
+          <sphereGeometry args={[0.11, 10, 10]} />
+          <meshStandardMaterial
+            color="#fb923c"
+            emissive="#c2410c"
+            emissiveIntensity={0.25}
+          />
+        </mesh>
+      ))}
+      {points.length >= 2 && (
+        <Line
+          points={points}
+          color={ROUTE_LINE_COLOR}
+          lineWidth={2.5}
+        />
+      )}
+    </group>
+  )
+}
+
+function SimulationEquipmentAlongRoute({
+  pathPoints,
+  active,
+  speed,
+  equipmentKind,
+  showCargo,
+  onComplete,
+}: {
+  pathPoints: Vector3[]
+  active: boolean
+  speed: number
+  equipmentKind: WarehouseEquipmentKind
+  showCargo: boolean
+  onComplete?: () => void
+}) {
+  const groupRef = useRef<Group>(null)
+  const tRef = useRef(0)
+  const doneRef = useRef(false)
+  const lengthRef = useRef(1)
+
+  useEffect(() => {
+    lengthRef.current = Math.max(polylineLength(pathPoints), 0.05)
+  }, [pathPoints])
+
+  useEffect(() => {
+    if (active) {
+      tRef.current = 0
+      doneRef.current = false
+    }
+  }, [active, pathPoints])
+
+  useFrame((state, delta) => {
+    if (!active || pathPoints.length < 2 || !groupRef.current) return
+    const len = lengthRef.current
+    tRef.current += (speed * delta) / len
+    state.invalidate()
+    if (tRef.current >= 1) {
+      tRef.current = 1
+      if (!doneRef.current) {
+        doneRef.current = true
+        onComplete?.()
+      }
+    }
+    const { position, headingY } = samplePolyline3D(pathPoints, tRef.current)
+    groupRef.current.position.copy(position)
+    groupRef.current.rotation.set(0, headingY, 0)
+  })
+
+  if (pathPoints.length < 2) return null
+  return (
+    <group ref={groupRef}>
+      <WarehouseEquipmentMesh
+        kind={equipmentKind}
+        showPallet={showCargo && equipmentKind === "forklift"}
+      />
+    </group>
+  )
+}
+
 function WarehouseContent({
   selectedCell,
   onCellSelect,
@@ -562,6 +685,14 @@ function WarehouseContent({
   expiredCellKeys,
   selectedItem,
   darkMode,
+  interactionMode = "view",
+  routeWaypoints = [],
+  onRouteWaypointAdd,
+  simulationActive = false,
+  simulationEquipment = "forklift",
+  simulationSpeed = 1.25,
+  simulationShowCargo = true,
+  onSimulationComplete,
 }: {
   selectedCell: CellInfo | null
   onCellSelect: (info: CellInfo | null) => void
@@ -570,6 +701,14 @@ function WarehouseContent({
   expiredCellKeys?: Set<string> | null
   selectedItem?: CellItemInfo | null
   darkMode?: boolean
+  interactionMode?: WarehouseInteractionMode
+  routeWaypoints?: CellInfo[]
+  onRouteWaypointAdd?: (cell: CellInfo) => void
+  simulationActive?: boolean
+  simulationEquipment?: WarehouseEquipmentKind
+  simulationSpeed?: number
+  simulationShowCargo?: boolean
+  onSimulationComplete?: () => void
 }) {
   const geom = useWarehouseGeometry()
   const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null)
@@ -605,6 +744,18 @@ function WarehouseContent({
       })),
     [rackPositions],
   )
+
+  const routePathVectors = useMemo(() => {
+    return routeWaypoints.map(
+      (w) =>
+        new Vector3(
+          ...cellWorldOnFloor(geom, w.row, w.level, w.cellX, w.cellZ),
+        ),
+    )
+  }, [geom, routeWaypoints])
+
+  const routeClicksEnabled =
+    interactionMode === "route" && !simulationActive
 
   return (
     <>
@@ -642,6 +793,17 @@ function WarehouseContent({
 
       <Floor darkMode={darkMode} />
       <FloorMarkings rowPositions={rowPositions} darkMode={darkMode} />
+      {routeWaypoints.length > 0 && (
+        <RoutePathLayer waypoints={routeWaypoints} />
+      )}
+      <SimulationEquipmentAlongRoute
+        pathPoints={routePathVectors}
+        active={simulationActive}
+        speed={simulationSpeed}
+        equipmentKind={simulationEquipment}
+        showCargo={simulationShowCargo}
+        onComplete={onSimulationComplete}
+      />
       {hoveredCell && !selectedCell && <HoverLabel cell={hoveredCell} />}
       {selectedCell && (
         <CellPopup
@@ -670,6 +832,8 @@ function WarehouseContent({
           occupiedCellKeys={occupiedCellKeys}
           expiringCellKeys={expiringCellKeys}
           expiredCellKeys={expiredCellKeys}
+          routeMode={routeClicksEnabled}
+          onRouteWaypointAdd={onRouteWaypointAdd}
         />
       ))}
     </>
@@ -793,6 +957,19 @@ interface WarehouseSceneProps {
   darkMode?: boolean
   /** Spec из GET /api/v1/warehouse/layout (поля rows, levels, cellX, cellZ). */
   layoutSpec?: WarehouseLayoutSpec | null
+  /** Просмотр ячеек или прокладка маршрута по клику. */
+  interactionMode?: WarehouseInteractionMode
+  /** Точки маршрута (порядок = порядок проезда). */
+  routeWaypoints?: CellInfo[]
+  /** В режиме маршрута: клик по ячейке добавляет точку. */
+  onRouteWaypointAdd?: (cell: CellInfo) => void
+  /** Анимация движения техники по `routeWaypoints`. */
+  simulationActive?: boolean
+  simulationEquipment?: WarehouseEquipmentKind
+  /** Скорость в единицах сцены в секунду (масштаб ~ метры). */
+  simulationSpeed?: number
+  simulationShowCargo?: boolean
+  onSimulationComplete?: () => void
 }
 
 export function WarehouseScene({
@@ -806,6 +983,14 @@ export function WarehouseScene({
   selectedItem,
   darkMode,
   layoutSpec,
+  interactionMode = "view",
+  routeWaypoints = [],
+  onRouteWaypointAdd,
+  simulationActive = false,
+  simulationEquipment = "forklift",
+  simulationSpeed = 1.25,
+  simulationShowCargo = true,
+  onSimulationComplete,
 }: WarehouseSceneProps) {
   const [internalCell, setInternalCell] = useState<CellInfo | null>(null)
   const isControlled = selectedCellFromParent !== undefined
@@ -830,7 +1015,9 @@ export function WarehouseScene({
         far: 150,
       }}
       gl={{ antialias: true }}
-      onPointerMissed={() => handleCellSelect(null)}
+      onPointerMissed={() => {
+        if (interactionMode === "view") handleCellSelect(null)
+      }}
     >
       <WarehouseGeometryProvider spec={layoutSpec}>
         <SceneLoadOverlay />
@@ -842,6 +1029,14 @@ export function WarehouseScene({
           expiredCellKeys={expiredCellKeys}
           selectedItem={selectedItem}
           darkMode={darkMode}
+          interactionMode={interactionMode}
+          routeWaypoints={routeWaypoints}
+          onRouteWaypointAdd={onRouteWaypointAdd}
+          simulationActive={simulationActive}
+          simulationEquipment={simulationEquipment}
+          simulationSpeed={simulationSpeed}
+          simulationShowCargo={simulationShowCargo}
+          onSimulationComplete={onSimulationComplete}
         />
         <CameraFocusOnCell
           focusCell={focusCell ?? null}

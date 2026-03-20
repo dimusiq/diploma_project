@@ -30,7 +30,33 @@ docker compose logs -f worker
 
 Read-модель занятости ячеек (проекция для twin/KPI): `GET /api/v1/warehouse/occupancy` (легковесный список `slot_key` → `item_id`). Полный пересчёт в фоне — воркер раз в час; при CRUD товаров проекция обновляется в той же транзакции.
 
-Чат-ассистент по складу: **`POST /api/v1/agent/chat`** (`{"message":"..."}`), **`GET /api/v1/agent/permissions`** (`can_use` для UI). Нужно право **`agent.use`** (по умолчанию у ролей admin, manager, warehouse; у viewer нет). Лимит запросов: **`AGENT_CHAT_RATE_LIMIT_PER_MINUTE`** (по умолчанию 30/мин на пользователя; в памяти API-процесса, при **`REDIS_URL`** — через Redis). Контекст: агрегаты склада по правам, **RAG** из таблицы `agent_knowledge_chunk` (keyword; при **`OLLAMA_EMBED_MODEL`** и доступной Ollama — эмбеддинги через `/api/embeddings`), **инструмент** `search_items_in_warehouse` (read-only, с теми же границами, что у пользователя). LLM: **`OLLAMA_BASE_URL`**, **`OLLAMA_MODEL`**; из Docker Desktop на Windows к хосту: `http://host.docker.internal:11434`. Без Ollama — текстовая сводка контекста (+ RAG, если таблица заполнена). Миграция: `alembic upgrade head` (право, таблица, сиды справки). Страница **`/assistant`** в меню видна только при `can_use`.
+**Real-time товары (склад, 3D, списки):** после `POST/PUT/DELETE` товара сервер рассылает событие **`items_updated`**. Клиент: **SSE** `GET /api/v1/items/stream` (заголовок `Authorization: Bearer …`, как у `/notifications/stream`) — во фронте подключён в layout (`useItemsRealtime`), инвалидирует React Query `["items"]`. **WebSocket** `WS /api/v1/items/ws?token=<JWT>` — те же JSON-сообщения (удобно для нативных клиентов; в браузере обычно достаточно SSE). Хаб в памяти процесса: при **нескольких репликах API** подписчики на разных воркерах не видят чужие события — для продакшена с горизонтальным масштабированием понадобится Redis Pub/Sub или аналог.
+
+Чат-ассистент по складу: **`POST /api/v1/agent/chat`** (`{"message":"..."}`), **`GET /api/v1/agent/permissions`** (`can_use` для UI). Нужно право **`agent.use`** (по умолчанию у ролей admin, manager, warehouse, viewer). Лимит запросов: **`AGENT_CHAT_RATE_LIMIT_PER_MINUTE`** (по умолчанию 30/мин на пользователя; в памяти API-процесса, при **`REDIS_URL`** — через Redis). Контекст: агрегаты склада по правам, **RAG** из таблицы `agent_knowledge_chunk` (keyword; векторный поиск через **pgvector** при наличии колонки `embedding_vec` и эмбеддинга запроса; иначе JSONB/keyword), **инструмент** `search_items_in_warehouse` (read-only, с теми же границами, что у пользователя). Размерность эмбеддингов: **768** (`app/core/agent_vector.py`, модель по умолчанию **`OLLAMA_EMBED_MODEL`**). LLM: **`OLLAMA_BASE_URL`**, **`OLLAMA_MODEL`**; из Docker Desktop на Windows к хосту: `http://host.docker.internal:11434`. Без Ollama — текстовая сводка контекста (+ RAG, если таблица заполнена). Миграции: `alembic upgrade head`. Страница **`/assistant`** в меню видна только при `can_use`.
+
+**Postgres в Docker**: образ **`pgvector/pgvector:pg16`** (расширение `vector`, индекс HNSW для RAG). Переход с **`postgres:12`**: том данных несовместим по мажорной версии — сделайте дамп/restore или новый volume (осторожно: `docker compose down -v` удаляет данные).
+
+Если **`nebardak-db-1` сразу выходит с кодом 1** и в логах: *«The data directory was initialized by PostgreSQL version 12, which is not compatible with this version 16»* — удалите только том БД и поднимите стек снова (данные в БД пропадут, если не делали `pg_dump`):
+
+```bash
+docker compose down
+docker volume rm nebardak_app-db-data
+docker compose up -d
+```
+
+Имя тома совпадает с префиксом проекта Compose (часто `nebardak_`); проверка: `docker volume ls | grep app-db`.
+
+**База знаний ассистента** (только **суперпользователь**): `GET/POST/PATCH/DELETE /api/v1/agent/knowledge/chunks`, `POST /api/v1/agent/knowledge/chunks/{id}/reindex`, `POST /api/v1/agent/knowledge/chunks/reindex-all`. В админке вкладка «База знаний ассистента».
+
+**Аналитика цифрового двойника** (без LLM): **`GET /api/v1/warehouse/twin/summary`** — товары на складе по рядам, сроки годности (30 дней), занятость ячеек и доля от ёмкости layout, сводка **доменных событий за 7 дней** (только при праве **`audit.read`**; иначе блок событий пустой). Метрики товаров/ячеек — в границах прав пользователя (как список товаров). **`POST /api/v1/warehouse/twin/what-if`** — сценарий «что если» по тем же метрикам (тело запроса см. OpenAPI). При проверке уведомлений (`GET /api/v1/notifications/ensure`) создаются предупреждения по порогам **`TWIN_NOTIFICATION_ROW_ITEMS_MIN`** (по умолчанию 30 позиций в одном ряду) и **`TWIN_NOTIFICATION_UTILIZATION_MIN`** (доля занятости ячеек, по умолчанию 0.9). UI: **`/warehouse-twin`** («Аналитика двойника» в меню).
+
+**Журнал чата ассистента**: **`GET /api/v1/agent/chat/logs`** (только суперпользователь). В админке — вкладка «Журнал чата ассистента».
+
+**Бэкап Postgres** (из корня репо, контейнер `db` как в Compose): `scripts/backup_postgres.sh` — пишет сжатый дамп в `./backups/`.
+
+**OpenAPI → фронт**: из каталога `backend` выполнить `uv run python scripts/export_openapi_json.py` (файл попадает в `frontend/openapi.json`). После **`npm run generate-client`** проверяйте сборку: корневой `src/client/client.gen.ts` должен брать **`ClientOptions`** из `./client`, а не из корневого `types.gen.ts` (иначе возможны ошибки TypeScript).
+
+**Миграции**: для метрик twin и фильтра «товар на складе» в БД нужна колонка **`item.status`** (ревизия Alembic **`q5r6s7t8u9v0`**). После `git pull` всегда **`alembic upgrade head`** перед тестами и локальным API.
 
 Traefik UI, to see how the routes are being handled by the proxy: http://localhost:8090
 

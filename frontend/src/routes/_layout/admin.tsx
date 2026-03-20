@@ -24,6 +24,8 @@ import {
 import { type BrandPublic, brandsApi } from "@/api/brands.ts"
 import { type ZonePublic, zonesApi } from "@/api/zones.ts"
 import { CategoriesService, RolesService, UsersService } from "@/client/index.ts"
+import { AgentChatLogsAdmin } from "@/components/Admin/AgentChatLogsAdmin.tsx"
+import { AgentKnowledgeAdmin } from "@/components/Admin/AgentKnowledgeAdmin.tsx"
 import AddUser from "@/components/Admin/AddUser.tsx"
 import RestoreUser from "@/components/Admin/RestoreUser.tsx"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
@@ -1123,6 +1125,12 @@ function Admin() {
           <Tabs.Trigger value='audit'>
             Журнал аудита
           </Tabs.Trigger>
+          <Tabs.Trigger value='agent-knowledge'>
+            База знаний ассистента
+          </Tabs.Trigger>
+          <Tabs.Trigger value='agent-logs'>
+            Журнал чата ассистента
+          </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value='app-settings'>
           <AppSettingsContent />
@@ -1142,6 +1150,12 @@ function Admin() {
             </Text>
             <AuditLogSection />
           </Box>
+        </Tabs.Content>
+        <Tabs.Content value='agent-knowledge'>
+          <AgentKnowledgeAdmin />
+        </Tabs.Content>
+        <Tabs.Content value='agent-logs'>
+          <AgentChatLogsAdmin />
         </Tabs.Content>
       </Tabs.Root>
     </Container>

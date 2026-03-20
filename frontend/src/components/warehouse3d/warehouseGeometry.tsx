@@ -136,4 +136,17 @@ export function useWarehouseGeometry(): WarehouseGeometry {
   return useContext(GeometryContext)
 }
 
+/** Точка на полу под ячейкой (для маршрутов и симуляции техники). */
+export function cellWorldOnFloor(
+  geom: WarehouseGeometry,
+  row: number,
+  level: number,
+  cellX: number,
+  cellZ: number,
+  floorY = 0.22,
+): [number, number, number] {
+  const [x, , z] = geom.getCellWorldPosition(row, level, cellX, cellZ)
+  return [x, floorY, z]
+}
+
 export { CELL_SIZE, CELL_GAP, LEVEL_HEIGHT }

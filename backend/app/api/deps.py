@@ -58,6 +58,27 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
     return user
 
 
+def get_user_from_token_string(session: Session, token: str) -> User | None:
+    """Декодирование JWT без Depends (WebSocket, внешние клиенты)."""
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+    except (InvalidTokenError, ValidationError):
+        return None
+    try:
+        user_id = uuid.UUID(token_data.sub) if isinstance(token_data.sub, str) else token_data.sub
+    except (ValueError, TypeError):
+        return None
+    user = session.get(User, user_id)
+    if not user:
+        return None
+    if not user.is_active or user.deleted_at is not None:
+        return None
+    return user
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 

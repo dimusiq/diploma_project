@@ -17,6 +17,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ChangeEvent,
 } from "react"
 import { FiChevronRight, FiMaximize2, FiRotateCcw } from "react-icons/fi"
 import { z } from "zod"
@@ -27,9 +28,13 @@ import {
 import type { ItemPublic } from "@/client/index.ts"
 import { ItemsService } from "@/client/index.ts"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
+import { Checkbox } from "@/components/ui/checkbox.tsx"
+import { DEFAULT_WAREHOUSE_LAYOUT_SPEC } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import type {
   CellInfo,
   CellItemInfo,
+  WarehouseEquipmentKind,
+  WarehouseInteractionMode,
 } from "@/components/warehouse3d/WarehouseScene.tsx"
 
 const WarehouseScene = lazy(() =>
@@ -132,6 +137,41 @@ function Warehouse3DPage() {
   const [focusCell, setFocusCell] = useState<CellInfo | null>(null)
   const [sceneKey, setSceneKey] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [interactionMode, setInteractionMode] =
+    useState<WarehouseInteractionMode>("view")
+  const [routeWaypoints, setRouteWaypoints] = useState<CellInfo[]>([])
+  const [simulationActive, setSimulationActive] = useState(false)
+  const [equipmentKind, setEquipmentKind] =
+    useState<WarehouseEquipmentKind>("forklift")
+  const [simulationSpeed, setSimulationSpeed] = useState(1.25)
+  const [simulationShowCargo, setSimulationShowCargo] = useState(true)
+  const [liveData, setLiveData] = useState(false)
+
+  const addRouteWaypoint = useCallback((cell: CellInfo) => {
+    setRouteWaypoints((prev) => [...prev, { ...cell }])
+  }, [])
+
+  const clearRoute = useCallback(() => {
+    setRouteWaypoints([])
+    setSimulationActive(false)
+  }, [])
+
+  const popRouteWaypoint = useCallback(() => {
+    setRouteWaypoints((prev) => prev.slice(0, -1))
+  }, [])
+
+  const handleSimulationComplete = useCallback(() => {
+    setSimulationActive(false)
+  }, [])
+
+  const startSimulation = useCallback(() => {
+    if (routeWaypoints.length < 2) return
+    setSimulationActive(true)
+  }, [routeWaypoints.length])
+
+  const stopSimulation = useCallback(() => {
+    setSimulationActive(false)
+  }, [])
 
   const toggleFullscreen = useCallback(() => {
     const el = canvasContainerRef.current
@@ -174,6 +214,7 @@ function Warehouse3DPage() {
   const { data: itemsData } = useQuery({
     queryKey: ["items", "all-for-warehouse-3d"],
     queryFn: () => ItemsService.readItems({ skip: 0, limit: 1000 }),
+    refetchInterval: liveData ? 2500 : false,
   })
 
   const { data: layoutApi } = useQuery({
@@ -186,6 +227,22 @@ function Warehouse3DPage() {
     () => specToLayoutGeometry(layoutApi?.spec),
     [layoutApi?.spec],
   )
+
+  const addSelectedCellToRoute = useCallback(() => {
+    if (!selectedCell || simulationActive) return
+    addRouteWaypoint(selectedCell)
+  }, [selectedCell, simulationActive, addRouteWaypoint])
+
+  const setDemoRoute = useCallback(() => {
+    if (simulationActive) return
+    const spec = layoutSpec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC
+    const endX = Math.max(0, spec.cellX - 1)
+    const z = Math.max(0, spec.cellZ - 1)
+    setRouteWaypoints([
+      { row: 0, level: 0, cellX: 0, cellZ: z, filled: false },
+      { row: 0, level: 0, cellX: endX, cellZ: z, filled: false },
+    ])
+  }, [layoutSpec, simulationActive])
 
   const items = itemsData?.data ?? []
 
@@ -295,7 +352,8 @@ function Warehouse3DPage() {
           <Text fontSize="sm" color="gray.600">
             Ячейки заполняются только при добавлении товара с выбранной ячейкой.
             Клик по ячейке — всплывающее окно. Красное мигание — срок годности
-            истекает в течение {EXPIRING_DAYS} дн.
+            истекает в течение {EXPIRING_DAYS} дн. Симуляция движения техники и
+            маршрут — только визуализация, позиции товаров в БД не меняются.
             {layoutApi != null && (
               <>
                 {" "}
@@ -327,7 +385,170 @@ function Warehouse3DPage() {
           <Box w="3" h="3" borderRadius="sm" bg="#fbbf24" />
           <Text>Выбрано</Text>
         </Flex>
+        <Flex align="center" gap={2}>
+          <Box w="3" h="3" borderRadius="sm" bg="#ea580c" />
+          <Text>Маршрут</Text>
+        </Flex>
       </Flex>
+
+      <Box
+        borderWidth="1px"
+        borderColor="gray.200"
+        borderRadius="lg"
+        p={4}
+        mb={3}
+        bg="white"
+        minH="108px"
+        _dark={{ bg: "gray.900", borderColor: "whiteAlpha.200" }}
+      >
+        <Text fontWeight="semibold" fontSize="sm" mb={3}>
+          Симуляция и маршрут
+        </Text>
+        <Flex flexWrap="wrap" gap={{ base: 3, md: 4 }} align="flex-start">
+          <Flex direction="column" gap={2} minW="200px">
+            <Checkbox
+              checked={liveData}
+              onCheckedChange={(d) => setLiveData(d.checked === true)}
+            >
+              Доп. опрос списка (~2,5 с) — помимо SSE по всему приложению
+            </Checkbox>
+            <Checkbox
+              checked={interactionMode === "route"}
+              onCheckedChange={(d) => {
+                const on = d.checked === true
+                setInteractionMode(on ? "route" : "view")
+                if (on) setSelectedCell(null)
+              }}
+            >
+              Прокладка маршрута (клик по ячейкам по порядку)
+            </Checkbox>
+            {interactionMode === "route" && (
+              <Text fontSize="xs" color="gray.500">
+                Попап ячейки в этом режиме отключён; точки — оранжевая линия на
+                полу.
+              </Text>
+            )}
+            <Text fontSize="xs" color="gray.500">
+              В обычном режиме: <strong>Shift+клик</strong> по ячейке добавляет
+              точку маршрута.
+            </Text>
+          </Flex>
+          <Flex direction="column" gap={2} minW="180px">
+            <Text fontSize="xs" color="gray.600" fontWeight="medium">
+              Техника
+            </Text>
+            <select
+              value={equipmentKind}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setEquipmentKind(e.target.value as WarehouseEquipmentKind)
+              }
+              style={{
+                maxWidth: 220,
+                padding: "6px 8px",
+                borderRadius: 6,
+                borderWidth: 1,
+                fontSize: 14,
+              }}
+            >
+              <option value="forklift">Вилочный погрузчик</option>
+              <option value="pallet_jack">Рохля (гидравлическая тележка)</option>
+            </select>
+            <Checkbox
+              checked={simulationShowCargo}
+              onCheckedChange={(d) =>
+                setSimulationShowCargo(d.checked === true)
+              }
+              disabled={equipmentKind !== "forklift"}
+            >
+              Показать груз на вилах (погрузчик)
+            </Checkbox>
+          </Flex>
+          <Flex direction="column" gap={2} flex="1" minW="200px">
+            <Text fontSize="xs" color="gray.600" fontWeight="medium">
+              Скорость симуляции
+            </Text>
+            <Flex align="center" gap={2}>
+              <input
+                type="range"
+                min={0.4}
+                max={3}
+                step={0.05}
+                value={simulationSpeed}
+                onChange={(e) =>
+                  setSimulationSpeed(Number.parseFloat(e.target.value))
+                }
+                style={{ flex: 1, maxWidth: 200 }}
+                aria-label="Скорость симуляции"
+              />
+              <Text fontSize="xs" w="8" color="gray.600">
+                {simulationSpeed.toFixed(2)}×
+              </Text>
+            </Flex>
+            <Text fontSize="xs" color="gray.500">
+              Точек маршрута: {routeWaypoints.length}
+            </Text>
+            {routeWaypoints.length < 2 && !simulationActive && (
+              <Text fontSize="xs" color="orange.700" maxW="lg">
+                Кнопка «Запустить» станет доступна после{" "}
+                <strong>двух точек</strong>: «Пример маршрута», дважды «В
+                маршрут» (сначала выберите ячейку кликом), режим прокладки или
+                Shift+клик по ячейкам.
+              </Text>
+            )}
+            <Flex flexWrap="wrap" gap={2}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={addSelectedCellToRoute}
+                disabled={!selectedCell || simulationActive}
+              >
+                В маршрут (выбранная ячейка)
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={setDemoRoute}
+                disabled={simulationActive}
+              >
+                Пример маршрута (2 точки)
+              </Button>
+              <Button
+                size="sm"
+                variant="solid"
+                colorPalette="blue"
+                onClick={startSimulation}
+                disabled={routeWaypoints.length < 2 || simulationActive}
+              >
+                Запустить симуляцию
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={stopSimulation}
+                disabled={!simulationActive}
+              >
+                Стоп
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={popRouteWaypoint}
+                disabled={routeWaypoints.length === 0 || simulationActive}
+              >
+                Убрать последнюю точку
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={clearRoute}
+                disabled={routeWaypoints.length === 0 && !simulationActive}
+              >
+                Сбросить маршрут
+              </Button>
+            </Flex>
+          </Flex>
+        </Flex>
+      </Box>
 
       <Box
         position="relative"
@@ -377,6 +598,14 @@ function Warehouse3DPage() {
               selectedItem={selectedItemForPopup}
               darkMode={false}
               layoutSpec={layoutSpec ?? undefined}
+              interactionMode={interactionMode}
+              routeWaypoints={routeWaypoints}
+              onRouteWaypointAdd={addRouteWaypoint}
+              simulationActive={simulationActive}
+              simulationEquipment={equipmentKind}
+              simulationSpeed={simulationSpeed}
+              simulationShowCargo={simulationShowCargo}
+              onSimulationComplete={handleSimulationComplete}
             />
           </Suspense>
         </Box>
@@ -407,7 +636,9 @@ function Warehouse3DPage() {
 
       <Text fontSize="xs" color="gray.500" mt={2}>
         Вращение: ЛКМ · Zoom: колёсико · Панорама: ПКМ или Shift+ЛКМ · Клик по
-        ячейке — информация · Escape — закрыть окно
+        ячейке — информация (режим просмотра); Shift+клик — точка маршрута ·
+        Escape — закрыть окно · Живое обновление подтягивает занятость ячеек с
+        сервера без перезагрузки страницы
       </Text>
     </Container>
   )

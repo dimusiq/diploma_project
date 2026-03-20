@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     agent,
+    agent_knowledge,
     audit,
     brands,
     categories,
@@ -20,6 +21,7 @@ from app.api.routes import (
     users,
     utils,
     warehouse_layout,
+    warehouse_twin,
     work_orders,
     zones,
 )
@@ -34,6 +36,7 @@ api_router.include_router(categories.router)
 api_router.include_router(brands.router)
 api_router.include_router(zones.router)
 api_router.include_router(warehouse_layout.router)
+api_router.include_router(warehouse_twin.router)
 api_router.include_router(items.router)
 api_router.include_router(equipment.router)
 api_router.include_router(maintenance_schedule.router)
@@ -46,6 +49,7 @@ api_router.include_router(notifications.router)
 api_router.include_router(audit.router)
 api_router.include_router(domain_events.router)
 api_router.include_router(agent.router)
+api_router.include_router(agent_knowledge.router)
 
 
 if settings.ENVIRONMENT == "local":

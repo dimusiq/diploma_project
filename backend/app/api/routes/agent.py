@@ -1,13 +1,15 @@
-"""Чат-ассистент по складу: контекст БД, RAG, Ollama, инструменты (read-only)."""
+"""Чат-ассистент по складу: контекст из БД, RAG, Ollama, инструменты."""
 
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+from sqlmodel import func, select
 
-from app.api.deps import CurrentUser, SessionDep, require_permission
+from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser, require_permission
 from app.core.permissions import PERM_AGENT_USE, can_use_agent
+from app.models import AgentChatLog, AgentChatLogList, AgentChatLogPublic
 from app.services.agent_chat import run_agent_chat
 from app.services.agent_rate_limit import enforce_agent_chat_rate_limit
 
@@ -35,6 +37,32 @@ def agent_permissions(
 ) -> Any:
     """Для UI: есть ли право пользоваться POST /agent/chat."""
     return AgentPermissionsResponse(can_use=can_use_agent(session, current_user))
+
+
+@router.get(
+    "/chat/logs",
+    response_model=AgentChatLogList,
+    dependencies=[Depends(get_current_active_superuser)],
+)
+def list_agent_chat_logs(
+    session: SessionDep,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+) -> Any:
+    """Журнал обращений к ассистенту (только суперпользователь)."""
+    count = session.exec(select(func.count()).select_from(AgentChatLog)).one()
+    rows = list(
+        session.exec(
+            select(AgentChatLog)
+            .order_by(AgentChatLog.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        ).all()
+    )
+    return AgentChatLogList(
+        data=[AgentChatLogPublic.model_validate(r) for r in rows],
+        count=count,
+    )
 
 
 @router.post(
@@ -66,5 +94,15 @@ async def agent_chat(
             status_code=502,
             detail=f"Не удалось обратиться к Ollama: {e!s}",
         ) from e
+
+    log = AgentChatLog(
+        user_id=current_user.id,
+        message_preview=body.message[:500],
+        reply_preview=reply[:500],
+        ollama_available=ollama_ok,
+        model=model,
+    )
+    session.add(log)
+    session.commit()
 
     return AgentChatResponse(reply=reply, ollama_available=ollama_ok, model=model)

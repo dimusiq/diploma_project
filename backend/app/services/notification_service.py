@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from sqlmodel import select
 
+from app.core.config import settings
 from app.models import (
     NOTIFICATION_SEVERITY_CRITICAL,
     NOTIFICATION_SEVERITY_INFO,
@@ -20,9 +21,11 @@ from app.models import (
     MaintenanceChainStep,
     MaintenanceScheduleConfig,
     Notification,
+    User,
     UserCommunicationPreference,
 )
 from app.realtime.notification_sse_hub import publish_notifications_updated
+from app.services.warehouse_twin_metrics import build_twin_summary_dict
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -31,6 +34,9 @@ OVERDUE_MAINTENANCE_TYPE = "overdue_maintenance"
 EXPIRED_ITEM_TYPE = "expired_item"
 EXPIRING_SOON_ITEM_TYPE = "expiring_soon_item"
 WAREHOUSE_EXPIRING_DAYS = 14
+
+TWIN_ROW_CONGESTED_TYPE = "twin_row_congested"
+TWIN_HIGH_UTILIZATION_TYPE = "twin_high_utilization"
 
 
 def _in_app_enabled(session: "Session", user_id: uuid.UUID, notification_type: str) -> bool:
@@ -217,6 +223,96 @@ def ensure_warehouse_notifications(
             entity_id=item.id,
         )
         created_any = True
+    if created_any:
+        session.commit()
+        publish_notifications_updated(user_id)
+
+
+def ensure_twin_notifications(session: "Session", user_id: uuid.UUID) -> None:
+    """
+    Уведомления по порогам аналитики двойника: перегруженный ряд, высокая занятость ёмкости.
+    Одна запись на сущность (ряд или глобальный порог утилизации для пользователя).
+    """
+    user = session.get(User, user_id)
+    if not user:
+        return
+    if not _in_app_enabled(session, user_id, TWIN_ROW_CONGESTED_TYPE) and not _in_app_enabled(
+        session, user_id, TWIN_HIGH_UTILIZATION_TYPE
+    ):
+        return
+
+    snap = build_twin_summary_dict(session, user)
+    row_min = max(1, settings.TWIN_NOTIFICATION_ROW_ITEMS_MIN)
+    util_min = min(0.999, max(0.0, float(settings.TWIN_NOTIFICATION_UTILIZATION_MIN)))
+
+    created_any = False
+    if _in_app_enabled(session, user_id, TWIN_ROW_CONGESTED_TYPE):
+        for row in snap["warehouse_items_by_row"]:
+            cnt = int(row["item_count"])
+            rnum = int(row["storage_row"])
+            if cnt < row_min:
+                continue
+            ent_id = uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"twin-row/{user_id}/{rnum}",
+            )
+            existing = session.exec(
+                select(Notification).where(
+                    Notification.user_id == user_id,
+                    Notification.type == TWIN_ROW_CONGESTED_TYPE,
+                    Notification.entity_id == ent_id,
+                )
+            ).first()
+            if existing:
+                continue
+            create_notification(
+                session,
+                user_id,
+                type=TWIN_ROW_CONGESTED_TYPE,
+                severity=NOTIFICATION_SEVERITY_WARNING,
+                title=f"Высокая загрузка ряда {rnum}",
+                body=f"На складе в ряду {rnum} учтено {cnt} товаров (порог {row_min}). Откройте «Аналитика двойника».",
+                source="Цифровой двойник",
+                entity_type="twin_row",
+                entity_id=ent_id,
+            )
+            created_any = True
+
+    if _in_app_enabled(session, user_id, TWIN_HIGH_UTILIZATION_TYPE):
+        ratio = snap.get("slot_utilization_ratio")
+        cap = snap.get("layout_capacity_cells")
+        if (
+            ratio is not None
+            and cap
+            and int(cap) > 0
+            and float(ratio) >= util_min
+        ):
+            ent_id = uuid.uuid5(uuid.NAMESPACE_URL, f"twin-util/{user_id}")
+            existing = session.exec(
+                select(Notification).where(
+                    Notification.user_id == user_id,
+                    Notification.type == TWIN_HIGH_UTILIZATION_TYPE,
+                    Notification.entity_id == ent_id,
+                )
+            ).first()
+            if not existing:
+                occ = snap["occupied_slots"]
+                create_notification(
+                    session,
+                    user_id,
+                    type=TWIN_HIGH_UTILIZATION_TYPE,
+                    severity=NOTIFICATION_SEVERITY_WARNING,
+                    title="Высокая занятость ячеек склада",
+                    body=(
+                        f"Занято {occ} из {cap} ячеек ({round(float(ratio) * 100)}%). "
+                        "См. «Аналитика двойника»."
+                    ),
+                    source="Цифровой двойник",
+                    entity_type="twin_capacity",
+                    entity_id=ent_id,
+                )
+                created_any = True
+
     if created_any:
         session.commit()
         publish_notifications_updated(user_id)

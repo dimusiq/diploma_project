@@ -1,6 +1,7 @@
 services:
   db:
-    image: postgres:12
+    # pgvector для колонки embedding_vec (RAG ассистента). Старый volume Postgres 12 несовместим — см. development.md
+    image: pgvector/pgvector:pg16
     restart: always
     healthcheck:
       test:
