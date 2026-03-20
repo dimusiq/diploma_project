@@ -182,6 +182,12 @@ export const equipmentApi = {
       method: "PUT",
       body,
     }),
+  /** Смена только current_status одной единицы (PATCH, без затрагивания прочих полей). */
+  patchCurrentStatus: (id: string, current_status: string) =>
+    request<EquipmentPublic>(`/api/v1/equipment/${id}/current-status`, {
+      method: "PATCH",
+      body: { current_status },
+    }),
   delete: (id: string) =>
     request<{ message: string }>(`/api/v1/equipment/${id}`, {
       method: "DELETE",

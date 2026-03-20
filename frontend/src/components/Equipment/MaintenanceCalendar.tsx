@@ -136,7 +136,8 @@ export function MaintenanceCalendar({
   const workOrders = (workOrdersData?.data ?? []) as WorkOrderPublic[]
   const maintenanceEvents = (maintenanceEventsData?.data ?? []) as MaintenanceCalendarEventPublic[]
 
-  const statusColor: Record<string, string> = {
+  /** Палитры как у кнопок приложения (outline + Badge subtle). */
+  const statusPalette: Record<string, "red" | "yellow" | "green" | "gray"> = {
     overdue: "red",
     due_soon: "yellow",
     ok: "green",
@@ -226,37 +227,60 @@ export function MaintenanceCalendar({
           ) : null}
 
           <Stack gap={2} maxH="70vh" overflow="auto" pr={1}>
-            {maintenanceEvents.map((ev) => (
-              <Box
-                key={ev.id}
-                p={2}
-                borderWidth="1px"
-                borderRadius="md"
-                borderColor="blackAlpha.200"
-                bg={ev.status === "overdue" ? "red.50" : ev.status === "due_soon" ? "yellow.50" : "green.50"}
-                draggable={canDrag}
-                onDragStart={(e) => {
-                  if (!canDrag) return
-                  const payload: MaintenanceEventDragPayload = {
-                    kind: "maintenance_event",
-                    equipment_id: ev.equipment_id,
-                    interval_hours: ev.interval_hours ?? null,
-                  }
-                  e.dataTransfer.setData(maintenanceDragType, JSON.stringify(payload))
-                  e.dataTransfer.effectAllowed = "copy"
-                }}
-              >
-                <HStack justify="space-between">
-                  <Badge colorScheme={statusColor[ev.status] ?? "gray"}>{ev.status === "overdue" ? "Просрочено" : ev.status === "due_soon" ? "Скоро" : "Норма"}</Badge>
-                </HStack>
-                <Text fontSize="sm" fontWeight="medium" mt={1} truncate>
-                  {ev.equipment_name ?? ev.equipment_id}
-                </Text>
-                <Text fontSize="xs" color="fg.muted">
-                  Интервал: {ev.interval_hours} м/ч
-                </Text>
-              </Box>
-            ))}
+            {maintenanceEvents.map((ev) => {
+              const palette = statusPalette[ev.status] ?? "gray"
+              return (
+                <Button
+                  key={ev.id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  colorPalette={palette}
+                  w="full"
+                  h="auto"
+                  minH="unset"
+                  py={2}
+                  px={2}
+                  gap={1}
+                  fontWeight="normal"
+                  whiteSpace="normal"
+                  textAlign="left"
+                  justifyContent="flex-start"
+                  display="flex"
+                  flexDirection="column"
+                  alignItems="stretch"
+                  draggable={canDrag}
+                  cursor={canDrag ? "grab" : "default"}
+                  _active={{ cursor: canDrag ? "grabbing" : undefined }}
+                  onDragStart={(e) => {
+                    if (!canDrag) return
+                    const payload: MaintenanceEventDragPayload = {
+                      kind: "maintenance_event",
+                      equipment_id: ev.equipment_id,
+                      interval_hours: ev.interval_hours ?? null,
+                    }
+                    e.dataTransfer.setData(maintenanceDragType, JSON.stringify(payload))
+                    e.dataTransfer.effectAllowed = "copy"
+                  }}
+                >
+                  <HStack justify="space-between" w="full">
+                    <Badge size="sm" variant="subtle" colorPalette={palette}>
+                      {ev.status === "overdue"
+                        ? "Просрочено"
+                        : ev.status === "due_soon"
+                          ? "Скоро"
+                          : "Норма"}
+                    </Badge>
+                  </HStack>
+                  <Text fontSize="sm" fontWeight="semibold" truncate w="full">
+                    {ev.equipment_name ?? ev.equipment_id}
+                  </Text>
+                  <Text fontSize="xs" color="fg.muted" w="full">
+                    Интервал: {ev.interval_hours} м/ч
+                  </Text>
+                </Button>
+              )
+            })}
           </Stack>
         </Stack>
       </Box>

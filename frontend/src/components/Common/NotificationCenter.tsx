@@ -11,15 +11,16 @@ import {
   VStack,
 } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { FiBell, FiCheck, FiClock, FiInfo, FiPackage } from "react-icons/fi"
 import { FaExclamationTriangle } from "react-icons/fa"
+import { FiBell, FiCheck, FiClock, FiInfo, FiPackage } from "react-icons/fi"
 
 import {
+  type NotificationPublic,
   notificationsApi,
   SEVERITY_LABELS,
-  type NotificationPublic,
 } from "@/api/notifications.ts"
 import { MenuContent, MenuRoot, MenuTrigger } from "@/components/ui/menu.tsx"
+import { useNotificationSse } from "@/hooks/useNotificationSse.ts"
 
 const SEVERITY_ICON = {
   critical: FaExclamationTriangle,
@@ -40,9 +41,9 @@ function NotificationItem({
   item: NotificationPublic
   onMarkRead: (id: string) => void
 }) {
-  const severity = (item.severity in SEVERITY_ICON
-    ? item.severity
-    : "info") as keyof typeof SEVERITY_ICON
+  const severity = (
+    item.severity in SEVERITY_ICON ? item.severity : "info"
+  ) as keyof typeof SEVERITY_ICON
   const Icon = SEVERITY_ICON[severity]
   const colorPalette = SEVERITY_COLOR[severity]
 
@@ -71,7 +72,13 @@ function NotificationItem({
               </Text>
             )}
             {item.source && (
-              <Flex alignItems="center" gap={1.5} mt={1} fontSize="xs" color="fg.muted">
+              <Flex
+                alignItems="center"
+                gap={1.5}
+                mt={1}
+                fontSize="xs"
+                color="fg.muted"
+              >
                 {item.source === "Склад" && (
                   <Box color="orange.500" title="Склад">
                     <FiPackage size={14} />
@@ -89,7 +96,8 @@ function NotificationItem({
             variant="solid"
             fontSize="2xs"
           >
-            {SEVERITY_LABELS[severity as keyof typeof SEVERITY_LABELS] ?? item.severity}
+            {SEVERITY_LABELS[severity as keyof typeof SEVERITY_LABELS] ??
+              item.severity}
           </Badge>
           {!item.is_read && (
             <IconButton
@@ -109,6 +117,7 @@ function NotificationItem({
 
 export function NotificationCenter() {
   const queryClient = useQueryClient()
+  useNotificationSse()
 
   const { data: unreadData } = useQuery({
     queryKey: ["notifications", "unread-count"],
@@ -169,7 +178,7 @@ export function NotificationCenter() {
           _hover={{ bg: "whiteAlpha.300" }}
           _active={{ bg: "whiteAlpha.400" }}
         >
-          <FiBell size={20} />
+          <Box as={FiBell} boxSize="5" />
           {unreadCount > 0 && (
             <Badge
               position="absolute"
@@ -226,7 +235,14 @@ export function NotificationCenter() {
           )}
         </Box>
         {(notifications.length > 0 || unreadCount > 0) && (
-          <Box p={2} borderTopWidth="1px" borderColor="border" display="flex" flexDirection="column" gap={1}>
+          <Box
+            p={2}
+            borderTopWidth="1px"
+            borderColor="border"
+            display="flex"
+            flexDirection="column"
+            gap={1}
+          >
             {unreadCount > 0 && (
               <Button
                 size="sm"

@@ -78,6 +78,8 @@ export type ItemPublic = {
   storage_level?: number | null
   storage_cell_x?: number | null
   storage_cell_z?: number | null
+  /** Ключ ячейки 0-based (совпадает с 3D), с бэкенда */
+  slot_key?: string | null
 }
 
 export type ItemsPublic = {

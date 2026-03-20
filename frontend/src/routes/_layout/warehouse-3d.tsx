@@ -20,16 +20,22 @@ import {
 } from "react"
 import { FiChevronRight, FiMaximize2, FiRotateCcw } from "react-icons/fi"
 import { z } from "zod"
+import {
+  fetchWarehouseLayout,
+  specToLayoutGeometry,
+} from "@/api/warehouseLayout.ts"
 import type { ItemPublic } from "@/client/index.ts"
 import { ItemsService } from "@/client/index.ts"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
-import type { CellInfo, CellItemInfo } from "@/components/warehouse3d/WarehouseScene.tsx"
+import type {
+  CellInfo,
+  CellItemInfo,
+} from "@/components/warehouse3d/WarehouseScene.tsx"
 
-const WarehouseScene = lazy(
-  () =>
-    import("@/components/warehouse3d/WarehouseScene.tsx").then((m) => ({
-      default: m.WarehouseScene,
-    })),
+const WarehouseScene = lazy(() =>
+  import("@/components/warehouse3d/WarehouseScene.tsx").then((m) => ({
+    default: m.WarehouseScene,
+  })),
 )
 
 const warehouse3dSearchSchema = z.object({
@@ -170,11 +176,26 @@ function Warehouse3DPage() {
     queryFn: () => ItemsService.readItems({ skip: 0, limit: 1000 }),
   })
 
+  const { data: layoutApi } = useQuery({
+    queryKey: ["warehouse", "layout"],
+    queryFn: fetchWarehouseLayout,
+    staleTime: 60_000,
+  })
+
+  const layoutSpec = useMemo(
+    () => specToLayoutGeometry(layoutApi?.spec),
+    [layoutApi?.spec],
+  )
+
   const items = itemsData?.data ?? []
 
   const occupiedCellKeys = useMemo(() => {
     const set = new Set<string>()
     items.forEach((item) => {
+      if (item.slot_key) {
+        set.add(item.slot_key)
+        return
+      }
       const r = item.storage_row
       const l = item.storage_level
       const x = item.storage_cell_x
@@ -190,6 +211,10 @@ function Warehouse3DPage() {
     const set = new Set<string>()
     items.forEach((item) => {
       if (!isExpiringSoon(item.expires_at ?? null)) return
+      if (item.slot_key) {
+        set.add(item.slot_key)
+        return
+      }
       const r = item.storage_row
       const l = item.storage_level
       const x = item.storage_cell_x
@@ -205,6 +230,10 @@ function Warehouse3DPage() {
     const set = new Set<string>()
     items.forEach((item) => {
       if (!isExpired(item.expires_at ?? null)) return
+      if (item.slot_key) {
+        set.add(item.slot_key)
+        return
+      }
       const r = item.storage_row
       const l = item.storage_level
       const x = item.storage_cell_x
@@ -267,6 +296,12 @@ function Warehouse3DPage() {
             Ячейки заполняются только при добавлении товара с выбранной ячейкой.
             Клик по ячейке — всплывающее окно. Красное мигание — срок годности
             истекает в течение {EXPIRING_DAYS} дн.
+            {layoutApi != null && (
+              <>
+                {" "}
+                Layout v{layoutApi.version} ({layoutApi.code}).
+              </>
+            )}
           </Text>
         </Box>
       </Flex>
@@ -341,6 +376,7 @@ function Warehouse3DPage() {
               expiredCellKeys={expiredCellKeys}
               selectedItem={selectedItemForPopup}
               darkMode={false}
+              layoutSpec={layoutSpec ?? undefined}
             />
           </Suspense>
         </Box>

@@ -21,15 +21,19 @@ import {
   FiTrendingUp,
 } from "react-icons/fi"
 import {
+  pieHoverActiveShape,
+  pieHoverInactiveStyle,
+} from "@/components/Charts/pieHoverShapes.tsx"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
   Cell,
   Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
   Tooltip,
-  Bar,
-  BarChart,
-  CartesianGrid,
   XAxis,
   YAxis,
 } from "recharts"
@@ -340,12 +344,15 @@ export function ParkHealthAnalytics() {
                       paddingAngle={2}
                       dataKey="value"
                       label={({ name, value }) => `${name}: ${value}`}
+                      activeShape={pieHoverActiveShape}
+                      inactiveShape={pieHoverInactiveStyle}
                     >
                       {maintenanceChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
                     <Tooltip
+                      cursor={false}
                       formatter={(value: number | undefined) => [value ?? 0, "ед. техники"]}
                     />
                     <Legend />
@@ -378,12 +385,15 @@ export function ParkHealthAnalytics() {
                       paddingAngle={2}
                       dataKey="value"
                       label={({ name, value }) => `${name}: ${value}`}
+                      activeShape={pieHoverActiveShape}
+                      inactiveShape={pieHoverInactiveStyle}
                     >
                       {equipmentStatusChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
                     <Tooltip
+                      cursor={false}
                       formatter={(value: number | undefined) => [value ?? 0, "ед. техники"]}
                     />
                     <Legend />
@@ -428,8 +438,17 @@ export function ParkHealthAnalytics() {
                       fontSize={12}
                     />
                     <YAxis fontSize={12} />
-                    <Tooltip />
-                    <Bar dataKey="count" name="Количество" radius={[4, 4, 0, 0]}>
+                    <Tooltip cursor={false} />
+                    <Bar
+                      dataKey="count"
+                      name="Количество"
+                      radius={[4, 4, 0, 0]}
+                      activeBar={{
+                        opacity: 0.88,
+                        strokeWidth: 2,
+                        stroke: "rgba(45, 55, 72, 0.45)",
+                      }}
+                    >
                       {barData.map((entry, i) => (
                         <Cell key={i} fill={entry.fill} />
                       ))}

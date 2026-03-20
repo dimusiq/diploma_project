@@ -1,8 +1,13 @@
 import uuid
 from datetime import date, datetime, timezone
+from typing import Any
 
-from pydantic import EmailStr
+from pydantic import EmailStr, computed_field
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
+
+from app.core.storage_slot import format_storage_slot_key
 
 # --- Role (роли: admin, manager, warehouse, viewer) ---
 ROLE_ADMIN = "admin"
@@ -48,6 +53,23 @@ class PermissionPublic(SQLModel):
     id: uuid.UUID
     code: str
     description: str | None = None
+
+
+# --- Справочные фрагменты для RAG ассистента (эмбеддинг опционален, JSONB) ---
+class AgentKnowledgeChunk(SQLModel, table=True):
+    __tablename__ = "agent_knowledge_chunk"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    source: str = Field(default="manual", max_length=128)
+    title: str = Field(max_length=255)
+    content: str = Field(min_length=1)
+    embedding: list[float] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 # --- AuditLog (аудит критичных действий администраторов) ---
@@ -237,6 +259,16 @@ class ItemPublic(ItemBase):
     category_id: uuid.UUID | None = None
     created_at: datetime
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def slot_key(self) -> str | None:
+        return format_storage_slot_key(
+            self.storage_row,
+            self.storage_level,
+            self.storage_cell_x,
+            self.storage_cell_z,
+        )
+
 
 class ItemsPublic(SQLModel):
     data: list[ItemPublic]
@@ -310,6 +342,78 @@ class WarehouseZonePublic(SQLModel):
     name: str
 
 
+# --- WarehouseLayout (геометрия цифрового двойника склада, версионируемый spec) ---
+class WarehouseLayout(SQLModel, table=True):
+    __tablename__ = "warehouse_layout"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    code: str = Field(max_length=64, index=True)
+    version: int = Field(default=1, ge=1)
+    is_active: bool = Field(default=False)
+    spec: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WarehouseLayoutPublic(SQLModel):
+    id: uuid.UUID
+    code: str
+    version: int
+    is_active: bool
+    spec: dict[str, Any]
+
+
+# --- WarehouseSlotOccupancy (read-модель: какая ячейка → какой товар; KPI / лёгкие запросы) ---
+class WarehouseSlotOccupancy(SQLModel, table=True):
+    __tablename__ = "warehouse_slot_occupancy"
+
+    slot_key: str = Field(primary_key=True, max_length=64)
+    item_id: uuid.UUID = Field(foreign_key="item.id", ondelete="CASCADE", unique=True)
+    owner_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class WarehouseSlotOccupancyEntry(SQLModel):
+    slot_key: str
+    item_id: uuid.UUID
+
+
+class WarehouseOccupancyResponse(SQLModel):
+    data: list[WarehouseSlotOccupancyEntry]
+    count: int
+
+
+# --- DomainEvent (доменные события для twin / проекций / будущего SSE) ---
+class DomainEvent(SQLModel, table=True):
+    __tablename__ = "domain_event"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    actor_user_id: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+    event_type: str = Field(max_length=128, index=True)
+    aggregate_type: str = Field(max_length=64)
+    aggregate_id: uuid.UUID = Field(index=True)
+    payload: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    correlation_id: uuid.UUID | None = Field(default=None)
+
+
+class DomainEventPublic(SQLModel):
+    id: uuid.UUID
+    occurred_at: datetime
+    actor_user_id: uuid.UUID | None
+    event_type: str
+    aggregate_type: str
+    aggregate_id: uuid.UUID
+    payload: dict[str, Any]
+    correlation_id: uuid.UUID | None
+
+
+class DomainEventList(SQLModel):
+    data: list[DomainEventPublic]
+    count: int
+
+
 # --- Equipment (складская техника, тип из справочника, бренд из справочника Brand) ---
 EQUIPMENT_TYPE_AUTOPOGRUZCHIK = "autopogruzchik"
 EQUIPMENT_TYPE_ELEKTROPOGRUZCHIK = "elektropogruzchik"
@@ -373,6 +477,12 @@ class EquipmentUpdate(SQLModel):
     zone: str | None = None
     attachments: str | None = None
     instructions: str | None = None
+
+
+class EquipmentCurrentStatusPatch(SQLModel):
+    """Только смена состояния техники (без изменения остальных полей через ORM)."""
+
+    current_status: str = Field(max_length=32)
 
 
 class EquipmentPublic(SQLModel):

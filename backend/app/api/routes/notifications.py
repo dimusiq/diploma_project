@@ -3,16 +3,21 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import func, select
+from fastapi.responses import StreamingResponse
 from sqlalchemy import update
+from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.permissions import can_see_all_items, can_view_maintenance_schedule
 from app.models import (
+    NOTIFICATION_SEVERITIES,
     Notification,
     NotificationList,
     NotificationPublic,
-    NOTIFICATION_SEVERITIES,
+)
+from app.realtime.notification_sse_hub import (
+    notification_sse_stream,
+    publish_notifications_updated,
 )
 from app.services.notification_service import (
     ensure_overdue_maintenance_notification,
@@ -20,6 +25,20 @@ from app.services.notification_service import (
 )
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+
+@router.get("/stream")
+async def notifications_sse(current_user: CurrentUser) -> StreamingResponse:
+    """SSE: события об изменении уведомлений (data JSON с полем type). Heartbeat — comment ping."""
+    return StreamingResponse(
+        notification_sse_stream(current_user.id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/ensure")
@@ -33,6 +52,7 @@ def ensure_notifications(
     ensure_warehouse_notifications(
         session, current_user.id, can_see_all_items(session, current_user)
     )
+    publish_notifications_updated(current_user.id)
     return {"message": "ok"}
 
 
@@ -109,6 +129,7 @@ def mark_notification_read(
     notification.read_at = datetime.now(timezone.utc)
     session.add(notification)
     session.commit()
+    publish_notifications_updated(current_user.id)
     return {"message": "ok"}
 
 
@@ -130,6 +151,7 @@ def mark_all_read(
     result = session.execute(stmt)
     session.commit()
     marked = result.rowcount if result.rowcount is not None else 0
+    publish_notifications_updated(current_user.id)
     return {"message": "ok", "marked": marked}
 
 
@@ -155,4 +177,5 @@ def clear_all_notifications(
     result = session.execute(stmt)
     session.commit()
     archived = result.rowcount if result.rowcount is not None else 0
+    publish_notifications_updated(current_user.id)
     return {"message": "ok", "archived": archived}

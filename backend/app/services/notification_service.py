@@ -11,17 +11,18 @@ from typing import TYPE_CHECKING
 from sqlmodel import select
 
 from app.models import (
+    NOTIFICATION_SEVERITY_CRITICAL,
+    NOTIFICATION_SEVERITY_INFO,
+    NOTIFICATION_SEVERITY_WARNING,
     ChainAssignment,
     Equipment,
     Item,
     MaintenanceChainStep,
     MaintenanceScheduleConfig,
-    NOTIFICATION_SEVERITY_CRITICAL,
-    NOTIFICATION_SEVERITY_INFO,
-    NOTIFICATION_SEVERITY_WARNING,
     Notification,
     UserCommunicationPreference,
 )
+from app.realtime.notification_sse_hub import publish_notifications_updated
 
 if TYPE_CHECKING:
     from sqlmodel import Session
@@ -133,6 +134,7 @@ def ensure_overdue_maintenance_notification(session: "Session", user_id: uuid.UU
         created_any = True
     if created_any:
         session.commit()
+        publish_notifications_updated(user_id)
 
 
 def _get_items_for_warehouse_notifications(
@@ -217,6 +219,7 @@ def ensure_warehouse_notifications(
         created_any = True
     if created_any:
         session.commit()
+        publish_notifications_updated(user_id)
 
 
 def create_notification(

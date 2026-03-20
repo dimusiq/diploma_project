@@ -1,6 +1,8 @@
 import { Box, Flex, Icon, Text } from "@chakra-ui/react"
+import { useQuery } from "@tanstack/react-query"
 import { Link as RouterLink, useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
+import { fetchAgentPermissions } from "@/api/agent.ts"
 import {
   FiArrowDownRight,
   FiBarChart2,
@@ -9,6 +11,7 @@ import {
   FiChevronDown,
   FiChevronRight,
   FiLayers,
+  FiMessageCircle,
   FiSettings,
   FiTruck,
   FiUsers,
@@ -56,6 +59,11 @@ const items: Item[] = [
     icon: FiLayers,
     title: "3D Склад",
     path: "/warehouse-3d",
+  },
+  {
+    icon: FiMessageCircle,
+    title: "Ассистент",
+    path: "/assistant",
   },
   {
     icon: FiTruck,
@@ -127,9 +135,22 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
           path: '/admin',
         },
       ]
-    : items;
+    : items
 
-  const listItems = finalItems.map((item) => {
+  const { data: agentPerm, isPending: agentPermPending } = useQuery({
+    queryKey: ["agent-permissions"],
+    queryFn: fetchAgentPermissions,
+  })
+
+  const navItems = finalItems.filter((item) => {
+    if (!isExpandable(item) && item.path === "/assistant") {
+      if (agentPermPending) return false
+      return agentPerm?.can_use === true
+    }
+    return true
+  })
+
+  const listItems = navItems.map((item) => {
     if (isExpandable(item)) {
       return (
         <Box key={item.title}>

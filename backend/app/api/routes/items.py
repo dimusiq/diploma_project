@@ -11,10 +11,15 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from pydantic import BaseModel
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.permissions import can_change_status, can_see_all_items
+from app.core.storage_slot import (
+    format_storage_slot_key,
+    storage_coordinates_partial,
+)
 from app.models import (
     Item,
     ItemCreate,
@@ -26,9 +31,19 @@ from app.models import (
     ItemUpdate,
     Message,
 )
+from app.services.domain_events import (
+    EVENT_ITEM_CREATED,
+    EVENT_ITEM_DELETED,
+    EVENT_ITEM_STATUS_CHANGED,
+    EVENT_ITEM_STORAGE_UPDATED,
+    emit_domain_event,
+)
 from app.services.pdf_service import build_label_pdf, build_shipping_note_pdf
+from app.services.warehouse_slot_projection import sync_projection_for_item
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+_ITEM_STORAGE_UQ = "uq_item_storage_cell_when_full"
 
 # Допустимые переходы статусов: только по цепочке incoming → warehouse → shipment → shipped
 ALLOWED_STATUS_TRANSITIONS: dict[str, list[str]] = {
@@ -291,6 +306,54 @@ def _get_item_or_404(
     return item
 
 
+def _validate_item_storage_coordinates(item: Item) -> None:
+    if storage_coordinates_partial(
+        item.storage_row,
+        item.storage_level,
+        item.storage_cell_x,
+        item.storage_cell_z,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Укажите все параметры ячейки (ряд, уровень, позиция X, позиция Z) "
+                "или оставьте хранение пустым."
+            ),
+        )
+
+
+def _storage_event_payload(
+    row: int | None,
+    level: int | None,
+    cell_x: int | None,
+    cell_z: int | None,
+) -> dict[str, Any] | None:
+    if row is None and level is None and cell_x is None and cell_z is None:
+        return None
+    return {
+        "storage_row": row,
+        "storage_level": level,
+        "storage_cell_x": cell_x,
+        "storage_cell_z": cell_z,
+        "slot_key": format_storage_slot_key(row, level, cell_x, cell_z),
+    }
+
+
+def _commit_item_session_or_conflict(session: SessionDep) -> None:
+    try:
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        diag = getattr(getattr(e, "orig", None), "diag", None)
+        cname = getattr(diag, "constraint_name", None) if diag is not None else None
+        if cname == _ITEM_STORAGE_UQ:
+            raise HTTPException(
+                status_code=409,
+                detail="Ячейка уже занята другим товаром (конфликт при сохранении).",
+            ) from e
+        raise
+
+
 def _cell_is_occupied(
     session: SessionDep,
     storage_row: int,
@@ -409,6 +472,7 @@ def create_item(
             status_code=400,
             detail="Штрихкод уже используется другим товаром. Укажите другой или оставьте пустым.",
         )
+    _validate_item_storage_coordinates(item)
     if (
         item.storage_row is not None
         and item.storage_level is not None
@@ -427,7 +491,26 @@ def create_item(
                 detail="Ячейка уже занята. Выберите другую ячейку хранения.",
             )
     session.add(item)
-    session.commit()
+    session.flush()
+    emit_domain_event(
+        session,
+        event_type=EVENT_ITEM_CREATED,
+        aggregate_type="item",
+        aggregate_id=item.id,
+        actor_user_id=current_user.id,
+        payload={
+            "title": item.title,
+            "status": item.status,
+            "storage": _storage_event_payload(
+                item.storage_row,
+                item.storage_level,
+                item.storage_cell_x,
+                item.storage_cell_z,
+            ),
+        },
+    )
+    sync_projection_for_item(session, item)
+    _commit_item_session_or_conflict(session)
     session.refresh(item)
     return item
 
@@ -463,15 +546,32 @@ def update_item(
                 detail=f"Invalid status transition: {item.status} → {new_status}. Allowed: {allowed}",
             )
         if new_status == "warehouse":
-            # При переводе на склад обязательна ячейка хранения
+            # При переводе на склад обязательна полная ячейка хранения
             storage_row = update_dict.get("storage_row", item.storage_row)
             storage_level = update_dict.get("storage_level", item.storage_level)
             storage_cell_x = update_dict.get("storage_cell_x", item.storage_cell_x)
-            if storage_row is None or storage_level is None or storage_cell_x is None:
+            storage_cell_z = update_dict.get("storage_cell_z", item.storage_cell_z)
+            if (
+                storage_row is None
+                or storage_level is None
+                or storage_cell_x is None
+                or storage_cell_z is None
+            ):
                 raise HTTPException(
                     status_code=400,
-                    detail="Для перемещения на склад укажите ячейку хранения (ряд, уровень, позиция) в карточке товара.",
+                    detail=(
+                        "Для перемещения на склад укажите ячейку хранения "
+                        "(ряд, уровень, позиция X и Z) в карточке товара."
+                    ),
                 )
+    correlation_id = uuid.uuid4()
+    old_status = item.status
+    old_storage = (
+        item.storage_row,
+        item.storage_level,
+        item.storage_cell_x,
+        item.storage_cell_z,
+    )
     # Аудит: до применения изменений сохраняем старые значения
     history_rows = []
     for k in update_dict:
@@ -493,6 +593,7 @@ def update_item(
             status_code=400,
             detail="Штрихкод уже используется другим товаром. Укажите другой или оставьте пустым.",
         )
+    _validate_item_storage_coordinates(item)
     if (
         item.storage_row is not None
         and item.storage_level is not None
@@ -511,9 +612,39 @@ def update_item(
                 status_code=400,
                 detail="Ячейка уже занята другим товаром. Выберите другую ячейку хранения.",
             )
+    new_storage = (
+        item.storage_row,
+        item.storage_level,
+        item.storage_cell_x,
+        item.storage_cell_z,
+    )
+    if new_storage != old_storage:
+        emit_domain_event(
+            session,
+            event_type=EVENT_ITEM_STORAGE_UPDATED,
+            aggregate_type="item",
+            aggregate_id=item.id,
+            actor_user_id=current_user.id,
+            correlation_id=correlation_id,
+            payload={
+                "from": _storage_event_payload(*old_storage),
+                "to": _storage_event_payload(*new_storage),
+            },
+        )
+    if item.status != old_status:
+        emit_domain_event(
+            session,
+            event_type=EVENT_ITEM_STATUS_CHANGED,
+            aggregate_type="item",
+            aggregate_id=item.id,
+            actor_user_id=current_user.id,
+            correlation_id=correlation_id,
+            payload={"from": old_status, "to": item.status},
+        )
     for h in history_rows:
         session.add(h)
-    session.commit()
+    sync_projection_for_item(session, item)
+    _commit_item_session_or_conflict(session)
     session.refresh(item)
     return item
 
@@ -527,6 +658,23 @@ def delete_item(
     Delete an item.
     """
     item = _get_item_or_404(session, current_user, id)
+    emit_domain_event(
+        session,
+        event_type=EVENT_ITEM_DELETED,
+        aggregate_type="item",
+        aggregate_id=item.id,
+        actor_user_id=current_user.id,
+        payload={
+            "title": item.title,
+            "status": item.status,
+            "storage": _storage_event_payload(
+                item.storage_row,
+                item.storage_level,
+                item.storage_cell_x,
+                item.storage_cell_z,
+            ),
+        },
+    )
     session.delete(item)
-    session.commit()
+    _commit_item_session_or_conflict(session)
     return Message(message="Item deleted successfully")

@@ -3,7 +3,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import func, select
+from sqlmodel import func, select, update
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -11,6 +11,7 @@ from app.models import (
     Brand,
     Equipment,
     EquipmentCreate,
+    EquipmentCurrentStatusPatch,
     EquipmentList,
     EquipmentPublic,
     EquipmentUpdate,
@@ -305,6 +306,29 @@ def create_equipment(
         raise HTTPException(status_code=400, detail="Указанный бренд не найден")
     equipment = Equipment.model_validate(body)
     session.add(equipment)
+    session.commit()
+    session.refresh(equipment)
+    brand = session.get(Brand, equipment.brand_id)
+    return _equipment_to_public(equipment, brand)
+
+
+@router.patch("/{id}/current-status", response_model=EquipmentPublic)
+def patch_equipment_current_status(
+    *,
+    session: SessionDep,
+    _current_user: CurrentUser,
+    id: uuid.UUID,
+    body: EquipmentCurrentStatusPatch,
+) -> Any:
+    """Сменить только current_status одной строки (явный UPDATE по id)."""
+    equipment = _get_or_404(session, id)
+    if equipment.equipment_type not in EQUIPMENT_TYPES:
+        raise HTTPException(status_code=404, detail="Техника не найдена")
+    session.exec(
+        update(Equipment)
+        .where(Equipment.id == id)
+        .values(current_status=body.current_status)
+    )
     session.commit()
     session.refresh(equipment)
     brand = session.get(Brand, equipment.brand_id)

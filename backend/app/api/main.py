@@ -1,22 +1,25 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    agent,
     audit,
     brands,
     categories,
     dashboard,
+    domain_events,
     equipment,
     items,
     login,
-    maintenance_schedule,
-    notifications,
-    maintenance_templates,
     maintenance_calendar_events,
+    maintenance_schedule,
+    maintenance_templates,
+    notifications,
     private,
     roles,
     spare_parts,
     users,
     utils,
+    warehouse_layout,
     work_orders,
     zones,
 )
@@ -30,6 +33,7 @@ api_router.include_router(utils.router)
 api_router.include_router(categories.router)
 api_router.include_router(brands.router)
 api_router.include_router(zones.router)
+api_router.include_router(warehouse_layout.router)
 api_router.include_router(items.router)
 api_router.include_router(equipment.router)
 api_router.include_router(maintenance_schedule.router)
@@ -40,6 +44,8 @@ api_router.include_router(work_orders.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(notifications.router)
 api_router.include_router(audit.router)
+api_router.include_router(domain_events.router)
+api_router.include_router(agent.router)
 
 
 if settings.ENVIRONMENT == "local":

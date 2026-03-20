@@ -27,6 +27,10 @@ import {
   FiUsers,
 } from "react-icons/fi"
 import {
+  pieHoverActiveShape,
+  pieHoverInactiveStyle,
+} from "@/components/Charts/pieHoverShapes.tsx"
+import {
   Bar,
   BarChart,
   CartesianGrid,
@@ -492,6 +496,8 @@ export function Dashboard() {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
+                      activeShape={pieHoverActiveShape}
+                      inactiveShape={pieHoverInactiveStyle}
                     >
                       {statusData.map((_, index) => (
                         <Cell
@@ -500,7 +506,7 @@ export function Dashboard() {
                         />
                       ))}
                     </Pie>
-                    <Tooltip />
+                    <Tooltip cursor={false} />
                   </PieChart>
                 </ResponsiveContainer>
               </Box>
@@ -529,9 +535,18 @@ export function Dashboard() {
                       fontSize={12}
                     />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip cursor={false} />
                     <Legend />
-                    <Bar dataKey="items" fill="#8884d8" />
+                    <Bar
+                      dataKey="items"
+                      fill="#8884d8"
+                      activeBar={{
+                        fill: "#8884d8",
+                        opacity: 0.88,
+                        stroke: "#6366f1",
+                        strokeWidth: 2,
+                      }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -594,6 +609,7 @@ export function Dashboard() {
                   />
                   <YAxis fontSize={12} />
                   <Tooltip
+                    cursor={false}
                     labelFormatter={(v) =>
                       v ? new Date(v).toLocaleDateString("ru-RU") : v
                     }
@@ -604,6 +620,12 @@ export function Dashboard() {
                     name="Поступления"
                     fill="#00C49F"
                     radius={[4, 4, 0, 0]}
+                    activeBar={{
+                      fill: "#00C49F",
+                      opacity: 0.88,
+                      stroke: "#009970",
+                      strokeWidth: 2,
+                    }}
                   />
                   <Line
                     type="monotone"

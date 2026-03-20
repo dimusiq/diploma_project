@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/menu.tsx"
 import { getRemindBeforeHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
-type ScheduleStatus = "overdue" | "due_soon" | "ok"
+type ScheduleStatus = "in_repair" | "overdue" | "due_soon" | "ok"
 
 function getNextServiceAtHours(
   engineHours: number | null,
@@ -77,12 +77,23 @@ function getScheduleStatus(
   engineHours: number | null,
   nextAt: number | null,
   remindBeforeHours: number,
-): ScheduleStatus {
+): Exclude<ScheduleStatus, "in_repair"> {
   if (engineHours == null || nextAt == null) return "ok"
   if (engineHours >= nextAt) return "overdue"
   const remaining = nextAt - engineHours
   if (remaining <= remindBeforeHours) return "due_soon"
   return "ok"
+}
+
+/** Статус строки графика ТО: при «на обслуживании» показываем «В ремонте». */
+function resolveRowStatus(
+  equipment: EquipmentPublic,
+  engineHours: number | null,
+  nextAt: number | null,
+  remindBeforeHours: number,
+): ScheduleStatus {
+  if (equipment.current_status === "maintenance") return "in_repair"
+  return getScheduleStatus(engineHours, nextAt, remindBeforeHours)
 }
 
 interface RowData {
@@ -96,12 +107,14 @@ interface RowData {
 }
 
 const STATUS_LABELS: Record<ScheduleStatus, string> = {
+  in_repair: "В ремонте",
   overdue: "Просрочено",
   due_soon: "Скоро",
   ok: "Норма",
 }
 
 const STATUS_COLOR: Record<ScheduleStatus, string> = {
+  in_repair: "yellow",
   overdue: "red",
   due_soon: "yellow",
   ok: "green",
@@ -121,8 +134,9 @@ type ScheduleSortOrder = "asc" | "desc"
 
 const STATUS_ORDER: Record<ScheduleStatus, number> = {
   overdue: 0,
-  due_soon: 1,
-  ok: 2,
+  in_repair: 1,
+  due_soon: 2,
+  ok: 3,
 }
 
 function getRemaining(r: RowData): number | null {
@@ -133,7 +147,15 @@ function getRemaining(r: RowData): number | null {
     engineHours < nextServiceAtHours
   )
     return nextServiceAtHours - engineHours
-  return status === "overdue" ? 0 : null
+  if (status === "overdue") return 0
+  if (
+    status === "in_repair" &&
+    engineHours != null &&
+    nextServiceAtHours != null &&
+    engineHours >= nextServiceAtHours
+  )
+    return 0
+  return null
 }
 
 function ScheduleSortableHeader({
@@ -396,7 +418,8 @@ function loadFilters(): {
       }
     const o = JSON.parse(raw) as Record<string, unknown>
     return {
-      statusFilter: (o.statusFilter === "overdue" ||
+      statusFilter: (o.statusFilter === "in_repair" ||
+      o.statusFilter === "overdue" ||
       o.statusFilter === "due_soon" ||
       o.statusFilter === "ok"
         ? o.statusFilter
@@ -471,7 +494,7 @@ export function MaintenanceScheduleTable() {
     }: {
       id: string
       current_status: string
-    }) => equipmentApi.update(id, { current_status }),
+    }) => equipmentApi.patchCurrentStatus(id, current_status),
     onSuccess: () => {
       toast.showSuccessToast("Техника переведена на обслуживание")
       queryClient.invalidateQueries({ queryKey: ["equipment"] })
@@ -531,7 +554,7 @@ export function MaintenanceScheduleTable() {
         defaultRemindBefore,
         chains,
       )
-      const status = getScheduleStatus(engineHours, nextAt, remindBefore)
+      const status = resolveRowStatus(equipment, engineHours, nextAt, remindBefore)
       const chainNames = chains
         .filter((c) => c.equipmentIds.includes(equipment.id))
         .map((c) => c.name)
@@ -653,8 +676,9 @@ export function MaintenanceScheduleTable() {
 
   const summary = useMemo(() => {
     const overdue = rows.filter((r) => r.status === "overdue").length
+    const inRepair = rows.filter((r) => r.status === "in_repair").length
     const dueSoon = rows.filter((r) => r.status === "due_soon").length
-    return { overdue, dueSoon }
+    return { overdue, inRepair, dueSoon }
   }, [rows])
 
   const handleExport = async (format: "csv" | "xlsx") => {
@@ -691,10 +715,13 @@ export function MaintenanceScheduleTable() {
             Просрочено: {summary.overdue}
           </Badge>
           <Badge colorPalette="yellow" px={2} py={1}>
+            В ремонте: {summary.inRepair}
+          </Badge>
+          <Badge colorPalette="yellow" px={2} py={1}>
             Скоро: {summary.dueSoon}
           </Badge>
         </Flex>
-        <MenuRoot>
+        <MenuRoot id="maintenance-schedule-export-menu">
           <MenuTrigger asChild>
             <Button
               size="sm"
@@ -734,6 +761,7 @@ export function MaintenanceScheduleTable() {
             }}
           >
             <option value="">Все</option>
+            <option value="in_repair">В ремонте</option>
             <option value="overdue">Просрочено</option>
             <option value="due_soon">Скоро</option>
             <option value="ok">Норма</option>
@@ -1013,7 +1041,7 @@ export function MaintenanceScheduleTable() {
                       </Text>
                     </Table.Cell>
                     <Table.Cell onClick={(e) => e.stopPropagation()}>
-                      <MenuRoot>
+                      <MenuRoot id={`schedule-status-menu-${equipment.id}`}>
                         <MenuTrigger asChild>
                           <Badge
                             size="sm"
@@ -1027,20 +1055,27 @@ export function MaintenanceScheduleTable() {
                         </MenuTrigger>
                         <MenuContent>
                           <MenuItem
-                            value="to-maintenance"
-                            onClick={() =>
+                            value={`to-maintenance-${equipment.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
                               updateStatusMutation.mutate({
                                 id: equipment.id,
                                 current_status: "maintenance",
                               })
+                            }}
+                            disabled={
+                              updateStatusMutation.isPending ||
+                              equipment.current_status === "maintenance"
                             }
-                            disabled={updateStatusMutation.isPending}
                           >
                             Перевести на обслуживание
                           </MenuItem>
                           <MenuItem
-                            value="record"
-                            onClick={() => setEquipmentForRecord(equipment)}
+                            value={`record-${equipment.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEquipmentForRecord(equipment)
+                            }}
                           >
                             Записать проведённое ТО
                           </MenuItem>

@@ -27,8 +27,8 @@ export const Route = createFileRoute("/_layout/settings")({
 function UserSettings() {
   const currentUser = useCurrentUser()
   const finalTabs = currentUser.is_superuser
-    ? tabsConfig.slice(0, 3)
-    : tabsConfig
+    ? tabsConfig
+    : tabsConfig.filter((tab) => tab.value !== "danger-zone")
 
   return (
     <Container maxW="full">

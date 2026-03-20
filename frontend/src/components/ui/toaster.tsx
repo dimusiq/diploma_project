@@ -5,8 +5,9 @@ import {
   createToaster,
   Portal,
   Spinner,
-  Stack,
   Toast,
+  Alert,
+  Box,
 } from "@chakra-ui/react"
 
 export const toaster = createToaster({
@@ -19,18 +20,38 @@ export const Toaster = () => {
     <Portal>
       <ChakraToaster toaster={toaster} insetInline={{ mdDown: "4" }}>
         {(toast) => (
-          <Toast.Root width={{ md: "sm" }} color={toast.meta?.color}>
+          <Toast.Root width={{ md: "sm" }} padding={0}>
             {toast.type === "loading" ? (
-              <Spinner size="sm" color="cyan.solid" />
+              <Box p={3}>
+                <Spinner size="sm" color="cyan.solid" />
+              </Box>
             ) : (
-              <Toast.Indicator />
+              (() => {
+                const status =
+                  toast.type === "success"
+                    ? "success"
+                    : toast.type === "error"
+                      ? "error"
+                      : "info"
+
+                return (
+                  <Alert.Root
+                    status={status as any}
+                    variant="subtle"
+                    borderRadius="md"
+                    width="100%"
+                  >
+                    <Alert.Indicator />
+                    <Alert.Content>
+                      {toast.title ? <Alert.Title>{toast.title}</Alert.Title> : null}
+                      {toast.description ? (
+                        <Alert.Description>{toast.description}</Alert.Description>
+                      ) : null}
+                    </Alert.Content>
+                  </Alert.Root>
+                )
+              })()
             )}
-            <Stack gap="1" flex="1" maxWidth="100%">
-              {toast.title && <Toast.Title>{toast.title}</Toast.Title>}
-              {toast.description && (
-                <Toast.Description>{toast.description}</Toast.Description>
-              )}
-            </Stack>
             {toast.action && (
               <Toast.ActionTrigger>{toast.action.label}</Toast.ActionTrigger>
             )}

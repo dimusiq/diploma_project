@@ -54,33 +54,48 @@ def _get_default_config(session: SessionDep) -> tuple[list[int], int]:
     return default_intervals, default_remind
 
 
-def _interval_for_equipment(session: SessionDep, equipment_id: uuid.UUID, default_interval: int) -> tuple[int, uuid.UUID | None]:
-    """Интервал ТО (м/ч) для техники: первый шаг цепочки или default."""
-    assignment = session.exec(
-        select(ChainAssignment).where(ChainAssignment.equipment_id == equipment_id).limit(1)
-    ).first()
-    if not assignment:
-        return default_interval, None
+def _get_interval_and_remind_for_equipment(
+    session: SessionDep,
+    *,
+    equipment_id: uuid.UUID,
+    default_interval: int,
+    default_remind: int,
+) -> tuple[int, uuid.UUID | None, int]:
+    """
+    Привести логику к фронту:
+    - interval_hours: взять интервалы из "первой по имени" цепочки, где техника присутствует
+    - remind_before_hours: взять MIN remind_before_hours по всем цепочкам, где техника присутствует
+    """
+    chain_ids_rows = session.exec(
+        select(ChainAssignment.chain_id).where(ChainAssignment.equipment_id == equipment_id)
+    ).all()
+    chain_ids = [row for row in chain_ids_rows if row is not None]
+    if not chain_ids:
+        return default_interval, None, default_remind
+
+    chains: list[MaintenanceChain] = []
+    for cid in chain_ids:
+        c = session.get(MaintenanceChain, cid)
+        if c:
+            chains.append(c)
+
+    if not chains:
+        return default_interval, None, default_remind
+
+    chains_sorted = sorted(chains, key=lambda c: c.name)
+    primary_chain = chains_sorted[0]
+    remind_before = min(c.remind_before_hours for c in chains_sorted)
 
     first_step = session.exec(
         select(MaintenanceChainStep)
-        .where(MaintenanceChainStep.chain_id == assignment.chain_id)
+        .where(MaintenanceChainStep.chain_id == primary_chain.id)
         .order_by(MaintenanceChainStep.position)
         .limit(1)
     ).first()
-    if first_step:
-        return int(first_step.interval_hours), assignment.chain_id
-    return default_interval, assignment.chain_id
+    if first_step and first_step.interval_hours:
+        return int(first_step.interval_hours), primary_chain.id, int(remind_before)
 
-
-def _remind_before_for_equipment(
-    session: SessionDep, equipment_id: uuid.UUID
-) -> uuid.UUID | None:
-    """ID цепочки для техники (для remind_before) или None."""
-    assignment = session.exec(
-        select(ChainAssignment).where(ChainAssignment.equipment_id == equipment_id).limit(1)
-    ).first()
-    return assignment.chain_id if assignment else None
+    return default_interval, primary_chain.id, int(remind_before)
 
 
 def _compute_status(engine_hours: int, interval_hours: int, remind_before_hours: int) -> tuple[str, int, int]:
@@ -118,24 +133,24 @@ def list_maintenance_calendar_events(
         if engine_hours is None:
             continue
 
-        interval_hours, chain_id = _interval_for_equipment(session, eq.id, default_interval)
+        interval_hours, primary_chain_id, remind_before = _get_interval_and_remind_for_equipment(
+            session,
+            equipment_id=eq.id,
+            default_interval=default_interval,
+            default_remind=default_remind,
+        )
         if interval_hours <= 0:
             interval_hours = default_interval
 
-        chain_id_for_remind = _remind_before_for_equipment(session, eq.id)
-        if chain_id_for_remind is None:
-            remind_before = default_remind
-        else:
-            chain = session.get(MaintenanceChain, chain_id_for_remind)
-            remind_before = chain.remind_before_hours if chain else default_remind
-
-        st, remaining, next_at = _compute_status(int(engine_hours), interval_hours, remind_before)
+        st, remaining, next_at = _compute_status(
+            int(engine_hours), interval_hours, remind_before
+        )
         if status is not None and st != status:
             continue
 
         event_uuid = uuid.uuid5(
             uuid.NAMESPACE_OID,
-            f"{eq.id}-{chain_id}-{interval_hours}-{next_at}",
+            f"{eq.id}-{primary_chain_id}-{interval_hours}-{next_at}",
         )
 
         eq_name = eq.garage_number or eq.model
@@ -145,7 +160,7 @@ def list_maintenance_calendar_events(
                 id=event_uuid,
                 equipment_id=eq.id,
                 equipment_name=eq_name,
-                chain_id=chain_id,
+                chain_id=primary_chain_id,
                 interval_hours=interval_hours,
                 engine_hours=int(engine_hours),
                 next_service_at_hours=int(next_at),

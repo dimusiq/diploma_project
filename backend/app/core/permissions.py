@@ -4,7 +4,6 @@ from sqlmodel import Session, select
 
 from app.models import Permission, RolePermission, User
 
-
 # Коды прав (должны совпадать с seed в миграции)
 PERM_ITEMS_READ_ALL = "items.read_all"
 PERM_ITEMS_CHANGE_STATUS = "items.change_status"
@@ -16,6 +15,7 @@ PERM_ZONES_MANAGE = "zones.manage"
 PERM_AUDIT_READ = "audit.read"
 PERM_MAINTENANCE_SCHEDULE_VIEW = "maintenance_schedule.view"
 PERM_MAINTENANCE_SCHEDULE_EDIT = "maintenance_schedule.edit"
+PERM_AGENT_USE = "agent.use"
 
 ALL_PERMISSION_CODES = [
     PERM_ITEMS_READ_ALL,
@@ -28,6 +28,7 @@ ALL_PERMISSION_CODES = [
     PERM_AUDIT_READ,
     PERM_MAINTENANCE_SCHEDULE_VIEW,
     PERM_MAINTENANCE_SCHEDULE_EDIT,
+    PERM_AGENT_USE,
 ]
 
 
@@ -42,7 +43,7 @@ def get_user_permission_codes(session: Session, user: User) -> set[str]:
         .join(RolePermission, RolePermission.permission_id == Permission.id)
         .where(RolePermission.role_id == user.role_id)
     )
-    return {row for row in session.exec(stmt)}
+    return set(session.exec(stmt))
 
 
 def user_has_permission(session: Session, user: User, permission_code: str) -> bool:
@@ -101,3 +102,8 @@ def can_view_maintenance_schedule(session: Session, user: User) -> bool:
 def can_edit_maintenance_schedule(session: Session, user: User) -> bool:
     """Редактирование расписания ТО (создание/изменение/удаление цепочек)."""
     return user_has_permission(session, user, PERM_MAINTENANCE_SCHEDULE_EDIT)
+
+
+def can_use_agent(session: Session, user: User) -> bool:
+    """Чат-ассистент по складу (POST /agent/chat)."""
+    return user_has_permission(session, user, PERM_AGENT_USE)

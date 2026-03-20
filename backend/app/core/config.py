@@ -95,6 +95,21 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
 
+    # Redis: очереди / блокировки / кэш (этап digital twin). Пусто — без Redis.
+    REDIS_URL: str | None = None
+    # Если False — планировщик email-отчётов не стартует в API (запускайте `python -m app.worker`).
+    RUN_REPORT_SCHEDULER_IN_API: bool = True
+
+    # Локальная LLM (Ollama): OpenAI-совместимый API, например http://localhost:11434
+    OLLAMA_BASE_URL: str | None = None
+    OLLAMA_MODEL: str = "llama3.2"
+    # Эмбеддинги для RAG (Ollama /api/embeddings). Пустая строка — только keyword-RAG.
+    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
+    # Сколько справочных фрагментов подмешивать в контекст (keyword / эмбеддинг).
+    AGENT_RAG_TOP_K: int = 3
+    # Лимит запросов к POST /agent/chat на пользователя в минуту (0 = без лимита).
+    AGENT_CHAT_RATE_LIMIT_PER_MINUTE: int = 30
+
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
             message = (

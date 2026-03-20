@@ -1,3 +1,5 @@
+import asyncio
+
 import sentry_sdk
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
@@ -6,8 +8,6 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.main import api_router
 from app.core.config import settings
 from app.core.report_scheduler import report_scheduler_loop
-
-import asyncio
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -44,8 +44,13 @@ async def _start_report_scheduler() -> None:
     global _report_stop_event, _report_task
     if not settings.emails_enabled:
         return
+    if not settings.RUN_REPORT_SCHEDULER_IN_API:
+        return
     _report_stop_event = asyncio.Event()
-    _report_task = asyncio.create_task(report_scheduler_loop(_report_stop_event))
+    redis_url = str(settings.REDIS_URL) if settings.REDIS_URL else None
+    _report_task = asyncio.create_task(
+        report_scheduler_loop(_report_stop_event, redis_url=redis_url)
+    )
 
 
 @app.on_event("shutdown")

@@ -45,6 +45,12 @@ services:
       - traefik-public
       - default
 
+  redis:
+    image: redis:7-alpine
+    restart: "no"
+    ports:
+      - "6379:6379"
+
   db:
     restart: "no"
     ports:
@@ -55,12 +61,50 @@ services:
     ports:
       - "8080:8080"
 
+  worker:
+    restart: "no"
+    build:
+      context: ./backend
+    command: ["uv", "run", "python", "-m", "app.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    env_file:
+      - .env
+    environment:
+      DOMAIN: ${DOMAIN}
+      FRONTEND_HOST: ${FRONTEND_HOST}
+      ENVIRONMENT: ${ENVIRONMENT}
+      SECRET_KEY: ${SECRET_KEY}
+      FIRST_SUPERUSER: ${FIRST_SUPERUSER}
+      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD}
+      SMTP_HOST: mailcatcher
+      SMTP_PORT: "1025"
+      SMTP_TLS: "false"
+      EMAILS_FROM_EMAIL: noreply@example.com
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: redis://redis:6379/0
+
   backend:
     restart: "no"
     ports:
       - "8000:8000"
     build:
       context: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+      prestart:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     # command: sleep infinity  # Infinite loop to keep container alive doing nothing
     command:
       - fastapi
@@ -85,6 +129,8 @@ services:
       SMTP_PORT: "1025"
       SMTP_TLS: "false"
       EMAILS_FROM_EMAIL: "noreply@example.com"
+      REDIS_URL: redis://redis:6379/0
+      RUN_REPORT_SCHEDULER_IN_API: "false"
 
   mailcatcher:
     image: schickling/mailcatcher

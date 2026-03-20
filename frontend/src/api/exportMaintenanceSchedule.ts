@@ -6,7 +6,7 @@
 import type { EquipmentPublic } from "@/api/equipment.ts"
 import { EQUIPMENT_TYPE_LABELS } from "@/api/equipment.ts"
 
-export type ScheduleStatus = "overdue" | "due_soon" | "ok"
+export type ScheduleStatus = "in_repair" | "overdue" | "due_soon" | "ok"
 
 export interface MaintenanceScheduleRowExport {
   equipment: EquipmentPublic
@@ -18,6 +18,7 @@ export interface MaintenanceScheduleRowExport {
 }
 
 const STATUS_LABELS: Record<ScheduleStatus, string> = {
+  in_repair: "В ремонте",
   overdue: "Просрочено",
   due_soon: "Скоро",
   ok: "Норма",
@@ -54,7 +55,10 @@ function rowToCells(r: MaintenanceScheduleRowExport): (string | number)[] {
     r.nextServiceAtHours ?? "—",
     remaining != null
       ? remaining
-      : r.status === "overdue"
+      : r.status === "overdue" ||
+          (r.engineHours != null &&
+            r.nextServiceAtHours != null &&
+            r.engineHours >= r.nextServiceAtHours)
         ? "0 (просрочено)"
         : "—",
     r.primaryChainName || "—",

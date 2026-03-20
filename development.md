@@ -18,6 +18,20 @@ Automatic interactive documentation with Swagger UI (from the OpenAPI backend): 
 
 Adminer, database web administration: http://localhost:8080
 
+Redis (брокер/блокировки для фоновых задач): `localhost:6379`.
+
+Фоновый **worker** (планировщик email-отчётов вынесен из API при `RUN_REPORT_SCHEDULER_IN_API=false`):
+
+```bash
+docker compose logs -f worker
+```
+
+Локально без Docker: `cd backend && uv run python -m app.worker` (нужны Postgres, опционально `REDIS_URL` для распределённой блокировки).
+
+Read-модель занятости ячеек (проекция для twin/KPI): `GET /api/v1/warehouse/occupancy` (легковесный список `slot_key` → `item_id`). Полный пересчёт в фоне — воркер раз в час; при CRUD товаров проекция обновляется в той же транзакции.
+
+Чат-ассистент по складу: **`POST /api/v1/agent/chat`** (`{"message":"..."}`), **`GET /api/v1/agent/permissions`** (`can_use` для UI). Нужно право **`agent.use`** (по умолчанию у ролей admin, manager, warehouse; у viewer нет). Лимит запросов: **`AGENT_CHAT_RATE_LIMIT_PER_MINUTE`** (по умолчанию 30/мин на пользователя; в памяти API-процесса, при **`REDIS_URL`** — через Redis). Контекст: агрегаты склада по правам, **RAG** из таблицы `agent_knowledge_chunk` (keyword; при **`OLLAMA_EMBED_MODEL`** и доступной Ollama — эмбеддинги через `/api/embeddings`), **инструмент** `search_items_in_warehouse` (read-only, с теми же границами, что у пользователя). LLM: **`OLLAMA_BASE_URL`**, **`OLLAMA_MODEL`**; из Docker Desktop на Windows к хосту: `http://host.docker.internal:11434`. Без Ollama — текстовая сводка контекста (+ RAG, если таблица заполнена). Миграция: `alembic upgrade head` (право, таблица, сиды справки). Страница **`/assistant`** в меню видна только при `can_use`.
+
 Traefik UI, to see how the routes are being handled by the proxy: http://localhost:8090
 
 **Note**: The first time you start your stack, it might take a minute for it to be ready. While the backend waits for the database to be ready and configures everything. You can check the logs to monitor it.

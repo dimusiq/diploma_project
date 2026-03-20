@@ -1,7 +1,5 @@
 /**
- * Warehouse digital twin: 12 rows (6 pairs with passages),
- * artificial light, floor markings 1–12, cell click. No walls, no shadows.
- * Optimized for React Three Fiber.
+ * Warehouse digital twin: ряды / уровни / ячейки из layout API (дефолт = legacy 12×4×20×1).
  */
 
 import {
@@ -14,6 +12,20 @@ import {
 import { Canvas, useFrame } from "@react-three/fiber"
 import { useCallback, useMemo, useRef, useState } from "react"
 import type { MeshStandardMaterial } from "three"
+
+import {
+  buildWarehouseGeometry,
+  CELL_GAP,
+  CELL_SIZE,
+  DEFAULT_WAREHOUSE_LAYOUT_SPEC,
+  LEVEL_HEIGHT,
+  useWarehouseGeometry,
+  WarehouseGeometryProvider,
+  type WarehouseGeometry,
+  type WarehouseLayoutSpec,
+} from "@/components/warehouse3d/warehouseGeometry.tsx"
+
+export type { WarehouseLayoutSpec }
 
 const FLOOR_COLOR_LIGHT = "#6b7280"
 const FLOOR_COLOR_DARK = "#374151"
@@ -28,44 +40,18 @@ const CELL_EXPIRING_COLOR = "#dc2626"
 const CELL_EXPIRED_COLOR = "#7f1d1d"
 const FLOOR_LABEL_COLOR_LIGHT = "#e5e7eb"
 const FLOOR_LABEL_COLOR_DARK = "#6b7280"
-const CELL_SIZE = 0.72
-const CELL_GAP = 0.12
-const LEVEL_HEIGHT = 0.82
-
-const RACK_ROWS = 12
-const PAIRS = 6
-const CELLS_LENGTH = 20
-const CELLS_DEPTH = 1
-const LEVELS = 4
-
-const RACK_LENGTH = CELLS_LENGTH * (CELL_SIZE + CELL_GAP) - CELL_GAP
-const RACK_DEPTH = CELLS_DEPTH * (CELL_SIZE + CELL_GAP) - CELL_GAP
-const PASSAGE_WIDTH = 2.5
-const BLOCK_WIDTH = 2 * RACK_DEPTH
-const TOTAL_Z = PAIRS * BLOCK_WIDTH + (PAIRS - 1) * PASSAGE_WIDTH
-const FLOOR_MARGIN = 3
-const FLOOR_WIDTH = RACK_LENGTH + FLOOR_MARGIN * 2
-const FLOOR_DEPTH = TOTAL_Z + FLOOR_MARGIN * 2
-
-function getRowZ(rowIndex: number): number {
-  const pair = Math.floor(rowIndex / 2)
-  const inPair = rowIndex % 2
-  const blockStart = -TOTAL_Z / 2 + pair * (BLOCK_WIDTH + PASSAGE_WIDTH)
-  return blockStart + RACK_DEPTH / 2 + inPair * RACK_DEPTH
-}
-
-function cellKey(row: number, level: number, ix: number, iz: number): string {
-  return `${row}-${level}-${ix}-${iz}`
-}
 
 function isCellFilled(
+  geom: WarehouseGeometry,
   rackIndex: number,
   level: number,
   ix: number,
   iz: number,
   occupiedCellKeys?: Set<string> | null,
 ): boolean {
-  return Boolean(occupiedCellKeys?.has(cellKey(rackIndex, level, ix, iz)))
+  return Boolean(
+    occupiedCellKeys?.has(geom.cellKey(rackIndex, level, ix, iz)),
+  )
 }
 
 export interface CellInfo {
@@ -76,18 +62,16 @@ export interface CellInfo {
   filled: boolean
 }
 
-/** Мировые координаты центра ячейки для всплывающего окна */
+/** Мировые координаты центра ячейки (дефолтная геометрия; внутри Canvas используйте geom из контекста). */
 export function getCellWorldPosition(
   row: number,
   level: number,
   cellX: number,
   cellZ: number,
 ): [number, number, number] {
-  const baseZ = getRowZ(row)
-  const ox = (cellX - (CELLS_LENGTH - 1) / 2) * (CELL_SIZE + CELL_GAP)
-  const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02
-  const oz = (cellZ - (CELLS_DEPTH - 1) / 2) * (CELL_SIZE + CELL_GAP)
-  return [ox, oy, baseZ + oz]
+  return buildWarehouseGeometry(
+    DEFAULT_WAREHOUSE_LAYOUT_SPEC,
+  ).getCellWorldPosition(row, level, cellX, cellZ)
 }
 
 export interface CellItemInfo {
@@ -236,6 +220,7 @@ function Rack({
   expiringCellKeys?: Set<string> | null
   expiredCellKeys?: Set<string> | null
 }) {
+  const geom = useWarehouseGeometry()
   const rackFrameColor = darkMode
     ? RACK_FRAME_COLOR_DARK
     : RACK_FRAME_COLOR_LIGHT
@@ -248,15 +233,22 @@ function Rack({
       expiring: boolean
       expired: boolean
     }> = []
-    for (let level = 0; level < LEVELS; level++) {
-      for (let ix = 0; ix < CELLS_LENGTH; ix++) {
-        for (let iz = 0; iz < CELLS_DEPTH; iz++) {
-          const key = cellKey(rackIndex, level, ix, iz)
+    for (let level = 0; level < geom.levels; level++) {
+      for (let ix = 0; ix < geom.cellsLength; ix++) {
+        for (let iz = 0; iz < geom.cellsDepth; iz++) {
+          const key = geom.cellKey(rackIndex, level, ix, iz)
           out.push({
             level,
             ix,
             iz,
-            filled: isCellFilled(rackIndex, level, ix, iz, occupiedCellKeys),
+            filled: isCellFilled(
+              geom,
+              rackIndex,
+              level,
+              ix,
+              iz,
+              occupiedCellKeys,
+            ),
             expiring: Boolean(expiringCellKeys?.has(key)),
             expired: Boolean(expiredCellKeys?.has(key)),
           })
@@ -264,17 +256,39 @@ function Rack({
       }
     }
     return out
-  }, [rackIndex, occupiedCellKeys, expiringCellKeys, expiredCellKeys])
+  }, [
+    geom,
+    rackIndex,
+    occupiedCellKeys,
+    expiringCellKeys,
+    expiredCellKeys,
+  ])
 
-  const rackH = LEVELS * LEVEL_HEIGHT
+  const rackH = geom.levels * LEVEL_HEIGHT
 
   return (
     <group position={[baseX, 0, baseZ]}>
       {[
-        [-RACK_LENGTH / 2 - 0.04, rackH / 2, -RACK_DEPTH / 2 - 0.04],
-        [RACK_LENGTH / 2 + 0.04, rackH / 2, -RACK_DEPTH / 2 - 0.04],
-        [-RACK_LENGTH / 2 - 0.04, rackH / 2, RACK_DEPTH / 2 + 0.04],
-        [RACK_LENGTH / 2 + 0.04, rackH / 2, RACK_DEPTH / 2 + 0.04],
+        [
+          -geom.rackLength / 2 - 0.04,
+          rackH / 2,
+          -geom.rackDepth / 2 - 0.04,
+        ],
+        [
+          geom.rackLength / 2 + 0.04,
+          rackH / 2,
+          -geom.rackDepth / 2 - 0.04,
+        ],
+        [
+          -geom.rackLength / 2 - 0.04,
+          rackH / 2,
+          geom.rackDepth / 2 + 0.04,
+        ],
+        [
+          geom.rackLength / 2 + 0.04,
+          rackH / 2,
+          geom.rackDepth / 2 + 0.04,
+        ],
       ].map(([px, py, pz], i) => (
         <mesh key={i} position={[px, py, pz]}>
           <boxGeometry args={[0.08, rackH, 0.08]} />
@@ -286,8 +300,10 @@ function Rack({
         </mesh>
       ))}
       {cells.map(({ level, ix, iz, filled, expiring, expired }, i) => {
-        const ox = (ix - (CELLS_LENGTH - 1) / 2) * (CELL_SIZE + CELL_GAP)
-        const oz = (iz - (CELLS_DEPTH - 1) / 2) * (CELL_SIZE + CELL_GAP)
+        const ox =
+          (ix - (geom.cellsLength - 1) / 2) * (CELL_SIZE + CELL_GAP)
+        const oz =
+          (iz - (geom.cellsDepth - 1) / 2) * (CELL_SIZE + CELL_GAP)
         const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02
         const isSelected =
           selectedCell?.row === rackIndex &&
@@ -323,10 +339,11 @@ function Rack({
 }
 
 function Floor({ darkMode }: { darkMode?: boolean }) {
+  const geom = useWarehouseGeometry()
   const color = darkMode ? FLOOR_COLOR_DARK : FLOOR_COLOR_LIGHT
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <planeGeometry args={[FLOOR_WIDTH, FLOOR_DEPTH]} />
+      <planeGeometry args={[geom.floorWidth, geom.floorDepth]} />
       <meshStandardMaterial color={color} metalness={0.05} roughness={0.9} />
     </mesh>
   )
@@ -482,7 +499,8 @@ function FloorMarkings({
   rowPositions: Array<{ rowIndex: number; z: number }>
   darkMode?: boolean
 }) {
-  const labelX = -RACK_LENGTH / 2 - 0.6
+  const geom = useWarehouseGeometry()
+  const labelX = -geom.rackLength / 2 - 0.6
   const labelColor = darkMode ? FLOOR_LABEL_COLOR_DARK : FLOOR_LABEL_COLOR_LIGHT
   return (
     <group>
@@ -505,7 +523,8 @@ function FloorMarkings({
 }
 
 function HoverLabel({ cell }: { cell: CellInfo }) {
-  const position = getCellWorldPosition(
+  const geom = useWarehouseGeometry()
+  const position = geom.getCellWorldPosition(
     cell.row,
     cell.level,
     cell.cellX,
@@ -552,6 +571,7 @@ function WarehouseContent({
   selectedItem?: CellItemInfo | null
   darkMode?: boolean
 }) {
+  const geom = useWarehouseGeometry()
   const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null)
   const handleCellEnter = useCallback(
     (cell: CellInfo) => setHoveredCell(cell),
@@ -570,12 +590,12 @@ function WarehouseContent({
   }, [])
 
   const rackPositions = useMemo(() => {
-    return Array.from({ length: RACK_ROWS }, (_, row) => ({
+    return Array.from({ length: geom.rackRows }, (_, row) => ({
       rackIndex: row,
       x: 0,
-      z: getRowZ(row),
+      z: geom.getRowZ(row),
     }))
-  }, [])
+  }, [geom])
 
   const rowPositions = useMemo(
     () =>
@@ -625,7 +645,7 @@ function WarehouseContent({
       {hoveredCell && !selectedCell && <HoverLabel cell={hoveredCell} />}
       {selectedCell && (
         <CellPopup
-          position={getCellWorldPosition(
+          position={geom.getCellWorldPosition(
             selectedCell.row,
             selectedCell.level,
             selectedCell.cellX,
@@ -664,6 +684,7 @@ function CameraFocusOnCell({
   focusCell: CellInfo | null
   onFocusDone?: () => void
 }) {
+  const geom = useWarehouseGeometry()
   const appliedKeyRef = useRef<string | null>(null)
   const frameCountRef = useRef(0)
 
@@ -682,7 +703,7 @@ function CameraFocusOnCell({
       return
     }
 
-    const key = cellKey(
+    const key = geom.cellKey(
       focusCell.row,
       focusCell.level,
       focusCell.cellX,
@@ -694,7 +715,7 @@ function CameraFocusOnCell({
     frameCountRef.current += 1
     if (frameCountRef.current < 2) return
 
-    const [cx, cy, cz] = getCellWorldPosition(
+    const [cx, cy, cz] = geom.getCellWorldPosition(
       focusCell.row,
       focusCell.level,
       focusCell.cellX,
@@ -770,6 +791,8 @@ interface WarehouseSceneProps {
   expiredCellKeys?: Set<string> | null
   selectedItem?: CellItemInfo | null
   darkMode?: boolean
+  /** Spec из GET /api/v1/warehouse/layout (поля rows, levels, cellX, cellZ). */
+  layoutSpec?: WarehouseLayoutSpec | null
 }
 
 export function WarehouseScene({
@@ -782,6 +805,7 @@ export function WarehouseScene({
   expiredCellKeys,
   selectedItem,
   darkMode,
+  layoutSpec,
 }: WarehouseSceneProps) {
   const [internalCell, setInternalCell] = useState<CellInfo | null>(null)
   const isControlled = selectedCellFromParent !== undefined
@@ -808,20 +832,22 @@ export function WarehouseScene({
       gl={{ antialias: true }}
       onPointerMissed={() => handleCellSelect(null)}
     >
-      <SceneLoadOverlay />
-      <WarehouseContent
-        selectedCell={selectedCell}
-        onCellSelect={handleCellSelect}
-        occupiedCellKeys={occupiedCellKeys}
-        expiringCellKeys={expiringCellKeys}
-        expiredCellKeys={expiredCellKeys}
-        selectedItem={selectedItem}
-        darkMode={darkMode}
-      />
-      <CameraFocusOnCell
-        focusCell={focusCell ?? null}
-        onFocusDone={onFocusDone}
-      />
+      <WarehouseGeometryProvider spec={layoutSpec}>
+        <SceneLoadOverlay />
+        <WarehouseContent
+          selectedCell={selectedCell}
+          onCellSelect={handleCellSelect}
+          occupiedCellKeys={occupiedCellKeys}
+          expiringCellKeys={expiringCellKeys}
+          expiredCellKeys={expiredCellKeys}
+          selectedItem={selectedItem}
+          darkMode={darkMode}
+        />
+        <CameraFocusOnCell
+          focusCell={focusCell ?? null}
+          onFocusDone={onFocusDone}
+        />
+      </WarehouseGeometryProvider>
       <OrbitControls
         enablePan
         enableZoom
