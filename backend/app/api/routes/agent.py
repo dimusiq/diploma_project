@@ -7,9 +7,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlmodel import func, select
 
-from app.api.deps import CurrentUser, SessionDep, get_current_active_superuser, require_permission
+from app.api.deps import (
+    CurrentUser,
+    SessionDep,
+    get_current_active_superuser,
+    require_permission,
+)
 from app.core.permissions import PERM_AGENT_USE, can_use_agent
 from app.models import AgentChatLog, AgentChatLogList, AgentChatLogPublic
+from app.realtime.twin_stream_hub import publish_agent_run_finished
 from app.services.agent_chat import run_agent_chat
 from app.services.agent_rate_limit import enforce_agent_chat_rate_limit
 
@@ -104,5 +110,12 @@ async def agent_chat(
     )
     session.add(log)
     session.commit()
+    session.refresh(log)
+    publish_agent_run_finished(
+        user_id=current_user.id,
+        log_id=log.id,
+        message_preview=log.message_preview,
+        ollama_available=ollama_ok,
+    )
 
     return AgentChatResponse(reply=reply, ollama_available=ollama_ok, model=model)

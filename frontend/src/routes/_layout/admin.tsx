@@ -26,6 +26,7 @@ import { type ZonePublic, zonesApi } from "@/api/zones.ts"
 import { CategoriesService, RolesService, UsersService } from "@/client/index.ts"
 import { AgentChatLogsAdmin } from "@/components/Admin/AgentChatLogsAdmin.tsx"
 import { AgentKnowledgeAdmin } from "@/components/Admin/AgentKnowledgeAdmin.tsx"
+import { WarehouseTopologyAdmin } from "@/components/Admin/WarehouseTopologyAdmin.tsx"
 import AddUser from "@/components/Admin/AddUser.tsx"
 import RestoreUser from "@/components/Admin/RestoreUser.tsx"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
@@ -1131,6 +1132,9 @@ function Admin() {
           <Tabs.Trigger value='agent-logs'>
             Журнал чата ассистента
           </Tabs.Trigger>
+          <Tabs.Trigger value='warehouse-topology'>
+            Топология склада
+          </Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value='app-settings'>
           <AppSettingsContent />
@@ -1156,6 +1160,9 @@ function Admin() {
         </Tabs.Content>
         <Tabs.Content value='agent-logs'>
           <AgentChatLogsAdmin />
+        </Tabs.Content>
+        <Tabs.Content value='warehouse-topology'>
+          <WarehouseTopologyAdmin />
         </Tabs.Content>
       </Tabs.Root>
     </Container>

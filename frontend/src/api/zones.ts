@@ -6,15 +6,26 @@ import { request } from "@/lib/apiClient.ts"
 
 export interface ZonePublic {
   id: string
+  warehouse_id: string
   name: string
+  code?: string | null
+  zone_kind: string
+  extra?: Record<string, unknown> | null
 }
 
 export interface ZoneCreate {
   name: string
+  warehouse_id?: string | null
+  code?: string | null
+  zone_kind?: string
 }
 
 export interface ZoneUpdate {
   name?: string
+  warehouse_id?: string | null
+  code?: string | null
+  zone_kind?: string
+  extra?: Record<string, unknown> | null
 }
 
 export const zonesApi = {

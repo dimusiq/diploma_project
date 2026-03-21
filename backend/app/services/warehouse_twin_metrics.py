@@ -8,6 +8,10 @@ from sqlmodel import Session, col, func, select
 
 from app.core.permissions import can_read_audit, can_see_all_items
 from app.models import DomainEvent, Item, User, WarehouseLayout, WarehouseSlotOccupancy
+from app.schemas.warehouse_layout_spec import (
+    layout_capacity_cells,
+    try_parse_warehouse_layout_spec,
+)
 
 
 def build_twin_summary_dict(session: Session, user: User) -> dict:
@@ -65,16 +69,23 @@ def build_twin_summary_dict(session: Session, user: User) -> dict:
     ).first()
     capacity: int | None = None
     if layout and isinstance(layout.spec, dict):
-        spec = layout.spec
-        try:
-            rows_n = int(spec.get("rows") or 0)
-            levels = int(spec.get("levels") or 0)
-            cx = int(spec.get("cellX") or 0)
-            cz = int(spec.get("cellZ") or 0)
-            if rows_n > 0 and levels > 0 and cx > 0 and cz > 0:
-                capacity = rows_n * levels * cx * cz
-        except (TypeError, ValueError):
-            capacity = None
+        p = try_parse_warehouse_layout_spec(layout.spec)
+        if p is not None:
+            try:
+                capacity = layout_capacity_cells(p)
+            except (TypeError, ValueError):
+                capacity = None
+        else:
+            spec = layout.spec
+            try:
+                rows_n = int(spec.get("rows") or 0)
+                levels = int(spec.get("levels") or 0)
+                cx = int(spec.get("cellX") or 0)
+                cz = int(spec.get("cellZ") or 0)
+                if rows_n > 0 and levels > 0 and cx > 0 and cz > 0:
+                    capacity = rows_n * levels * cx * cz
+            except (TypeError, ValueError):
+                capacity = None
 
     occ_stmt = select(func.count()).select_from(WarehouseSlotOccupancy)
     if not see_all:

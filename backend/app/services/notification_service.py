@@ -25,6 +25,7 @@ from app.models import (
     UserCommunicationPreference,
 )
 from app.realtime.notification_sse_hub import publish_notifications_updated
+from app.realtime.twin_stream_hub import publish_alert_event
 from app.services.warehouse_twin_metrics import build_twin_summary_dict
 
 if TYPE_CHECKING:
@@ -342,4 +343,11 @@ def create_notification(
         entity_id=entity_id,
     )
     session.add(notification)
+    session.flush()
+    publish_alert_event(
+        user_id=notification.user_id,
+        notification_id=notification.id,
+        notification_type=notification.type,
+        severity=notification.severity,
+    )
     return notification

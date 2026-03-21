@@ -11,6 +11,7 @@ import {
   FiCheckCircle,
   FiChevronDown,
   FiChevronRight,
+  FiCpu,
   FiLayers,
   FiMessageCircle,
   FiSettings,
@@ -60,6 +61,11 @@ const items: Item[] = [
     icon: FiActivity,
     title: "Аналитика двойника",
     path: "/warehouse-twin",
+  },
+  {
+    icon: FiCpu,
+    title: "Симуляция и KPI",
+    path: "/warehouse-simulation",
   },
   {
     icon: FiLayers,

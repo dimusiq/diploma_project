@@ -19,6 +19,11 @@ import {
   WarehouseEquipmentMesh,
   type WarehouseEquipmentKind,
 } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
+import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
+import {
+  WarehouseTwinLayers,
+  type TwinLayersVisibility,
+} from "@/components/warehouse3d/WarehouseTwinLayers.tsx"
 import {
   buildWarehouseGeometry,
   cellWorldOnFloor,
@@ -31,6 +36,10 @@ import {
   type WarehouseGeometry,
   type WarehouseLayoutSpec,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
+import type { EquipmentPublic } from "@/api/equipment.ts"
+import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
+import type { TopologyDocument } from "@/api/warehouseTopology.ts"
+import { buildAisleRoutePolyline } from "@/components/warehouse3d/warehouseAisleRouting.ts"
 import {
   polylineLength,
   samplePolyline3D,
@@ -52,6 +61,9 @@ const CELL_HOVER_COLOR = "#93c5fd"
 const CELL_SELECTED_COLOR = "#fbbf24"
 const CELL_EXPIRING_COLOR = "#dc2626"
 const CELL_EXPIRED_COLOR = "#7f1d1d"
+const CELL_BLOCKED_COLOR = "#a855f7"
+const CELL_RESERVED_COLOR = "#f59e0b"
+const CELL_QUARANTINE_COLOR = "#7c3aed"
 const FLOOR_LABEL_COLOR_LIGHT = "#e5e7eb"
 const FLOOR_LABEL_COLOR_DARK = "#6b7280"
 
@@ -112,6 +124,8 @@ function StorageCell({
   z,
   selected,
   darkMode,
+  heatIntensity,
+  hazardStripe,
   onCellClick,
   onEnter,
   onLeave,
@@ -124,6 +138,9 @@ function StorageCell({
   z: number
   selected?: boolean
   darkMode?: boolean
+  /** 0…1 — heatmap (congestion / pick / SLA / replenishment). */
+  heatIntensity?: number
+  hazardStripe?: CellStripe | null
   onCellClick?: (shiftKey: boolean) => void
   onEnter?: () => void
   onLeave?: () => void
@@ -149,6 +166,34 @@ function StorageCell({
       mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4)
       return
     }
+    if (hazardStripe === "blocked") {
+      mat.color.setStyle(CELL_BLOCKED_COLOR)
+      mat.emissive.setStyle(CELL_BLOCKED_COLOR)
+      mat.emissiveIntensity = 0.12
+      return
+    }
+    if (hazardStripe === "reserved") {
+      mat.color.setStyle(CELL_RESERVED_COLOR)
+      mat.emissive.setStyle("#b45309")
+      mat.emissiveIntensity = 0.12
+      return
+    }
+    if (hazardStripe === "quarantine") {
+      mat.color.setStyle(CELL_QUARANTINE_COLOR)
+      mat.emissive.setStyle(CELL_QUARANTINE_COLOR)
+      mat.emissiveIntensity = 0.15
+      return
+    }
+    const hi = heatIntensity ?? 0
+    if (hi > 0.02) {
+      const r = 0.55 + hi * 0.42
+      const g = 0.55 - hi * 0.35
+      const b = 0.65 - hi * 0.45
+      mat.color.setRGB(r, Math.max(0.2, g), Math.max(0.15, b))
+      mat.emissive.setRGB(r * 0.4, g * 0.2, 0.05)
+      mat.emissiveIntensity = 0.08 + hi * 0.22
+      return
+    }
     mat.emissiveIntensity = 0
     mat.emissive.setStyle("#000000")
     if (selected) {
@@ -170,15 +215,23 @@ function StorageCell({
     ? CELL_EXPIRED_COLOR
     : expiring
       ? CELL_EXPIRING_COLOR
-      : selected
-        ? CELL_SELECTED_COLOR
-        : hover
-          ? CELL_HOVER_COLOR
-          : filled
-            ? CELL_FILLED_COLOR
-            : darkMode
-              ? CELL_EMPTY_COLOR_DARK
-              : CELL_EMPTY_COLOR_LIGHT
+      : hazardStripe === "blocked"
+        ? CELL_BLOCKED_COLOR
+        : hazardStripe === "reserved"
+          ? CELL_RESERVED_COLOR
+          : hazardStripe === "quarantine"
+            ? CELL_QUARANTINE_COLOR
+            : (heatIntensity ?? 0) > 0.02
+              ? `rgb(${Math.round(55 + (heatIntensity ?? 0) * 200)}, ${Math.round(140 - (heatIntensity ?? 0) * 90)}, ${Math.round(165 - (heatIntensity ?? 0) * 120)})`
+              : selected
+                ? CELL_SELECTED_COLOR
+                : hover
+                  ? CELL_HOVER_COLOR
+                  : filled
+                    ? CELL_FILLED_COLOR
+                    : darkMode
+                      ? CELL_EMPTY_COLOR_DARK
+                      : CELL_EMPTY_COLOR_LIGHT
 
   return (
     <mesh
@@ -221,6 +274,8 @@ function Rack({
   occupiedCellKeys,
   expiringCellKeys,
   expiredCellKeys,
+  heatByCellKey,
+  hazardByCellKey,
   routeMode,
   onRouteWaypointAdd,
 }: {
@@ -235,6 +290,8 @@ function Rack({
   occupiedCellKeys?: Set<string> | null
   expiringCellKeys?: Set<string> | null
   expiredCellKeys?: Set<string> | null
+  heatByCellKey?: Map<string, number> | null
+  hazardByCellKey?: Map<string, CellStripe> | null
   routeMode?: boolean
   onRouteWaypointAdd?: (info: CellInfo) => void
 }) {
@@ -335,6 +392,7 @@ function Rack({
           cellZ: iz,
           filled,
         }
+        const ckey = geom.cellKey(rackIndex, level, ix, iz)
         return (
           <StorageCell
             key={i}
@@ -346,6 +404,8 @@ function Rack({
             z={oz}
             selected={isSelected}
             darkMode={darkMode}
+            heatIntensity={heatByCellKey?.get(ckey)}
+            hazardStripe={hazardByCellKey?.get(ckey) ?? null}
             onCellClick={(shiftKey) => {
               if (routeMode) {
                 onRouteWaypointAdd?.(info)
@@ -583,21 +643,28 @@ function HoverLabel({ cell }: { cell: CellInfo }) {
 }
 
 const ROUTE_LINE_COLOR = "#ea580c"
+const ROUTE_FLOOR_Y = 0.22
 
-function RoutePathLayer({ waypoints }: { waypoints: CellInfo[] }) {
+function RoutePathLayer({
+  pathPoints,
+  cellWaypoints,
+}: {
+  pathPoints: Vector3[]
+  cellWaypoints: CellInfo[]
+}) {
   const geom = useWarehouseGeometry()
-  const points = useMemo(() => {
-    return waypoints.map(
+  const cellMarkers = useMemo(() => {
+    return cellWaypoints.map(
       (w) =>
         new Vector3(
           ...cellWorldOnFloor(geom, w.row, w.level, w.cellX, w.cellZ),
         ),
     )
-  }, [geom, waypoints])
-  if (waypoints.length === 0) return null
+  }, [geom, cellWaypoints])
+  if (cellWaypoints.length === 0) return null
   return (
     <group>
-      {points.map((p, i) => (
+      {cellMarkers.map((p, i) => (
         <mesh key={i} position={[p.x, p.y + 0.04, p.z]}>
           <sphereGeometry args={[0.11, 10, 10]} />
           <meshStandardMaterial
@@ -607,9 +674,9 @@ function RoutePathLayer({ waypoints }: { waypoints: CellInfo[] }) {
           />
         </mesh>
       ))}
-      {points.length >= 2 && (
+      {pathPoints.length >= 2 && (
         <Line
-          points={points}
+          points={pathPoints}
           color={ROUTE_LINE_COLOR}
           lineWidth={2.5}
         />
@@ -677,6 +744,24 @@ function SimulationEquipmentAlongRoute({
   )
 }
 
+export type TwinOverlayMode =
+  | "standard"
+  | "occupancy"
+  | "workload"
+  | "replenishment_need"
+  | "anomaly_alerts"
+  | "maintenance_safety"
+
+export type WarehouseTwinEnrichment = {
+  overlayMode: TwinOverlayMode
+  topology: TopologyDocument | null
+  routeGraph: RouteGraphResponse | null
+  equipmentList: EquipmentPublic[]
+  twinHeatByCellKey: Map<string, number>
+  twinHazardByCellKey: Map<string, CellStripe>
+  twinLayerVisibility: TwinLayersVisibility
+}
+
 function WarehouseContent({
   selectedCell,
   onCellSelect,
@@ -693,6 +778,7 @@ function WarehouseContent({
   simulationSpeed = 1.25,
   simulationShowCargo = true,
   onSimulationComplete,
+  twinEnrichment,
 }: {
   selectedCell: CellInfo | null
   onCellSelect: (info: CellInfo | null) => void
@@ -709,6 +795,7 @@ function WarehouseContent({
   simulationSpeed?: number
   simulationShowCargo?: boolean
   onSimulationComplete?: () => void
+  twinEnrichment?: WarehouseTwinEnrichment | null
 }) {
   const geom = useWarehouseGeometry()
   const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null)
@@ -745,14 +832,10 @@ function WarehouseContent({
     [rackPositions],
   )
 
-  const routePathVectors = useMemo(() => {
-    return routeWaypoints.map(
-      (w) =>
-        new Vector3(
-          ...cellWorldOnFloor(geom, w.row, w.level, w.cellX, w.cellZ),
-        ),
-    )
-  }, [geom, routeWaypoints])
+  const aislePathPoints = useMemo(
+    () => buildAisleRoutePolyline(geom, routeWaypoints, ROUTE_FLOOR_Y),
+    [geom, routeWaypoints],
+  )
 
   const routeClicksEnabled =
     interactionMode === "route" && !simulationActive
@@ -793,11 +876,22 @@ function WarehouseContent({
 
       <Floor darkMode={darkMode} />
       <FloorMarkings rowPositions={rowPositions} darkMode={darkMode} />
+      {twinEnrichment && (
+        <WarehouseTwinLayers
+          topology={twinEnrichment.topology}
+          routeGraph={twinEnrichment.routeGraph}
+          equipment={twinEnrichment.equipmentList}
+          visibility={twinEnrichment.twinLayerVisibility}
+        />
+      )}
       {routeWaypoints.length > 0 && (
-        <RoutePathLayer waypoints={routeWaypoints} />
+        <RoutePathLayer
+          pathPoints={aislePathPoints}
+          cellWaypoints={routeWaypoints}
+        />
       )}
       <SimulationEquipmentAlongRoute
-        pathPoints={routePathVectors}
+        pathPoints={aislePathPoints}
         active={simulationActive}
         speed={simulationSpeed}
         equipmentKind={simulationEquipment}
@@ -832,6 +926,8 @@ function WarehouseContent({
           occupiedCellKeys={occupiedCellKeys}
           expiringCellKeys={expiringCellKeys}
           expiredCellKeys={expiredCellKeys}
+          heatByCellKey={twinEnrichment?.twinHeatByCellKey}
+          hazardByCellKey={twinEnrichment?.twinHazardByCellKey}
           routeMode={routeClicksEnabled}
           onRouteWaypointAdd={onRouteWaypointAdd}
         />
@@ -970,6 +1066,8 @@ interface WarehouseSceneProps {
   simulationSpeed?: number
   simulationShowCargo?: boolean
   onSimulationComplete?: () => void
+  /** Зоны, проходы, граф маршрутов, heatmap по ячейкам — см. страницу 3D. */
+  twinEnrichment?: WarehouseTwinEnrichment | null
 }
 
 export function WarehouseScene({
@@ -991,6 +1089,7 @@ export function WarehouseScene({
   simulationSpeed = 1.25,
   simulationShowCargo = true,
   onSimulationComplete,
+  twinEnrichment = null,
 }: WarehouseSceneProps) {
   const [internalCell, setInternalCell] = useState<CellInfo | null>(null)
   const isControlled = selectedCellFromParent !== undefined
@@ -1037,6 +1136,7 @@ export function WarehouseScene({
           simulationSpeed={simulationSpeed}
           simulationShowCargo={simulationShowCargo}
           onSimulationComplete={onSimulationComplete}
+          twinEnrichment={twinEnrichment}
         />
         <CameraFocusOnCell
           focusCell={focusCell ?? null}

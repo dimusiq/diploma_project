@@ -38,6 +38,10 @@ from app.realtime.item_sse_hub import (
     subscribe_items_queue,
     unsubscribe_items_queue,
 )
+from app.realtime.twin_stream_hub import (
+    publish_item_movement,
+    publish_occupancy_changed,
+)
 from app.services.domain_events import (
     EVENT_ITEM_CREATED,
     EVENT_ITEM_DELETED,
@@ -560,6 +564,8 @@ def create_item(
     _commit_item_session_or_conflict(session)
     session.refresh(item)
     publish_items_changed()
+    publish_item_movement(item_id=item.id, reason="created")
+    publish_occupancy_changed()
     return item
 
 
@@ -695,6 +701,8 @@ def update_item(
     _commit_item_session_or_conflict(session)
     session.refresh(item)
     publish_items_changed()
+    publish_item_movement(item_id=item.id, reason="updated")
+    publish_occupancy_changed()
     return item
 
 
@@ -724,7 +732,10 @@ def delete_item(
             ),
         },
     )
+    iid = item.id
     session.delete(item)
     _commit_item_session_or_conflict(session)
     publish_items_changed()
+    publish_item_movement(item_id=iid, reason="deleted")
+    publish_occupancy_changed()
     return Message(message="Item deleted successfully")

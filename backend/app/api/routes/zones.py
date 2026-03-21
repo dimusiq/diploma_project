@@ -2,7 +2,7 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from sqlmodel import select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
@@ -10,6 +10,7 @@ from app.core.audit import get_client_ip, log_audit
 from app.core.permissions import PERM_ZONES_MANAGE
 from app.models import (
     Message,
+    Warehouse,
     WarehouseZone,
     WarehouseZoneCreate,
     WarehouseZonePublic,
@@ -19,10 +20,34 @@ from app.models import (
 router = APIRouter(prefix="/zones", tags=["zones"])
 
 
+def _resolve_warehouse_id(session: SessionDep, warehouse_id: uuid.UUID | None) -> uuid.UUID:
+    if warehouse_id is not None:
+        wh = session.get(Warehouse, warehouse_id)
+        if not wh:
+            raise HTTPException(status_code=404, detail="Склад не найден")
+        return warehouse_id
+    wh = session.exec(select(Warehouse).where(Warehouse.code == "default")).first()
+    if not wh:
+        wh = session.exec(select(Warehouse).order_by(Warehouse.created_at)).first()
+    if not wh:
+        raise HTTPException(status_code=500, detail="Не настроен ни один склад")
+    return wh.id
+
+
 @router.get("/", response_model=list[WarehouseZonePublic])
-def read_zones(session: SessionDep, _current_user: CurrentUser) -> Any:
+def read_zones(
+    session: SessionDep,
+    _current_user: CurrentUser,
+    warehouse_id: uuid.UUID | None = Query(
+        default=None,
+        description="Фильтр по складу; без параметра — все зоны",
+    ),
+) -> Any:
     """Список зон склада (для выбора в форме техники и в админке)."""
-    return list(session.exec(select(WarehouseZone).order_by(WarehouseZone.name)).all())
+    stmt = select(WarehouseZone)
+    if warehouse_id is not None:
+        stmt = stmt.where(WarehouseZone.warehouse_id == warehouse_id)
+    return list(session.exec(stmt.order_by(WarehouseZone.name)).all())
 
 
 @router.get("/{id}", response_model=WarehouseZonePublic)
@@ -47,10 +72,24 @@ def create_zone(
     body: WarehouseZoneCreate,
 ) -> Any:
     """Создать зону."""
-    existing = session.exec(select(WarehouseZone).where(WarehouseZone.name == body.name)).first()
+    wid = _resolve_warehouse_id(session, body.warehouse_id)
+    existing = session.exec(
+        select(WarehouseZone).where(
+            WarehouseZone.warehouse_id == wid,
+            WarehouseZone.name == body.name,
+        )
+    ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Зона с таким названием уже существует")
-    zone = WarehouseZone.model_validate(body)
+        raise HTTPException(
+            status_code=400,
+            detail="Зона с таким названием уже есть на этом складе",
+        )
+    zone = WarehouseZone(
+        name=body.name,
+        warehouse_id=wid,
+        code=body.code,
+        zone_kind=body.zone_kind,
+    )
     session.add(zone)
     session.commit()
     session.refresh(zone)
@@ -83,12 +122,25 @@ def update_zone(
     zone = session.get(WarehouseZone, id)
     if not zone:
         raise HTTPException(status_code=404, detail="Зона не найдена")
-    if body.name is not None:
+    target_wh = zone.warehouse_id
+    if body.warehouse_id is not None:
+        target_wh = _resolve_warehouse_id(session, body.warehouse_id)
+    name_for_uniq = body.name if body.name is not None else zone.name
+    if body.name is not None or (
+        body.warehouse_id is not None and body.warehouse_id != zone.warehouse_id
+    ):
         other = session.exec(
-            select(WarehouseZone).where(WarehouseZone.name == body.name, WarehouseZone.id != id)
+            select(WarehouseZone).where(
+                WarehouseZone.warehouse_id == target_wh,
+                WarehouseZone.name == name_for_uniq,
+                WarehouseZone.id != id,
+            )
         ).first()
         if other:
-            raise HTTPException(status_code=400, detail="Зона с таким названием уже существует")
+            raise HTTPException(
+                status_code=400,
+                detail="Зона с таким названием уже есть на этом складе",
+            )
     update_data = body.model_dump(exclude_unset=True)
     zone.sqlmodel_update(update_data)
     session.add(zone)

@@ -6,6 +6,7 @@ from sqlmodel import Session, func, select
 
 from app.core.permissions import can_see_all_items
 from app.models import Item, User, WarehouseLayout, WarehouseSlotOccupancy
+from app.schemas.warehouse_layout_spec import try_parse_warehouse_layout_spec
 
 
 def build_warehouse_context_for_user(session: Session, user: User) -> str:
@@ -17,11 +18,19 @@ def build_warehouse_context_for_user(session: Session, user: User) -> str:
     ).first()
     if layout:
         spec = layout.spec
-        lines.append(
-            f"Активный layout склада: code={layout.code}, version={layout.version}, "
-            f"rows={spec.get('rows')}, levels={spec.get('levels')}, "
-            f"cellX={spec.get('cellX')}, cellZ={spec.get('cellZ')}."
-        )
+        parsed = try_parse_warehouse_layout_spec(spec if isinstance(spec, dict) else None)
+        if parsed:
+            g = parsed.geometry
+            lines.append(
+                f"Активный layout склада: code={layout.code}, version={layout.version}, "
+                f"lifecycle={layout.lifecycle_status}, spec_schema_version={layout.spec_schema_version}, "
+                f"rows={g.rows}, levels={g.levels}, cellX={g.cellX}, cellZ={g.cellZ}."
+            )
+        else:
+            lines.append(
+                f"Активный layout склада: code={layout.code}, version={layout.version} "
+                f"(spec не удалось разобрать по схеме)."
+            )
     else:
         lines.append("Активный layout склада в системе не задан.")
 

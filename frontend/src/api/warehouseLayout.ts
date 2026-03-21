@@ -10,6 +10,11 @@ export interface WarehouseLayoutResponse {
   version: number
   is_active: boolean
   spec: Record<string, unknown>
+  warehouse_id?: string | null
+  spec_schema_version: number
+  lifecycle_status: "draft" | "published" | "archived" | string
+  published_at?: string | null
+  activated_at?: string | null
 }
 
 export async function fetchWarehouseLayout(): Promise<WarehouseLayoutResponse> {

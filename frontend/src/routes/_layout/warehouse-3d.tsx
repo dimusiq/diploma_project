@@ -21,21 +21,38 @@ import {
 } from "react"
 import { FiChevronRight, FiMaximize2, FiRotateCcw } from "react-icons/fi"
 import { z } from "zod"
+import { equipmentApi } from "@/api/equipment.ts"
 import {
   fetchWarehouseLayout,
   specToLayoutGeometry,
 } from "@/api/warehouseLayout.ts"
+import { fetchWarehouseRouteGraph } from "@/api/warehouseRouteGraph.ts"
+import { warehouseTopologyApi } from "@/api/warehouseTopology.ts"
 import type { ItemPublic } from "@/client/index.ts"
 import { ItemsService } from "@/client/index.ts"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
-import { DEFAULT_WAREHOUSE_LAYOUT_SPEC } from "@/components/warehouse3d/warehouseGeometry.tsx"
+import {
+  buildWarehouseGeometry,
+  DEFAULT_WAREHOUSE_LAYOUT_SPEC,
+} from "@/components/warehouse3d/warehouseGeometry.tsx"
 import type {
   CellInfo,
   CellItemInfo,
+  TwinOverlayMode,
   WarehouseEquipmentKind,
   WarehouseInteractionMode,
+  WarehouseTwinEnrichment,
 } from "@/components/warehouse3d/WarehouseScene.tsx"
+import {
+  blockedCellKeysFromTopology,
+  heatMapForMetric,
+  replenishmentNeedByCellKey,
+  slaRiskByCellKey,
+  stripeByCellKey,
+  type CellStripe,
+  type HeatMetric,
+} from "@/components/warehouse3d/twin3dDerived.ts"
 
 const WarehouseScene = lazy(() =>
   import("@/components/warehouse3d/WarehouseScene.tsx").then((m) => ({
@@ -146,6 +163,13 @@ function Warehouse3DPage() {
   const [simulationSpeed, setSimulationSpeed] = useState(1.25)
   const [simulationShowCargo, setSimulationShowCargo] = useState(true)
   const [liveData, setLiveData] = useState(false)
+  const [overlayMode, setOverlayMode] = useState<TwinOverlayMode>("standard")
+  const [heatMetric, setHeatMetric] = useState<HeatMetric>("congestion")
+  const [historyIdx, setHistoryIdx] = useState(-1)
+  const [snapshots, setSnapshots] = useState<
+    Array<{ at: number; items: ItemPublic[] }>
+  >([])
+  const snapThrottleRef = useRef(0)
 
   const addRouteWaypoint = useCallback((cell: CellInfo) => {
     setRouteWaypoints((prev) => [...prev, { ...cell }])
@@ -223,6 +247,24 @@ function Warehouse3DPage() {
     staleTime: 60_000,
   })
 
+  const { data: topology } = useQuery({
+    queryKey: ["warehouse", "topology"],
+    queryFn: warehouseTopologyApi.get,
+    staleTime: 60_000,
+  })
+
+  const { data: routeGraph } = useQuery({
+    queryKey: ["warehouse", "route-graph"],
+    queryFn: fetchWarehouseRouteGraph,
+    staleTime: 60_000,
+  })
+
+  const { data: equipmentResponse } = useQuery({
+    queryKey: ["equipment", "all-warehouse-3d"],
+    queryFn: () => equipmentApi.list({ limit: 200, skip: 0 }),
+    staleTime: 60_000,
+  })
+
   const layoutSpec = useMemo(
     () => specToLayoutGeometry(layoutApi?.spec),
     [layoutApi?.spec],
@@ -246,9 +288,130 @@ function Warehouse3DPage() {
 
   const items = itemsData?.data ?? []
 
+  useEffect(() => {
+    if (items.length === 0) return
+    const now = Date.now()
+    if (now - snapThrottleRef.current < 12_000) return
+    snapThrottleRef.current = now
+    setSnapshots((prev) => [...prev.slice(-35), { at: now, items: [...items] }])
+  }, [items])
+
+  const displayItems = useMemo(() => {
+    if (historyIdx < 0 || historyIdx >= snapshots.length) return items
+    return snapshots[historyIdx]?.items ?? items
+  }, [items, snapshots, historyIdx])
+
+  useEffect(() => {
+    if (historyIdx >= snapshots.length) setHistoryIdx(-1)
+  }, [snapshots.length, historyIdx])
+
+  const layoutSpecResolved = layoutSpec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC
+  const geom = useMemo(
+    () => buildWarehouseGeometry(layoutSpecResolved),
+    [
+      layoutSpecResolved.rows,
+      layoutSpecResolved.levels,
+      layoutSpecResolved.cellX,
+      layoutSpecResolved.cellZ,
+    ],
+  )
+
+  const twinLayerVisibility = useMemo(() => {
+    switch (overlayMode) {
+      case "occupancy":
+        return {
+          zones: true,
+          aisles: true,
+          routeGraph: false,
+          equipment: false,
+        }
+      case "workload":
+        return {
+          zones: true,
+          aisles: false,
+          routeGraph: false,
+          equipment: false,
+        }
+      case "replenishment_need":
+        return {
+          zones: false,
+          aisles: false,
+          routeGraph: false,
+          equipment: false,
+        }
+      case "anomaly_alerts":
+        return {
+          zones: true,
+          aisles: true,
+          routeGraph: true,
+          equipment: false,
+        }
+      case "maintenance_safety":
+        return {
+          zones: false,
+          aisles: true,
+          routeGraph: true,
+          equipment: true,
+        }
+      default:
+        return {
+          zones: false,
+          aisles: false,
+          routeGraph: false,
+          equipment: false,
+        }
+    }
+  }, [overlayMode])
+
+  const twinHeatByCellKey = useMemo(() => {
+    if (overlayMode === "workload") {
+      return heatMapForMetric(heatMetric, displayItems, geom)
+    }
+    if (overlayMode === "replenishment_need") {
+      return replenishmentNeedByCellKey(displayItems)
+    }
+    if (overlayMode === "anomaly_alerts") {
+      return slaRiskByCellKey(displayItems)
+    }
+    return new Map<string, number>()
+  }, [overlayMode, heatMetric, displayItems, geom])
+
+  const twinHazardByCellKey = useMemo((): Map<string, CellStripe> => {
+    const m = new Map<string, CellStripe>()
+    if (overlayMode !== "anomaly_alerts") return m
+    const st = stripeByCellKey(displayItems)
+    for (const [k, v] of st) m.set(k, v)
+    const blocked = blockedCellKeysFromTopology(geom, topology ?? null)
+    for (const k of blocked) {
+      if (!m.has(k)) m.set(k, "blocked")
+    }
+    return m
+  }, [overlayMode, displayItems, geom, topology])
+
+  const twinEnrichment: WarehouseTwinEnrichment | null = useMemo(
+    () => ({
+      overlayMode,
+      topology: topology ?? null,
+      routeGraph: routeGraph ?? null,
+      equipmentList: equipmentResponse?.data ?? [],
+      twinHeatByCellKey,
+      twinHazardByCellKey,
+      twinLayerVisibility,
+    }),
+    [
+      overlayMode,
+      topology,
+      routeGraph,
+      equipmentResponse?.data,
+      twinHeatByCellKey,
+      twinHazardByCellKey,
+      twinLayerVisibility,
+    ],
+  )
+
   const occupiedCellKeys = useMemo(() => {
     const set = new Set<string>()
-    items.forEach((item) => {
+    displayItems.forEach((item) => {
       if (item.slot_key) {
         set.add(item.slot_key)
         return
@@ -262,11 +425,11 @@ function Warehouse3DPage() {
       }
     })
     return set
-  }, [items])
+  }, [displayItems])
 
   const expiringCellKeys = useMemo(() => {
     const set = new Set<string>()
-    items.forEach((item) => {
+    displayItems.forEach((item) => {
       if (!isExpiringSoon(item.expires_at ?? null)) return
       if (item.slot_key) {
         set.add(item.slot_key)
@@ -281,11 +444,11 @@ function Warehouse3DPage() {
       }
     })
     return set
-  }, [items])
+  }, [displayItems])
 
   const expiredCellKeys = useMemo(() => {
     const set = new Set<string>()
-    items.forEach((item) => {
+    displayItems.forEach((item) => {
       if (!isExpired(item.expires_at ?? null)) return
       if (item.slot_key) {
         set.add(item.slot_key)
@@ -300,11 +463,12 @@ function Warehouse3DPage() {
       }
     })
     return set
-  }, [items])
+  }, [displayItems])
 
   const selectedItem = useMemo(
-    () => (selectedCell ? findItemInCell(items, selectedCell) : undefined),
-    [selectedCell, items],
+    () =>
+      selectedCell ? findItemInCell(displayItems, selectedCell) : undefined,
+    [selectedCell, displayItems],
   )
 
   const selectedItemForPopup = useMemo((): CellItemInfo | null => {
@@ -389,7 +553,117 @@ function Warehouse3DPage() {
           <Box w="3" h="3" borderRadius="sm" bg="#ea580c" />
           <Text>Маршрут</Text>
         </Flex>
+        <Flex align="center" gap={2}>
+          <Box w="3" h="3" borderRadius="sm" bg="#a855f7" />
+          <Text>Блок / буфер (ряд)</Text>
+        </Flex>
+        <Flex align="center" gap={2}>
+          <Box w="3" h="3" borderRadius="sm" bg="#f59e0b" />
+          <Text>Резерв (отгрузка)</Text>
+        </Flex>
+        <Flex align="center" gap={2}>
+          <Box w="3" h="3" borderRadius="sm" bg="#7c3aed" />
+          <Text>Карантин / приёмка</Text>
+        </Flex>
       </Flex>
+
+      <Box
+        borderWidth="1px"
+        borderColor="gray.200"
+        borderRadius="lg"
+        p={4}
+        mb={3}
+        bg="white"
+        _dark={{ bg: "gray.900", borderColor: "whiteAlpha.200" }}
+      >
+        <Text fontWeight="semibold" fontSize="sm" mb={2}>
+          Digital twin: зоны, маршруты, heatmap
+        </Text>
+        <Text fontSize="xs" color="gray.600" mb={3}>
+          Зоны и проходы — из топологии склада. Граф — из{" "}
+          <code>GET /warehouse/route-graph</code> (нужна синхронизация графа).
+          Heatmap считается в браузере. Слайдер времени — локальные снимки
+          списка товаров (~12 с).
+        </Text>
+        <Flex flexWrap="wrap" gap={{ base: 3, md: 4 }} align="flex-end">
+          <Box minW="200px">
+            <Text fontSize="xs" color="gray.600" mb={1} fontWeight="medium">
+              Режим наложения
+            </Text>
+            <select
+              value={overlayMode}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setOverlayMode(e.target.value as TwinOverlayMode)
+              }
+              style={{
+                width: "100%",
+                maxWidth: 280,
+                padding: "6px 8px",
+                borderRadius: 6,
+                borderWidth: 1,
+                fontSize: 14,
+              }}
+            >
+              <option value="standard">Стандарт</option>
+              <option value="occupancy">Занятость + зоны / проходы</option>
+              <option value="workload">Нагрузка (heatmap)</option>
+              <option value="replenishment_need">Потребность в пополнении</option>
+              <option value="anomaly_alerts">
+                Аномалии (SLA + блок/резерв/карантин)
+              </option>
+              <option value="maintenance_safety">
+                Техника + граф + проходы
+              </option>
+            </select>
+          </Box>
+          {overlayMode === "workload" && (
+            <Box minW="180px">
+              <Text fontSize="xs" color="gray.600" mb={1} fontWeight="medium">
+                Метрика heatmap
+              </Text>
+              <select
+                value={heatMetric}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                  setHeatMetric(e.target.value as HeatMetric)
+                }
+                style={{
+                  width: "100%",
+                  maxWidth: 260,
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  fontSize: 14,
+                }}
+              >
+                <option value="congestion">Загруженность рядов</option>
+                <option value="pick_density">Остаток в ячейке</option>
+                <option value="sla_risk">Риск по сроку годности</option>
+              </select>
+            </Box>
+          )}
+          <Box flex="1" minW="220px">
+            <Text fontSize="xs" color="gray.600" mb={1} fontWeight="medium">
+              Снимок данных (время)
+            </Text>
+            <input
+              type="range"
+              min={-1}
+              max={Math.max(-1, snapshots.length - 1)}
+              step={1}
+              value={historyIdx}
+              onChange={(e) => setHistoryIdx(Number(e.target.value))}
+              disabled={snapshots.length === 0}
+              aria-label="Снимок состояния товаров"
+              style={{ width: "100%", maxWidth: 360 }}
+            />
+            <Text fontSize="xs" color="gray.500" mt={1}>
+              {historyIdx < 0 || snapshots.length === 0
+                ? "Текущие данные с сервера"
+                : `Снимок: ${new Date(snapshots[historyIdx]!.at).toLocaleString("ru-RU")}`}
+            </Text>
+          </Box>
+        </Flex>
+      </Box>
 
       <Box
         borderWidth="1px"
@@ -606,6 +880,7 @@ function Warehouse3DPage() {
               simulationSpeed={simulationSpeed}
               simulationShowCargo={simulationShowCargo}
               onSimulationComplete={handleSimulationComplete}
+              twinEnrichment={twinEnrichment}
             />
           </Suspense>
         </Box>

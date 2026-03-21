@@ -14,6 +14,7 @@ import sys
 
 from app.core.config import settings
 from app.core.report_scheduler import report_scheduler_loop
+from app.worker.outbox_loop import OUTBOX_POLL_INTERVAL_SEC, outbox_dispatcher_loop
 from app.worker.projection_loop import (
     PROJECTION_RECONCILE_INTERVAL_SEC,
     warehouse_projection_reconcile_loop,
@@ -50,11 +51,13 @@ def main() -> None:
                 pass
 
         logger.info(
-            "Worker started (report scheduler + warehouse projection reconcile every %ss)",
+            "Worker started (report scheduler + outbox every %ss + slot projection every %ss)",
+            OUTBOX_POLL_INTERVAL_SEC,
             PROJECTION_RECONCILE_INTERVAL_SEC,
         )
         await asyncio.gather(
             report_scheduler_loop(stop, redis_url=redis_url),
+            outbox_dispatcher_loop(stop),
             warehouse_projection_reconcile_loop(stop),
         )
         logger.info("Worker stopped")

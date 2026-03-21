@@ -149,4 +149,4 @@ export function cellWorldOnFloor(
   return [x, floorY, z]
 }
 
-export { CELL_SIZE, CELL_GAP, LEVEL_HEIGHT }
+export { CELL_SIZE, CELL_GAP, LEVEL_HEIGHT, PASSAGE_WIDTH }
