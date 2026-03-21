@@ -103,12 +103,22 @@ class Settings(BaseSettings):
     # Локальная LLM (Ollama): OpenAI-совместимый API, например http://localhost:11434
     OLLAMA_BASE_URL: str | None = None
     OLLAMA_MODEL: str = "llama3.2"
+    # Опционально: отдельная модель для «тяжёлого» рассуждения (иначе используется OLLAMA_MODEL).
+    OLLAMA_MODEL_REASONING: str | None = None
+    # Опционально: лёгкая модель для intent/router (JSON); пусто — этап пропускается.
+    OLLAMA_MODEL_ROUTER: str | None = None
     # Эмбеддинги для RAG (Ollama /api/embeddings). Пустая строка — только keyword-RAG.
     OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
     # Сколько справочных фрагментов подмешивать в контекст (keyword / эмбеддинг).
     AGENT_RAG_TOP_K: int = 3
     # Лимит запросов к POST /agent/chat на пользователя в минуту (0 = без лимита).
     AGENT_CHAT_RATE_LIMIT_PER_MINUTE: int = 30
+    # Цикл инструментов агента (observe → tool → …); верхняя граница раундов.
+    AGENT_MAX_TOOL_STEPS: int = 5
+    # Таймаут HTTP к LLM (секунды).
+    AGENT_LLM_TIMEOUT_SEC: float = 120.0
+    # Режим песочницы: act-инструменты не пишут в БД (только симуляция / requires_confirmation).
+    AGENT_SANDBOX_MODE: bool = True
 
     # Уведомления «Аналитика двойника» (ensure /notifications/ensure).
     TWIN_NOTIFICATION_ROW_ITEMS_MIN: int = 30

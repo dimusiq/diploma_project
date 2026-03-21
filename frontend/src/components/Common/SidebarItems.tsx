@@ -13,10 +13,12 @@ import {
   FiChevronRight,
   FiCpu,
   FiLayers,
+  FiList,
   FiMessageCircle,
   FiSettings,
   FiTruck,
   FiUsers,
+  FiTarget,
 } from "react-icons/fi"
 import type { IconType } from "react-icons/lib"
 import { TbForklift } from "react-icons/tb"
@@ -48,6 +50,11 @@ const items: Item[] = [
     path: "/",
   },
   {
+    icon: FiTarget,
+    title: "Control Tower",
+    path: "/control-tower",
+  },
+  {
     icon: FiArrowDownRight,
     title: "Поступления",
     path: "/items",
@@ -58,13 +65,18 @@ const items: Item[] = [
     path: "/warehouse",
   },
   {
+    icon: FiList,
+    title: "Задания склада",
+    path: "/warehouse-tasks",
+  },
+  {
     icon: FiActivity,
     title: "Аналитика двойника",
     path: "/warehouse-twin",
   },
   {
     icon: FiCpu,
-    title: "Симуляция и KPI",
+    title: "Симуляция и аналитика",
     path: "/warehouse-simulation",
   },
   {

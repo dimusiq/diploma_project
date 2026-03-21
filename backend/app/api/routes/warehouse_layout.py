@@ -128,6 +128,17 @@ def list_warehouse_layouts(
     )
 
 
+@router.get("/layout/versions", response_model=WarehouseLayoutsPublic)
+def list_warehouse_layout_versions(
+    session: SessionDep,
+    current_user: CurrentUser,
+    warehouse_id: uuid.UUID | None = Query(default=None),
+    lifecycle_status: str | None = Query(default=None, max_length=16),
+) -> Any:
+    """Алиас blueprint `GET /warehouse/layout/versions` → тот же список, что `/warehouse/layouts`."""
+    return list_warehouse_layouts(session, current_user, warehouse_id, lifecycle_status)
+
+
 @router.post(
     "/layout/{layout_id}/publish",
     response_model=WarehouseLayoutSummary,

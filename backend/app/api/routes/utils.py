@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import APIRouter, Depends
 from pydantic.networks import EmailStr
 from sqlmodel import select
 
 from app.api.deps import SessionDep, get_current_active_superuser
+from app.core.config import settings
 from app.models import Message
 from app.services.report_email_service import send_due_reports
 from app.utils import generate_test_email, send_email
@@ -61,3 +63,51 @@ def health_with_db(session: SessionDep) -> dict:
     except Exception:
         db_status = "error"
     return {"status": "ok" if db_status == "ok" else "degraded", "database": db_status}
+
+
+@router.get("/readiness", response_model=None)
+def readiness_probe(session: SessionDep) -> dict:
+    """
+    Детальная готовность: БД, Ollama (если задан URL), Redis (если задан REDIS_URL).
+    Воркер фоновых задач в этом процессе не проверяется — см. отдельный деплой worker.
+    """
+    components: dict[str, str] = {}
+    try:
+        session.exec(select(1)).one()
+        components["database"] = "ok"
+    except Exception:
+        components["database"] = "error"
+
+    base = settings.OLLAMA_BASE_URL
+    if base:
+        url = str(base).rstrip("/") + "/api/tags"
+        try:
+            with httpx.Client(timeout=3.0) as client:
+                r = client.get(url)
+            components["llm"] = "ok" if r.status_code < 500 else "degraded"
+        except Exception:
+            components["llm"] = "error"
+    else:
+        components["llm"] = "skipped"
+
+    redis_url = settings.REDIS_URL
+    if redis_url:
+        try:
+            import redis as redis_lib
+
+            r = redis_lib.Redis.from_url(redis_url, socket_connect_timeout=2)
+            r.ping()
+            components["redis"] = "ok"
+        except Exception:
+            components["redis"] = "error"
+    else:
+        components["redis"] = "skipped"
+
+    components["broker"] = components["redis"]
+    components["worker"] = "unknown"
+
+    bad = {k for k, v in components.items() if v == "error"}
+    status = "ok" if not bad and components["database"] == "ok" else "degraded"
+    if components["database"] == "error":
+        status = "unready"
+    return {"status": status, "components": components}

@@ -11,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlmodel import Session, select
 
+from app.agent.llm_adapter import LlmTaskKind, resolve_ollama_model
 from app.core.agent_vector import AGENT_EMBEDDING_VECTOR_DIMENSIONS
 from app.core.config import settings
 from app.models import AgentKnowledgeChunk
@@ -50,7 +51,7 @@ def _cosine(a: list[float], b: list[float]) -> float:
 async def ollama_embed(text: str) -> list[float] | None:
     if not settings.OLLAMA_BASE_URL or not str(settings.OLLAMA_BASE_URL).strip():
         return None
-    model = (settings.OLLAMA_EMBED_MODEL or "").strip()
+    model = resolve_ollama_model(LlmTaskKind.EMBEDDING)
     if not model:
         return None
     base = str(settings.OLLAMA_BASE_URL).rstrip("/")
@@ -111,21 +112,26 @@ def _pgvector_top_chunks(
     return out
 
 
-def build_rag_context_block(session: Session, user_query: str, query_embedding: list[float] | None) -> str:
+def build_rag_context_block(
+    session: Session, user_query: str, query_embedding: list[float] | None
+) -> tuple[str, dict[str, Any]]:
+    meta: dict[str, Any] = {"rag_chunks": 0, "rag_mode": "none"}
     try:
         chunks = list(session.exec(select(AgentKnowledgeChunk)).all())
     except SQLAlchemyError:
-        return ""
+        return "", meta
     if not chunks:
-        return ""
+        return "", meta
 
     top_k = max(1, min(settings.AGENT_RAG_TOP_K, 10))
     selected: list[AgentKnowledgeChunk] = []
+    mode = "none"
 
     if query_embedding:
         pv = _pgvector_top_chunks(session, query_embedding, top_k)
         if pv:
             selected = pv
+            mode = "vector_pg"
         else:
             scored_emb: list[tuple[float, AgentKnowledgeChunk]] = []
             for c in chunks:
@@ -136,6 +142,7 @@ def build_rag_context_block(session: Session, user_query: str, query_embedding: 
             scored_emb.sort(key=lambda x: x[0], reverse=True)
             if scored_emb and scored_emb[0][0] > 0.05:
                 selected = [c for _, c in scored_emb[:top_k]]
+                mode = "vector_jsonb"
     if not selected:
         kw = _keyword_scores(user_query, chunks)
         qtok = _tokenize(user_query)
@@ -143,11 +150,15 @@ def build_rag_context_block(session: Session, user_query: str, query_embedding: 
             selected = [c for s, c in kw[:top_k] if s > 0]
         if not selected and kw:
             selected = [c for _, c in kw[:top_k]]
+        if selected:
+            mode = "keyword"
 
     if not selected:
-        return ""
+        return "", meta
 
+    meta["rag_chunks"] = len(selected)
+    meta["rag_mode"] = mode
     parts = []
     for c in selected:
         parts.append(f"### {c.title}\n{c.content}")
-    return "\n\n".join(parts)
+    return "\n\n".join(parts), meta

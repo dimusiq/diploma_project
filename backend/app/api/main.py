@@ -9,6 +9,8 @@ from app.api.routes import (
     dashboard,
     domain_events,
     equipment,
+    equipment_telemetry,
+    integrations,
     items,
     login,
     maintenance_calendar_events,
@@ -23,7 +25,10 @@ from app.api.routes import (
     users,
     utils,
     warehouse_layout,
+    warehouse_live,
     warehouse_simulation,
+    warehouse_simulations,
+    warehouse_tasks,
     warehouse_topology,
     warehouse_twin,
     work_orders,
@@ -43,6 +48,11 @@ api_router.include_router(warehouse_layout.router)
 api_router.include_router(warehouse_topology.router)
 api_router.include_router(warehouse_twin.router)
 api_router.include_router(warehouse_simulation.router)
+api_router.include_router(warehouse_simulations.router)
+api_router.include_router(warehouse_live.router)
+api_router.include_router(warehouse_tasks.router)
+api_router.include_router(equipment_telemetry.router)
+api_router.include_router(integrations.router)
 api_router.include_router(items.router)
 api_router.include_router(equipment.router)
 api_router.include_router(maintenance_schedule.router)

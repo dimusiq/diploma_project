@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from app.services.agent_chat import AgentChatOutcome
 
 
 def test_agent_chat_requires_auth(client: TestClient) -> None:
@@ -41,6 +42,17 @@ def test_agent_permissions_viewer_can_use(
     assert r.json()["can_use"] is True
 
 
+def test_agent_include_reasoning_debug_forbidden_for_viewer(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    r = client.post(
+        f"{settings.API_V1_STR}/agent/chat",
+        headers=normal_user_token_headers,
+        json={"message": "test", "include_reasoning_debug": True},
+    )
+    assert r.status_code == 403
+
+
 def test_agent_chat_viewer_fallback_without_ollama(
     client: TestClient, normal_user_token_headers: dict[str, str], monkeypatch
 ) -> None:
@@ -53,6 +65,9 @@ def test_agent_chat_viewer_fallback_without_ollama(
     assert r.status_code == 200
     data = r.json()
     assert data["ollama_available"] is False
+    assert "public_reasoning" in data
+    assert "brief_explanation" in data["public_reasoning"]
+    assert data.get("run_id")
 
 
 def test_agent_permissions_superuser_can_use(
@@ -93,6 +108,9 @@ def test_agent_chat_fallback_without_ollama(
     assert data["ollama_available"] is False
     assert data["model"] is None
     assert "Контекст" in data["reply"] or "layout" in data["reply"].lower()
+    assert data.get("reasoning_debug") is None
+    pr = data["public_reasoning"]
+    assert "data_sources" in pr
 
 
 def test_agent_chat_with_ollama_mock(
@@ -102,7 +120,19 @@ def test_agent_chat_with_ollama_mock(
     monkeypatch.setattr(settings, "OLLAMA_MODEL", "test-model")
 
     async def fake_run(*_args, **_kwargs):
-        return ("OK: ответ", True, "test-model")
+        return AgentChatOutcome(
+            reply="OK: ответ",
+            ollama_available=True,
+            model="test-model",
+            public_reasoning={
+                "brief_explanation": "Кратко",
+                "tools_used": [],
+                "data_sources": ["aggregates_warehouse_context"],
+                "recommendation": "Итог",
+                "models": {"main_loop": "test-model"},
+                "main_loop_task": "chat",
+            },
+        )
 
     with patch(
         "app.api.routes.agent.run_agent_chat",
@@ -118,3 +148,4 @@ def test_agent_chat_with_ollama_mock(
     assert data["ollama_available"] is True
     assert data["model"] == "test-model"
     assert "OK:" in data["reply"] or "Привет" in data["reply"]
+    assert data["public_reasoning"]["main_loop_task"] == "chat"

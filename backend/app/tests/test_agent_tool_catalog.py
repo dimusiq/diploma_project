@@ -1,0 +1,33 @@
+"""Каталог инструментов агента и фильтрация по правам."""
+
+from app.agent.tool_catalog import CATALOG_BY_NAME, tools_for_user
+
+
+def test_catalog_contains_core_read_tools() -> None:
+    for name in (
+        "get_inventory_summary",
+        "find_item_by_sku",
+        "run_what_if_simulation",
+        "get_layout_topology",
+        "search_sop_documents",
+    ):
+        assert name in CATALOG_BY_NAME
+
+
+def test_catalog_contains_act_and_admin_tools() -> None:
+    assert "create_transfer_task" in CATALOG_BY_NAME
+    assert "publish_layout_version" in CATALOG_BY_NAME
+
+
+def test_get_recent_events_requires_audit_in_payload_filter() -> None:
+    with_audit = {t.name for t in tools_for_user(is_superuser=False, has_audit_read=True)}
+    without = {t.name for t in tools_for_user(is_superuser=False, has_audit_read=False)}
+    assert "get_recent_events" in with_audit
+    assert "get_recent_events" not in without
+
+
+def test_admin_tools_only_for_superuser_payload() -> None:
+    names_user = {t.name for t in tools_for_user(is_superuser=False, has_audit_read=True)}
+    names_su = {t.name for t in tools_for_user(is_superuser=True, has_audit_read=True)}
+    assert "reindex_knowledge" not in names_user
+    assert "reindex_knowledge" in names_su

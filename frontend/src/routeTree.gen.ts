@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutWarehouseTwinRouteImport } from './routes/_layout/warehouse-twin'
+import { Route as LayoutWarehouseTasksRouteImport } from './routes/_layout/warehouse-tasks'
 import { Route as LayoutWarehouseSimulationRouteImport } from './routes/_layout/warehouse-simulation'
 import { Route as LayoutWarehouse3dRouteImport } from './routes/_layout/warehouse-3d'
 import { Route as LayoutWarehouseRouteImport } from './routes/_layout/warehouse'
@@ -25,6 +26,7 @@ import { Route as LayoutShipmentRouteImport } from './routes/_layout/shipment'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
+import { Route as LayoutControlTowerRouteImport } from './routes/_layout/control-tower'
 import { Route as LayoutAssistantRouteImport } from './routes/_layout/assistant'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutTechniqueIndexRouteImport } from './routes/_layout/technique/index'
@@ -63,6 +65,11 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
 const LayoutWarehouseTwinRoute = LayoutWarehouseTwinRouteImport.update({
   id: '/warehouse-twin',
   path: '/warehouse-twin',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutWarehouseTasksRoute = LayoutWarehouseTasksRouteImport.update({
+  id: '/warehouse-tasks',
+  path: '/warehouse-tasks',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutWarehouseSimulationRoute =
@@ -111,6 +118,11 @@ const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutControlTowerRoute = LayoutControlTowerRouteImport.update({
+  id: '/control-tower',
+  path: '/control-tower',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutAssistantRoute = LayoutAssistantRouteImport.update({
   id: '/assistant',
   path: '/assistant',
@@ -147,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/assistant': typeof LayoutAssistantRoute
+  '/control-tower': typeof LayoutControlTowerRoute
   '/dashboard': typeof LayoutDashboardRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
@@ -156,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/warehouse': typeof LayoutWarehouseRoute
   '/warehouse-3d': typeof LayoutWarehouse3dRoute
   '/warehouse-simulation': typeof LayoutWarehouseSimulationRoute
+  '/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/warehouse-twin': typeof LayoutWarehouseTwinRoute
   '/technique/': typeof LayoutTechniqueIndexRoute
   '/technique/equipment/$equipmentId': typeof LayoutTechniqueEquipmentEquipmentIdRoute
@@ -168,6 +182,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/assistant': typeof LayoutAssistantRoute
+  '/control-tower': typeof LayoutControlTowerRoute
   '/dashboard': typeof LayoutDashboardRoute
   '/items': typeof LayoutItemsRoute
   '/settings': typeof LayoutSettingsRoute
@@ -176,6 +191,7 @@ export interface FileRoutesByTo {
   '/warehouse': typeof LayoutWarehouseRoute
   '/warehouse-3d': typeof LayoutWarehouse3dRoute
   '/warehouse-simulation': typeof LayoutWarehouseSimulationRoute
+  '/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/warehouse-twin': typeof LayoutWarehouseTwinRoute
   '/': typeof LayoutIndexRoute
   '/technique': typeof LayoutTechniqueIndexRoute
@@ -191,6 +207,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/assistant': typeof LayoutAssistantRoute
+  '/_layout/control-tower': typeof LayoutControlTowerRoute
   '/_layout/dashboard': typeof LayoutDashboardRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
@@ -200,6 +217,7 @@ export interface FileRoutesById {
   '/_layout/warehouse': typeof LayoutWarehouseRoute
   '/_layout/warehouse-3d': typeof LayoutWarehouse3dRoute
   '/_layout/warehouse-simulation': typeof LayoutWarehouseSimulationRoute
+  '/_layout/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/_layout/warehouse-twin': typeof LayoutWarehouseTwinRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/technique/': typeof LayoutTechniqueIndexRoute
@@ -216,6 +234,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/assistant'
+    | '/control-tower'
     | '/dashboard'
     | '/items'
     | '/settings'
@@ -225,6 +244,7 @@ export interface FileRouteTypes {
     | '/warehouse'
     | '/warehouse-3d'
     | '/warehouse-simulation'
+    | '/warehouse-tasks'
     | '/warehouse-twin'
     | '/technique/'
     | '/technique/equipment/$equipmentId'
@@ -237,6 +257,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/assistant'
+    | '/control-tower'
     | '/dashboard'
     | '/items'
     | '/settings'
@@ -245,6 +266,7 @@ export interface FileRouteTypes {
     | '/warehouse'
     | '/warehouse-3d'
     | '/warehouse-simulation'
+    | '/warehouse-tasks'
     | '/warehouse-twin'
     | '/'
     | '/technique'
@@ -259,6 +281,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_layout/admin'
     | '/_layout/assistant'
+    | '/_layout/control-tower'
     | '/_layout/dashboard'
     | '/_layout/items'
     | '/_layout/settings'
@@ -268,6 +291,7 @@ export interface FileRouteTypes {
     | '/_layout/warehouse'
     | '/_layout/warehouse-3d'
     | '/_layout/warehouse-simulation'
+    | '/_layout/warehouse-tasks'
     | '/_layout/warehouse-twin'
     | '/_layout/'
     | '/_layout/technique/'
@@ -334,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutWarehouseTwinRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/warehouse-tasks': {
+      id: '/_layout/warehouse-tasks'
+      path: '/warehouse-tasks'
+      fullPath: '/warehouse-tasks'
+      preLoaderRoute: typeof LayoutWarehouseTasksRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/warehouse-simulation': {
       id: '/_layout/warehouse-simulation'
       path: '/warehouse-simulation'
@@ -397,6 +428,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutDashboardRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/control-tower': {
+      id: '/_layout/control-tower'
+      path: '/control-tower'
+      fullPath: '/control-tower'
+      preLoaderRoute: typeof LayoutControlTowerRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/assistant': {
       id: '/_layout/assistant'
       path: '/assistant'
@@ -455,6 +493,7 @@ const LayoutTechniqueRouteWithChildren = LayoutTechniqueRoute._addFileChildren(
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
   LayoutAssistantRoute: typeof LayoutAssistantRoute
+  LayoutControlTowerRoute: typeof LayoutControlTowerRoute
   LayoutDashboardRoute: typeof LayoutDashboardRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
@@ -464,6 +503,7 @@ interface LayoutRouteChildren {
   LayoutWarehouseRoute: typeof LayoutWarehouseRoute
   LayoutWarehouse3dRoute: typeof LayoutWarehouse3dRoute
   LayoutWarehouseSimulationRoute: typeof LayoutWarehouseSimulationRoute
+  LayoutWarehouseTasksRoute: typeof LayoutWarehouseTasksRoute
   LayoutWarehouseTwinRoute: typeof LayoutWarehouseTwinRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
 }
@@ -471,6 +511,7 @@ interface LayoutRouteChildren {
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
   LayoutAssistantRoute: LayoutAssistantRoute,
+  LayoutControlTowerRoute: LayoutControlTowerRoute,
   LayoutDashboardRoute: LayoutDashboardRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
@@ -480,6 +521,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutWarehouseRoute: LayoutWarehouseRoute,
   LayoutWarehouse3dRoute: LayoutWarehouse3dRoute,
   LayoutWarehouseSimulationRoute: LayoutWarehouseSimulationRoute,
+  LayoutWarehouseTasksRoute: LayoutWarehouseTasksRoute,
   LayoutWarehouseTwinRoute: LayoutWarehouseTwinRoute,
   LayoutIndexRoute: LayoutIndexRoute,
 }

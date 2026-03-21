@@ -71,3 +71,42 @@ export function postSimulationRun(
     body,
   })
 }
+
+export interface SimulationScenario {
+  id: string
+  name: string
+  description: string | null
+  config: SimulationRunBody
+  baseline_kpis: Record<string, unknown> | null
+  created_by_user_id: string
+  created_at: string
+}
+
+export interface SimulationScenarioList {
+  data: SimulationScenario[]
+  count: number
+}
+
+export function fetchSimulationScenarios(): Promise<SimulationScenarioList> {
+  return request<SimulationScenarioList>("/api/v1/warehouse/simulations/scenarios")
+}
+
+export function postSimulationScenario(body: {
+  name: string
+  description?: string | null
+  config: SimulationRunBody
+}): Promise<SimulationScenario> {
+  return request<SimulationScenario>("/api/v1/warehouse/simulations/scenarios", {
+    method: "POST",
+    body,
+  })
+}
+
+export function postSimulationScenarioRun(
+  scenarioId: string,
+): Promise<SimulationRunResult> {
+  return request<SimulationRunResult>(
+    `/api/v1/warehouse/simulations/scenarios/${scenarioId}/run`,
+    { method: "POST", body: {} },
+  )
+}

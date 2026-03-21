@@ -8,10 +8,15 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
-import { fetchAgentPermissions, postAgentChat } from "@/api/agent.ts"
+import {
+  type AgentPublicReasoningSummary,
+  fetchAgentPermissions,
+  fetchAgentRun,
+  postAgentChat,
+} from "@/api/agent.ts"
 import { ApiError } from "@/client/index.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
@@ -34,7 +39,50 @@ type ChatMessage =
       content: string
       ollamaAvailable: boolean
       model: string | null
+      publicReasoning?: AgentPublicReasoningSummary
+      runId?: string | null
     }
+
+function AgentRunTimeline({ runId }: { runId: string }) {
+  const [open, setOpen] = useState(false)
+  const q = useQuery({
+    queryKey: ["agent-run", runId],
+    queryFn: () => fetchAgentRun(runId),
+    enabled: open,
+  })
+  return (
+    <Box mt={2}>
+      <Button size="xs" variant="ghost" onClick={() => setOpen((v) => !v)}>
+        {open ? "Скрыть таймлайн" : "Таймлайн запуска (шаги)"}
+      </Button>
+      {open ? (
+        <Box mt={2}>
+          {q.isPending ? (
+            <Text fontSize="xs" color="fg.muted">
+              Загрузка…
+            </Text>
+          ) : q.isError ? (
+            <Text fontSize="xs" color="red.fg">
+              Не удалось загрузить трассировку
+            </Text>
+          ) : (
+            <Box
+              as="pre"
+              fontSize="10px"
+              overflow="auto"
+              maxH="200px"
+              p={2}
+              bg="bg.subtle"
+              borderRadius="md"
+            >
+              {JSON.stringify(q.data?.steps ?? [], null, 2)}
+            </Box>
+          )}
+        </Box>
+      ) : null}
+    </Box>
+  )
+}
 
 function AssistantPage() {
   const { showErrorToast } = useCustomToast()
@@ -43,7 +91,7 @@ function AssistantPage() {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const chatMutation = useMutation({
-    mutationFn: postAgentChat,
+    mutationFn: (text: string) => postAgentChat(text),
     onSuccess: (data) => {
       setMessages((prev) => [
         ...prev,
@@ -53,6 +101,8 @@ function AssistantPage() {
           content: data.reply,
           ollamaAvailable: data.ollama_available,
           model: data.model,
+          publicReasoning: data.public_reasoning,
+          runId: data.run_id ?? null,
         },
       ])
     },
@@ -149,6 +199,52 @@ function AssistantPage() {
                   >
                     {m.content}
                   </Box>
+                  {m.publicReasoning ? (
+                    <Box
+                      mt={2}
+                      pl={2}
+                      borderLeftWidth="3px"
+                      borderColor="border.muted"
+                      fontSize="xs"
+                      color="fg.muted"
+                    >
+                      <Text fontWeight="semibold" color="fg" mb={1}>
+                        Как сформирован ответ
+                      </Text>
+                      <Text mb={1}>
+                        <Text as="span" fontWeight="medium">
+                          Кратко:{" "}
+                        </Text>
+                        {m.publicReasoning.brief_explanation}
+                      </Text>
+                      {m.publicReasoning.tools_used.length > 0 ? (
+                        <Text mb={1}>
+                          Инструменты:{" "}
+                          {m.publicReasoning.tools_used
+                            .map((t) => t.name || "?")
+                            .join(", ")}
+                        </Text>
+                      ) : null}
+                      <Text mb={1}>
+                        Источники данных:{" "}
+                        {m.publicReasoning.data_sources.join(", ")}
+                      </Text>
+                      <Text>
+                        <Text as="span" fontWeight="medium">
+                          Итог:{" "}
+                        </Text>
+                        {m.publicReasoning.recommendation}
+                      </Text>
+                    </Box>
+                  ) : null}
+                  {m.runId ? (
+                    <Box mt={2} fontSize="xs" color="fg.muted">
+                      <Text mb={1}>
+                        Запуск: <code>{m.runId}</code>
+                      </Text>
+                      <AgentRunTimeline runId={m.runId} />
+                    </Box>
+                  ) : null}
                 </Box>
               ),
             )}

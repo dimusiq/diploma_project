@@ -135,6 +135,169 @@ class AgentChatLogList(SQLModel):
     count: int
 
 
+class AgentRun(SQLModel, table=True):
+    """Сохранённая трассировка одного запуска ассистента (шаги + публичная сводка)."""
+
+    __tablename__ = "agent_run"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    agent_chat_log_id: uuid.UUID = Field(
+        foreign_key="agent_chat_log.id",
+        ondelete="CASCADE",
+        unique=True,
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    ollama_available: bool = Field(default=False)
+    model: str | None = Field(default=None, max_length=128)
+    steps: list[Any] = Field(sa_column=Column(JSONB, nullable=False))
+    public_reasoning: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
+
+
+class AgentRunPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    agent_chat_log_id: uuid.UUID
+    created_at: datetime
+    ollama_available: bool
+    model: str | None
+    steps: list[Any]
+    public_reasoning: dict[str, Any] | None
+
+
+class AgentRunList(SQLModel):
+    data: list[AgentRunPublic]
+    count: int
+
+
+class FeatureFlag(SQLModel, table=True):
+    __tablename__ = "feature_flag"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    key: str = Field(max_length=128, unique=True, index=True)
+    enabled: bool = Field(default=False)
+    description: str | None = Field(default=None, max_length=512)
+    meta: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+
+
+class FeatureFlagPublic(SQLModel):
+    key: str
+    enabled: bool
+    description: str | None = None
+
+
+class FeatureFlagMap(SQLModel):
+    flags: dict[str, bool]
+
+
+class AgentPolicy(SQLModel, table=True):
+    __tablename__ = "agent_policy"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    code: str = Field(max_length=64, unique=True, index=True)
+    title: str = Field(max_length=255)
+    rules: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+
+
+class AgentPolicyPublic(SQLModel):
+    id: uuid.UUID
+    code: str
+    title: str
+    rules: dict[str, Any]
+    updated_at: datetime
+
+
+class AgentPolicyUpdate(SQLModel):
+    title: str | None = Field(default=None, max_length=255)
+    rules: dict[str, Any] | None = None
+
+
+class AgentPolicyList(SQLModel):
+    data: list[AgentPolicyPublic]
+    count: int
+
+
+class IntegrationInbox(SQLModel, table=True):
+    __tablename__ = "integration_inbox"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    source: str = Field(max_length=128)
+    event_type: str = Field(max_length=128)
+    payload: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    status: str = Field(default="pending", max_length=32, index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    processed_at: datetime | None = None
+
+
+class IntegrationInboxCreate(SQLModel):
+    source: str = Field(max_length=128)
+    event_type: str = Field(max_length=128)
+    payload: dict[str, Any]
+
+
+class IntegrationInboxPublic(SQLModel):
+    id: uuid.UUID
+    source: str
+    event_type: str
+    status: str
+    created_at: datetime
+    processed_at: datetime | None
+
+
+class IntegrationInboxList(SQLModel):
+    data: list[IntegrationInboxPublic]
+    count: int
+
+
+class SimulationScenario(SQLModel, table=True):
+    __tablename__ = "simulation_scenario"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(max_length=255)
+    description: str | None = Field(default=None, max_length=1024)
+    config: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    baseline_kpis: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
+    created_by_user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+
+
+class SimulationScenarioCreate(SQLModel):
+    name: str = Field(max_length=255)
+    description: str | None = Field(default=None, max_length=1024)
+    config: dict[str, Any]
+    baseline_kpis: dict[str, Any] | None = None
+
+
+class SimulationScenarioPublic(SQLModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    config: dict[str, Any]
+    baseline_kpis: dict[str, Any] | None
+    created_by_user_id: uuid.UUID
+    created_at: datetime
+
+
+class SimulationScenarioList(SQLModel):
+    data: list[SimulationScenarioPublic]
+    count: int
+
+
 # --- AuditLog (аудит критичных действий администраторов) ---
 class AuditLog(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -880,6 +1043,43 @@ class WarehouseTask(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class WarehouseTaskPublic(SQLModel):
+    id: uuid.UUID
+    warehouse_id: uuid.UUID
+    task_type: str
+    status: str
+    priority: int
+    assigned_user_id: uuid.UUID | None
+    handling_unit_id: uuid.UUID | None
+    storage_bin_id: uuid.UUID | None
+    payload: dict[str, Any] | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WarehouseTaskList(SQLModel):
+    data: list[WarehouseTaskPublic]
+    count: int
+
+
+class WarehouseTaskCreate(SQLModel):
+    task_type: str = Field(max_length=32)
+    status: str | None = Field(default="pending", max_length=32)
+    priority: int = 0
+    warehouse_id: uuid.UUID | None = None
+    assigned_user_id: uuid.UUID | None = None
+    handling_unit_id: uuid.UUID | None = None
+    storage_bin_id: uuid.UUID | None = None
+    payload: dict[str, Any] | None = None
+
+
+class WarehouseTaskPatch(SQLModel):
+    status: str | None = Field(default=None, max_length=32)
+    priority: int | None = None
+    assigned_user_id: uuid.UUID | None = None
+    payload: dict[str, Any] | None = None
+
+
 class TaskExecution(SQLModel, table=True):
     """Исполнение задания (попытки, фактическое время, результат)."""
 
@@ -935,6 +1135,34 @@ class SensorReading(SQLModel, table=True):
     value_text: str | None = Field(default=None, max_length=1024)
     position: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
     raw: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+
+
+class SensorReadingPublic(SQLModel):
+    id: uuid.UUID
+    warehouse_id: uuid.UUID | None
+    sensor_code: str
+    metric_key: str
+    read_at: datetime
+    value_float: float | None
+    value_text: str | None
+    position: dict[str, Any] | None
+    raw: dict[str, Any] | None
+
+
+class SensorReadingList(SQLModel):
+    data: list[SensorReadingPublic]
+    count: int
+
+
+class SensorReadingCreate(SQLModel):
+    sensor_code: str = Field(max_length=64)
+    metric_key: str = Field(max_length=64)
+    warehouse_id: uuid.UUID | None = None
+    read_at: datetime | None = None
+    value_float: float | None = None
+    value_text: str | None = Field(default=None, max_length=1024)
+    position: dict[str, Any] | None = None
+    raw: dict[str, Any] | None = None
 
 
 class VehiclePosition(SQLModel, table=True):
