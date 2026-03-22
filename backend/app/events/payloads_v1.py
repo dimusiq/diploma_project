@@ -62,3 +62,10 @@ class AlertPayloadV1(EventPayloadBaseV1):
     message: str | None = Field(default=None, max_length=2048)
     entity_type: str | None = Field(default=None, max_length=64)
     entity_id: uuid.UUID | None = None
+
+
+class QueueDepthPayloadV1(EventPayloadBaseV1):
+    warehouse_id: uuid.UUID
+    queue_name: str = Field(min_length=1, max_length=64)
+    depth: int = Field(ge=0, le=1_000_000)
+    meta: dict[str, Any] = Field(default_factory=dict)

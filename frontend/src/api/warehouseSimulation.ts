@@ -38,6 +38,9 @@ export interface SimulationRunBody {
   putaway_rule?: PutawayRule
   layout_travel_scale?: number
   sandbox_extra_putaway_min?: number
+  /** Стартовые очереди DES из проекций twin (TwinQueueDepthProjection). */
+  seed_from_twin?: boolean
+  warehouse_id?: string
 }
 
 export interface SimulationKpis {
@@ -61,6 +64,7 @@ export interface SimulationRunResult {
   kpis: SimulationKpis
   horizon_minutes: number
   event_trace_tail: Array<Record<string, unknown>>
+  twin_initial_state?: Record<string, unknown> | null
 }
 
 export function postSimulationRun(
@@ -70,6 +74,20 @@ export function postSimulationRun(
     method: "POST",
     body,
   })
+}
+
+export interface WarehouseForSimulationSeed {
+  id: string
+  code: string
+  name: string
+}
+
+export function fetchWarehousesForSimulationSeed(): Promise<
+  WarehouseForSimulationSeed[]
+> {
+  return request<WarehouseForSimulationSeed[]>(
+    "/api/v1/warehouse/simulation/warehouses-for-seed",
+  )
 }
 
 export interface SimulationScenario {
@@ -104,9 +122,16 @@ export function postSimulationScenario(body: {
 
 export function postSimulationScenarioRun(
   scenarioId: string,
+  options?: { seed_from_twin?: boolean; warehouse_id?: string },
 ): Promise<SimulationRunResult> {
-  return request<SimulationRunResult>(
-    `/api/v1/warehouse/simulations/scenarios/${scenarioId}/run`,
-    { method: "POST", body: {} },
-  )
+  const params = new URLSearchParams()
+  if (options?.seed_from_twin) {
+    params.set("seed_from_twin", "true")
+  }
+  if (options?.warehouse_id) {
+    params.set("warehouse_id", options.warehouse_id)
+  }
+  const q = params.toString()
+  const path = `/api/v1/warehouse/simulations/scenarios/${scenarioId}/run${q ? `?${q}` : ""}`
+  return request<SimulationRunResult>(path, { method: "POST", body: {} })
 }

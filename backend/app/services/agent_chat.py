@@ -1,14 +1,15 @@
-"""Оркестрация чата ассистента: memory → policy → planner → trace / evaluation / reasoning."""
+"""Оркестрация чата ассистента: memory (Observe) → policy → planner (Reason/Act/Verify) → Conclude."""
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
 from sqlmodel import Session
 
 from app.agent.evaluation import note_reply_for_evaluation
-from app.agent.llm_adapter import ollama_configured, resolve_ollama_model
+from app.agent.llm_adapter import llm_inference_configured, resolve_llm_model
 from app.agent.memory import build_chat_context
 from app.agent.policy import redact_user_message
 from app.agent.reasoning_runtime import (
@@ -20,13 +21,17 @@ from app.agent.tool_safety import AgentToolContext
 from app.agent.trace import AgentTrace, log_trace_audit
 from app.core.config import settings
 from app.models import User
-from app.services.agent_llm import complete_with_ollama_tools
+from app.services.agent_llm import complete_with_llm_tools
+from app.services.agent_operations import (
+    format_operation_memory_block,
+    get_operation_session_for_user,
+)
 
 
 @dataclass(slots=True)
 class AgentChatOutcome:
     reply: str
-    ollama_available: bool
+    llm_available: bool
     model: str | None = None
     public_reasoning: dict[str, Any] = field(default_factory=dict)
     reasoning_debug: dict[str, Any] | None = None
@@ -41,6 +46,7 @@ async def run_agent_chat(
     *,
     allow_mutating_tools: bool = False,
     include_reasoning_debug: bool = False,
+    operation_session_id: uuid.UUID | None = None,
 ) -> AgentChatOutcome:
     """
     Возвращает `AgentChatOutcome` с ответом и публичной сводкой reasoning (без полного CoT).
@@ -51,14 +57,26 @@ async def run_agent_chat(
     trace.add_step("session", detail="start", message_chars=len(user_message))
 
     safe_message = redact_user_message(user_message)
-    context, mem_meta = await build_chat_context(session, user, safe_message)
+    op_block: str | None = None
+    if operation_session_id is not None:
+        op = get_operation_session_for_user(
+            session, session_id=operation_session_id, user=user
+        )
+        if op is not None:
+            op_block = format_operation_memory_block(op)
+    context, mem_meta = await build_chat_context(
+        session,
+        user,
+        safe_message,
+        operation_memory_block=op_block,
+    )
     trace.add_step("memory", detail="context_built", context_chars=len(context))
 
     reasoning = StructuredReasoningRun(run_id=trace.run_id, memory_meta=dict(mem_meta))
 
-    if ollama_configured():
+    if llm_inference_configured():
         loop_kind = main_loop_task_kind()
-        model_name = resolve_ollama_model(loop_kind)
+        model_name = resolve_llm_model(loop_kind)
         tool_ctx = AgentToolContext(
             run_id=trace.run_id,
             actor_user_id=user.id,
@@ -67,7 +85,7 @@ async def run_agent_chat(
             is_superuser=bool(user.is_superuser),
         )
         try:
-            reply = await complete_with_ollama_tools(
+            reply = await complete_with_llm_tools(
                 session=session,
                 user=user,
                 context_block=context,
@@ -87,7 +105,7 @@ async def run_agent_chat(
         dbg = reasoning.to_internal_dict() if include_reasoning_debug else None
         return AgentChatOutcome(
             reply=reply,
-            ollama_available=True,
+            llm_available=True,
             model=model_name,
             public_reasoning=public,
             reasoning_debug=dbg,
@@ -96,9 +114,11 @@ async def run_agent_chat(
         )
 
     fallback = (
-        "Локальная модель (Ollama) не настроена. Задайте переменные окружения "
-        "OLLAMA_BASE_URL (например http://host.docker.internal:11434) и при необходимости "
-        "OLLAMA_MODEL.\n\n"
+        "LLM (vLLM) не настроен. Задайте **VLLM_BASE_URL** (предпочтительно) или "
+        "LLM_OPENAI_BASE_URL / OLLAMA_BASE_URL, например `http://host.docker.internal:8000` "
+        "если vLLM на хосте. Модели: **VLLM_CHAT_MODEL** / LLM_CHAT_MODEL / OLLAMA_MODEL; "
+        "для RAG: **LLM_EMBEDDING_API_STYLE** (по умолчанию openai) и **VLLM_EMBED_MODEL** "
+        "(размерность вектора 768 — см. agent_vector).\n\n"
         f"Доступный контекст по вашим правам:\n\n{context}"
     )
     trace.add_step("finish", detail="fallback_no_llm")
@@ -109,7 +129,7 @@ async def run_agent_chat(
     dbg = reasoning.to_internal_dict() if include_reasoning_debug else None
     return AgentChatOutcome(
         reply=fallback,
-        ollama_available=False,
+        llm_available=False,
         model=None,
         public_reasoning=public,
         reasoning_debug=dbg,

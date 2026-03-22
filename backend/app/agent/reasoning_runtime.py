@@ -1,8 +1,10 @@
 """
 Reasoning trace (внутренний) и публичная сводка без полного chain-of-thought.
 
-LLM-слои: REASONING — основной цикл с tools; ROUTER — опциональная классификация intent;
-CHAT — fallback; EMBEDDING — RAG (agent_rag).
+Операционный контур: Observe (контекст на сервере) → Reason (LLM+router) → Act (tools) →
+Verify (разбор JSON; опционально AGENT_VERIFY_LLM_PASS) → Conclude (ответ + public_reasoning).
+
+LLM-слои: REASONING — основной цикл с tools; ROUTER — intent; CHAT — fallback; EMBEDDING — RAG.
 """
 
 from __future__ import annotations
@@ -13,7 +15,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.agent import llm_adapter
-from app.agent.llm_adapter import LlmTaskKind, ollama_configured
+from app.agent.llm_adapter import LlmTaskKind, llm_inference_configured
+from app.agent.tool_catalog import CATALOG_BY_NAME
+from app.agent.tool_safety import ToolSafetyClass
 from app.core.config import settings
 
 
@@ -28,6 +32,7 @@ class StructuredReasoningRun:
     models_used: dict[str, str] = field(default_factory=dict)
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     llm_rounds: int = 0
+    verify_rounds: list[list[dict[str, Any]]] = field(default_factory=list)
 
     def to_internal_dict(self) -> dict[str, Any]:
         return {
@@ -38,15 +43,83 @@ class StructuredReasoningRun:
             "models_used": self.models_used,
             "tool_calls": self.tool_calls,
             "llm_rounds": self.llm_rounds,
+            "verify_rounds": self.verify_rounds,
         }
 
 
 def main_loop_task_kind() -> LlmTaskKind:
-    """Если задана OLLAMA_MODEL_REASONING — основной цикл идёт через неё (instruction/reasoning)."""
+    """Если задана модель reasoning (VLLM_REASONING_MODEL / …) — основной цикл через неё."""
     r = getattr(settings, "OLLAMA_MODEL_REASONING", None)
     if r and str(r).strip():
         return LlmTaskKind.REASONING
     return LlmTaskKind.CHAT
+
+
+def _confidence_from_verify_rounds(
+    verify_rounds: list[list[dict[str, Any]]],
+) -> str:
+    if not verify_rounds:
+        return "средняя"
+    last = verify_rounds[-1]
+    for n in last:
+        if n.get("ok") is False:
+            return "низкая (ошибка результата инструмента)"
+        if n.get("gate"):
+            return "средняя (нужно подтверждение или sandbox)"
+    return "средняя"
+
+
+def _kpi_effect_hint(tool_calls: list[dict[str, Any]]) -> str | None:
+    for tc in tool_calls:
+        name = str(tc.get("name") or "")
+        spec = CATALOG_BY_NAME.get(name)
+        if spec is not None and spec.safety in (
+            ToolSafetyClass.ACT,
+            ToolSafetyClass.PROPOSE,
+        ):
+            return (
+                "Есть propose/act — перепроверьте фактическое состояние read-инструментом или в UI."
+            )
+    return None
+
+
+def _next_steps_from_reply(paras: list[str]) -> str:
+    if len(paras) <= 2:
+        return ""
+    return "\n".join(paras[1:-1]).strip()[:800]
+
+
+def _operational_cycle_summary(run: StructuredReasoningRun) -> dict[str, str]:
+    mm = run.memory_meta
+    obs: list[str] = []
+    if mm.get("warehouse_context"):
+        obs.append("агрегаты склада")
+    if mm.get("twin_queue_projections"):
+        obs.append("проекции очередей twin")
+    if mm.get("historical_domain_events"):
+        obs.append("метрики domain events")
+    if mm.get("rag_chunks", 0) > 0:
+        obs.append("RAG")
+    if mm.get("operation_session_memory"):
+        obs.append("память операционной сессии")
+    intent = ""
+    if run.router and run.router.get("intent"):
+        intent = f"; intent={run.router.get('intent')!s}"
+    return {
+        "observe": "сервер: " + (", ".join(obs) if obs else "базовый контекст"),
+        "reason": f"раундов LLM: {run.llm_rounds}{intent}",
+        "act": (
+            f"инструментов: {len(run.tool_calls)}"
+            if run.tool_calls
+            else "без вызовов"
+        ),
+        "verify": (
+            f"проверок JSON: {len(run.verify_rounds)}"
+            if run.verify_rounds
+            else "нет исполнения tools"
+        ),
+        "conclude": "ответ пользователю",
+    }
 
 
 def _split_paragraphs(text: str) -> list[str]:
@@ -81,8 +154,12 @@ def build_public_reasoning_view(
         for tc in run.tool_calls
     ]
 
-    data_sources: list[str] = ["aggregates_warehouse_context"]
+    data_sources: list[str] = ["operational_state_warehouse_context"]
     mm = run.memory_meta
+    if mm.get("twin_queue_projections"):
+        data_sources.append("twin_queue_depth_projections")
+    if mm.get("historical_domain_events"):
+        data_sources.append("historical_domain_events_metrics")
     if mm.get("rag_chunks", 0) > 0:
         mode = mm.get("rag_mode") or "mixed"
         data_sources.append(f"agent_knowledge_rag({mode}, n={mm['rag_chunks']})")
@@ -100,6 +177,13 @@ def build_public_reasoning_view(
             deduped.append(x)
     data_sources = deduped
 
+    next_steps = _next_steps_from_reply(paras)
+    confidence = _confidence_from_verify_rounds(run.verify_rounds)
+    kpi_effect = _kpi_effect_hint(run.tool_calls)
+    run_log_ref = (
+        f"{settings.API_V1_STR}/agent/runs/{run.run_id}" if run.run_id else None
+    )
+
     return {
         "brief_explanation": brief,
         "tools_used": tools_used,
@@ -107,16 +191,21 @@ def build_public_reasoning_view(
         "recommendation": recommendation,
         "models": dict(run.models_used),
         "main_loop_task": run.main_loop_task,
+        "next_steps": next_steps or "—",
+        "confidence": confidence,
+        "kpi_effect": kpi_effect,
+        "run_log_ref": run_log_ref,
+        "operational_cycle": _operational_cycle_summary(run),
     }
 
 
 async def run_router_intent(user_message: str) -> dict[str, Any] | None:
     """
-    Дешёвая модель для intent (JSON). Если OLLAMA_MODEL_ROUTER не задан — пропуск.
+    Дешёвая модель для intent (JSON). Если модель router не задана — пропуск.
     """
-    if not ollama_configured():
+    if not llm_inference_configured():
         return None
-    if not llm_adapter.resolve_ollama_model(LlmTaskKind.ROUTER):
+    if not llm_adapter.resolve_llm_model(LlmTaskKind.ROUTER):
         return None
     sys = (
         "Ты маршрутизатор запросов к складскому ассистенту. Ответь ТОЛЬКО одним JSON-объектом без markdown, "

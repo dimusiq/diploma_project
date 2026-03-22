@@ -1,4 +1,4 @@
-"""RAG: справочные фрагменты из БД — keyword + опционально эмбеддинги Ollama."""
+"""RAG: справочные фрагменты из БД — keyword + опционально эмбеддинги через OpenAI/vLLM API."""
 
 from __future__ import annotations
 
@@ -11,7 +11,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 from sqlmodel import Session, select
 
-from app.agent.llm_adapter import LlmTaskKind, resolve_ollama_model
+from app.agent.llm_adapter import (
+    LlmTaskKind,
+    resolve_llm_embeddings_base_url,
+    resolve_llm_model,
+)
 from app.core.agent_vector import AGENT_EMBEDDING_VECTOR_DIMENSIONS
 from app.core.config import settings
 from app.models import AgentKnowledgeChunk
@@ -48,24 +52,39 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
-async def ollama_embed(text: str) -> list[float] | None:
-    if not settings.OLLAMA_BASE_URL or not str(settings.OLLAMA_BASE_URL).strip():
+async def llm_embed_query(text: str) -> list[float] | None:
+    base = resolve_llm_embeddings_base_url()
+    if not base:
         return None
-    model = resolve_ollama_model(LlmTaskKind.EMBEDDING)
+    model = resolve_llm_model(LlmTaskKind.EMBEDDING)
     if not model:
         return None
-    base = str(settings.OLLAMA_BASE_URL).rstrip("/")
-    url = f"{base}/api/embeddings"
-    payload: dict[str, Any] = {"model": model, "prompt": text[:8000]}
+    style = settings.LLM_EMBEDDING_API_STYLE
     timeout = httpx.Timeout(60.0, connect=10.0)
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
-            r = await client.post(url, json=payload)
-            r.raise_for_status()
-            data = r.json()
-    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            if style == "openai":
+                url = f"{base}/v1/embeddings"
+                payload: dict[str, Any] = {
+                    "model": model,
+                    "input": text[:8000],
+                }
+                r = await client.post(url, json=payload)
+                r.raise_for_status()
+                data = r.json()
+                rows = data.get("data")
+                if not isinstance(rows, list) or not rows:
+                    return None
+                emb = rows[0].get("embedding") if isinstance(rows[0], dict) else None
+            else:
+                url = f"{base}/api/embeddings"
+                payload = {"model": model, "prompt": text[:8000]}
+                r = await client.post(url, json=payload)
+                r.raise_for_status()
+                data = r.json()
+                emb = data.get("embedding")
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError):
         return None
-    emb = data.get("embedding")
     if not isinstance(emb, list):
         return None
     out: list[float] = []
@@ -77,6 +96,11 @@ async def ollama_embed(text: str) -> list[float] | None:
     if len(out) != AGENT_EMBEDDING_VECTOR_DIMENSIONS:
         return None
     return out
+
+
+async def ollama_embed(text: str) -> list[float] | None:
+    """Устаревшее имя: то же, что llm_embed_query."""
+    return await llm_embed_query(text)
 
 
 def _vector_literal(vec: list[float]) -> str:

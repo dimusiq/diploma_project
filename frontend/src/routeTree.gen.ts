@@ -24,6 +24,7 @@ import { Route as LayoutTechniqueRouteImport } from './routes/_layout/technique'
 import { Route as LayoutShippedRouteImport } from './routes/_layout/shipped'
 import { Route as LayoutShipmentRouteImport } from './routes/_layout/shipment'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutOperatorHubRouteImport } from './routes/_layout/operator-hub'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutControlTowerRouteImport } from './routes/_layout/control-tower'
@@ -108,6 +109,11 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutOperatorHubRoute = LayoutOperatorHubRouteImport.update({
+  id: '/operator-hub',
+  path: '/operator-hub',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutItemsRoute = LayoutItemsRouteImport.update({
   id: '/items',
   path: '/items',
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/control-tower': typeof LayoutControlTowerRoute
   '/dashboard': typeof LayoutDashboardRoute
   '/items': typeof LayoutItemsRoute
+  '/operator-hub': typeof LayoutOperatorHubRoute
   '/settings': typeof LayoutSettingsRoute
   '/shipment': typeof LayoutShipmentRoute
   '/shipped': typeof LayoutShippedRoute
@@ -185,6 +192,7 @@ export interface FileRoutesByTo {
   '/control-tower': typeof LayoutControlTowerRoute
   '/dashboard': typeof LayoutDashboardRoute
   '/items': typeof LayoutItemsRoute
+  '/operator-hub': typeof LayoutOperatorHubRoute
   '/settings': typeof LayoutSettingsRoute
   '/shipment': typeof LayoutShipmentRoute
   '/shipped': typeof LayoutShippedRoute
@@ -210,6 +218,7 @@ export interface FileRoutesById {
   '/_layout/control-tower': typeof LayoutControlTowerRoute
   '/_layout/dashboard': typeof LayoutDashboardRoute
   '/_layout/items': typeof LayoutItemsRoute
+  '/_layout/operator-hub': typeof LayoutOperatorHubRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/shipment': typeof LayoutShipmentRoute
   '/_layout/shipped': typeof LayoutShippedRoute
@@ -237,6 +246,7 @@ export interface FileRouteTypes {
     | '/control-tower'
     | '/dashboard'
     | '/items'
+    | '/operator-hub'
     | '/settings'
     | '/shipment'
     | '/shipped'
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/control-tower'
     | '/dashboard'
     | '/items'
+    | '/operator-hub'
     | '/settings'
     | '/shipment'
     | '/shipped'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/_layout/control-tower'
     | '/_layout/dashboard'
     | '/_layout/items'
+    | '/_layout/operator-hub'
     | '/_layout/settings'
     | '/_layout/shipment'
     | '/_layout/shipped'
@@ -414,6 +426,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/operator-hub': {
+      id: '/_layout/operator-hub'
+      path: '/operator-hub'
+      fullPath: '/operator-hub'
+      preLoaderRoute: typeof LayoutOperatorHubRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/items': {
       id: '/_layout/items'
       path: '/items'
@@ -496,6 +515,7 @@ interface LayoutRouteChildren {
   LayoutControlTowerRoute: typeof LayoutControlTowerRoute
   LayoutDashboardRoute: typeof LayoutDashboardRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
+  LayoutOperatorHubRoute: typeof LayoutOperatorHubRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutShipmentRoute: typeof LayoutShipmentRoute
   LayoutShippedRoute: typeof LayoutShippedRoute
@@ -514,6 +534,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutControlTowerRoute: LayoutControlTowerRoute,
   LayoutDashboardRoute: LayoutDashboardRoute,
   LayoutItemsRoute: LayoutItemsRoute,
+  LayoutOperatorHubRoute: LayoutOperatorHubRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutShipmentRoute: LayoutShipmentRoute,
   LayoutShippedRoute: LayoutShippedRoute,

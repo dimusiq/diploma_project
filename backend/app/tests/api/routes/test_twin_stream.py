@@ -20,3 +20,4 @@ def test_twin_channels_list_ok(
     assert isinstance(data, list)
     assert "occupancy" in data
     assert "item_movement" in data
+    assert "telemetry" in data

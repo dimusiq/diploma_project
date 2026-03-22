@@ -12,6 +12,7 @@ from app.events.payloads_v1 import (
     EquipmentBatteryPayloadV1,
     EquipmentPositionPayloadV1,
     InventoryEventPayloadV1,
+    QueueDepthPayloadV1,
     SlotBlockPayloadV1,
     TaskLifecyclePayloadV1,
 )
@@ -38,6 +39,7 @@ PAYLOAD_MODEL_V1: dict[str, type[BaseModel]] = {
     catalog.EVENT_TASK_FAILED: TaskLifecyclePayloadV1,
     catalog.EVENT_ALERT_RAISED: AlertPayloadV1,
     catalog.EVENT_ALERT_RESOLVED: AlertPayloadV1,
+    catalog.EVENT_QUEUE_DEPTH_UPDATED: QueueDepthPayloadV1,
 }
 
 

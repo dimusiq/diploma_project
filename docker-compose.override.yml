@@ -148,6 +148,10 @@ services:
         - VITE_API_URL=http://localhost:8000
         - NODE_ENV=development
 
+  # Inference (vLLM и т.п.) поднимается отдельно от этого compose.
+  # В .env для backend/worker, например: VLLM_BASE_URL=http://host.docker.internal:8000
+  # (vLLM на хосте) или URL вашего k8s/отдельного compose. Legacy: OLLAMA_BASE_URL.
+
   playwright:
     build:
       context: ./frontend

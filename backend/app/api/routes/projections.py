@@ -13,9 +13,13 @@ from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.permissions import PERM_AUDIT_READ
 from app.models import (
     ProjectionConsumerProcessed,
+    TwinAlertOpenProjection,
+    TwinEquipmentPoseProjection,
     TwinProjectionEntry,
     TwinProjectionEntryPublic,
     TwinProjectionFeed,
+    TwinQueueDepthProjection,
+    TwinTaskStateProjection,
 )
 from app.projections.consumers import CONSUMER_HANDLERS
 from app.services.outbox_dispatch import enqueue_replay_all_domain_events
@@ -28,7 +32,10 @@ class ProjectionReplayRequest(BaseModel):
 
     purge_twin_timeline: bool = Field(
         default=True,
-        description="Удалить строки twin_projection_entry",
+        description=(
+            "Удалить twin_projection_entry и read-модели twin (task, equipment pose, queue, alert). "
+            "warehouse_slot_occupancy не трогается — полный пересчёт через воркер reconcile."
+        ),
     )
     consumer_names: list[str] | None = Field(
         default=None,
@@ -62,6 +69,10 @@ def post_projections_replay(
     if body.purge_twin_timeline:
         r = session.execute(delete(TwinProjectionEntry))
         twin_deleted = r.rowcount or 0
+        session.execute(delete(TwinTaskStateProjection))
+        session.execute(delete(TwinEquipmentPoseProjection))
+        session.execute(delete(TwinQueueDepthProjection))
+        session.execute(delete(TwinAlertOpenProjection))
 
     proc_stmt = delete(ProjectionConsumerProcessed)
     if body.consumer_names:

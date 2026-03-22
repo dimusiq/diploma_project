@@ -110,6 +110,12 @@ class AgentChatLog(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    operation_session_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="agent_operation_session.id",
+        ondelete="SET NULL",
+        index=True,
+    )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         index=True,
@@ -123,10 +129,11 @@ class AgentChatLog(SQLModel, table=True):
 class AgentChatLogPublic(SQLModel):
     id: uuid.UUID
     user_id: uuid.UUID
+    operation_session_id: uuid.UUID | None = None
     created_at: datetime
     message_preview: str
     reply_preview: str
-    ollama_available: bool
+    llm_available: bool
     model: str | None = None
 
 
@@ -164,7 +171,7 @@ class AgentRunPublic(SQLModel):
     user_id: uuid.UUID
     agent_chat_log_id: uuid.UUID
     created_at: datetime
-    ollama_available: bool
+    llm_available: bool
     model: str | None
     steps: list[Any]
     public_reasoning: dict[str, Any] | None
@@ -225,6 +232,154 @@ class AgentPolicyList(SQLModel):
     count: int
 
 
+class AgentOperationSession(SQLModel, table=True):
+    """Долгоживущая операционная сессия агента: память (сводка + факты) между запросами чата."""
+
+    __tablename__ = "agent_operation_session"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    title: str | None = Field(default=None, max_length=255)
+    status: str = Field(default="open", max_length=32, index=True)
+    rolling_summary: str | None = Field(default=None)
+    facts: list[Any] = Field(
+        default_factory=list,
+        sa_column=Column(JSONB, nullable=False),
+        description="Список записей {run_id, excerpt, at, phase?}",
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class AgentOperationSessionCreate(SQLModel):
+    title: str | None = Field(default=None, max_length=255)
+
+
+class AgentOperationSessionPatch(SQLModel):
+    title: str | None = Field(default=None, max_length=255)
+    rolling_summary: str | None = None
+    status: str | None = Field(default=None, max_length=32)
+
+
+class AgentOperationSessionPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    title: str | None
+    status: str
+    rolling_summary: str | None
+    facts: list[Any]
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgentOperationSessionList(SQLModel):
+    data: list[AgentOperationSessionPublic]
+    count: int
+
+
+class AgentPendingAction(SQLModel, table=True):
+    """Очередь подтверждения act-инструментов (approval layer)."""
+
+    __tablename__ = "agent_pending_action"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    agent_run_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="agent_run.id",
+        ondelete="SET NULL",
+        index=True,
+    )
+    tool_name: str = Field(max_length=128)
+    arguments: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    rationale: str | None = Field(default=None)
+    status: str = Field(default="pending", max_length=32, index=True)
+    result_preview: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    resolved_at: datetime | None = Field(default=None)
+    resolved_by_user_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="user.id",
+        ondelete="SET NULL",
+    )
+    source: str = Field(default="manual", max_length=32)
+
+
+class AgentPendingActionCreate(SQLModel):
+    tool_name: str = Field(min_length=1, max_length=128)
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    rationale: str | None = None
+    agent_run_id: uuid.UUID | None = None
+
+
+class AgentPendingActionPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    agent_run_id: uuid.UUID | None
+    tool_name: str
+    arguments: dict[str, Any]
+    rationale: str | None
+    status: str
+    result_preview: str | None
+    created_at: datetime
+    resolved_at: datetime | None
+    resolved_by_user_id: uuid.UUID | None
+    source: str = "manual"
+
+
+class AgentPendingActionList(SQLModel):
+    data: list[AgentPendingActionPublic]
+    count: int
+
+
+class AgentOrchestrationJob(SQLModel, table=True):
+    """Отложенные шаги оркестрации (обрабатывает воркер)."""
+
+    __tablename__ = "agent_orchestration_job"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    operation_session_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="agent_operation_session.id",
+        ondelete="CASCADE",
+        index=True,
+    )
+    job_type: str = Field(max_length=64)
+    payload: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    run_after: datetime = Field(index=True)
+    status: str = Field(default="pending", max_length=32, index=True)
+    result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    last_error: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class AgentOrchestrationJobCreate(SQLModel):
+    operation_session_id: uuid.UUID
+    run_after_seconds: int = Field(default=0, ge=0, le=86400 * 14)
+    fact: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentOrchestrationJobPublic(SQLModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    operation_session_id: uuid.UUID | None
+    job_type: str
+    payload: dict[str, Any]
+    run_after: datetime
+    status: str
+    result: dict[str, Any] | None
+    last_error: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgentOrchestrationJobList(SQLModel):
+    data: list[AgentOrchestrationJobPublic]
+    count: int
+
+
 class IntegrationInbox(SQLModel, table=True):
     __tablename__ = "integration_inbox"
 
@@ -238,12 +393,21 @@ class IntegrationInbox(SQLModel, table=True):
         index=True,
     )
     processed_at: datetime | None = None
+    twin_published_at: datetime | None = Field(default=None)
+    idempotency_key: str | None = Field(default=None, max_length=256)
+    processing_error: str | None = Field(default=None)
+    domain_event_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="domain_event.id",
+        ondelete="SET NULL",
+    )
 
 
 class IntegrationInboxCreate(SQLModel):
     source: str = Field(max_length=128)
     event_type: str = Field(max_length=128)
     payload: dict[str, Any]
+    idempotency_key: str | None = Field(default=None, max_length=256)
 
 
 class IntegrationInboxPublic(SQLModel):
@@ -253,6 +417,10 @@ class IntegrationInboxPublic(SQLModel):
     status: str
     created_at: datetime
     processed_at: datetime | None
+    twin_published_at: datetime | None = None
+    idempotency_key: str | None = None
+    domain_event_id: uuid.UUID | None = None
+    processing_error: str | None = None
 
 
 class IntegrationInboxList(SQLModel):
@@ -1194,6 +1362,27 @@ class VehiclePosition(SQLModel, table=True):
     extra: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
 
 
+class VehiclePositionPublic(SQLModel):
+    id: uuid.UUID
+    warehouse_id: uuid.UUID | None
+    equipment_id: uuid.UUID | None
+    external_vehicle_id: str | None
+    recorded_at: datetime
+    pose: dict[str, Any]
+    source: str | None
+    extra: dict[str, Any] | None
+
+
+class VehiclePositionCreate(SQLModel):
+    warehouse_id: uuid.UUID | None = None
+    equipment_id: uuid.UUID | None = None
+    external_vehicle_id: str | None = Field(default=None, max_length=128)
+    recorded_at: datetime | None = None
+    pose: dict[str, Any] = Field(default_factory=dict)
+    source: str | None = Field(default=None, max_length=64)
+    extra: dict[str, Any] | None = None
+
+
 # --- WarehouseSlotOccupancy (read-модель: какая ячейка → какой товар; KPI / лёгкие запросы) ---
 class WarehouseSlotOccupancy(SQLModel, table=True):
     __tablename__ = "warehouse_slot_occupancy"
@@ -1313,6 +1502,232 @@ class TwinProjectionEntryPublic(SQLModel):
 
 class TwinProjectionFeed(SQLModel):
     data: list[TwinProjectionEntryPublic]
+    count: int
+
+
+class TwinTaskStateProjection(SQLModel, table=True):
+    """Проекция состояния складских заданий для twin/UI (обновляется из доменных событий)."""
+
+    __tablename__ = "twin_task_state_projection"
+
+    warehouse_task_id: uuid.UUID = Field(
+        foreign_key="warehouse_task.id",
+        ondelete="CASCADE",
+        primary_key=True,
+    )
+    warehouse_id: uuid.UUID = Field(foreign_key="warehouse.id", ondelete="CASCADE", index=True)
+    task_type: str = Field(max_length=32)
+    status: str = Field(max_length=32, index=True)
+    payload: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_domain_event_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="domain_event.id",
+        ondelete="SET NULL",
+    )
+
+
+class TwinEquipmentPoseProjection(SQLModel, table=True):
+    """Последняя известная поза техники (из equipment.position_updated)."""
+
+    __tablename__ = "twin_equipment_pose_projection"
+
+    equipment_id: uuid.UUID = Field(
+        foreign_key="equipment.id",
+        ondelete="CASCADE",
+        primary_key=True,
+    )
+    warehouse_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="warehouse.id",
+        ondelete="SET NULL",
+    )
+    pose: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
+    source: str | None = Field(default=None, max_length=64)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_domain_event_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="domain_event.id",
+        ondelete="SET NULL",
+    )
+
+
+class TwinQueueDepthProjection(SQLModel, table=True):
+    """Глубина очередей (док, отбор, …) для дашборда twin."""
+
+    __tablename__ = "twin_queue_depth_projection"
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "queue_name", name="uq_twin_queue_depth_wh_name"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    warehouse_id: uuid.UUID = Field(foreign_key="warehouse.id", ondelete="CASCADE", index=True)
+    queue_name: str = Field(max_length=64)
+    depth: int = Field(default=0, ge=0)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_domain_event_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="domain_event.id",
+        ondelete="SET NULL",
+    )
+
+
+class TwinAlertOpenProjection(SQLModel, table=True):
+    """Открытые алерты (alert.raised / alert.resolved)."""
+
+    __tablename__ = "twin_alert_open_projection"
+
+    alert_id: uuid.UUID = Field(primary_key=True)
+    severity: str | None = Field(default=None, max_length=32)
+    code: str | None = Field(default=None, max_length=64)
+    message: str | None = Field(default=None, max_length=2048)
+    entity_type: str | None = Field(default=None, max_length=64)
+    entity_id: uuid.UUID | None = Field(default=None)
+    raised_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    resolved_at: datetime | None = Field(default=None)
+    last_domain_event_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="domain_event.id",
+        ondelete="SET NULL",
+    )
+
+
+# --- Twin SLA / business rules (семантический слой ограничений и KPI/SLA) ---
+
+
+class TwinSlaDefinition(SQLModel, table=True):
+    """Декларативное SLA: на что действует, метрика, порог (JSON), окно агрегации."""
+
+    __tablename__ = "twin_sla_definition"
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_twin_sla_wh_code"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    warehouse_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="warehouse.id",
+        ondelete="CASCADE",
+        index=True,
+        description="NULL — определение на уровне тенанта / всех складов",
+    )
+    code: str = Field(max_length=64, index=True)
+    title: str = Field(max_length=255)
+    description: str | None = Field(default=None, max_length=1024)
+    target_entity_kind: str = Field(
+        max_length=64,
+        description="См. TwinEntityKind в warehouse_twin_semantics",
+    )
+    metric_key: str = Field(max_length=128)
+    target_spec: dict[str, Any] = Field(
+        sa_column=Column(JSONB, nullable=False),
+        description="Порог, оператор сравнения, единицы (произвольный JSON)",
+    )
+    window_spec: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+        description="Окно времени / скользящий интервал",
+    )
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class TwinSlaDefinitionCreate(SQLModel):
+    code: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=255)
+    warehouse_id: uuid.UUID | None = None
+    description: str | None = Field(default=None, max_length=1024)
+    target_entity_kind: str = Field(max_length=64)
+    metric_key: str = Field(max_length=128)
+    target_spec: dict[str, Any]
+    window_spec: dict[str, Any] | None = None
+    is_active: bool = True
+
+
+class TwinSlaDefinitionPublic(SQLModel):
+    id: uuid.UUID
+    warehouse_id: uuid.UUID | None
+    code: str
+    title: str
+    description: str | None
+    target_entity_kind: str
+    metric_key: str
+    target_spec: dict[str, Any]
+    window_spec: dict[str, Any] | None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class TwinSlaDefinitionList(SQLModel):
+    data: list[TwinSlaDefinitionPublic]
+    count: int
+
+
+class TwinBusinessRule(SQLModel, table=True):
+    """Правило / ограничение: JSON-выражение под будущий движок; kind задаёт роль."""
+
+    __tablename__ = "twin_business_rule"
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_twin_rule_wh_code"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    warehouse_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="warehouse.id",
+        ondelete="CASCADE",
+        index=True,
+    )
+    code: str = Field(max_length=64, index=True)
+    title: str = Field(max_length=255)
+    rule_kind: str = Field(
+        max_length=32,
+        description="constraint|validation|routing_hint|policy",
+    )
+    applies_to_entity_kind: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Необязательная привязка к TwinEntityKind",
+    )
+    expression: dict[str, Any] = Field(
+        sa_column=Column(JSONB, nullable=False),
+        description="Структурированное условие / шаблон маршрутизации",
+    )
+    priority: int = Field(default=0)
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class TwinBusinessRuleCreate(SQLModel):
+    code: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=255)
+    warehouse_id: uuid.UUID | None = None
+    rule_kind: str = Field(max_length=32)
+    applies_to_entity_kind: str | None = Field(default=None, max_length=64)
+    expression: dict[str, Any]
+    priority: int = 0
+    is_active: bool = True
+
+
+class TwinBusinessRulePublic(SQLModel):
+    id: uuid.UUID
+    warehouse_id: uuid.UUID | None
+    code: str
+    title: str
+    rule_kind: str
+    applies_to_entity_kind: str | None
+    expression: dict[str, Any]
+    priority: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class TwinBusinessRuleList(SQLModel):
+    data: list[TwinBusinessRulePublic]
     count: int
 
 

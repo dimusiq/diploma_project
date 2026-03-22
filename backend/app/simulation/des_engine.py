@@ -40,6 +40,9 @@ class SimulationConfig:
     putaway_rule: PutawayRule = "nearest"
     layout_travel_scale: float = 1.0
     sandbox_extra_putaway_min: float = 0.0
+    initial_dock_queue: int = 0
+    initial_putaway_queue: int = 0
+    initial_pick_queue: int = 0
 
 
 @dataclass
@@ -182,6 +185,21 @@ def run_discrete_event_simulation(cfg: SimulationConfig) -> SimulationResult:
             if wait > sla_wait_threshold_min:
                 acc.late_picks += 1
             push(end, "pick_done", fk=fi, op=oi, pid=pid)
+
+    for _ in range(max(0, cfg.initial_dock_queue)):
+        dock_queue.append(0.0)
+    for _ in range(max(0, cfg.initial_putaway_queue)):
+        putaway_queue.append((0.0, pallet_id))
+        pallet_id += 1
+    for _ in range(max(0, cfg.initial_pick_queue)):
+        pick_queue.append((0.0, pick_id))
+        pick_id += 1
+    acc.max_dock_q = max(acc.max_dock_q, len(dock_queue))
+    acc.max_put_q = max(acc.max_put_q, len(putaway_queue))
+    acc.max_pick_q = max(acc.max_pick_q, len(pick_queue))
+    try_dock(0.0)
+    try_putaway(0.0)
+    try_pick(0.0)
 
     push(next_exp(cfg.truck_arrival_rate_per_hour), "truck_arrive")
     push(next_exp(cfg.pick_orders_per_hour), "pick_arrive")

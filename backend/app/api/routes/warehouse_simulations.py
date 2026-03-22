@@ -13,7 +13,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.api.routes.warehouse_simulation import (
     SimulationRunBody,
     SimulationRunResponse,
-    _kpis_to_response,
+    run_simulation_for_body,
 )
 from app.models import (
     SimulationScenario,
@@ -21,7 +21,6 @@ from app.models import (
     SimulationScenarioList,
     SimulationScenarioPublic,
 )
-from app.simulation.des_engine import SimulationConfig, run_discrete_event_simulation
 
 router = APIRouter(prefix="/warehouse/simulations", tags=["warehouse-simulations"])
 
@@ -119,39 +118,30 @@ def run_saved_simulation_scenario(
     session: SessionDep,
     current_user: CurrentUser,
     scenario_id: uuid.UUID,
+    seed_from_twin: bool = Query(
+        default=False,
+        description="Добавить к прогону стартовые очереди из проекций twin",
+    ),
+    warehouse_id: uuid.UUID | None = Query(
+        default=None,
+        description="Склад для чтения очередей twin (иначе — первый склад в системе)",
+    ),
 ) -> SimulationRunResponse:
     s = session.get(SimulationScenario, scenario_id)
     if not s:
         raise HTTPException(status_code=404, detail="Сценарий не найден")
     if not current_user.is_superuser and s.created_by_user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Нет доступа к сценарию")
+    merged = dict(s.config)
+    if seed_from_twin:
+        merged["seed_from_twin"] = True
+    if warehouse_id is not None:
+        merged["warehouse_id"] = str(warehouse_id)
     try:
-        body = SimulationRunBody.model_validate(s.config)
+        body = SimulationRunBody.model_validate(merged)
     except Exception as e:
         raise HTTPException(
             status_code=400,
             detail=f"Некорректный config сценария: {e!s}",
         ) from e
-    cfg = SimulationConfig(
-        duration_hours=body.duration_hours,
-        seed=body.seed,
-        dock_bays=body.dock_bays,
-        num_forklifts=body.num_forklifts,
-        num_operators=body.num_operators,
-        truck_arrival_rate_per_hour=body.truck_arrival_rate_per_hour,
-        mean_dock_service_min=body.mean_dock_service_min,
-        pick_orders_per_hour=body.pick_orders_per_hour,
-        mean_pick_duration_min=body.mean_pick_duration_min,
-        mean_putaway_duration_min=body.mean_putaway_duration_min,
-        replenishment_trips_per_hour=body.replenishment_trips_per_hour,
-        mean_replenishment_min=body.mean_replenishment_min,
-        putaway_rule=body.putaway_rule,
-        layout_travel_scale=body.layout_travel_scale,
-        sandbox_extra_putaway_min=body.sandbox_extra_putaway_min,
-    )
-    result = run_discrete_event_simulation(cfg)
-    return SimulationRunResponse(
-        kpis=_kpis_to_response(result.kpis),
-        horizon_minutes=result.horizon_minutes,
-        event_trace_tail=result.event_trace_tail,
-    )
+    return run_simulation_for_body(session, current_user, body)

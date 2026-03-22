@@ -1,6 +1,13 @@
-"""Чат-ассистент по складу: контекст из БД, RAG, Ollama, инструменты."""
+"""Чат-ассистент по складу.
+
+Контекст агента: оперативное состояние (агрегаты склада, сессия операций), база знаний
+(RAG), политики (промпт, PII, sandbox, права), инструменты, срез истории domain events
+при audit.read. Ответ: выводы и рекомендации в тексте; исполнение действий — только через
+инструменты при разрешении API (allow_mutating_tools, pending-actions).
+"""
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
@@ -8,7 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlmodel import col, func, select
 
-from app.agent.tool_catalog import tools_for_user
+from app.agent.tool_catalog import CATALOG_BY_NAME, tools_for_user
+from app.agent.tool_safety import ToolSafetyClass
 from app.api.deps import (
     CurrentUser,
     SessionDep,
@@ -20,6 +28,7 @@ from app.core.permissions import (
     PERM_AGENT_POLICIES_READ,
     PERM_AGENT_USE,
     PERM_AUDIT_READ,
+    PERM_INTEGRATIONS_INBOX_WRITE,
     can_use_agent,
     user_has_permission,
 )
@@ -27,6 +36,19 @@ from app.models import (
     AgentChatLog,
     AgentChatLogList,
     AgentChatLogPublic,
+    AgentOperationSession,
+    AgentOperationSessionCreate,
+    AgentOperationSessionList,
+    AgentOperationSessionPatch,
+    AgentOperationSessionPublic,
+    AgentOrchestrationJob,
+    AgentOrchestrationJobCreate,
+    AgentOrchestrationJobList,
+    AgentOrchestrationJobPublic,
+    AgentPendingAction,
+    AgentPendingActionCreate,
+    AgentPendingActionList,
+    AgentPendingActionPublic,
     AgentPolicy,
     AgentPolicyList,
     AgentPolicyPublic,
@@ -37,6 +59,11 @@ from app.models import (
 )
 from app.realtime.twin_stream_hub import publish_agent_run_finished
 from app.services.agent_chat import run_agent_chat
+from app.services.agent_operations import (
+    append_session_fact,
+    get_operation_session_for_user,
+)
+from app.services.agent_pending_actions import execute_pending_action
 from app.services.agent_rate_limit import enforce_agent_chat_rate_limit
 
 router = APIRouter(prefix="/agent", tags=["agent"])
@@ -44,6 +71,10 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 
 class AgentChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
+    operation_session_id: uuid.UUID | None = Field(
+        default=None,
+        description="Долгоживущая операция: подмешать память сессии и записать итог в facts",
+    )
     allow_mutating_tools: bool = Field(
         default=False,
         description=(
@@ -58,7 +89,7 @@ class AgentChatRequest(BaseModel):
 
 
 class AgentPublicReasoningSummary(BaseModel):
-    """Публичная сводка без полного chain-of-thought."""
+    """Публичная сводка без полного chain-of-thought (фаза Conclude + метки цикла)."""
 
     brief_explanation: str
     tools_used: list[dict[str, Any]] = Field(default_factory=list)
@@ -66,11 +97,31 @@ class AgentPublicReasoningSummary(BaseModel):
     recommendation: str
     models: dict[str, str] = Field(default_factory=dict)
     main_loop_task: str = "chat"
+    next_steps: str = Field(
+        default="—",
+        description="Промежуточные абзацы ответа: что сделать дальше",
+    )
+    confidence: str = Field(
+        default="средняя",
+        description="Эвристика по результатам verify после tools",
+    )
+    kpi_effect: str | None = Field(
+        default=None,
+        description="Подсказка, если вызывались propose/act",
+    )
+    run_log_ref: str | None = Field(
+        default=None,
+        description="GET таймлайна запуска (тот же run_id, что в ответе чата)",
+    )
+    operational_cycle: dict[str, str] = Field(
+        default_factory=dict,
+        description="Краткая сводка фаз Observe→Reason→Act→Verify→Conclude",
+    )
 
 
 class AgentChatResponse(BaseModel):
     reply: str
-    ollama_available: bool
+    llm_available: bool
     model: str | None = None
     public_reasoning: AgentPublicReasoningSummary
     reasoning_debug: dict[str, Any] | None = None
@@ -92,6 +143,11 @@ class AgentToolsListResponse(BaseModel):
 
 class AgentPermissionsResponse(BaseModel):
     can_use: bool
+
+
+class AgentPendingExecuteResponse(BaseModel):
+    status: str
+    tool_output_excerpt: str
 
 
 @router.get("/permissions", response_model=AgentPermissionsResponse)
@@ -124,7 +180,19 @@ def list_agent_chat_logs(
         ).all()
     )
     return AgentChatLogList(
-        data=[AgentChatLogPublic.model_validate(r) for r in rows],
+        data=[
+            AgentChatLogPublic(
+                id=r.id,
+                user_id=r.user_id,
+                operation_session_id=r.operation_session_id,
+                created_at=r.created_at,
+                message_preview=r.message_preview,
+                reply_preview=r.reply_preview,
+                llm_available=r.ollama_available,
+                model=r.model,
+            )
+            for r in rows
+        ],
         count=count,
     )
 
@@ -139,9 +207,11 @@ def list_agent_tools_catalog(
     current_user: CurrentUser,
 ) -> AgentToolsListResponse:
     has_audit = user_has_permission(session, current_user, PERM_AUDIT_READ)
+    has_inbox = user_has_permission(session, current_user, PERM_INTEGRATIONS_INBOX_WRITE)
     items = tools_for_user(
         is_superuser=bool(current_user.is_superuser),
         has_audit_read=has_audit,
+        has_inbox_write=has_inbox,
     )
     return AgentToolsListResponse(
         tools=[
@@ -184,7 +254,7 @@ def list_agent_runs(
                 user_id=r.user_id,
                 agent_chat_log_id=r.agent_chat_log_id,
                 created_at=r.created_at,
-                ollama_available=r.ollama_available,
+                llm_available=r.ollama_available,
                 model=r.model,
                 steps=r.steps,
                 public_reasoning=r.public_reasoning,
@@ -215,7 +285,7 @@ def get_agent_run(
         user_id=row.user_id,
         agent_chat_log_id=row.agent_chat_log_id,
         created_at=row.created_at,
-        ollama_available=row.ollama_available,
+        llm_available=row.ollama_available,
         model=row.model,
         steps=row.steps,
         public_reasoning=row.public_reasoning,
@@ -285,8 +355,8 @@ async def agent_chat(
     body: AgentChatRequest,
 ) -> Any:
     """
-    Ответ на вопрос по складу. Контекст — агрегаты, layout, RAG по справочнику, инструменты (поиск товаров).
-    Лимит запросов: `AGENT_CHAT_RATE_LIMIT_PER_MINUTE` (память процесса или Redis).
+    Операционный агент: цикл Observe (контекст+twin+RAG+метрики) → Reason → Act (tools) →
+    Verify → Conclude. Лимит: `AGENT_CHAT_RATE_LIMIT_PER_MINUTE`.
     """
     enforce_agent_chat_rate_limit(current_user.id)
     allow_act = body.allow_mutating_tools
@@ -307,23 +377,25 @@ async def agent_chat(
             body.message,
             allow_mutating_tools=allow_act,
             include_reasoning_debug=body.include_reasoning_debug,
+            operation_session_id=body.operation_session_id,
         )
     except httpx.HTTPStatusError as e:
         raise HTTPException(
             status_code=502,
-            detail=f"Ollama вернула ошибку: {e.response.status_code}",
+            detail=f"Inference (vLLM) вернул ошибку: {e.response.status_code}",
         ) from e
     except Exception as e:
         raise HTTPException(
             status_code=502,
-            detail=f"Не удалось обратиться к Ollama: {e!s}",
+            detail=f"Не удалось обратиться к inference (vLLM): {e!s}",
         ) from e
 
     log = AgentChatLog(
         user_id=current_user.id,
+        operation_session_id=body.operation_session_id,
         message_preview=body.message[:500],
         reply_preview=outcome.reply[:500],
-        ollama_available=outcome.ollama_available,
+        ollama_available=outcome.llm_available,
         model=outcome.model,
     )
     session.add(log)
@@ -339,26 +411,319 @@ async def agent_chat(
             id=run_uuid,
             user_id=current_user.id,
             agent_chat_log_id=log.id,
-            ollama_available=outcome.ollama_available,
+            ollama_available=outcome.llm_available,
             model=outcome.model,
             steps=outcome.trace_steps,
             public_reasoning=outcome.public_reasoning,
         )
         session.add(ar)
+    if body.operation_session_id is not None:
+        op = get_operation_session_for_user(
+            session, session_id=body.operation_session_id, user=current_user
+        )
+        if op is not None:
+            append_session_fact(
+                session,
+                op=op,
+                fact={
+                    "phase": "conclude",
+                    "at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    "run_id": outcome.run_id,
+                    "message_excerpt": body.message[:240],
+                    "reply_excerpt": outcome.reply[:400],
+                },
+            )
     session.commit()
     session.refresh(log)
     publish_agent_run_finished(
         user_id=current_user.id,
         log_id=log.id,
         message_preview=log.message_preview,
-        ollama_available=outcome.ollama_available,
+        llm_available=outcome.llm_available,
     )
 
     return AgentChatResponse(
         reply=outcome.reply,
-        ollama_available=outcome.ollama_available,
+        llm_available=outcome.llm_available,
         model=outcome.model,
         public_reasoning=AgentPublicReasoningSummary(**outcome.public_reasoning),
         reasoning_debug=outcome.reasoning_debug,
         run_id=str(run_uuid) if run_uuid else None,
     )
+
+
+def _op_public(r: AgentOperationSession) -> AgentOperationSessionPublic:
+    return AgentOperationSessionPublic.model_validate(r)
+
+
+def _pending_public(r: AgentPendingAction) -> AgentPendingActionPublic:
+    return AgentPendingActionPublic.model_validate(r)
+
+
+def _orch_public(r: AgentOrchestrationJob) -> AgentOrchestrationJobPublic:
+    return AgentOrchestrationJobPublic.model_validate(r)
+
+
+@router.post(
+    "/operation-sessions",
+    response_model=AgentOperationSessionPublic,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def create_operation_session(
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: AgentOperationSessionCreate,
+) -> Any:
+    now = datetime.now(timezone.utc)
+    row = AgentOperationSession(
+        user_id=current_user.id,
+        title=body.title,
+        status="open",
+        facts=[],
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _op_public(row)
+
+
+@router.get(
+    "/operation-sessions",
+    response_model=AgentOperationSessionList,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def list_operation_sessions(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(30, ge=1, le=100),
+) -> Any:
+    stmt = (
+        select(AgentOperationSession)
+        .where(AgentOperationSession.user_id == current_user.id)
+        .order_by(col(AgentOperationSession.updated_at).desc())
+    )
+    count = session.exec(
+        select(func.count())
+        .select_from(AgentOperationSession)
+        .where(AgentOperationSession.user_id == current_user.id)
+    ).one()
+    rows = list(session.exec(stmt.offset(skip).limit(limit)).all())
+    return AgentOperationSessionList(data=[_op_public(r) for r in rows], count=count)
+
+
+@router.get(
+    "/operation-sessions/{session_id}",
+    response_model=AgentOperationSessionPublic,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def get_operation_session(
+    session: SessionDep,
+    current_user: CurrentUser,
+    session_id: uuid.UUID,
+) -> Any:
+    row = get_operation_session_for_user(session, session_id=session_id, user=current_user)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Сессия не найдена")
+    return _op_public(row)
+
+
+@router.patch(
+    "/operation-sessions/{session_id}",
+    response_model=AgentOperationSessionPublic,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def patch_operation_session(
+    session: SessionDep,
+    current_user: CurrentUser,
+    session_id: uuid.UUID,
+    body: AgentOperationSessionPatch,
+) -> Any:
+    row = get_operation_session_for_user(session, session_id=session_id, user=current_user)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Сессия не найдена")
+    if body.title is not None:
+        row.title = body.title
+    if body.rolling_summary is not None:
+        row.rolling_summary = body.rolling_summary
+    if body.status is not None:
+        row.status = body.status[:32]
+    row.updated_at = datetime.now(timezone.utc)
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _op_public(row)
+
+
+@router.post(
+    "/pending-actions",
+    response_model=AgentPendingActionPublic,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def create_pending_action(
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: AgentPendingActionCreate,
+) -> Any:
+    spec = CATALOG_BY_NAME.get(body.tool_name)
+    if spec is None or spec.safety != ToolSafetyClass.ACT:
+        raise HTTPException(
+            status_code=400,
+            detail="Разрешена постановка в очередь только для зарегистрированных act-инструментов",
+        )
+    row = AgentPendingAction(
+        user_id=current_user.id,
+        agent_run_id=body.agent_run_id,
+        tool_name=body.tool_name,
+        arguments=dict(body.arguments or {}),
+        rationale=body.rationale,
+        status="pending",
+        source="manual",
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _pending_public(row)
+
+
+@router.get(
+    "/pending-actions",
+    response_model=AgentPendingActionList,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def list_pending_actions(
+    session: SessionDep,
+    current_user: CurrentUser,
+    status: str | None = Query(default="pending", max_length=32),
+    all_users: bool = Query(
+        default=False,
+        description="Суперпользователь: видеть очередь всех пользователей",
+    ),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+) -> Any:
+    stmt = select(AgentPendingAction)
+    if status:
+        stmt = stmt.where(AgentPendingAction.status == status)
+    if not current_user.is_superuser or not all_users:
+        stmt = stmt.where(AgentPendingAction.user_id == current_user.id)
+    count_stmt = select(func.count()).select_from(AgentPendingAction)
+    if status:
+        count_stmt = count_stmt.where(AgentPendingAction.status == status)
+    if not current_user.is_superuser or not all_users:
+        count_stmt = count_stmt.where(AgentPendingAction.user_id == current_user.id)
+    count = session.exec(count_stmt).one()
+    rows = list(
+        session.exec(
+            stmt.order_by(col(AgentPendingAction.created_at).desc()).offset(skip).limit(limit)
+        ).all()
+    )
+    return AgentPendingActionList(data=[_pending_public(r) for r in rows], count=count)
+
+
+@router.post(
+    "/pending-actions/{pending_id}/reject",
+    response_model=AgentPendingActionPublic,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def reject_pending_action(
+    session: SessionDep,
+    current_user: CurrentUser,
+    pending_id: uuid.UUID,
+) -> Any:
+    row = session.get(AgentPendingAction, pending_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    if row.user_id != current_user.id and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    if row.status != "pending":
+        raise HTTPException(status_code=409, detail="Уже обработано")
+    row.status = "rejected"
+    row.resolved_at = datetime.now(timezone.utc)
+    row.resolved_by_user_id = current_user.id
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _pending_public(row)
+
+
+@router.post(
+    "/pending-actions/{pending_id}/execute",
+    response_model=AgentPendingExecuteResponse,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def execute_pending_action_route(
+    session: SessionDep,
+    current_user: CurrentUser,
+    pending_id: uuid.UUID,
+) -> Any:
+    row, out = execute_pending_action(session, actor=current_user, pending_id=pending_id)
+    return AgentPendingExecuteResponse(status=row.status, tool_output_excerpt=out[:4000])
+
+
+@router.post(
+    "/orchestration-jobs",
+    response_model=AgentOrchestrationJobPublic,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def create_orchestration_job(
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: AgentOrchestrationJobCreate,
+) -> Any:
+    op = get_operation_session_for_user(
+        session, session_id=body.operation_session_id, user=current_user
+    )
+    if op is None:
+        raise HTTPException(status_code=404, detail="Сессия не найдена")
+    now = datetime.now(timezone.utc)
+    run_after = now + timedelta(seconds=int(body.run_after_seconds))
+    row = AgentOrchestrationJob(
+        user_id=current_user.id,
+        operation_session_id=body.operation_session_id,
+        job_type="operation_session_append_fact",
+        payload={"fact": dict(body.fact or {})},
+        run_after=run_after,
+        status="pending",
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _orch_public(row)
+
+
+@router.get(
+    "/orchestration-jobs",
+    response_model=AgentOrchestrationJobList,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def list_orchestration_jobs(
+    session: SessionDep,
+    current_user: CurrentUser,
+    status: str | None = Query(default=None, max_length=32),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+) -> Any:
+    stmt = select(AgentOrchestrationJob).where(
+        AgentOrchestrationJob.user_id == current_user.id
+    )
+    if status:
+        stmt = stmt.where(AgentOrchestrationJob.status == status)
+    count_stmt = select(func.count()).select_from(AgentOrchestrationJob).where(
+        AgentOrchestrationJob.user_id == current_user.id
+    )
+    if status:
+        count_stmt = count_stmt.where(AgentOrchestrationJob.status == status)
+    count = session.exec(count_stmt).one()
+    rows = list(
+        session.exec(
+            stmt.order_by(col(AgentOrchestrationJob.created_at).desc())
+            .offset(skip)
+            .limit(limit)
+        ).all()
+    )
+    return AgentOrchestrationJobList(data=[_orch_public(r) for r in rows], count=count)

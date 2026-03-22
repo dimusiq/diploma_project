@@ -1,4 +1,5 @@
 import {
+  Badge,
   Box,
   Button,
   Card,
@@ -8,6 +9,7 @@ import {
   Input,
   SimpleGrid,
   Text,
+  VStack,
 } from "@chakra-ui/react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
@@ -22,8 +24,10 @@ import {
   YAxis,
 } from "recharts"
 import { fetchTwinSummary, postTwinWhatIf } from "@/api/warehouseTwin.ts"
-import useCustomToast from "@/hooks/useCustomToast.ts"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
+import useCustomToast from "@/hooks/useCustomToast.ts"
+import { useTwinLivePanelState } from "@/hooks/useTwinLivePanelState.ts"
+import type { TwinConnectionStatus } from "@/lib/twinRealtimeBus.ts"
 
 export const Route = createFileRoute("/_layout/warehouse-twin")({
   component: WarehouseTwinPage,
@@ -72,6 +76,8 @@ function WarehouseTwinPage() {
         подтягиваются при открытии центра уведомлений (
         <code>TWIN_NOTIFICATION_*</code> в настройках API).
       </Text>
+
+      <TwinLiveFeedPanel />
 
       <Card.Root mb={8} variant="subtle">
         <Card.Body>
@@ -232,6 +238,93 @@ function WarehouseTwinPage() {
         </>
       ) : null}
     </Container>
+  )
+}
+
+function statusBadgeProps(status: TwinConnectionStatus): {
+  label: string
+  colorPalette: "green" | "yellow" | "red" | "gray"
+} {
+  switch (status) {
+    case "live":
+      return { label: "SSE: поток активен", colorPalette: "green" }
+    case "connecting":
+      return { label: "SSE: подключение…", colorPalette: "yellow" }
+    case "no_token":
+      return { label: "Нет токена", colorPalette: "gray" }
+    case "offline":
+      return { label: "SSE: нет соединения", colorPalette: "red" }
+    default:
+      return { label: "SSE: ожидание", colorPalette: "gray" }
+  }
+}
+
+function TwinLiveFeedPanel() {
+  const { status, messages } = useTwinLivePanelState()
+  const sb = statusBadgeProps(status)
+
+  return (
+    <Card.Root mb={8} variant="outline">
+      <Card.Body>
+        <Flex align="center" justify="space-between" flexWrap="wrap" gap={3} mb={3}>
+          <Heading size="sm">Near real-time twin</Heading>
+          <Badge size="sm" variant="subtle" colorPalette={sb.colorPalette}>
+            {sb.label}
+          </Badge>
+        </Flex>
+        <Text fontSize="sm" color="fg.muted" mb={3}>
+          Поток событий с сервера: <code>GET /api/v1/twin/stream</code> (все каналы,
+          replay). Карточки и графики ниже обновляются через React Query при событиях
+          (занятость, телеметрия, интеграции → <code>telemetry</code> и др.). Тот же
+          контракт доступен по WebSocket <code>/api/v1/twin/ws</code>.
+        </Text>
+        {messages.length === 0 ? (
+          <Text fontSize="sm" color="fg.muted">
+            Пока нет событий с каналами (или идёт replay только служебных сообщений).
+          </Text>
+        ) : (
+          <VStack
+            as="ul"
+            align="stretch"
+            gap={2}
+            maxH="220px"
+            overflowY="auto"
+            fontSize="xs"
+            fontFamily="mono"
+            borderWidth="1px"
+            borderRadius="md"
+            p={2}
+            listStyleType="none"
+          >
+            {messages
+              .slice()
+              .reverse()
+              .map((m, i) => (
+                <Box as="li" key={`${m.ts ?? ""}-${m.type ?? ""}-${i}`} pb={2} borderBottomWidth="1px">
+                  <Text as="span" color="fg.muted">
+                    {m.ts ?? "—"}
+                  </Text>{" "}
+                  <Text as="span" fontWeight="semibold">
+                    {m.channel}
+                  </Text>
+                  {m.type ? (
+                    <>
+                      {" "}
+                      <Text as="span">{m.type}</Text>
+                    </>
+                  ) : null}
+                  {m.payload && Object.keys(m.payload).length > 0 ? (
+                    <Text color="fg.muted" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis">
+                      {JSON.stringify(m.payload).slice(0, 140)}
+                      {JSON.stringify(m.payload).length > 140 ? "…" : ""}
+                    </Text>
+                  ) : null}
+                </Box>
+              ))}
+          </VStack>
+        )}
+      </Card.Body>
+    </Card.Root>
   )
 }
 

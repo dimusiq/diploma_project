@@ -1,6 +1,9 @@
 """
-Planner / Executor: цикл observe → think → tool → reflect → finish с лимитами и ошибками инструментов.
-Поддержка reasoning-модели для основного цикла и структурированного trace.
+Planner / Executor: операционный цикл агента.
+
+Observe — контекст и снимки уже собраны на сервере; Reason — раунды LLM (intent/plan);
+Act — вызовы tools; Verify — разбор JSON результатов (и опционально AGENT_VERIFY_LLM_PASS);
+Conclude — финальный ответ. Рефлексия: reflect / finish; лимит раундов — AGENT_MAX_TOOL_STEPS.
 """
 
 from __future__ import annotations
@@ -15,7 +18,9 @@ from app.agent import llm_adapter
 from app.agent.llm_adapter import (
     LlmTaskKind,
     extract_assistant_message,
-    ollama_configured,
+    llm_inference_configured,
+    resolve_llm_chat_base_url,
+    resolve_llm_model,
     tool_calls_from_message,
 )
 from app.agent.policy import initial_messages
@@ -24,9 +29,10 @@ from app.agent.reasoning_runtime import (
     main_loop_task_kind,
     run_router_intent,
 )
-from app.agent.tool_registry import invoke_tool, ollama_tools_payload
+from app.agent.tool_registry import invoke_tool, llm_tools_payload
 from app.agent.tool_safety import AgentToolContext
 from app.agent.trace import AgentTrace
+from app.agent.verify_tool_llm import summarize_tool_round_for_verifier
 from app.core.config import settings
 from app.models import User
 
@@ -34,6 +40,23 @@ from app.models import User
 def _max_tool_steps() -> int:
     n = int(getattr(settings, "AGENT_MAX_TOOL_STEPS", 5) or 5)
     return max(1, min(n, 20))
+
+
+def _verify_tool_result(tool_name: str, result_json: str) -> dict[str, Any]:
+    """Краткая проверка результата инструмента для фазы verify (без повторного вызова LLM)."""
+    try:
+        d = json.loads(result_json)
+    except json.JSONDecodeError:
+        return {"tool": tool_name, "parse_ok": False}
+    if not isinstance(d, dict):
+        return {"tool": tool_name, "parse_ok": True, "shape": "non_object"}
+    if d.get("error"):
+        return {"tool": tool_name, "ok": False, "error": str(d.get("error"))[:160]}
+    if d.get("requires_confirmation"):
+        return {"tool": tool_name, "ok": True, "gate": "confirmation"}
+    if d.get("sandbox"):
+        return {"tool": tool_name, "ok": True, "gate": "sandbox"}
+    return {"tool": tool_name, "ok": True}
 
 
 async def run_chat_with_tools(
@@ -49,15 +72,15 @@ async def run_chat_with_tools(
     """
     Многошаговый chat + tools. При 400 от API (модель без tools) — откат на текстовый completion.
     """
-    if not ollama_configured():
-        raise RuntimeError("LLM not configured")
+    if not llm_inference_configured():
+        raise RuntimeError("LLM inference is not configured")
 
     loop_kind = main_loop_task_kind()
-    main_model = llm_adapter.resolve_ollama_model(loop_kind)
+    main_model = resolve_llm_model(loop_kind)
     if reasoning:
         reasoning.main_loop_task = loop_kind.value
         reasoning.models_used["main_loop"] = main_model
-        reasoning.models_used["embedding"] = llm_adapter.resolve_ollama_model(LlmTaskKind.EMBEDDING) or "(off)"
+        reasoning.models_used["embedding"] = resolve_llm_model(LlmTaskKind.EMBEDDING) or "(off)"
 
     if reasoning:
         ri = await run_router_intent(user_message)
@@ -79,9 +102,9 @@ async def run_chat_with_tools(
             f"{messages[0]['content']}\n\nПодсказка маршрутизатора (intent/topics): {hint}"
         )
 
-    tools = ollama_tools_payload(session, user)
+    tools = llm_tools_payload(session, user)
     max_steps = _max_tool_steps()
-    base = str(settings.OLLAMA_BASE_URL).rstrip("/")
+    base = resolve_llm_chat_base_url() or ""
     url = f"{base}/v1/chat/completions"
 
     if trace:
@@ -99,7 +122,7 @@ async def run_chat_with_tools(
     async with httpx.AsyncClient(timeout=timeout) as client:
         for step_idx in range(max_steps):
             if trace:
-                trace.add_step("think", round_index=step_idx)
+                trace.add_step("reason", round_index=step_idx)
             if reasoning:
                 reasoning.llm_rounds = step_idx + 1
 
@@ -135,6 +158,7 @@ async def run_chat_with_tools(
                     )
                 if msg:
                     messages.append(msg)
+                verify_notes: list[dict[str, Any]] = []
                 for tc in tcalls:
                     if not isinstance(tc, dict):
                         continue
@@ -160,6 +184,7 @@ async def run_chat_with_tools(
                             {"error": f"Исключение при выполнении инструмента: {e!s}"},
                             ensure_ascii=False,
                         )
+                    verify_notes.append(_verify_tool_result(name, result))
                     if reasoning:
                         reasoning.tool_calls.append(
                             {
@@ -176,12 +201,38 @@ async def run_chat_with_tools(
                             "content": result,
                         }
                     )
+                if reasoning:
+                    reasoning.verify_rounds.append(list(verify_notes))
                 if trace:
-                    trace.add_step("execute", detail="tool_round_complete")
+                    trace.add_step("act", detail="tool_round_complete", tool_count=len(verify_notes))
+                    trace.add_step("verify", tool_results=verify_notes)
+                if (
+                    trace
+                    and verify_notes
+                    and bool(getattr(settings, "AGENT_VERIFY_LLM_PASS", False))
+                    and llm_inference_configured()
+                ):
+                    try:
+                        vtext = await summarize_tool_round_for_verifier(
+                            user_message=user_message,
+                            verify_notes=verify_notes,
+                        )
+                        trace.add_step(
+                            "verify_llm",
+                            summary=(vtext or "")[:800],
+                        )
+                    except Exception as e:
+                        trace.add_step("verify_llm_error", error=str(e)[:240])
                 continue
 
             if text:
                 if trace:
+                    trace.add_step(
+                        "conclude",
+                        detail="response_ready",
+                        rounds=step_idx + 1,
+                        chars=len(text),
+                    )
                     trace.add_step("finish", detail="assistant_text", rounds=step_idx + 1)
                 return text
             if trace:
@@ -189,6 +240,7 @@ async def run_chat_with_tools(
             break
 
         if trace:
+            trace.add_step("conclude", detail="max_steps_or_empty_fallback")
             trace.add_step("finish", detail="max_steps_or_empty_fallback_text")
         return await llm_adapter.chat_completion_text_only(
             messages=messages,

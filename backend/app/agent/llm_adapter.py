@@ -1,8 +1,8 @@
 """
-Слой LLM adapter: единая точка вызова OpenAI-совместимого API (Ollama / vLLM и т.п.).
+Слой LLM adapter: OpenAI-совместимый HTTP API (целевой backend — vLLM).
 
-Выбор модели по типу задачи; при добавлении vLLM достаточно завести второй base URL в настройках
-и ветвление в chat_completion().
+Chat: POST {base}/v1/chat/completions.
+Эмбеддинги: см. resolve_llm_embeddings_base_url и LLM_EMBEDDING_API_STYLE в agent_rag.
 """
 
 from __future__ import annotations
@@ -24,13 +24,37 @@ class LlmTaskKind(str, Enum):
     EMBEDDING = "embedding"
 
 
+def resolve_llm_chat_base_url() -> str | None:
+    """Базовый URL для /v1/chat/completions (без завершающего /)."""
+    for u in (
+        settings.VLLM_BASE_URL,
+        settings.LLM_OPENAI_BASE_URL,
+        settings.OLLAMA_BASE_URL,
+    ):
+        if u and str(u).strip():
+            return str(u).strip().rstrip("/")
+    return None
+
+
+def resolve_llm_embeddings_base_url() -> str | None:
+    """HTTP-база для эмбеддингов; по умолчанию совпадает с chat."""
+    u = settings.LLM_EMBEDDINGS_BASE_URL
+    if u and str(u).strip():
+        return str(u).strip().rstrip("/")
+    return resolve_llm_chat_base_url()
+
+
+def llm_inference_configured() -> bool:
+    return resolve_llm_chat_base_url() is not None
+
+
 def ollama_configured() -> bool:
-    return bool(settings.OLLAMA_BASE_URL and str(settings.OLLAMA_BASE_URL).strip())
+    """Устаревшее имя: используйте llm_inference_configured."""
+    return llm_inference_configured()
 
 
-def resolve_ollama_model(kind: LlmTaskKind) -> str:
+def resolve_llm_model(kind: LlmTaskKind) -> str:
     if kind == LlmTaskKind.EMBEDDING:
-        # Пустая строка в настройках — отключить векторный RAG (только keyword).
         return (settings.OLLAMA_EMBED_MODEL or "").strip()
     if kind == LlmTaskKind.REASONING:
         m = getattr(settings, "OLLAMA_MODEL_REASONING", None)
@@ -41,11 +65,19 @@ def resolve_ollama_model(kind: LlmTaskKind) -> str:
         if m and str(m).strip():
             return str(m).strip()
         return ""
-    return (settings.OLLAMA_MODEL or "llama3.2").strip()
+    return (settings.OLLAMA_MODEL or "").strip()
+
+
+def resolve_ollama_model(kind: LlmTaskKind) -> str:
+    """Устаревшее имя: используйте resolve_llm_model."""
+    return resolve_llm_model(kind)
 
 
 def _base_url() -> str:
-    return str(settings.OLLAMA_BASE_URL).rstrip("/")
+    u = resolve_llm_chat_base_url()
+    if not u:
+        raise RuntimeError("LLM inference base URL is not configured")
+    return u
 
 
 def extract_assistant_message(data: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None]:
@@ -68,15 +100,14 @@ async def chat_completion(
     temperature: float = 0.2,
     max_tokens: int | None = None,
 ) -> dict[str, Any]:
-    """
-    POST /v1/chat/completions. Для vLLM при том же протоколе — сменить base URL в настройках
-    (например OLLAMA_BASE_URL → URL сервиса с OpenAI-совместимым API).
-    """
-    if not ollama_configured():
-        raise RuntimeError("LLM backend is not configured (OLLAMA_BASE_URL)")
+    """POST /v1/chat/completions (OpenAI-совместимый сервер, например vLLM)."""
+    if not llm_inference_configured():
+        raise RuntimeError(
+            "LLM inference is not configured (set VLLM_BASE_URL, LLM_OPENAI_BASE_URL, or OLLAMA_BASE_URL)"
+        )
 
     url = f"{_base_url()}/v1/chat/completions"
-    model = resolve_ollama_model(task_kind)
+    model = resolve_llm_model(task_kind)
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,

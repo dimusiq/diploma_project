@@ -31,3 +31,20 @@ def test_admin_tools_only_for_superuser_payload() -> None:
     names_su = {t.name for t in tools_for_user(is_superuser=True, has_audit_read=True)}
     assert "reindex_knowledge" not in names_user
     assert "reindex_knowledge" in names_su
+
+
+def test_enqueue_integration_requires_inbox_permission_in_payload_filter() -> None:
+    with_inbox = {
+        t.name
+        for t in tools_for_user(
+            is_superuser=False, has_audit_read=True, has_inbox_write=True
+        )
+    }
+    without = {
+        t.name
+        for t in tools_for_user(
+            is_superuser=False, has_audit_read=True, has_inbox_write=False
+        )
+    }
+    assert "enqueue_integration_inbox" in with_inbox
+    assert "enqueue_integration_inbox" not in without

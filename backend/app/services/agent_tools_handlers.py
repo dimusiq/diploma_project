@@ -17,6 +17,7 @@ from app.models import (
     AgentKnowledgeChunk,
     DomainEvent,
     Equipment,
+    IntegrationInbox,
     Item,
     Notification,
     User,
@@ -656,12 +657,45 @@ def handle_reindex_knowledge(_session: Session, _user: User, args: dict[str, Any
     return _json({"ok": True, "note": "Используйте POST /api/v1/agent/knowledge/chunks/{id}/reindex"})
 
 
+def handle_enqueue_integration_inbox(session: Session, _user: User, args: dict[str, Any], _ctx: Any) -> str:
+    source = str(args.get("source") or "").strip()
+    event_type = str(args.get("event_type") or "").strip()
+    payload = args.get("payload")
+    if not source or not event_type:
+        return _json({"error": "Укажите source и event_type"})
+    if not isinstance(payload, dict):
+        return _json({"error": "payload должен быть JSON-объектом"})
+    row = IntegrationInbox(
+        source=source[:128],
+        event_type=event_type[:128],
+        payload=payload,
+        status="pending",
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return _json(
+        {
+            "ok": True,
+            "integration_inbox_id": str(row.id),
+            "status": row.status,
+            "message": "Событие принято в inbox; обработка — воркером/коннектором",
+        }
+    )
+
+
 def handle_sync_external_system(_session: Session, _user: User, args: dict[str, Any], ctx: AgentToolContext | None) -> str:
     payload = {"system": args.get("system"), "entity": args.get("entity")}
     gated = _act_gate(ctx, tool_name="sync_external_system", payload=payload, superuser_only=True)
     if gated:
         return gated
-    return _json({"ok": True, "note": "Синхронизация не настроена"})
+    return _json(
+        {
+            "ok": False,
+            "note": "Используйте инструмент enqueue_integration_inbox для доставки во внешний контур",
+            "legacy_payload": payload,
+        }
+    )
 
 
 HANDLERS: dict[str, Any] = {
@@ -677,6 +711,7 @@ HANDLERS: dict[str, Any] = {
     "get_recent_events": handle_get_recent_events,
     "search_sop_documents": handle_search_sop_documents,
     "get_layout_topology": handle_get_layout_topology,
+    "enqueue_integration_inbox": handle_enqueue_integration_inbox,
     "run_what_if_simulation": handle_run_what_if_simulation,
     "create_transfer_task": handle_create_transfer_task,
     "reserve_slot": handle_reserve_slot,

@@ -6,9 +6,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
+from app.core.config import settings
 from app.core.permissions import (
     PERM_INTEGRATIONS_INBOX_READ,
     PERM_INTEGRATIONS_INBOX_WRITE,
@@ -23,13 +25,28 @@ from app.models import (
     IntegrationInboxPublic,
 )
 from app.services.feature_flags import all_flags_map
+from app.services.integration_layer_status import (
+    IntegrationLayerStatusResponse,
+    build_integration_layer_status,
+)
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
+
+ConnectorKind = Literal[
+    "erp",
+    "wms",
+    "tms",
+    "plc_scada",
+    "iot",
+    "telemetry_rtls",
+    "identification",
+    "custom",
+]
 
 
 class ConnectorStub(BaseModel):
     id: str
-    kind: Literal["erp", "wms", "tms", "custom"]
+    kind: ConnectorKind
     title: str
     status: Literal["planned", "beta", "active"] = "planned"
 
@@ -48,8 +65,50 @@ def list_connectors_stub(_current_user: CurrentUser) -> ConnectorCatalogResponse
                 title="ERP (заглушка фреймворка коннекторов)",
                 status="planned",
             ),
+            ConnectorStub(
+                id="stub-wms",
+                kind="wms",
+                title="WMS — поток фактов → /warehouse/twin/external-fact",
+                status="planned",
+            ),
+            ConnectorStub(
+                id="stub-tms",
+                kind="tms",
+                title="TMS / транспорт (заглушка)",
+                status="planned",
+            ),
+            ConnectorStub(
+                id="stub-plc",
+                kind="plc_scada",
+                title="PLC/SCADA → брокер → external-fact / inbox (план)",
+                status="planned",
+            ),
+            ConnectorStub(
+                id="stub-iot",
+                kind="iot",
+                title="IoT edge → брокер (план)",
+                status="planned",
+            ),
+            ConnectorStub(
+                id="telemetry-http",
+                kind="telemetry_rtls",
+                title="Телеметрия: POST readings / vehicle-positions + twin SSE",
+                status="beta",
+            ),
+            ConnectorStub(
+                id="identification",
+                kind="identification",
+                title="SKU/штрихкод на товарах; RFID edge — план",
+                status="partial",
+            ),
         ]
     )
+
+
+@router.get("/layer-status", response_model=IntegrationLayerStatusResponse)
+def integration_layer_status(_current_user: CurrentUser) -> IntegrationLayerStatusResponse:
+    """Машиночитаемая сводка: адаптеры, брокер, outbox/replay, inbox (факт vs план)."""
+    return build_integration_layer_status(settings)
 
 
 @router.get("/feature-flags", response_model=FeatureFlagMap)
@@ -82,14 +141,58 @@ def integration_inbox_ingest(
     _current_user: CurrentUser,
     body: IntegrationInboxCreate,
 ) -> IntegrationInboxPublic:
+    if body.idempotency_key:
+        existing = session.exec(
+            select(IntegrationInbox).where(
+                IntegrationInbox.source == body.source,
+                IntegrationInbox.idempotency_key == body.idempotency_key,
+            )
+        ).first()
+        if existing is not None:
+            return IntegrationInboxPublic(
+                id=existing.id,
+                source=existing.source,
+                event_type=existing.event_type,
+                status=existing.status,
+                created_at=existing.created_at,
+                processed_at=existing.processed_at,
+                twin_published_at=existing.twin_published_at,
+                idempotency_key=existing.idempotency_key,
+                domain_event_id=existing.domain_event_id,
+                processing_error=existing.processing_error,
+            )
     row = IntegrationInbox(
         source=body.source,
         event_type=body.event_type,
         payload=body.payload,
         status="pending",
+        idempotency_key=body.idempotency_key,
     )
     session.add(row)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        existing = session.exec(
+            select(IntegrationInbox).where(
+                IntegrationInbox.source == body.source,
+                IntegrationInbox.idempotency_key == body.idempotency_key,
+            )
+        ).first()
+        if existing is None:
+            raise
+        return IntegrationInboxPublic(
+            id=existing.id,
+            source=existing.source,
+            event_type=existing.event_type,
+            status=existing.status,
+            created_at=existing.created_at,
+            processed_at=existing.processed_at,
+            twin_published_at=existing.twin_published_at,
+            idempotency_key=existing.idempotency_key,
+            domain_event_id=existing.domain_event_id,
+            processing_error=existing.processing_error,
+        )
     session.refresh(row)
     return IntegrationInboxPublic(
         id=row.id,
@@ -98,6 +201,10 @@ def integration_inbox_ingest(
         status=row.status,
         created_at=row.created_at,
         processed_at=row.processed_at,
+        twin_published_at=row.twin_published_at,
+        idempotency_key=row.idempotency_key,
+        domain_event_id=row.domain_event_id,
+        processing_error=row.processing_error,
     )
 
 
@@ -130,6 +237,10 @@ def integration_inbox_list(
                 status=r.status,
                 created_at=r.created_at,
                 processed_at=r.processed_at,
+                twin_published_at=r.twin_published_at,
+                idempotency_key=r.idempotency_key,
+                domain_event_id=r.domain_event_id,
+                processing_error=r.processing_error,
             )
             for r in rows
         ],

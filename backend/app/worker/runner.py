@@ -14,6 +14,10 @@ import sys
 
 from app.core.config import settings
 from app.core.report_scheduler import report_scheduler_loop
+from app.worker.agent_background_loop import (
+    agent_orchestration_loop,
+    integration_inbox_domain_loop,
+)
 from app.worker.outbox_loop import OUTBOX_POLL_INTERVAL_SEC, outbox_dispatcher_loop
 from app.worker.projection_loop import (
     PROJECTION_RECONCILE_INTERVAL_SEC,
@@ -51,7 +55,7 @@ def main() -> None:
                 pass
 
         logger.info(
-            "Worker started (report scheduler + outbox every %ss + slot projection every %ss)",
+            "Worker started (reports + outbox %ss + slot projection %ss + agent orch + inbox→domain)",
             OUTBOX_POLL_INTERVAL_SEC,
             PROJECTION_RECONCILE_INTERVAL_SEC,
         )
@@ -59,6 +63,8 @@ def main() -> None:
             report_scheduler_loop(stop, redis_url=redis_url),
             outbox_dispatcher_loop(stop),
             warehouse_projection_reconcile_loop(stop),
+            agent_orchestration_loop(stop),
+            integration_inbox_domain_loop(stop),
         )
         logger.info("Worker stopped")
 

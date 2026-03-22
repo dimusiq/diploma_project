@@ -1,5 +1,5 @@
 /**
- * Единый SSE `/api/v1/twin/stream`: каналы + replay.
+ * Единый SSE `/api/v1/twin/stream`: каналы + replay (в т.ч. `telemetry` — факты WMS/ERP/PLC).
  * Debounce инвалидаций React Query (~80ms) при пачках событий.
  * WebSocket: `WS /api/v1/twin/ws?token=…&channels=…&replay_seconds=…` — тот же контракт JSON.
  */
@@ -8,6 +8,10 @@ import { useEffect, useRef } from "react"
 
 import { getApiUrl } from "@/lib/apiClient.ts"
 import { getAccessToken } from "@/lib/authStorage.ts"
+import {
+  emitTwinStreamMessage,
+  setTwinConnectionStatus,
+} from "@/lib/twinRealtimeBus.ts"
 
 const RECONNECT_MS = 5_000
 const INVALIDATE_DEBOUNCE_MS = 80
@@ -19,6 +23,7 @@ export const TWIN_CHANNELS_ALL = [
   "equipment_positions",
   "alerts",
   "agent_runs",
+  "telemetry",
 ] as const
 
 export type TwinChannel = (typeof TWIN_CHANNELS_ALL)[number]
@@ -92,6 +97,11 @@ function tagsForMessage(
     case "equipment_positions":
       out.add("equipment")
       break
+    case "telemetry":
+      out.add("warehouse")
+      out.add("warehouse-twin-summary")
+      out.add("equipment")
+      break
     case "alerts":
       if (
         currentUserId == null ||
@@ -140,21 +150,13 @@ function flushInvalidations(
   }
 }
 
-async function consumeTwinStream(
+async function readTwinSseBody(
+  body: ReadableStream<Uint8Array>,
   signal: AbortSignal,
-  pathWithQuery: string,
   onData: (raw: string) => void,
 ): Promise<void> {
-  const token = getAccessToken()
-  if (!token) return
-
-  const res = await fetch(getApiUrl(pathWithQuery), {
-    headers: { Authorization: `Bearer ${token}` },
-    signal,
-  })
-  if (!res.ok || !res.body) return
-
-  const reader = res.body.getReader()
+  setTwinConnectionStatus("live")
+  const reader = body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
   while (!signal.aborted) {
@@ -219,6 +221,7 @@ export function useTwinRealtime(options?: TwinStreamOptions) {
         ) {
           return
         }
+        emitTwinStreamMessage(msg)
         const me = queryClient.getQueryData<{ id?: string }>(["currentUser"])
         const uid = me?.id
         for (const t of tagsForMessage(msg, uid)) {
@@ -233,18 +236,36 @@ export function useTwinRealtime(options?: TwinStreamOptions) {
     const loop = async () => {
       if (!alive) return
       if (!getAccessToken()) {
+        setTwinConnectionStatus("no_token")
         scheduleReconnect()
         return
       }
+      setTwinConnectionStatus("connecting")
       acRef.current?.abort()
       acRef.current = new AbortController()
       const sig = acRef.current.signal
       try {
-        await consumeTwinStream(sig, streamPath, handleRaw)
+        const token = getAccessToken()
+        if (!token) {
+          setTwinConnectionStatus("no_token")
+          return
+        }
+        const res = await fetch(getApiUrl(streamPath), {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: sig,
+        })
+        if (!res.ok || !res.body) {
+          setTwinConnectionStatus("offline")
+          return
+        }
+        await readTwinSseBody(res.body, sig, handleRaw)
       } catch {
-        /* abort / network */
+        if (!sig.aborted) {
+          setTwinConnectionStatus("offline")
+        }
       } finally {
         if (alive && !sig.aborted) {
+          setTwinConnectionStatus("offline")
           scheduleReconnect()
         }
       }
@@ -255,6 +276,7 @@ export function useTwinRealtime(options?: TwinStreamOptions) {
     return () => {
       alive = false
       clearTimer()
+      setTwinConnectionStatus("offline")
       acRef.current?.abort()
     }
   }, [queryClient, channelsDep, replayDep])

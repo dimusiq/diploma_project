@@ -68,7 +68,7 @@ def health_with_db(session: SessionDep) -> dict:
 @router.get("/readiness", response_model=None)
 def readiness_probe(session: SessionDep) -> dict:
     """
-    Детальная готовность: БД, Ollama (если задан URL), Redis (если задан REDIS_URL).
+    Детальная готовность: БД, inference (VLLM_BASE_URL / LLM_OPENAI_BASE_URL / OLLAMA_BASE_URL), Redis.
     Воркер фоновых задач в этом процессе не проверяется — см. отдельный деплой worker.
     """
     components: dict[str, str] = {}
@@ -78,15 +78,21 @@ def readiness_probe(session: SessionDep) -> dict:
     except Exception:
         components["database"] = "error"
 
-    base = settings.OLLAMA_BASE_URL
+    from app.agent.llm_adapter import resolve_llm_chat_base_url
+
+    base = resolve_llm_chat_base_url()
     if base:
-        url = str(base).rstrip("/") + "/api/tags"
-        try:
-            with httpx.Client(timeout=3.0) as client:
-                r = client.get(url)
-            components["llm"] = "ok" if r.status_code < 500 else "degraded"
-        except Exception:
-            components["llm"] = "error"
+        ok = False
+        for path in ("/v1/models", "/api/tags"):
+            try:
+                with httpx.Client(timeout=3.0) as client:
+                    r = client.get(f"{base}{path}")
+                if r.status_code < 500:
+                    ok = True
+                    break
+            except Exception:
+                continue
+        components["llm"] = "ok" if ok else "error"
     else:
         components["llm"] = "skipped"
 

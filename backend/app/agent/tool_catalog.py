@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.agent.tool_safety import ToolSafetyClass
-from app.core.permissions import PERM_AGENT_USE
+from app.core.permissions import PERM_AGENT_USE, PERM_INTEGRATIONS_INBOX_WRITE
 
 
 @dataclass(frozen=True)
@@ -22,6 +22,7 @@ class CatalogTool:
     description: str
     parameters: dict[str, Any]
     requires_audit_read: bool = False
+    requires_inbox_write: bool = False
     superuser_only: bool = False
 
     def to_openai_tool(self) -> dict[str, Any]:
@@ -166,6 +167,28 @@ def _catalog() -> list[CatalogTool]:
             parameters={},
         ),
         CatalogTool(
+            name="enqueue_integration_inbox",
+            version="1",
+            safety=ToolSafetyClass.PROPOSE,
+            permission_code=PERM_INTEGRATIONS_INBOX_WRITE,
+            description=(
+                "Записать событие во входящую очередь интеграций (реальный коннектор к WMS/ERP/PLC): "
+                "данные попадут в integration_inbox для последующей обработки воркером."
+            ),
+            parameters={
+                "source": {
+                    "type": "string",
+                    "description": "Источник: wms, erp, plc, tms, custom",
+                },
+                "event_type": {"type": "string", "description": "Тип события во внешней системе"},
+                "payload": {
+                    "type": "object",
+                    "description": "Тело события (JSON)",
+                },
+            },
+            requires_inbox_write=True,
+        ),
+        CatalogTool(
             name="run_what_if_simulation",
             version="1",
             safety=ToolSafetyClass.READ,
@@ -288,7 +311,10 @@ def _catalog() -> list[CatalogTool]:
             version="1",
             safety=ToolSafetyClass.ACT,
             permission_code=PERM_AGENT_USE,
-            description="Синхронизация с внешней системой (заглушка; не вызывать без интеграции).",
+            description=(
+                "Устаревшая заглушка; для реальной доставки во внешний контур используйте "
+                "enqueue_integration_inbox."
+            ),
             parameters={"system": {"type": "string"}, "entity": {"type": "string"}},
             superuser_only=True,
         ),
@@ -303,6 +329,7 @@ def tools_for_user(
     *,
     is_superuser: bool,
     has_audit_read: bool,
+    has_inbox_write: bool = False,
 ) -> list[CatalogTool]:
     out: list[CatalogTool] = []
     for t in CATALOG:
@@ -310,9 +337,23 @@ def tools_for_user(
             continue
         if t.requires_audit_read and not has_audit_read:
             continue
+        if t.requires_inbox_write and not has_inbox_write:
+            continue
         out.append(t)
     return out
 
 
-def openai_tools_for_user(*, is_superuser: bool, has_audit_read: bool) -> list[dict[str, Any]]:
-    return [x.to_openai_tool() for x in tools_for_user(is_superuser=is_superuser, has_audit_read=has_audit_read)]
+def openai_tools_for_user(
+    *,
+    is_superuser: bool,
+    has_audit_read: bool,
+    has_inbox_write: bool = False,
+) -> list[dict[str, Any]]:
+    return [
+        x.to_openai_tool()
+        for x in tools_for_user(
+            is_superuser=is_superuser,
+            has_audit_read=has_audit_read,
+            has_inbox_write=has_inbox_write,
+        )
+    ]

@@ -18,10 +18,12 @@ import {
   type SimulationRunBody,
   fetchKpiSnapshot,
   fetchSimulationScenarios,
+  fetchWarehousesForSimulationSeed,
   postSimulationRun,
   postSimulationScenario,
   postSimulationScenarioRun,
 } from "@/api/warehouseSimulation.ts"
+import { Checkbox } from "@/components/ui/checkbox.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
@@ -45,22 +47,38 @@ function WarehouseSimulationPage() {
   const [putawayRule, setPutawayRule] = useState<PutawayRule>("nearest")
   const [sandboxPutawayExtra, setSandboxPutawayExtra] = useState("0")
   const [scenarioName, setScenarioName] = useState("")
+  const [seedFromTwin, setSeedFromTwin] = useState(false)
+  const [simWarehouseId, setSimWarehouseId] = useState("")
 
   const snapQ = useQuery({
     queryKey: ["warehouse-simulation-kpi-snapshot"],
     queryFn: fetchKpiSnapshot,
   })
 
-  const buildRunBody = (): SimulationRunBody => ({
-    duration_hours: num(duration, 48),
-    seed: Math.floor(num(seed, 42)),
-    dock_bays: Math.floor(num(docks, 2)),
-    num_forklifts: Math.floor(num(forklifts, 3)),
-    num_operators: Math.floor(num(operators, 5)),
-    layout_travel_scale: num(travelScale, 1),
-    putaway_rule: putawayRule,
-    sandbox_extra_putaway_min: num(sandboxPutawayExtra, 0),
+  const whSeedQ = useQuery({
+    queryKey: ["warehouses-for-simulation-seed"],
+    queryFn: fetchWarehousesForSimulationSeed,
   })
+
+  const buildRunBody = (): SimulationRunBody => {
+    const body: SimulationRunBody = {
+      duration_hours: num(duration, 48),
+      seed: Math.floor(num(seed, 42)),
+      dock_bays: Math.floor(num(docks, 2)),
+      num_forklifts: Math.floor(num(forklifts, 3)),
+      num_operators: Math.floor(num(operators, 5)),
+      layout_travel_scale: num(travelScale, 1),
+      putaway_rule: putawayRule,
+      sandbox_extra_putaway_min: num(sandboxPutawayExtra, 0),
+    }
+    if (seedFromTwin) {
+      body.seed_from_twin = true
+      if (simWarehouseId.trim()) {
+        body.warehouse_id = simWarehouseId.trim()
+      }
+    }
+    return body
+  }
 
   const runMut = useMutation({
     mutationFn: () => postSimulationRun(buildRunBody()),
@@ -86,7 +104,13 @@ function WarehouseSimulationPage() {
   })
 
   const runSavedMut = useMutation({
-    mutationFn: (id: string) => postSimulationScenarioRun(id),
+    mutationFn: (id: string) =>
+      postSimulationScenarioRun(id, {
+        seed_from_twin: seedFromTwin,
+        ...(seedFromTwin && simWarehouseId.trim()
+          ? { warehouse_id: simWarehouseId.trim() }
+          : {}),
+      }),
     onSuccess: () => {
       showSuccessToast("Прогон по сохранённому сценарию выполнен")
     },
@@ -231,8 +255,54 @@ function WarehouseSimulationPage() {
           <Text fontSize="sm" color="fg.muted" mb={4}>
             «Масштаб пути» отражает удлинение маршрутов при усложнении планировки;
             дополнительные минуты размещения имитируют перестановки в песочнице
-            (дольше уходит размещение).
+            (дольше уходит размещение). Старт из twin подставляет глубины очередей
+            из проекций (имена очередей: dock*, pick*, putaway* / staging).
           </Text>
+          <Flex direction="column" gap={3} mb={4}>
+            <Checkbox
+              checked={seedFromTwin}
+              onCheckedChange={(d) => setSeedFromTwin(d.checked === true)}
+            >
+              Стартовать сценарий из актуального twin (очереди док / размещение /
+              отбор)
+            </Checkbox>
+            {seedFromTwin && (
+              <Box>
+                <Text fontSize="xs" color="fg.muted" mb={1}>
+                  Склад для чтения очередей (пусто — первый склад в системе)
+                </Text>
+                {whSeedQ.isPending ? (
+                  <Skeleton h="32px" maxW="320px" />
+                ) : whSeedQ.isError ? (
+                  <Text fontSize="xs" color="red.fg">
+                    Не удалось загрузить список складов.
+                  </Text>
+                ) : (
+                  <select
+                    value={simWarehouseId}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                      setSimWarehouseId(e.target.value)
+                    }
+                    style={{
+                      maxWidth: 320,
+                      width: "100%",
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      border: "1px solid",
+                      fontSize: 14,
+                    }}
+                  >
+                    <option value="">По умолчанию</option>
+                    {(whSeedQ.data ?? []).map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.code} — {w.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Box>
+            )}
+          </Flex>
           <Flex gap={3} align="flex-end" flexWrap="wrap">
             <Field label="Длительность, ч">
               <Input
@@ -444,6 +514,17 @@ function WarehouseSimulationPage() {
             value={String(k.events_processed)}
           />
         </SimpleGrid>
+        {lastSimResult?.twin_initial_state != null &&
+          typeof lastSimResult.twin_initial_state === "object" && (
+            <Card.Root mb={8} variant="outline">
+              <Card.Body>
+                <Heading size="sm" mb={2}>
+                  Стартовое состояние из twin
+                </Heading>
+                <TwinInitialStateView state={lastSimResult.twin_initial_state} />
+              </Card.Body>
+            </Card.Root>
+          )}
         </>
       )}
     </Container>
@@ -482,4 +563,45 @@ function fmt(v: number | null): string {
 
 function pct(v: number): string {
   return `${(v * 100).toFixed(1)}%`
+}
+
+function TwinInitialStateView({ state }: { state: Record<string, unknown> }) {
+  const wh =
+    typeof state.warehouse_code === "string"
+      ? state.warehouse_code
+      : state.warehouse_id
+  const dock = state.initial_dock_queue
+  const put = state.initial_putaway_queue
+  const pick = state.initial_pick_queue
+  const rows = state.queue_projection_rows
+  return (
+    <Flex direction="column" gap={2} fontSize="sm">
+      <Text color="fg.muted">
+        Склад: <strong>{String(wh ?? "—")}</strong>
+      </Text>
+      <Text>
+        Начальные очереди DES: док {String(dock ?? "—")}, размещение{" "}
+        {String(put ?? "—")}, отбор {String(pick ?? "—")}
+      </Text>
+      {Array.isArray(rows) && rows.length > 0 && (
+        <Box mt={2}>
+          <Text fontSize="xs" color="fg.muted" mb={1}>
+            Строки проекции
+          </Text>
+          <Flex direction="column" gap={0.5} fontSize="xs">
+            {rows.slice(0, 24).map((r, i) => (
+              <Text key={i}>
+                {String((r as { queue_name?: string }).queue_name ?? "?")}: depth{" "}
+                {String((r as { depth?: number }).depth ?? "?")} (
+                {String((r as { category?: string | null }).category ?? "—")})
+              </Text>
+            ))}
+            {rows.length > 24 && (
+              <Text color="fg.muted">… ещё {rows.length - 24}</Text>
+            )}
+          </Flex>
+        </Box>
+      )}
+    </Flex>
+  )
 }

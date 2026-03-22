@@ -30,6 +30,9 @@ EVENT_TASK_FAILED = "task.failed"
 EVENT_ALERT_RAISED = "alert.raised"
 EVENT_ALERT_RESOLVED = "alert.resolved"
 
+# --- Queues (очереди доков / отбора / пр.) ---
+EVENT_QUEUE_DEPTH_UPDATED = "queue.depth_updated"
+
 # --- Legacy item / aggregate (уже используются в API) ---
 EVENT_ITEM_CREATED = "item.created"
 EVENT_ITEM_UPDATED = "item.updated"
@@ -59,5 +62,6 @@ VERSIONED_EVENT_TYPES = frozenset(
         EVENT_TASK_FAILED,
         EVENT_ALERT_RAISED,
         EVENT_ALERT_RESOLVED,
+        EVENT_QUEUE_DEPTH_UPDATED,
     }
 )

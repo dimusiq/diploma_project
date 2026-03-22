@@ -2,18 +2,27 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from sqlmodel import Session, select
 
 from app.api.deps import CurrentUser, SessionDep
+from app.models import User, Warehouse
 from app.simulation.des_engine import (
     SimulationConfig,
     SimulationKpis,
     run_discrete_event_simulation,
 )
 from app.simulation.kpi_snapshot import build_kpi_snapshot
+from app.simulation.twin_seed import (
+    TwinSeedResolutionError,
+    build_twin_initial_state_payload,
+    initial_queues_from_twin_projections,
+    resolve_simulation_warehouse_id,
+)
 
 router = APIRouter(prefix="/warehouse/simulation", tags=["warehouse-simulation"])
 
@@ -36,6 +45,8 @@ class SimulationRunBody(BaseModel):
     putaway_rule: PutawayRuleApi = "nearest"
     layout_travel_scale: float = Field(default=1.0, ge=0.25, le=4.0)
     sandbox_extra_putaway_min: float = Field(default=0.0, ge=0.0, le=120.0)
+    seed_from_twin: bool = False
+    warehouse_id: uuid.UUID | None = None
 
 
 class SimulationKpisResponse(BaseModel):
@@ -59,6 +70,13 @@ class SimulationRunResponse(BaseModel):
     kpis: SimulationKpisResponse
     horizon_minutes: float
     event_trace_tail: list[dict[str, Any]]
+    twin_initial_state: dict[str, Any] | None = None
+
+
+class WarehouseForSimulationSeed(BaseModel):
+    id: uuid.UUID
+    code: str
+    name: str
 
 
 def _kpis_to_response(k: SimulationKpis) -> SimulationKpisResponse:
@@ -80,21 +98,25 @@ def _kpis_to_response(k: SimulationKpis) -> SimulationKpisResponse:
     )
 
 
-@router.get("/kpi-snapshot")
-def read_kpi_snapshot(
-    session: SessionDep,
-    current_user: CurrentUser,
-) -> Any:
-    return build_kpi_snapshot(session, current_user)
-
-
-@router.post("/run", response_model=SimulationRunResponse)
-def run_simulation(
-    session: SessionDep,
-    current_user: CurrentUser,
+def simulation_config_from_run_body(
+    session: Session,
+    current_user: User,
     body: SimulationRunBody,
-) -> Any:
-    _ = session, current_user
+) -> tuple[SimulationConfig, dict[str, Any] | None]:
+    twin_meta: dict[str, Any] | None = None
+    idock = iput = ipick = 0
+    if body.seed_from_twin:
+        wid = resolve_simulation_warehouse_id(session, body.warehouse_id)
+        idock, iput, ipick, qrows = initial_queues_from_twin_projections(session, wid)
+        twin_meta = build_twin_initial_state_payload(
+            session,
+            current_user,
+            wid,
+            idock,
+            iput,
+            ipick,
+            qrows,
+        )
     cfg = SimulationConfig(
         duration_hours=body.duration_hours,
         seed=body.seed,
@@ -111,10 +133,54 @@ def run_simulation(
         putaway_rule=body.putaway_rule,
         layout_travel_scale=body.layout_travel_scale,
         sandbox_extra_putaway_min=body.sandbox_extra_putaway_min,
+        initial_dock_queue=idock,
+        initial_putaway_queue=iput,
+        initial_pick_queue=ipick,
     )
+    return cfg, twin_meta
+
+
+def run_simulation_for_body(
+    session: Session,
+    current_user: User,
+    body: SimulationRunBody,
+) -> SimulationRunResponse:
+    try:
+        cfg, twin_meta = simulation_config_from_run_body(session, current_user, body)
+    except TwinSeedResolutionError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail) from e
     result = run_discrete_event_simulation(cfg)
     return SimulationRunResponse(
         kpis=_kpis_to_response(result.kpis),
         horizon_minutes=result.horizon_minutes,
         event_trace_tail=result.event_trace_tail,
+        twin_initial_state=twin_meta,
     )
+
+
+@router.get("/kpi-snapshot")
+def read_kpi_snapshot(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    return build_kpi_snapshot(session, current_user)
+
+
+@router.get("/warehouses-for-seed", response_model=list[WarehouseForSimulationSeed])
+def list_warehouses_for_simulation_seed(
+    session: SessionDep,
+    _current_user: CurrentUser,
+) -> list[WarehouseForSimulationSeed]:
+    rows = list(session.exec(select(Warehouse).order_by(Warehouse.code)).all())
+    return [
+        WarehouseForSimulationSeed(id=w.id, code=w.code, name=w.name) for w in rows
+    ]
+
+
+@router.post("/run", response_model=SimulationRunResponse)
+def run_simulation(
+    session: SessionDep,
+    current_user: CurrentUser,
+    body: SimulationRunBody,
+) -> Any:
+    return run_simulation_for_body(session, current_user, body)

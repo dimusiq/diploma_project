@@ -12,6 +12,7 @@ import {
   FiChevronDown,
   FiChevronRight,
   FiCpu,
+  FiGrid,
   FiLayers,
   FiList,
   FiMessageCircle,
@@ -48,6 +49,11 @@ const items: Item[] = [
     icon: FiBarChart2,
     title: "Дашборд",
     path: "/",
+  },
+  {
+    icon: FiGrid,
+    title: "Центр платформы",
+    path: "/operator-hub",
   },
   {
     icon: FiTarget,

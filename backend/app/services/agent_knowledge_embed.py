@@ -1,4 +1,4 @@
-"""Эмбеддинги для чанков базы знаний (Ollama + pgvector)."""
+"""Эмбеддинги для чанков базы знаний (OpenAI/vLLM API + pgvector)."""
 
 from __future__ import annotations
 

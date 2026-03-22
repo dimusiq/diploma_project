@@ -3,9 +3,11 @@ import warnings
 from typing import Annotated, Any, Literal
 
 from pydantic import (
+    AliasChoices,
     AnyUrl,
     BeforeValidator,
     EmailStr,
+    Field,
     HttpUrl,
     PostgresDsn,
     computed_field,
@@ -100,25 +102,70 @@ class Settings(BaseSettings):
     # Если False — планировщик email-отчётов не стартует в API (запускайте `python -m app.worker`).
     RUN_REPORT_SCHEDULER_IN_API: bool = True
 
-    # Локальная LLM (Ollama): OpenAI-совместимый API, например http://localhost:11434
+    # Базовый URL inference (приоритет сверху вниз в resolve_llm_chat_base_url).
+    VLLM_BASE_URL: str | None = None
+    LLM_OPENAI_BASE_URL: str | None = None
+    # Совместимость: любой OpenAI-совместимый сервер на том же хосте, что и раньше «Ollama».
     OLLAMA_BASE_URL: str | None = None
-    OLLAMA_MODEL: str = "llama3.2"
-    # Опционально: отдельная модель для «тяжёлого» рассуждения (иначе используется OLLAMA_MODEL).
-    OLLAMA_MODEL_REASONING: str | None = None
-    # Опционально: лёгкая модель для intent/router (JSON); пусто — этап пропускается.
-    OLLAMA_MODEL_ROUTER: str | None = None
-    # Эмбеддинги для RAG (Ollama /api/embeddings). Пустая строка — только keyword-RAG.
-    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
+    # Имена моделей: env VLLM_* / LLM_* или устаревшие OLLAMA_* (см. validation_alias).
+    OLLAMA_MODEL: str = Field(
+        default="Qwen/Qwen2.5-7B-Instruct",
+        validation_alias=AliasChoices(
+            "VLLM_CHAT_MODEL",
+            "LLM_CHAT_MODEL",
+            "OLLAMA_MODEL",
+        ),
+    )
+    OLLAMA_MODEL_REASONING: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "VLLM_REASONING_MODEL",
+            "LLM_REASONING_MODEL",
+            "OLLAMA_MODEL_REASONING",
+        ),
+    )
+    OLLAMA_MODEL_ROUTER: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "VLLM_ROUTER_MODEL",
+            "LLM_ROUTER_MODEL",
+            "OLLAMA_MODEL_ROUTER",
+        ),
+    )
+    OLLAMA_EMBED_MODEL: str = Field(
+        default="BAAI/bge-base-en-v1.5",
+        validation_alias=AliasChoices(
+            "VLLM_EMBED_MODEL",
+            "LLM_EMBED_MODEL",
+            "OLLAMA_EMBED_MODEL",
+        ),
+    )
+    LLM_EMBEDDINGS_BASE_URL: str | None = None
+    # По умолчанию vLLM: POST /v1/embeddings. Значение ollama — только для Ollama /api/embeddings.
+    LLM_EMBEDDING_API_STYLE: Literal["ollama", "openai"] = "openai"
     # Сколько справочных фрагментов подмешивать в контекст (keyword / эмбеддинг).
     AGENT_RAG_TOP_K: int = 3
     # Лимит запросов к POST /agent/chat на пользователя в минуту (0 = без лимита).
     AGENT_CHAT_RATE_LIMIT_PER_MINUTE: int = 30
-    # Цикл инструментов агента (observe → tool → …); верхняя граница раундов.
+    # Цикл агента (observe → reason → act → verify → conclude); верхняя граница раундов LLM+tools.
     AGENT_MAX_TOOL_STEPS: int = 5
     # Таймаут HTTP к LLM (секунды).
     AGENT_LLM_TIMEOUT_SEC: float = 120.0
     # Режим песочницы: act-инструменты не пишут в БД (только симуляция / requires_confirmation).
     AGENT_SANDBOX_MODE: bool = True
+    # Проверка AgentPolicy (tool_execution) перед вызовом инструментов.
+    AGENT_POLICY_ENFORCE: bool = True
+    # Автозапись в agent_pending_action при JSON requires_confirmation от act.
+    AGENT_AUTO_PENDING_ACTIONS: bool = True
+    # После раунда инструментов — доп. LLM-сводка согласованности (нужен настроенный inference).
+    AGENT_VERIFY_LLM_PASS: bool = False
+    # Воркер: интервал опроса agent_orchestration_job (сек).
+    AGENT_ORCHESTRATION_POLL_SEC: float = 30.0
+    # Воркер: публикация pending integration_inbox в twin telemetry (сек).
+    AGENT_INBOX_TWIN_PULSE_SEC: float = 90.0
+    # Обработка integration_inbox → домен + domain_event + проекции (воркер).
+    INTEGRATION_INBOX_DOMAIN_ENABLED: bool = True
+    INTEGRATION_INBOX_DOMAIN_POLL_SEC: float = 5.0
 
     # Уведомления «Аналитика двойника» (ensure /notifications/ensure).
     TWIN_NOTIFICATION_ROW_ITEMS_MIN: int = 30

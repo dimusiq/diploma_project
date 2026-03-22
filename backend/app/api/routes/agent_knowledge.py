@@ -68,7 +68,10 @@ def list_knowledge_chunks(
 async def create_knowledge_chunk(
     session: SessionDep,
     body: AgentKnowledgeChunkCreate,
-    reindex: bool = Query(True, description="Запросить эмбеддинг у Ollama сразу после создания"),
+    reindex: bool = Query(
+        True,
+        description="Запросить эмбеддинг у inference (vLLM /v1/embeddings) сразу после создания",
+    ),
 ) -> Any:
     chunk = AgentKnowledgeChunk(
         title=body.title,
@@ -133,7 +136,10 @@ async def reindex_knowledge_chunk(
     if not ok:
         raise HTTPException(
             status_code=502,
-            detail="Не удалось получить эмбеддинг (проверьте OLLAMA_BASE_URL и модель эмбеддингов)",
+            detail=(
+                "Не удалось получить эмбеддинг (проверьте LLM_EMBEDDINGS_BASE_URL / "
+                "LLM_OPENAI_BASE_URL / OLLAMA_BASE_URL, LLM_EMBEDDING_API_STYLE и OLLAMA_EMBED_MODEL)"
+            ),
         )
     chunk = session.get(AgentKnowledgeChunk, chunk_id)
     assert chunk

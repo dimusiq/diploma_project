@@ -117,9 +117,10 @@ export function AgentKnowledgeAdmin() {
   return (
     <Box pt={4}>
       <Text fontSize="sm" color="fg.muted" mb={4}>
-        Справочные тексты для RAG ассистента. Эмбеддинги — через Ollama (
-        <code>OLLAMA_EMBED_MODEL</code>, размерность 768). Требуется Postgres с
-        расширением pgvector.
+        Справочные тексты для RAG ассистента. Эмбеддинги — через OpenAI-совместимый
+        API (например vLLM: <code>VLLM_EMBED_MODEL</code> /{" "}
+        <code>LLM_EMBED_MODEL</code>, размерность 768 по умолчанию). Требуется
+        Postgres с расширением pgvector.
       </Text>
       <Flex gap={2} mb={4} flexWrap="wrap">
         <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true) }}>

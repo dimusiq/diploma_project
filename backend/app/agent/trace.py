@@ -18,7 +18,7 @@ _audit = logging.getLogger("app.agent.audit")
 
 @dataclass
 class AgentTrace:
-    """Трассировка одного запуска (observe → think → tool → … → finish)."""
+    """Трассировка одного запуска (observe → reason → act → verify → conclude → finish)."""
 
     run_id: str
     steps: list[dict[str, Any]] = field(default_factory=list)

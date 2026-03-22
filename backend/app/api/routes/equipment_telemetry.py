@@ -15,6 +15,14 @@ from app.models import (
     SensorReadingCreate,
     SensorReadingList,
     SensorReadingPublic,
+    VehiclePosition,
+    VehiclePositionCreate,
+    VehiclePositionPublic,
+)
+from app.realtime.twin_stream_hub import (
+    publish_equipment_position_sample,
+    publish_external_vehicle_pose,
+    publish_telemetry_fact,
 )
 
 router = APIRouter(
@@ -106,4 +114,76 @@ def ingest_sensor_reading(
     session.add(row)
     session.commit()
     session.refresh(row)
+    publish_telemetry_fact(
+        event_type="sensor_reading",
+        payload={
+            "reading_id": str(row.id),
+            "warehouse_id": str(row.warehouse_id) if row.warehouse_id else None,
+            "sensor_code": row.sensor_code,
+            "metric_key": row.metric_key,
+            "read_at": row.read_at.isoformat().replace("+00:00", "Z"),
+            "value_float": row.value_float,
+            "value_text": row.value_text,
+        },
+    )
     return _to_public(row)
+
+
+def _vehicle_to_public(r: VehiclePosition) -> VehiclePositionPublic:
+    return VehiclePositionPublic(
+        id=r.id,
+        warehouse_id=r.warehouse_id,
+        equipment_id=r.equipment_id,
+        external_vehicle_id=r.external_vehicle_id,
+        recorded_at=r.recorded_at,
+        pose=r.pose,
+        source=r.source,
+        extra=r.extra,
+    )
+
+
+@router.post(
+    "/vehicle-positions",
+    response_model=VehiclePositionPublic,
+    dependencies=[require_permission(PERM_WAREHOUSE_TELEMETRY_INGEST)],
+)
+def ingest_vehicle_position(
+    session: SessionDep,
+    _current_user: CurrentUser,
+    body: VehiclePositionCreate,
+) -> VehiclePositionPublic:
+    if body.equipment_id is None and not (body.external_vehicle_id or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Нужен equipment_id или external_vehicle_id",
+        )
+    recorded = body.recorded_at or datetime.now(timezone.utc)
+    row = VehiclePosition(
+        warehouse_id=body.warehouse_id,
+        equipment_id=body.equipment_id,
+        external_vehicle_id=body.external_vehicle_id,
+        recorded_at=recorded,
+        pose=body.pose or {},
+        source=body.source,
+        extra=body.extra,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    pl = {
+        "vehicle_position_id": str(row.id),
+        "warehouse_id": str(row.warehouse_id) if row.warehouse_id else None,
+        "equipment_id": str(row.equipment_id) if row.equipment_id else None,
+        "external_vehicle_id": row.external_vehicle_id,
+        "recorded_at": row.recorded_at.isoformat().replace("+00:00", "Z"),
+        "pose": row.pose,
+        "source": row.source,
+    }
+    if row.equipment_id is not None:
+        publish_equipment_position_sample(
+            equipment_id=row.equipment_id,
+            payload=pl,
+        )
+    else:
+        publish_external_vehicle_pose(payload=pl)
+    return _vehicle_to_public(row)

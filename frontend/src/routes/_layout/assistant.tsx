@@ -37,7 +37,7 @@ type ChatMessage =
       id: string
       role: "assistant"
       content: string
-      ollamaAvailable: boolean
+      llmAvailable: boolean
       model: string | null
       publicReasoning?: AgentPublicReasoningSummary
       runId?: string | null
@@ -99,7 +99,7 @@ function AssistantPage() {
           id: crypto.randomUUID(),
           role: "assistant",
           content: data.reply,
-          ollamaAvailable: data.ollama_available,
+          llmAvailable: data.llm_available,
           model: data.model,
           publicReasoning: data.public_reasoning,
           runId: data.run_id ?? null,
@@ -137,8 +137,8 @@ function AssistantPage() {
       </Heading>
       <Text color="fg.muted" fontSize="sm" mb={6}>
         Вопросы по остаткам, ячейкам и layout — с учётом ваших прав. Ответ
-        формируется на сервере; при настроенной Ollama подключается локальная
-        модель.
+        формируется на сервере; при настроенном inference (vLLM / OpenAI-совместимый
+        API) подключается языковая модель.
       </Text>
 
       <Box
@@ -181,10 +181,10 @@ function AssistantPage() {
                     </Text>
                     <Badge
                       size="sm"
-                      colorPalette={m.ollamaAvailable ? "green" : "gray"}
+                      colorPalette={m.llmAvailable ? "green" : "gray"}
                     >
-                      {m.ollamaAvailable
-                        ? `Ollama${m.model ? `: ${m.model}` : ""}`
+                      {m.llmAvailable
+                        ? `LLM${m.model ? `: ${m.model}` : ""}`
                         : "без LLM"}
                     </Badge>
                   </Flex>
@@ -235,6 +235,55 @@ function AssistantPage() {
                         </Text>
                         {m.publicReasoning.recommendation}
                       </Text>
+                      {m.publicReasoning.next_steps &&
+                      m.publicReasoning.next_steps !== "—" ? (
+                        <Text mt={1}>
+                          <Text as="span" fontWeight="medium">
+                            Следующие шаги:{" "}
+                          </Text>
+                          {m.publicReasoning.next_steps}
+                        </Text>
+                      ) : null}
+                      {m.publicReasoning.confidence ? (
+                        <Text mt={1}>
+                          <Text as="span" fontWeight="medium">
+                            Уверенность:{" "}
+                          </Text>
+                          {m.publicReasoning.confidence}
+                        </Text>
+                      ) : null}
+                      {m.publicReasoning.kpi_effect ? (
+                        <Text mt={1}>
+                          <Text as="span" fontWeight="medium">
+                            Эффект / KPI:{" "}
+                          </Text>
+                          {m.publicReasoning.kpi_effect}
+                        </Text>
+                      ) : null}
+                      {m.publicReasoning.run_log_ref ? (
+                        <Text mt={1} wordBreak="break-all">
+                          <Text as="span" fontWeight="medium">
+                            Лог запуска:{" "}
+                          </Text>
+                          {m.publicReasoning.run_log_ref}
+                        </Text>
+                      ) : null}
+                      {m.publicReasoning.operational_cycle &&
+                      Object.keys(m.publicReasoning.operational_cycle).length >
+                        0 ? (
+                        <Box mt={2} fontSize="10px" opacity={0.85}>
+                          <Text fontWeight="medium" mb={0.5}>
+                            Цикл агента
+                          </Text>
+                          {Object.entries(m.publicReasoning.operational_cycle).map(
+                            ([k, v]) => (
+                              <Text key={k}>
+                                {k}: {v}
+                              </Text>
+                            ),
+                          )}
+                        </Box>
+                      ) : null}
                     </Box>
                   ) : null}
                   {m.runId ? (

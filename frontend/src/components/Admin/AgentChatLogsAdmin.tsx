@@ -8,7 +8,7 @@ interface LogRow {
   created_at: string
   message_preview: string
   reply_preview: string
-  ollama_available: boolean
+  llm_available: boolean
   model: string | null
 }
 
@@ -64,7 +64,7 @@ export function AgentChatLogsAdmin() {
                   </Text>
                 </Table.Cell>
                 <Table.Cell fontSize="xs">
-                  {row.ollama_available ? row.model ?? "да" : "нет"}
+                  {row.llm_available ? row.model ?? "да" : "нет"}
                 </Table.Cell>
               </Table.Row>
             ))}

@@ -3,6 +3,8 @@
 
 Сообщение (SSE data / WS JSON):
   {"v":1,"channel":"<name>","type":"<event_type>","ts":"<iso8601>","payload":{...}}
+
+Канал telemetry — поток фактов из WMS/ERP/PLC/датчиков (near real-time), без debounce.
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ CHANNEL_TASK_UPDATES = "task_updates"
 CHANNEL_EQUIPMENT_POSITIONS = "equipment_positions"
 CHANNEL_ALERTS = "alerts"
 CHANNEL_AGENT_RUNS = "agent_runs"
+CHANNEL_TELEMETRY = "telemetry"
 
 ALL_CHANNELS: frozenset[str] = frozenset(
     {
@@ -33,6 +36,7 @@ ALL_CHANNELS: frozenset[str] = frozenset(
         CHANNEL_EQUIPMENT_POSITIONS,
         CHANNEL_ALERTS,
         CHANNEL_AGENT_RUNS,
+        CHANNEL_TELEMETRY,
     }
 )
 
@@ -217,12 +221,24 @@ def publish_alert_event(
     )
 
 
+def publish_telemetry_fact(*, event_type: str, payload: dict) -> None:
+    """Немедленная публикация факта телеметрии / внешней системы (канал telemetry)."""
+    _call_broadcast(_envelope(CHANNEL_TELEMETRY, event_type, dict(payload)))
+
+
+def publish_external_vehicle_pose(*, payload: dict) -> None:
+    """Позиция ТС без привязки к equipment.id (AGV по внешнему id) — канал equipment_positions."""
+    _call_broadcast(
+        _envelope(CHANNEL_EQUIPMENT_POSITIONS, "external_vehicle_pose", dict(payload))
+    )
+
+
 def publish_agent_run_finished(
     *,
     user_id: uuid.UUID,
     log_id: uuid.UUID,
     message_preview: str | None,
-    ollama_available: bool,
+    llm_available: bool,
 ) -> None:
     _call_broadcast(
         _envelope(
@@ -232,7 +248,7 @@ def publish_agent_run_finished(
                 "user_id": str(user_id),
                 "log_id": str(log_id),
                 "message_preview": (message_preview or "")[:200],
-                "ollama_available": ollama_available,
+                "llm_available": llm_available,
             },
         )
     )
