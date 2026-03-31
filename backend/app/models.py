@@ -4,7 +4,7 @@ from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from pydantic import EmailStr, computed_field
-from sqlalchemy import Column, UniqueConstraint
+from sqlalchemy import Column, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -140,6 +140,75 @@ class AgentChatLogPublic(SQLModel):
 class AgentChatLogList(SQLModel):
     data: list[AgentChatLogPublic]
     count: int
+
+
+# --- Пользовательские чаты ассистента (синхронизация между устройствами) ---
+class AgentUserChat(SQLModel, table=True):
+    __tablename__ = "agent_user_chat"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
+    title: str = Field(default="Новый чат", max_length=200)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+
+class AgentUserChatMessage(SQLModel, table=True):
+    __tablename__ = "agent_user_chat_message"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    chat_id: uuid.UUID = Field(
+        foreign_key="agent_user_chat.id",
+        ondelete="CASCADE",
+        index=True,
+    )
+    seq: int = Field(ge=0)
+    role: str = Field(max_length=16)
+    content: str = Field(default="", sa_column=Column(Text, nullable=False))
+    assistant_meta: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("chat_id", "seq", name="uq_agent_user_chat_message_chat_seq"),
+    )
+
+
+class AgentUserChatMessagePublic(SQLModel):
+    id: uuid.UUID
+    role: str
+    content: str
+    seq: int
+    assistant_meta: dict[str, Any] | None = None
+
+
+class AgentUserChatPublic(SQLModel):
+    id: uuid.UUID
+    title: str
+    updated_at: datetime
+
+
+class AgentUserChatListResponse(SQLModel):
+    data: list[AgentUserChatPublic]
+    count: int
+
+
+class AgentUserChatDetailPublic(SQLModel):
+    id: uuid.UUID
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    messages: list[AgentUserChatMessagePublic]
 
 
 class AgentRun(SQLModel, table=True):

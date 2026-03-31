@@ -1,6 +1,7 @@
 from app.agent.reasoning_runtime import (
     StructuredReasoningRun,
     build_public_reasoning_view,
+    reply_without_first_paragraph_when_multi,
 )
 
 
@@ -25,3 +26,11 @@ def test_public_reasoning_includes_operational_cycle_and_run_log() -> None:
     assert out["run_log_ref"] is not None
     assert "550e8400" in out["run_log_ref"]
     assert "twin_queue_depth_projections" in out["data_sources"]
+
+
+def test_reply_without_first_paragraph_strips_when_multiple_paragraphs() -> None:
+    assert (
+        reply_without_first_paragraph_when_multi("A\n\nB\n\nC")
+        == "B\n\nC"
+    )
+    assert reply_without_first_paragraph_when_multi("Один абзац") == "Один абзац"

@@ -42,7 +42,8 @@ def test_inbox_putaway_updates_item_slot_and_projections(db: Session) -> None:
             "schema_version": 1,
             "item_id": str(item.id),
             "warehouse_id": str(wh.id),
-            "slot_key": "0-0-0-0",
+            # Ячейка, не пересекающаяся с другими тестами (часто занимают 0-0-0-0).
+            "slot_key": "9-9-9-9",
             "meta": {"item_status": "warehouse"},
         },
         status="pending",
@@ -54,10 +55,10 @@ def test_inbox_putaway_updates_item_slot_and_projections(db: Session) -> None:
     assert stats["processed"] >= 1
 
     db.refresh(item)
-    assert item.storage_row == 1
-    assert item.storage_level == 1
-    assert item.storage_cell_x == 1
-    assert item.storage_cell_z == 1
+    assert item.storage_row == 10
+    assert item.storage_level == 10
+    assert item.storage_cell_x == 10
+    assert item.storage_cell_z == 10
     assert item.status == "warehouse"
 
     _drain_outbox(db)

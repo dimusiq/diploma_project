@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlmodel import col, func, select
 
+from app.agent.reasoning_runtime import reply_without_first_paragraph_when_multi
 from app.agent.tool_catalog import CATALOG_BY_NAME, tools_for_user
 from app.agent.tool_safety import ToolSafetyClass
 from app.api.deps import (
@@ -36,6 +37,12 @@ from app.models import (
     AgentChatLog,
     AgentChatLogList,
     AgentChatLogPublic,
+    AgentUserChat,
+    AgentUserChatDetailPublic,
+    AgentUserChatListResponse,
+    AgentUserChatMessage,
+    AgentUserChatMessagePublic,
+    AgentUserChatPublic,
     AgentOperationSession,
     AgentOperationSessionCreate,
     AgentOperationSessionList,
@@ -65,6 +72,7 @@ from app.services.agent_operations import (
 )
 from app.services.agent_pending_actions import execute_pending_action
 from app.services.agent_rate_limit import enforce_agent_chat_rate_limit
+from app.services.agent_user_chats import append_user_chat_turn, get_user_chat_for_user
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -85,6 +93,17 @@ class AgentChatRequest(BaseModel):
     include_reasoning_debug: bool = Field(
         default=False,
         description="Полный structured reasoning trace (только суперпользователь).",
+    )
+    user_chat_id: uuid.UUID | None = Field(
+        default=None,
+        description="Добавить пару сообщений в сохранённый чат пользователя (история БД).",
+    )
+    include_public_reasoning: bool = Field(
+        default=False,
+        description=(
+            "Включить в ответ публичную сводку reasoning (как сформирован ответ). "
+            "По умолчанию только текст ответа."
+        ),
     )
 
 
@@ -123,7 +142,7 @@ class AgentChatResponse(BaseModel):
     reply: str
     llm_available: bool
     model: str | None = None
-    public_reasoning: AgentPublicReasoningSummary
+    public_reasoning: AgentPublicReasoningSummary | None = None
     reasoning_debug: dict[str, Any] | None = None
     run_id: str | None = None
 
@@ -157,6 +176,115 @@ def agent_permissions(
 ) -> Any:
     """Для UI: есть ли право пользоваться POST /agent/chat."""
     return AgentPermissionsResponse(can_use=can_use_agent(session, current_user))
+
+
+@router.get(
+    "/user-chats",
+    response_model=AgentUserChatListResponse,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def list_agent_user_chats(
+    session: SessionDep,
+    current_user: CurrentUser,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=200),
+) -> Any:
+    """Список чатов текущего пользователя (сортировка по updated_at)."""
+    q = (
+        select(AgentUserChat)
+        .where(AgentUserChat.user_id == current_user.id)
+        .order_by(AgentUserChat.updated_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    rows = session.exec(q).all()
+    count = session.exec(
+        select(func.count(AgentUserChat.id)).where(
+            AgentUserChat.user_id == current_user.id
+        )
+    ).one()
+    return AgentUserChatListResponse(
+        data=[
+            AgentUserChatPublic(
+                id=r.id,
+                title=r.title,
+                updated_at=r.updated_at,
+            )
+            for r in rows
+        ],
+        count=int(count),
+    )
+
+
+@router.post(
+    "/user-chats",
+    response_model=AgentUserChatPublic,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def create_agent_user_chat(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """Добавить пустой чат."""
+    c = AgentUserChat(user_id=current_user.id, title="Новый чат")
+    session.add(c)
+    session.commit()
+    session.refresh(c)
+    return AgentUserChatPublic(id=c.id, title=c.title, updated_at=c.updated_at)
+
+
+@router.get(
+    "/user-chats/{chat_id}",
+    response_model=AgentUserChatDetailPublic,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def get_agent_user_chat(
+    session: SessionDep,
+    current_user: CurrentUser,
+    chat_id: uuid.UUID,
+) -> Any:
+    """Сообщения чата (по seq)."""
+    chat = get_user_chat_for_user(session, chat_id=chat_id, user=current_user)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+    msgs = session.exec(
+        select(AgentUserChatMessage)
+        .where(AgentUserChatMessage.chat_id == chat_id)
+        .order_by(AgentUserChatMessage.seq)
+    ).all()
+    return AgentUserChatDetailPublic(
+        id=chat.id,
+        title=chat.title,
+        created_at=chat.created_at,
+        updated_at=chat.updated_at,
+        messages=[
+            AgentUserChatMessagePublic(
+                id=m.id,
+                role=m.role,
+                content=m.content,
+                seq=m.seq,
+                assistant_meta=m.assistant_meta,
+            )
+            for m in msgs
+        ],
+    )
+
+
+@router.delete(
+    "/user-chats/{chat_id}",
+    status_code=204,
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+def delete_agent_user_chat(
+    session: SessionDep,
+    current_user: CurrentUser,
+    chat_id: uuid.UUID,
+) -> None:
+    chat = get_user_chat_for_user(session, chat_id=chat_id, user=current_user)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+    session.delete(chat)
+    session.commit()
 
 
 @router.get(
@@ -347,6 +475,7 @@ def update_agent_policy(
 @router.post(
     "/chat",
     response_model=AgentChatResponse,
+    response_model_exclude_none=True,
     dependencies=[require_permission(PERM_AGENT_USE)],
 )
 async def agent_chat(
@@ -370,6 +499,12 @@ async def agent_chat(
             status_code=403,
             detail="include_reasoning_debug доступен только суперпользователю",
         )
+    if body.user_chat_id is not None:
+        uc = get_user_chat_for_user(
+            session, chat_id=body.user_chat_id, user=current_user
+        )
+        if uc is None:
+            raise HTTPException(status_code=404, detail="Чат не найден")
     try:
         outcome = await run_agent_chat(
             session,
@@ -380,9 +515,23 @@ async def agent_chat(
             operation_session_id=body.operation_session_id,
         )
     except httpx.HTTPStatusError as e:
+        snippet = ""
+        try:
+            snippet = (e.response.text or "")[:800]
+        except Exception:
+            snippet = ""
         raise HTTPException(
             status_code=502,
-            detail=f"Inference (vLLM) вернул ошибку: {e.response.status_code}",
+            detail=(
+                f"Inference (vLLM) HTTP {e.response.status_code}; "
+                f"запрос: {e.request.url!s}"
+                + (f"; тело: {snippet}" if snippet else "")
+            ),
+        ) from e
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Нет связи с inference (vLLM): {e!s}",
         ) from e
     except Exception as e:
         raise HTTPException(
@@ -390,11 +539,17 @@ async def agent_chat(
             detail=f"Не удалось обратиться к inference (vLLM): {e!s}",
         ) from e
 
+    reply_for_client = (
+        reply_without_first_paragraph_when_multi(outcome.reply)
+        if not body.include_public_reasoning
+        else outcome.reply
+    )
+
     log = AgentChatLog(
         user_id=current_user.id,
         operation_session_id=body.operation_session_id,
         message_preview=body.message[:500],
-        reply_preview=outcome.reply[:500],
+        reply_preview=reply_for_client[:500],
         ollama_available=outcome.llm_available,
         model=outcome.model,
     )
@@ -430,9 +585,19 @@ async def agent_chat(
                     "at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
                     "run_id": outcome.run_id,
                     "message_excerpt": body.message[:240],
-                    "reply_excerpt": outcome.reply[:400],
+                    "reply_excerpt": reply_for_client[:400],
                 },
             )
+    if body.user_chat_id is not None:
+        append_user_chat_turn(
+            session,
+            chat_id=body.user_chat_id,
+            user_message=body.message,
+            outcome=outcome,
+            run_uuid=run_uuid,
+            include_public_reasoning_in_meta=body.include_public_reasoning,
+            assistant_reply_text=reply_for_client,
+        )
     session.commit()
     session.refresh(log)
     publish_agent_run_finished(
@@ -442,11 +607,14 @@ async def agent_chat(
         llm_available=outcome.llm_available,
     )
 
+    pr: AgentPublicReasoningSummary | None = None
+    if body.include_public_reasoning:
+        pr = AgentPublicReasoningSummary(**outcome.public_reasoning)
     return AgentChatResponse(
-        reply=outcome.reply,
+        reply=reply_for_client,
         llm_available=outcome.llm_available,
         model=outcome.model,
-        public_reasoning=AgentPublicReasoningSummary(**outcome.public_reasoning),
+        public_reasoning=pr,
         reasoning_debug=outcome.reasoning_debug,
         run_id=str(run_uuid) if run_uuid else None,
     )

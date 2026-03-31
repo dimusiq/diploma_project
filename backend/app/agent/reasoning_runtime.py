@@ -130,6 +130,18 @@ def _split_paragraphs(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
+def reply_without_first_paragraph_when_multi(reply: str) -> str:
+    """
+    Первый абзац ответа совпадает с тем, что попадает в public_reasoning.brief_explanation.
+    Если сводку в ответ не отдаём (include_public_reasoning=False), убираем этот абзац,
+    когда ниже есть ещё абзацы — иначе пользователь видит дублирование «Кратко» и текста.
+    """
+    paras = _split_paragraphs(reply)
+    if len(paras) <= 1:
+        return reply
+    return "\n\n".join(paras[1:]).strip()
+
+
 def build_public_reasoning_view(
     *,
     final_reply: str,
