@@ -1894,6 +1894,20 @@ class EquipmentList(SQLModel):
     count: int
 
 
+class EquipmentImportRowError(SQLModel):
+    """Ошибка разбора или сохранения одной строки файла импорта."""
+
+    row: int
+    message: str
+
+
+class EquipmentImportResult(SQLModel):
+    """Итог массового импорта техники из Excel."""
+
+    created: int
+    errors: list[EquipmentImportRowError] = Field(default_factory=list)
+
+
 # --- MaintenanceRecord (проведённое ТО по единице техники) ---
 class MaintenanceRecord(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)

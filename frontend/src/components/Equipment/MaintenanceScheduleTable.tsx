@@ -20,21 +20,19 @@ import { useEffect, useMemo, useState } from "react"
 import { FiChevronDown, FiChevronUp, FiDownload } from "react-icons/fi"
 
 import type { MaintenanceRecordCreate } from "@/api/equipment"
-import useCustomToast from "@/hooks/useCustomToast"
-
 import {
   EQUIPMENT_TYPE_LABELS,
   type EquipmentPublic,
   equipmentApi,
 } from "@/api/equipment.ts"
 import {
-  apiChainToLegacyFormat,
-  maintenanceScheduleApi,
-} from "@/api/maintenanceSchedule.ts"
-import {
   downloadMaintenanceScheduleCsv,
   downloadMaintenanceScheduleXlsx,
 } from "@/api/exportMaintenanceSchedule.ts"
+import {
+  apiChainToLegacyFormat,
+  maintenanceScheduleApi,
+} from "@/api/maintenanceSchedule.ts"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -50,6 +48,13 @@ import {
   MenuRoot,
   MenuTrigger,
 } from "@/components/ui/menu.tsx"
+import {
+  PaginationItems,
+  PaginationNextTrigger,
+  PaginationPrevTrigger,
+  PaginationRoot,
+} from "@/components/ui/pagination.tsx"
+import useCustomToast from "@/hooks/useCustomToast"
 import { getRemindBeforeHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
 type ScheduleStatus = "in_repair" | "overdue" | "due_soon" | "ok"
@@ -381,7 +386,12 @@ function RecordMaintenanceDialog({
             >
               Отмена
             </Button>
-            <Button variant="solid" size="sm" type="submit" loading={createMutation.isPending}>
+            <Button
+              variant="solid"
+              size="sm"
+              type="submit"
+              loading={createMutation.isPending}
+            >
               Записать
             </Button>
           </DialogFooter>
@@ -391,6 +401,9 @@ function RecordMaintenanceDialog({
     </DialogRoot>
   )
 }
+
+/** Строк таблицы на странице (как в списке техники). */
+const PER_PAGE = 20
 
 const FILTERS_STORAGE_KEY = "maintenance_schedule_filters"
 
@@ -477,6 +490,7 @@ export function MaintenanceScheduleTable() {
   >(undefined)
   const [scheduleSortOrder, setScheduleSortOrder] =
     useState<ScheduleSortOrder>("asc")
+  const [page, setPage] = useState(1)
 
   const handleScheduleSort = (key: ScheduleSortField) => {
     if (scheduleSortBy === key) {
@@ -529,10 +543,8 @@ export function MaintenanceScheduleTable() {
     () => (chainsData?.data ?? []).map(apiChainToLegacyFormat),
     [chainsData?.data],
   )
-  const intervalHours =
-    (configData?.default_intervals ?? [500])[0] ?? 500
-  const defaultRemindBefore =
-    configData?.default_remind_before_hours ?? 50
+  const intervalHours = (configData?.default_intervals ?? [500])[0] ?? 500
+  const defaultRemindBefore = configData?.default_remind_before_hours ?? 50
 
   useEffect(() => {
     saveFilters({ statusFilter, typeFilter, chainFilter, sortByChain })
@@ -554,7 +566,12 @@ export function MaintenanceScheduleTable() {
         defaultRemindBefore,
         chains,
       )
-      const status = resolveRowStatus(equipment, engineHours, nextAt, remindBefore)
+      const status = resolveRowStatus(
+        equipment,
+        engineHours,
+        nextAt,
+        remindBefore,
+      )
       const chainNames = chains
         .filter((c) => c.equipmentIds.includes(equipment.id))
         .map((c) => c.name)
@@ -594,8 +611,10 @@ export function MaintenanceScheduleTable() {
         let cmp = 0
         switch (scheduleSortBy) {
           case "equipment": {
-            const sa = `${a.equipment.brand_name ?? ""} ${a.equipment.model ?? ""}`.trim()
-            const sb = `${b.equipment.brand_name ?? ""} ${b.equipment.model ?? ""}`.trim()
+            const sa =
+              `${a.equipment.brand_name ?? ""} ${a.equipment.model ?? ""}`.trim()
+            const sb =
+              `${b.equipment.brand_name ?? ""} ${b.equipment.model ?? ""}`.trim()
             cmp = sa.localeCompare(sb)
             break
           }
@@ -673,6 +692,28 @@ export function MaintenanceScheduleTable() {
     scheduleSortBy,
     scheduleSortOrder,
   ])
+
+  const filteredCount = filteredRows.length
+  const totalRows = rows.length
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PER_PAGE))
+
+  const listViewKey = `${statusFilter}|${typeFilter}|${chainFilter}|${sortByChain}|${scheduleSortBy ?? ""}|${scheduleSortOrder}`
+  // biome-ignore lint/correctness/useExhaustiveDependencies: сброс страницы при смене фильтров/сортировки
+  useEffect(() => {
+    setPage(1)
+  }, [listViewKey])
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages))
+  }, [totalPages])
+
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PER_PAGE
+    return filteredRows.slice(start, start + PER_PAGE)
+  }, [filteredRows, page])
+
+  const rangeStart = filteredCount === 0 ? 0 : (page - 1) * PER_PAGE + 1
+  const rangeEnd = (page - 1) * PER_PAGE + pageItems.length
 
   const summary = useMemo(() => {
     const overdue = rows.filter((r) => r.status === "overdue").length
@@ -880,214 +921,249 @@ export function MaintenanceScheduleTable() {
       {filteredRows.length === 0 ? (
         <Text color="fg.muted">Нет техники по выбранным фильтрам.</Text>
       ) : (
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <ScheduleSortableHeader
-                label="Техника"
-                sortKey="equipment"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-              <ScheduleSortableHeader
-                label="Серийный номер"
-                sortKey="serial_number"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-              <ScheduleSortableHeader
-                label="Гаражный номер"
-                sortKey="garage_number"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-              <ScheduleSortableHeader
-                label="Последовательность ТО"
-                sortKey="primaryChainName"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-              <ScheduleSortableHeader
-                label="Предыдущее ТО (м/ч)"
-                sortKey="lastMaintenanceAtHours"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-              <ScheduleSortableHeader
-                label="Моточасы"
-                sortKey="engineHours"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-              <ScheduleSortableHeader
-                label="След. ТО (м/ч)"
-                sortKey="nextServiceAtHours"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-              <ScheduleSortableHeader
-                label="Осталось м/ч"
-                sortKey="remaining"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-              <ScheduleSortableHeader
-                label="Статус"
-                sortKey="status"
-                currentSort={scheduleSortBy}
-                currentOrder={scheduleSortOrder}
-                onSort={handleScheduleSort}
-              />
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {filteredRows.map(
-              ({
-                equipment,
-                engineHours,
-                lastMaintenanceAtHours,
-                nextServiceAtHours,
-                status,
-                primaryChainName,
-              }) => {
-                const remaining =
-                  engineHours != null &&
-                  nextServiceAtHours != null &&
-                  engineHours < nextServiceAtHours
-                    ? nextServiceAtHours - engineHours
-                    : null
-                return (
-                  <Table.Row
-                    key={equipment.id}
-                    cursor="pointer"
-                    _hover={{ bg: "gray.subtle" }}
-                    _active={{ bg: "gray.muted" }}
-                    onClick={() => setSelectedEquipment(equipment)}
-                  >
-                    <Table.Cell>
-                      <Text fontWeight="medium">
-                        {equipment.brand_name} {equipment.model}
-                      </Text>
-                      <Text fontSize="xs" color="fg.muted">
-                        {EQUIPMENT_TYPE_LABELS[equipment.equipment_type] ??
-                          equipment.equipment_type}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">
-                        {equipment.serial_number || "—"}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">
-                        {equipment.garage_number || "—"}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      {primaryChainName ? (
-                        (() => {
-                          const chain = chains.find(
-                            (c) => c.name === primaryChainName,
-                          )
-                          const colorPalette = chain?.colorTag ?? "gray"
-                          return (
-                            <Tag.Root
-                              size="sm"
-                              colorPalette={colorPalette}
-                              variant="subtle"
-                            >
-                              <Tag.Label>{primaryChainName}</Tag.Label>
-                            </Tag.Root>
-                          )
-                        })()
-                      ) : (
-                        <Text fontSize="sm" color="fg.muted">
-                          —
+        <Box>
+          <Table.Root size="sm">
+            <Table.Header>
+              <Table.Row>
+                <ScheduleSortableHeader
+                  label="Техника"
+                  sortKey="equipment"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+                <ScheduleSortableHeader
+                  label="Серийный номер"
+                  sortKey="serial_number"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+                <ScheduleSortableHeader
+                  label="Гаражный номер"
+                  sortKey="garage_number"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+                <ScheduleSortableHeader
+                  label="Последовательность ТО"
+                  sortKey="primaryChainName"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+                <ScheduleSortableHeader
+                  label="Предыдущее ТО (м/ч)"
+                  sortKey="lastMaintenanceAtHours"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+                <ScheduleSortableHeader
+                  label="Моточасы"
+                  sortKey="engineHours"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+                <ScheduleSortableHeader
+                  label="След. ТО (м/ч)"
+                  sortKey="nextServiceAtHours"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+                <ScheduleSortableHeader
+                  label="Осталось м/ч"
+                  sortKey="remaining"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+                <ScheduleSortableHeader
+                  label="Статус"
+                  sortKey="status"
+                  currentSort={scheduleSortBy}
+                  currentOrder={scheduleSortOrder}
+                  onSort={handleScheduleSort}
+                />
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {pageItems.map(
+                ({
+                  equipment,
+                  engineHours,
+                  lastMaintenanceAtHours,
+                  nextServiceAtHours,
+                  status,
+                  primaryChainName,
+                }) => {
+                  const remaining =
+                    engineHours != null &&
+                    nextServiceAtHours != null &&
+                    engineHours < nextServiceAtHours
+                      ? nextServiceAtHours - engineHours
+                      : null
+                  return (
+                    <Table.Row
+                      key={equipment.id}
+                      cursor="pointer"
+                      _hover={{ bg: "gray.subtle" }}
+                      _active={{ bg: "gray.muted" }}
+                      onClick={() => setSelectedEquipment(equipment)}
+                    >
+                      <Table.Cell>
+                        <Text fontWeight="medium">
+                          {equipment.brand_name} {equipment.model}
                         </Text>
-                      )}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">
-                        {lastMaintenanceAtHours != null
-                          ? lastMaintenanceAtHours
-                          : "—"}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">
-                        {engineHours != null ? engineHours : "—"}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">
-                        {nextServiceAtHours != null ? nextServiceAtHours : "—"}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">
-                        {remaining != null
-                          ? remaining
-                          : status === "overdue"
-                            ? "0"
+                        <Text fontSize="xs" color="fg.muted">
+                          {EQUIPMENT_TYPE_LABELS[equipment.equipment_type] ??
+                            equipment.equipment_type}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Text fontSize="sm">
+                          {equipment.serial_number || "—"}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Text fontSize="sm">
+                          {equipment.garage_number || "—"}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell>
+                        {primaryChainName ? (
+                          (() => {
+                            const chain = chains.find(
+                              (c) => c.name === primaryChainName,
+                            )
+                            const colorPalette = chain?.colorTag ?? "gray"
+                            return (
+                              <Tag.Root
+                                size="sm"
+                                colorPalette={colorPalette}
+                                variant="subtle"
+                              >
+                                <Tag.Label>{primaryChainName}</Tag.Label>
+                              </Tag.Root>
+                            )
+                          })()
+                        ) : (
+                          <Text fontSize="sm" color="fg.muted">
+                            —
+                          </Text>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Text fontSize="sm">
+                          {lastMaintenanceAtHours != null
+                            ? lastMaintenanceAtHours
                             : "—"}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell onClick={(e) => e.stopPropagation()}>
-                      <MenuRoot id={`schedule-status-menu-${equipment.id}`}>
-                        <MenuTrigger asChild>
-                          <Badge
-                            size="sm"
-                            colorPalette={STATUS_COLOR[status]}
-                            cursor="pointer"
-                            _hover={{ opacity: 0.9 }}
-                            aria-label="Действия по статусу ТО"
-                          >
-                            {STATUS_LABELS[status]}
-                          </Badge>
-                        </MenuTrigger>
-                        <MenuContent>
-                          <MenuItem
-                            value={`to-maintenance-${equipment.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              updateStatusMutation.mutate({
-                                id: equipment.id,
-                                current_status: "maintenance",
-                              })
-                            }}
-                            disabled={
-                              updateStatusMutation.isPending ||
-                              equipment.current_status === "maintenance"
-                            }
-                          >
-                            Перевести на обслуживание
-                          </MenuItem>
-                          <MenuItem
-                            value={`record-${equipment.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setEquipmentForRecord(equipment)
-                            }}
-                          >
-                            Записать проведённое ТО
-                          </MenuItem>
-                        </MenuContent>
-                      </MenuRoot>
-                    </Table.Cell>
-                  </Table.Row>
-                )
-              },
-            )}
-          </Table.Body>
-        </Table.Root>
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Text fontSize="sm">
+                          {engineHours != null ? engineHours : "—"}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Text fontSize="sm">
+                          {nextServiceAtHours != null
+                            ? nextServiceAtHours
+                            : "—"}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Text fontSize="sm">
+                          {remaining != null
+                            ? remaining
+                            : status === "overdue"
+                              ? "0"
+                              : "—"}
+                        </Text>
+                      </Table.Cell>
+                      <Table.Cell onClick={(e) => e.stopPropagation()}>
+                        <MenuRoot id={`schedule-status-menu-${equipment.id}`}>
+                          <MenuTrigger asChild>
+                            <Badge
+                              size="sm"
+                              colorPalette={STATUS_COLOR[status]}
+                              cursor="pointer"
+                              _hover={{ opacity: 0.9 }}
+                              aria-label="Действия по статусу ТО"
+                            >
+                              {STATUS_LABELS[status]}
+                            </Badge>
+                          </MenuTrigger>
+                          <MenuContent>
+                            <MenuItem
+                              value={`to-maintenance-${equipment.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                updateStatusMutation.mutate({
+                                  id: equipment.id,
+                                  current_status: "maintenance",
+                                })
+                              }}
+                              disabled={
+                                updateStatusMutation.isPending ||
+                                equipment.current_status === "maintenance"
+                              }
+                            >
+                              Перевести на обслуживание
+                            </MenuItem>
+                            <MenuItem
+                              value={`record-${equipment.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEquipmentForRecord(equipment)
+                              }}
+                            >
+                              Записать проведённое ТО
+                            </MenuItem>
+                          </MenuContent>
+                        </MenuRoot>
+                      </Table.Cell>
+                    </Table.Row>
+                  )
+                },
+              )}
+            </Table.Body>
+          </Table.Root>
+          <Flex
+            mt={4}
+            align="center"
+            justify="space-between"
+            flexWrap="wrap"
+            gap={3}
+          >
+            <Text fontSize="sm" color="fg.muted">
+              {`Строки ${rangeStart}–${rangeEnd} из ${filteredCount}${
+                filteredCount !== totalRows
+                  ? ` (всего в графике: ${totalRows})`
+                  : ""
+              }`}
+            </Text>
+            {totalPages > 1 ? (
+              <Flex justifyContent="flex-end" flexShrink={0}>
+                <PaginationRoot
+                  count={filteredCount}
+                  pageSize={PER_PAGE}
+                  page={page}
+                  onPageChange={(e) => setPage(e.page)}
+                >
+                  <Flex>
+                    <PaginationPrevTrigger />
+                    <PaginationItems />
+                    <PaginationNextTrigger />
+                  </Flex>
+                </PaginationRoot>
+              </Flex>
+            ) : null}
+          </Flex>
+        </Box>
       )}
     </Box>
   )

@@ -24,7 +24,7 @@ export function AgentChatLogsAdmin() {
   })
 
   return (
-    <Box pt={4}>
+    <Box>
       <Text fontSize="sm" color="fg.muted" mb={4}>
         Последние обращения к ассистенту (все пользователи). Полные тексты не
         хранятся — только превью до 500 символов.

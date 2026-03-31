@@ -115,7 +115,7 @@ export function AgentKnowledgeAdmin() {
   const editingRow = data?.data.find((r) => r.id === editId)
 
   return (
-    <Box pt={4}>
+    <Box>
       <Text fontSize="sm" color="fg.muted" mb={4}>
         Справочные тексты для RAG ассистента. Эмбеддинги — через OpenAI-совместимый
         API (например vLLM: <code>VLLM_EMBED_MODEL</code> /{" "}

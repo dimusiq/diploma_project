@@ -2,7 +2,8 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import Response
 from sqlmodel import func, select, update
 
 from app.api.deps import CurrentUser, SessionDep
@@ -12,6 +13,8 @@ from app.models import (
     Equipment,
     EquipmentCreate,
     EquipmentCurrentStatusPatch,
+    EquipmentImportResult,
+    EquipmentImportRowError,
     EquipmentList,
     EquipmentPublic,
     EquipmentUpdate,
@@ -22,6 +25,11 @@ from app.models import (
     MaintenanceRecordPublic,
     MaintenanceRecordWithEquipmentPublic,
     Message,
+)
+from app.services.equipment_import import (
+    MAX_IMPORT_BYTES,
+    build_equipment_import_template_xlsx,
+    import_equipment_from_spreadsheet,
 )
 
 router = APIRouter(prefix="/equipment", tags=["equipment"])
@@ -275,6 +283,19 @@ def create_maintenance_record(
     )
 
 
+@router.get("/import-template")
+def download_equipment_import_template(_current_user: CurrentUser) -> Response:
+    """Скачать пустой .xlsx с заголовками столбцов для массового импорта техники."""
+    data = build_equipment_import_template_xlsx()
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="shablon_importa_tehniki.xlsx"',
+        },
+    )
+
+
 @router.get("/{id}", response_model=EquipmentPublic)
 def read_equipment(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
     """Получить единицу техники по ID."""
@@ -310,6 +331,41 @@ def create_equipment(
     session.refresh(equipment)
     brand = session.get(Brand, equipment.brand_id)
     return _equipment_to_public(equipment, brand)
+
+
+@router.post("/import", response_model=EquipmentImportResult)
+async def import_equipment_file(
+    session: SessionDep,
+    _current_user: CurrentUser,
+    file: UploadFile = File(..., description="Таблица Excel .xlsx"),
+) -> Any:
+    """
+    Массовое добавление техники из первого листа файла (.xlsx).
+    В первой строке — заголовки: тип техники, бренд, модель (обязательно); остальные поля — по желанию.
+    """
+    content = await file.read()
+    if len(content) > MAX_IMPORT_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Файл слишком большой (максимум 8 МБ)",
+        )
+    if not content:
+        raise HTTPException(status_code=400, detail="Пустой файл")
+    fn = (file.filename or "").lower()
+    if not fn.endswith(".xlsx"):
+        raise HTTPException(
+            status_code=400,
+            detail="Загрузите файл в формате .xlsx (Excel 2007 и новее).",
+        )
+    name = file.filename or "import.xlsx"
+    try:
+        created, errs = import_equipment_from_spreadsheet(session, content, name)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return EquipmentImportResult(
+        created=created,
+        errors=[EquipmentImportRowError(row=r, message=m) for r, m in errs],
+    )
 
 
 @router.patch("/{id}/current-status", response_model=EquipmentPublic)

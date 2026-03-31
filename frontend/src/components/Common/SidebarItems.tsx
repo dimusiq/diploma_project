@@ -1,4 +1,4 @@
-import { Box, Flex, Icon, Text } from "@chakra-ui/react"
+import { Box, Collapsible, Flex, Icon, Text } from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link as RouterLink, useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
@@ -10,7 +10,6 @@ import {
   FiBox,
   FiCheckCircle,
   FiChevronDown,
-  FiChevronRight,
   FiCpu,
   FiGrid,
   FiLayers,
@@ -183,28 +182,38 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
   const listItems = navItems.map((item) => {
     if (isExpandable(item)) {
       return (
-        <Box key={item.title}>
-          <Flex
-            as="button"
+        <Collapsible.Root
+          key={item.title}
+          open={techniqueExpanded}
+          onOpenChange={(e) => setTechniqueExpanded(e.open)}
+        >
+          <Collapsible.Trigger
+            display="flex"
             gap={4}
             px={4}
             py={2}
             w="100%"
             textAlign="left"
-            _hover={{ background: "gray.subtle" }}
             alignItems="center"
             fontSize="sm"
-            onClick={() => setTechniqueExpanded((v) => !v)}
+            bg="transparent"
+            border="none"
+            cursor="pointer"
+            color="inherit"
+            _hover={{ background: "gray.subtle" }}
           >
             <Icon as={item.icon} alignSelf="center" />
             <Text ml={2}>{item.title}</Text>
             <Icon
-              as={techniqueExpanded ? FiChevronDown : FiChevronRight}
+              as={FiChevronDown}
               ml="auto"
               boxSize={4}
+              flexShrink={0}
+              transition="transform 0.2s ease"
+              transform={techniqueExpanded ? "rotate(0deg)" : "rotate(-90deg)"}
             />
-          </Flex>
-          {techniqueExpanded && (
+          </Collapsible.Trigger>
+          <Collapsible.Content>
             <Box pl={6} pr={2} pb={1}>
               {item.children.map((sub) => {
                 const isActive = currentSection === sub.id
@@ -234,8 +243,8 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
                 )
               })}
             </Box>
-          )}
-        </Box>
+          </Collapsible.Content>
+        </Collapsible.Root>
       )
     }
     const { icon, title, path } = item

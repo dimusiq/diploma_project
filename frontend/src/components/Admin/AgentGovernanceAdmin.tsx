@@ -86,7 +86,7 @@ export function AgentGovernanceAdmin() {
   })
 
   return (
-    <Box pt={4}>
+    <Box>
       <Heading size="md" mb={4}>
         Политики и безопасность агента
       </Heading>

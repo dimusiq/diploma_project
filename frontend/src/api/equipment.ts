@@ -2,7 +2,7 @@
  * API для раздела «Список техники» (Equipment).
  */
 
-import { request } from "@/lib/apiClient.ts"
+import { fetchWithAuth, request } from "@/lib/apiClient.ts"
 
 /** Типы складской техники */
 export const EQUIPMENT_TYPE_IDS = [
@@ -71,6 +71,16 @@ export interface EquipmentUpdate {
 export interface EquipmentListResponse {
   data: EquipmentPublic[]
   count: number
+}
+
+export interface EquipmentImportRowError {
+  row: number
+  message: string
+}
+
+export interface EquipmentImportResult {
+  created: number
+  errors: EquipmentImportRowError[]
 }
 
 export interface MaintenanceRecordPublic {
@@ -192,4 +202,26 @@ export const equipmentApi = {
     request<{ message: string }>(`/api/v1/equipment/${id}`, {
       method: "DELETE",
     }),
+  importFromFile: async (file: File) => {
+    const fd = new FormData()
+    fd.append("file", file)
+    const res = await fetchWithAuth("/api/v1/equipment/import", {
+      method: "POST",
+      body: fd,
+    })
+    return res.json() as Promise<EquipmentImportResult>
+  },
+  /** Пустой .xlsx с заголовками столбцов для импорта. */
+  downloadImportTemplate: async () => {
+    const res = await fetchWithAuth("/api/v1/equipment/import-template")
+    const blob = await res.blob()
+    const disposition = res.headers.get("Content-Disposition")
+    const match = disposition?.match(/filename="?([^";\n]+)"?/)
+    const filename = match?.[1]?.trim() ?? "shablon_importa_tehniki.xlsx"
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(a.href)
+  },
 }

@@ -9,7 +9,7 @@ import {
 } from "@chakra-ui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { FaPlus } from "react-icons/fa"
 import { FiChevronDown, FiChevronUp, FiSearch } from "react-icons/fi"
 
@@ -23,6 +23,7 @@ import {
 import { zonesApi } from "@/api/zones.ts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
+import { EquipmentImportDialog } from "@/components/Equipment/EquipmentImportDialog.tsx"
 import { MassAssignZoneDialog } from "@/components/Equipment/MassAssignZoneDialog.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
@@ -31,6 +32,12 @@ import {
   MenuRoot,
   MenuTrigger,
 } from "@/components/ui/menu.tsx"
+import {
+  PaginationItems,
+  PaginationNextTrigger,
+  PaginationPrevTrigger,
+  PaginationRoot,
+} from "@/components/ui/pagination.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { handleError } from "@/utils.ts"
 
@@ -41,6 +48,8 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const PAGE_SIZE = 500
+/** Строк таблицы на одной странице (клиентская пагинация отфильтрованного списка). */
+const PER_PAGE = 20
 
 function SortableHeader({
   label,
@@ -116,14 +125,18 @@ export function EquipmentList() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [typeFilter, setTypeFilter] = useState<string>("")
-  const [sortBy, setSortBy] = useState<EquipmentSortField | undefined>(undefined)
+  const [sortBy, setSortBy] = useState<EquipmentSortField | undefined>(
+    undefined,
+  )
   const [sortOrder, setSortOrder] = useState<EquipmentSortOrder>("asc")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [zoneDialogOpen, setZoneDialogOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<EquipmentPublic | null>(
     null,
   )
   const [isDeleting, setIsDeleting] = useState(false)
+  const [page, setPage] = useState(1)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { showErrorToast } = useCustomToast()
@@ -232,7 +245,26 @@ export function EquipmentList() {
     return arr
   }, [allItems, search, statusFilter, typeFilter, sortBy, sortOrder])
 
-  const count = items.length
+  const filteredCount = items.length
+  const totalPages = Math.max(1, Math.ceil(filteredCount / PER_PAGE))
+
+  const listViewKey = `${search}|${statusFilter}|${typeFilter}|${sortBy ?? ""}|${sortOrder}`
+  // biome-ignore lint/correctness/useExhaustiveDependencies: сброс страницы при смене фильтров/сортировки
+  useEffect(() => {
+    setPage(1)
+  }, [listViewKey])
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages))
+  }, [totalPages])
+
+  const pageItems = useMemo(() => {
+    const start = (page - 1) * PER_PAGE
+    return items.slice(start, start + PER_PAGE)
+  }, [items, page])
+
+  const rangeStart = filteredCount === 0 ? 0 : (page - 1) * PER_PAGE + 1
+  const rangeEnd = (page - 1) * PER_PAGE + pageItems.length
 
   const handleEdit = (item: EquipmentPublic) => {
     navigate({
@@ -268,14 +300,22 @@ export function EquipmentList() {
   }
 
   const toggleAll = () => {
-    const ids = items.map((i) => i.id)
+    const ids = pageItems.map((i) => i.id)
     const allSelected = ids.every((id) => selectedIds.has(id))
-    setSelectedIds(allSelected ? new Set() : new Set(ids))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) {
+        for (const id of ids) next.delete(id)
+      } else {
+        for (const id of ids) next.add(id)
+      }
+      return next
+    })
   }
 
   const isAllSelected =
-    items.length > 0 && items.every((i) => selectedIds.has(i.id))
-  const isSomeSelected = items.some((i) => selectedIds.has(i.id))
+    pageItems.length > 0 && pageItems.every((i) => selectedIds.has(i.id))
+  const isSomeSelected = pageItems.some((i) => selectedIds.has(i.id))
 
   return (
     <Box>
@@ -294,10 +334,18 @@ export function EquipmentList() {
         <Text fontSize="sm" fontWeight="medium">
           Выбрано: {selectedIds.size}
         </Text>
-        <Button size="sm" variant="outline" onClick={() => setZoneDialogOpen(true)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setZoneDialogOpen(true)}
+        >
           Назначить зону
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setSelectedIds(new Set())}
+        >
           Снять выделение
         </Button>
       </Flex>
@@ -352,6 +400,13 @@ export function EquipmentList() {
             <option value="maintenance">На обслуживании</option>
             <option value="decommissioned">Выведена из эксплуатации</option>
           </select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+          >
+            Импорт Excel
+          </Button>
           <Button variant="solid" size="sm" onClick={handleAdd}>
             <FaPlus />
             Добавить
@@ -361,7 +416,7 @@ export function EquipmentList() {
 
       {isLoading && !data ? (
         <Text color="fg.muted">Загрузка...</Text>
-      ) : items.length === 0 ? (
+      ) : allItems.length === 0 ? (
         <EmptyState.Root>
           <EmptyState.Content>
             <EmptyState.Indicator>
@@ -372,9 +427,15 @@ export function EquipmentList() {
               Складская техника: бренды задаются в разделе «Администрирование» →
               Бренды.
             </EmptyState.Description>
-            <Button variant="solid" size="sm" onClick={handleAdd}>Добавить технику</Button>
+            <Button variant="solid" size="sm" onClick={handleAdd}>
+              Добавить технику
+            </Button>
           </EmptyState.Content>
         </EmptyState.Root>
+      ) : filteredCount === 0 ? (
+        <Text color="fg.muted" py={8}>
+          Нет записей по текущим фильтрам и поиску.
+        </Text>
       ) : (
         <Box>
           <FetchingIndicator active={isFetching && !!data} mb={2} />
@@ -395,7 +456,7 @@ export function EquipmentList() {
                           : false
                     }
                     onCheckedChange={toggleAll}
-                    aria-label="Выбрать все"
+                    aria-label="Выбрать все на странице"
                   />
                 </Table.ColumnHeader>
                 <SortableHeader
@@ -454,11 +515,13 @@ export function EquipmentList() {
                   currentOrder={sortOrder}
                   onSort={handleSort}
                 />
-                <Table.ColumnHeader textAlign="end">Действия</Table.ColumnHeader>
+                <Table.ColumnHeader textAlign="end">
+                  Действия
+                </Table.ColumnHeader>
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {items.map((item) => (
+              {pageItems.map((item) => (
                 <Table.Row
                   key={item.id}
                   cursor="pointer"
@@ -467,7 +530,11 @@ export function EquipmentList() {
                   _active={{ bg: "gray.muted" }}
                   onClick={() => handleEdit(item)}
                 >
-                  <Table.Cell w="8" minW="8" onClick={(e) => e.stopPropagation()}>
+                  <Table.Cell
+                    w="8"
+                    minW="8"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Checkbox
                       checked={selectedIds.has(item.id)}
                       onCheckedChange={() => {
@@ -510,7 +577,9 @@ export function EquipmentList() {
                   </Table.Cell>
                   <Table.Cell>
                     <Text fontSize="sm">
-                      {zones.some((z) => z.name === item.zone) ? item.zone : "—"}
+                      {zones.some((z) => z.name === item.zone)
+                        ? item.zone
+                        : "—"}
                     </Text>
                   </Table.Cell>
                   <Table.Cell>
@@ -529,10 +598,14 @@ export function EquipmentList() {
                   </Table.Cell>
                   <Table.Cell>
                     <Text fontSize="sm">
-                      {STATUS_LABELS[item.current_status] ?? item.current_status}
+                      {STATUS_LABELS[item.current_status] ??
+                        item.current_status}
                     </Text>
                   </Table.Cell>
-                  <Table.Cell textAlign="end" onClick={(e) => e.stopPropagation()}>
+                  <Table.Cell
+                    textAlign="end"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <MenuRoot>
                       <MenuTrigger asChild>
                         <Button size="xs" variant="ghost" aria-label="Действия">
@@ -556,11 +629,40 @@ export function EquipmentList() {
           </Table.Root>
         </Box>
       )}
-      {totalCount > 0 && (
-        <Text fontSize="sm" color="fg.muted" mt={4}>
-          Показано: {count} из {totalCount}
-        </Text>
+      {totalCount > 0 && filteredCount > 0 && (
+        <Flex
+          mt={4}
+          align="center"
+          justify="space-between"
+          flexWrap="wrap"
+          gap={3}
+        >
+          <Text fontSize="sm" color="fg.muted">
+            {`Строки ${rangeStart}–${rangeEnd} из ${filteredCount}${
+              filteredCount !== totalCount
+                ? ` (всего в системе: ${totalCount})`
+                : ""
+            }`}
+          </Text>
+          {totalPages > 1 ? (
+            <Flex justifyContent="flex-end" flexShrink={0}>
+              <PaginationRoot
+                count={filteredCount}
+                pageSize={PER_PAGE}
+                page={page}
+                onPageChange={(e) => setPage(e.page)}
+              >
+                <Flex>
+                  <PaginationPrevTrigger />
+                  <PaginationItems />
+                  <PaginationNextTrigger />
+                </Flex>
+              </PaginationRoot>
+            </Flex>
+          ) : null}
+        </Flex>
       )}
+      <EquipmentImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <MassAssignZoneDialog
         open={zoneDialogOpen}
         onOpenChange={setZoneDialogOpen}

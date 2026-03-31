@@ -7,23 +7,18 @@ export interface AgentPublicReasoningSummary {
   recommendation: string
   models: Record<string, string>
   main_loop_task: string
-  /** Промежуточные абзацы ответа (между кратким итогом и финальной рекомендацией). */
   next_steps?: string
-  /** Эвристика после verify инструментов. */
   confidence?: string
-  /** Если вызывались propose/act. */
   kpi_effect?: string | null
-  /** Путь к таймлайну запуска (совпадает с run_id). */
   run_log_ref?: string | null
-  /** Кратко по фазам Observe→Reason→Act→Verify→Conclude. */
   operational_cycle?: Record<string, string>
 }
 
 export interface AgentChatResponse {
   reply: string
   llm_available: boolean
-  model: string | null
-  public_reasoning: AgentPublicReasoningSummary
+  model?: string | null
+  public_reasoning?: AgentPublicReasoningSummary | null
   reasoning_debug?: Record<string, unknown> | null
   run_id?: string | null
 }
@@ -36,17 +31,83 @@ export async function fetchAgentPermissions(): Promise<AgentPermissionsResponse>
   return request<AgentPermissionsResponse>("/api/v1/agent/permissions")
 }
 
-export function postAgentChat(
+export async function postAgentChat(
   message: string,
-  options?: { includeReasoningDebug?: boolean },
+  options?: {
+    includeReasoningDebug?: boolean
+    userChatId?: string
+    includePublicReasoning?: boolean
+  },
 ): Promise<AgentChatResponse> {
-  return request<AgentChatResponse>("/api/v1/agent/chat", {
+  const wantReasoning = options?.includePublicReasoning === true
+  const data = await request<AgentChatResponse>("/api/v1/agent/chat", {
     method: "POST",
     body: {
       message,
       include_reasoning_debug: options?.includeReasoningDebug === true,
+      user_chat_id: options?.userChatId ?? null,
+      include_public_reasoning: wantReasoning,
     },
   })
+  if (!wantReasoning && data.public_reasoning != null) {
+    const { public_reasoning: _omit, ...rest } = data
+    return rest as AgentChatResponse
+  }
+  return data
+}
+
+export interface AgentUserChatPublic {
+  id: string
+  title: string
+  updated_at: string
+}
+
+export interface AgentUserChatMessagePublic {
+  id: string
+  role: string
+  content: string
+  seq: number
+  assistant_meta: Record<string, unknown> | null
+}
+
+export interface AgentUserChatDetailPublic {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+  messages: AgentUserChatMessagePublic[]
+}
+
+export interface AgentUserChatListResponse {
+  data: AgentUserChatPublic[]
+  count: number
+}
+
+export async function fetchUserAssistantChats(): Promise<AgentUserChatListResponse> {
+  return request<AgentUserChatListResponse>("/api/v1/agent/user-chats")
+}
+
+export async function createUserAssistantChat(): Promise<AgentUserChatPublic> {
+  return request<AgentUserChatPublic>("/api/v1/agent/user-chats", {
+    method: "POST",
+  })
+}
+
+export async function fetchUserAssistantChat(
+  chatId: string,
+): Promise<AgentUserChatDetailPublic> {
+  return request<AgentUserChatDetailPublic>(
+    `/api/v1/agent/user-chats/${encodeURIComponent(chatId)}`,
+  )
+}
+
+export async function deleteUserAssistantChat(chatId: string): Promise<void> {
+  await request<void>(
+    `/api/v1/agent/user-chats/${encodeURIComponent(chatId)}`,
+    {
+      method: "DELETE",
+    },
+  )
 }
 
 export interface AgentRunDetail {

@@ -378,7 +378,7 @@ export function WarehouseTopologyAdmin() {
   }
 
   return (
-    <Box pt={4}>
+    <Box>
       <Text fontSize="sm" color="fg.muted" mb={4}>
         Зоны задают диапазоны{" "}
         <strong>рядов / уровней / ячеек</strong> (нумерация как в карточке товара).

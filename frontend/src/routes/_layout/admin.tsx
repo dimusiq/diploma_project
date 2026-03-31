@@ -24,6 +24,7 @@ import {
 import { type BrandPublic, brandsApi } from "@/api/brands.ts"
 import { type ZonePublic, zonesApi } from "@/api/zones.ts"
 import { CategoriesService, RolesService, UsersService } from "@/client/index.ts"
+import { AdminPanel } from "@/components/Admin/AdminPanel.tsx"
 import { AgentChatLogsAdmin } from "@/components/Admin/AgentChatLogsAdmin.tsx"
 import { AgentGovernanceAdmin } from "@/components/Admin/AgentGovernanceAdmin.tsx"
 import { AgentKnowledgeAdmin } from "@/components/Admin/AgentKnowledgeAdmin.tsx"
@@ -120,32 +121,38 @@ function UserAuditBlock({
       <Text fontWeight="semibold" mb={2} fontSize="sm">
         {title}
       </Text>
-      <Table.Root size="sm">
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader whiteSpace="nowrap">Дата и время</Table.ColumnHeader>
-            <Table.ColumnHeader>Действие</Table.ColumnHeader>
-            <Table.ColumnHeader>Ресурс</Table.ColumnHeader>
-            <Table.ColumnHeader>Детали</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {rows.map((r: AuditLogPublic) => (
-            <Table.Row key={r.id}>
-              <Table.Cell whiteSpace="nowrap" fontSize="xs">
-                {formatDateTime(r.created_at)}
-              </Table.Cell>
-              <Table.Cell>{AUDIT_ACTION_LABELS[r.action] ?? r.action}</Table.Cell>
-              <Table.Cell>
-                {AUDIT_RESOURCE_LABELS[r.resource_type] ?? r.resource_type}
-              </Table.Cell>
-              <Table.Cell maxW="200px" truncate title={r.details ?? undefined}>
-                {r.details ?? "—"}
-              </Table.Cell>
+      <Box overflowX="auto">
+        <Table.Root size="sm">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader whiteSpace="nowrap">Дата и время</Table.ColumnHeader>
+              <Table.ColumnHeader>Действие</Table.ColumnHeader>
+              <Table.ColumnHeader>Ресурс</Table.ColumnHeader>
+              <Table.ColumnHeader>Детали</Table.ColumnHeader>
             </Table.Row>
-          ))}
-        </Table.Body>
-      </Table.Root>
+          </Table.Header>
+          <Table.Body>
+            {rows.map((r: AuditLogPublic) => (
+              <Table.Row
+                key={r.id}
+                _hover={{ bg: "gray.subtle" }}
+                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+              >
+                <Table.Cell whiteSpace="nowrap" fontSize="xs">
+                  {formatDateTime(r.created_at)}
+                </Table.Cell>
+                <Table.Cell>{AUDIT_ACTION_LABELS[r.action] ?? r.action}</Table.Cell>
+                <Table.Cell>
+                  {AUDIT_RESOURCE_LABELS[r.resource_type] ?? r.resource_type}
+                </Table.Cell>
+                <Table.Cell maxW="200px" truncate title={r.details ?? undefined}>
+                  {r.details ?? "—"}
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table.Root>
+      </Box>
     </Box>
   )
 }
@@ -242,7 +249,8 @@ function UsersTable() {
       <Tabs.Root
         value={deleted ? "deleted" : "active"}
         onValueChange={(e) => setDeleted(e.value === "deleted")}
-        variant="subtle"
+        variant="line"
+        size="sm"
         mb={4}
       >
         <Tabs.List>
@@ -250,10 +258,11 @@ function UsersTable() {
           <Tabs.Trigger value="deleted">Удалённые</Tabs.Trigger>
         </Tabs.List>
       </Tabs.Root>
-      <Table.Root size={{ base: "sm", md: "md" }}>
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader w="sm">Полное имя</Table.ColumnHeader>
+      <Box overflowX="auto">
+        <Table.Root size={{ base: "sm", md: "md" }}>
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader w="sm">Полное имя</Table.ColumnHeader>
             <Table.ColumnHeader w="sm">Email</Table.ColumnHeader>
             <Table.ColumnHeader w="sm">Роль</Table.ColumnHeader>
             <Table.ColumnHeader w="sm">Статус</Table.ColumnHeader>
@@ -272,6 +281,7 @@ function UsersTable() {
               opacity={isPlaceholderData ? 0.5 : 1}
               cursor="pointer"
               _hover={{ bg: "gray.subtle" }}
+              _dark={{ _hover: { bg: "whiteAlpha.100" } }}
               onClick={() => setSelectedUser(user)}
             >
               <Table.Cell color={!user.full_name ? "gray" : "inherit"}>
@@ -315,7 +325,8 @@ function UsersTable() {
             </Table.Row>
           ))}
         </Table.Body>
-      </Table.Root>
+        </Table.Root>
+      </Box>
       <Flex justifyContent="flex-end" mt={4}>
         <PaginationRoot
           count={count}
@@ -359,7 +370,7 @@ function AddCategory() {
     },
   })
   return (
-    <Flex gap={2} mb={4} flexWrap="wrap" align="center">
+    <Flex gap={2} mb={3} flexWrap="wrap" align="center">
       <Input
         placeholder="Новая категория"
         value={name}
@@ -528,41 +539,49 @@ function CategoriesList() {
   if (categories.length === 0) return null
   return (
     <>
-      <Table.Root size="sm">
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader>Название</Table.ColumnHeader>
-            <Table.ColumnHeader>Категории</Table.ColumnHeader>
-            <Table.ColumnHeader>Действия</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {categories.map((c) => (
-            <Table.Row key={c.id}>
-              <Table.Cell>{c.name}</Table.Cell>
-              <Table.Cell>
-                {c.parent_id
-                  ? (parentMap[c.parent_id] ?? <ShortId id={c.parent_id} />)
-                  : "—"}
-              </Table.Cell>
-              <Table.Cell>
-                <Flex gap={2}>
-                  <EditCategory category={c} categories={categories} />
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    colorPalette="red"
-                    onClick={() => setDeleteConfirm({ id: c.id, name: c.name })}
-                    disabled={deleteCat.isPending}
-                  >
-                    Удалить
-                  </Button>
-                </Flex>
-              </Table.Cell>
+      <Box overflowX="auto">
+        <Table.Root size="sm">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader>Название</Table.ColumnHeader>
+              <Table.ColumnHeader>Категории</Table.ColumnHeader>
+              <Table.ColumnHeader>Действия</Table.ColumnHeader>
             </Table.Row>
-          ))}
-        </Table.Body>
-      </Table.Root>
+          </Table.Header>
+          <Table.Body>
+            {categories.map((c) => (
+              <Table.Row
+                key={c.id}
+                _hover={{ bg: "gray.subtle" }}
+                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+              >
+                <Table.Cell>{c.name}</Table.Cell>
+                <Table.Cell>
+                  {c.parent_id
+                    ? (parentMap[c.parent_id] ?? <ShortId id={c.parent_id} />)
+                    : "—"}
+                </Table.Cell>
+                <Table.Cell>
+                  <Flex gap={2}>
+                    <EditCategory category={c} categories={categories} />
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      colorPalette="red"
+                      onClick={() =>
+                        setDeleteConfirm({ id: c.id, name: c.name })
+                      }
+                      disabled={deleteCat.isPending}
+                    >
+                      Удалить
+                    </Button>
+                  </Flex>
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table.Root>
+      </Box>
       <ConfirmDialog
         open={deleteConfirm != null}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
@@ -595,7 +614,7 @@ function AddBrand() {
     },
   })
   return (
-    <Flex gap={2} mb={4} flexWrap="wrap" align="center">
+    <Flex gap={2} mb={3} flexWrap="wrap" align="center">
       <Input
         placeholder="Новый бренд техники"
         value={name}
@@ -715,37 +734,43 @@ function BrandsList() {
   if (brands.length === 0) return null
   return (
     <>
-      <Table.Root size="sm">
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader>Название</Table.ColumnHeader>
-            <Table.ColumnHeader>Действия</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {brands.map((b) => (
-            <Table.Row key={b.id}>
-              <Table.Cell>{b.name}</Table.Cell>
-              <Table.Cell>
-                <Flex gap={2}>
-                  <EditBrand brand={b} />
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    colorPalette="red"
-                    onClick={() =>
-                      setDeleteConfirm({ id: b.id, name: b.name })
-                    }
-                    disabled={deleteBrand.isPending}
-                  >
-                    Удалить
-                  </Button>
-                </Flex>
-              </Table.Cell>
+      <Box overflowX="auto">
+        <Table.Root size="sm">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader>Название</Table.ColumnHeader>
+              <Table.ColumnHeader>Действия</Table.ColumnHeader>
             </Table.Row>
-          ))}
-        </Table.Body>
-      </Table.Root>
+          </Table.Header>
+          <Table.Body>
+            {brands.map((b) => (
+              <Table.Row
+                key={b.id}
+                _hover={{ bg: "gray.subtle" }}
+                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+              >
+                <Table.Cell>{b.name}</Table.Cell>
+                <Table.Cell>
+                  <Flex gap={2}>
+                    <EditBrand brand={b} />
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      colorPalette="red"
+                      onClick={() =>
+                        setDeleteConfirm({ id: b.id, name: b.name })
+                      }
+                      disabled={deleteBrand.isPending}
+                    >
+                      Удалить
+                    </Button>
+                  </Flex>
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table.Root>
+      </Box>
       <ConfirmDialog
         open={deleteConfirm != null}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
@@ -778,7 +803,7 @@ function AddZone() {
     },
   })
   return (
-    <Flex gap={2} mb={4} flexWrap="wrap" align="center">
+    <Flex gap={2} mb={3} flexWrap="wrap" align="center">
       <Input
         placeholder="Новая зона склада"
         value={name}
@@ -947,40 +972,51 @@ function AuditLogSection() {
         <Text color="fg.muted">Записей пока нет.</Text>
       ) : (
         <>
-          <Table.Root size="sm" overflowX="auto">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader whiteSpace="nowrap">
-                  Дата и время
-                </Table.ColumnHeader>
-                <Table.ColumnHeader>Пользователь</Table.ColumnHeader>
-                <Table.ColumnHeader>Действие</Table.ColumnHeader>
-                <Table.ColumnHeader>Ресурс</Table.ColumnHeader>
-                <Table.ColumnHeader>Детали</Table.ColumnHeader>
-                <Table.ColumnHeader>IP</Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {rows.map((r: AuditLogPublic) => (
-                <Table.Row key={r.id}>
-                  <Table.Cell whiteSpace="nowrap" fontSize="xs">
-                    {formatDate(r.created_at)}
-                  </Table.Cell>
-                  <Table.Cell>{r.user_email ?? "—"}</Table.Cell>
-                  <Table.Cell>
-                    {AUDIT_ACTION_LABELS[r.action] ?? r.action}
-                  </Table.Cell>
-                  <Table.Cell>
-                    {AUDIT_RESOURCE_LABELS[r.resource_type] ?? r.resource_type}
-                  </Table.Cell>
-                  <Table.Cell maxW="200px" truncate title={r.details ?? undefined}>
-                    {r.details ?? "—"}
-                  </Table.Cell>
-                  <Table.Cell fontSize="xs">{r.ip_address ?? "—"}</Table.Cell>
+          <Box overflowX="auto">
+            <Table.Root size="sm">
+              <Table.Header>
+                <Table.Row>
+                  <Table.ColumnHeader whiteSpace="nowrap">
+                    Дата и время
+                  </Table.ColumnHeader>
+                  <Table.ColumnHeader>Пользователь</Table.ColumnHeader>
+                  <Table.ColumnHeader>Действие</Table.ColumnHeader>
+                  <Table.ColumnHeader>Ресурс</Table.ColumnHeader>
+                  <Table.ColumnHeader>Детали</Table.ColumnHeader>
+                  <Table.ColumnHeader>IP</Table.ColumnHeader>
                 </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Root>
+              </Table.Header>
+              <Table.Body>
+                {rows.map((r: AuditLogPublic) => (
+                  <Table.Row
+                    key={r.id}
+                    _hover={{ bg: "gray.subtle" }}
+                    _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+                  >
+                    <Table.Cell whiteSpace="nowrap" fontSize="xs">
+                      {formatDate(r.created_at)}
+                    </Table.Cell>
+                    <Table.Cell>{r.user_email ?? "—"}</Table.Cell>
+                    <Table.Cell>
+                      {AUDIT_ACTION_LABELS[r.action] ?? r.action}
+                    </Table.Cell>
+                    <Table.Cell>
+                      {AUDIT_RESOURCE_LABELS[r.resource_type] ??
+                        r.resource_type}
+                    </Table.Cell>
+                    <Table.Cell
+                      maxW="200px"
+                      truncate
+                      title={r.details ?? undefined}
+                    >
+                      {r.details ?? "—"}
+                    </Table.Cell>
+                    <Table.Cell fontSize="xs">{r.ip_address ?? "—"}</Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table.Root>
+          </Box>
           <Flex justifyContent="flex-end" mt={4}>
             <PaginationRoot
               count={count}
@@ -1021,37 +1057,43 @@ function ZonesList() {
   if (zones.length === 0) return null
   return (
     <>
-      <Table.Root size="sm">
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader>Название</Table.ColumnHeader>
-            <Table.ColumnHeader>Действия</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {zones.map((z) => (
-            <Table.Row key={z.id}>
-              <Table.Cell>{z.name}</Table.Cell>
-              <Table.Cell>
-                <Flex gap={2}>
-                  <EditZone zone={z} />
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    colorPalette="red"
-                    onClick={() =>
-                      setDeleteConfirm({ id: z.id, name: z.name })
-                    }
-                    disabled={deleteZone.isPending}
-                  >
-                    Удалить
-                  </Button>
-                </Flex>
-              </Table.Cell>
+      <Box overflowX="auto">
+        <Table.Root size="sm">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader>Название</Table.ColumnHeader>
+              <Table.ColumnHeader>Действия</Table.ColumnHeader>
             </Table.Row>
-          ))}
-        </Table.Body>
-      </Table.Root>
+          </Table.Header>
+          <Table.Body>
+            {zones.map((z) => (
+              <Table.Row
+                key={z.id}
+                _hover={{ bg: "gray.subtle" }}
+                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+              >
+                <Table.Cell>{z.name}</Table.Cell>
+                <Table.Cell>
+                  <Flex gap={2}>
+                    <EditZone zone={z} />
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      colorPalette="red"
+                      onClick={() =>
+                        setDeleteConfirm({ id: z.id, name: z.name })
+                      }
+                      disabled={deleteZone.isPending}
+                    >
+                      Удалить
+                    </Button>
+                  </Flex>
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table.Root>
+      </Box>
       <ConfirmDialog
         open={deleteConfirm != null}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
@@ -1076,102 +1118,106 @@ function ZonesList() {
 function AppSettingsContent() {
   return (
     <Box>
-      <Heading size="md" mt={4} mb={2}>
-        Категории
-      </Heading>
-      <AddCategory />
-      <CategoriesList />
+      <AdminPanel
+        mt={4}
+        title="Категории"
+        description="Иерархия категорий для товаров склада."
+      >
+        <AddCategory />
+        <CategoriesList />
+      </AdminPanel>
 
-      <Heading size="md" mt={10} mb={2}>
-        Бренды техники
-      </Heading>
-      <Text fontSize="sm" color="fg.muted" mb={2}>
-        Справочник брендов для раздела «Техника». Создание и изменение — только
-        для суперпользователя.
-      </Text>
-      <AddBrand />
-      <BrandsList />
+      <AdminPanel
+        title="Бренды техники"
+        description="Справочник брендов для раздела «Техника». Создание и изменение — только для суперпользователя."
+      >
+        <AddBrand />
+        <BrandsList />
+      </AdminPanel>
 
-      <Heading size="md" mt={10} mb={2}>
-        Зоны склада
-      </Heading>
-      <Text fontSize="sm" color="fg.muted" mb={2}>
-        Справочник зон для раздела «Техника». Создание и изменение — только для
-        суперпользователя.
-      </Text>
-      <AddZone />
-      <ZonesList />
+      <AdminPanel
+        title="Зоны склада"
+        description="Справочник зон для раздела «Техника». Создание и изменение — только для суперпользователя."
+        mb={0}
+      >
+        <AddZone />
+        <ZonesList />
+      </AdminPanel>
     </Box>
   )
 }
 
 function Admin() {
   return (
-    <Container maxW='full'>
-      <Heading size='lg' pt={12}>
-        Администрирование
-      </Heading>
+    <Container maxW="7xl" py={{ base: 4, md: 6 }} px={{ base: 4, md: 6 }}>
+      <Box mb={6}>
+        <Heading size="lg" letterSpacing="-0.02em">
+          Администрирование
+        </Heading>
+        <Text color="fg.muted" fontSize="sm" mt={1.5} maxW="3xl">
+          Настройки приложения, пользователи, журнал аудита и сервисы ассистента.
+        </Text>
+      </Box>
 
-      <Tabs.Root
-        defaultValue='app-settings'
-        variant='subtle'
-        mt={6}
-      >
-        <Tabs.List>
-          <Tabs.Trigger value='app-settings'>
-            Управление и настройка приложения
+      <Tabs.Root defaultValue="app-settings" variant="line" size="sm">
+        <Tabs.List flexWrap="wrap" gap={1} rowGap={2}>
+          <Tabs.Trigger value="app-settings">
+            Приложение
           </Tabs.Trigger>
-          <Tabs.Trigger value='users'>
-            Управление пользователями
-          </Tabs.Trigger>
-          <Tabs.Trigger value='audit'>
-            Журнал аудита
-          </Tabs.Trigger>
-          <Tabs.Trigger value='agent-knowledge'>
-            База знаний ассистента
-          </Tabs.Trigger>
-          <Tabs.Trigger value='agent-logs'>
-            Журнал чата ассистента
-          </Tabs.Trigger>
-          <Tabs.Trigger value='agent-governance'>
-            Агент: политики и запуски
-          </Tabs.Trigger>
-          <Tabs.Trigger value='warehouse-topology'>
-            Топология склада
-          </Tabs.Trigger>
+          <Tabs.Trigger value="users">Пользователи</Tabs.Trigger>
+          <Tabs.Trigger value="audit">Журнал аудита</Tabs.Trigger>
+          <Tabs.Trigger value="agent-knowledge">База знаний</Tabs.Trigger>
+          <Tabs.Trigger value="agent-logs">Чат ассистента</Tabs.Trigger>
+          <Tabs.Trigger value="agent-governance">Агент</Tabs.Trigger>
+          <Tabs.Trigger value="warehouse-topology">Топология склада</Tabs.Trigger>
         </Tabs.List>
-        <Tabs.Content value='app-settings'>
+        <Tabs.Content value="app-settings">
           <AppSettingsContent />
         </Tabs.Content>
-        <Tabs.Content value='users'>
-          <Box pt={4}>
-            <AddUser />
+        <Tabs.Content value="users">
+          <AdminPanel
+            mt={4}
+            title="Пользователи"
+            description="Роли, статус учётной записи. Клик по строке открывает журнал действий пользователя."
+            headerExtra={
+              <Flex justify="flex-end" w="100%">
+                <AddUser />
+              </Flex>
+            }
+          >
             <UsersTable />
-          </Box>
+          </AdminPanel>
         </Tabs.Content>
-        <Tabs.Content value='audit'>
-          <Box pt={4}>
-            <Text fontSize='sm' color='fg.muted' mb={4}>
-              Критичные действия администраторов: создание и
-              изменение пользователей, категорий, брендов,
-              зон, запросы сброса пароля.
-            </Text>
+        <Tabs.Content value="audit">
+          <AdminPanel
+            mt={4}
+            title="Журнал аудита"
+            description="Критичные действия администраторов: пользователи, категории, бренды, зоны, сброс пароля."
+          >
             <AuditLogSection />
-          </Box>
+          </AdminPanel>
         </Tabs.Content>
-        <Tabs.Content value='agent-knowledge'>
-          <AgentKnowledgeAdmin />
+        <Tabs.Content value="agent-knowledge">
+          <AdminPanel mt={4} mb={0}>
+            <AgentKnowledgeAdmin />
+          </AdminPanel>
         </Tabs.Content>
-        <Tabs.Content value='agent-logs'>
-          <AgentChatLogsAdmin />
+        <Tabs.Content value="agent-logs">
+          <AdminPanel mt={4} mb={0}>
+            <AgentChatLogsAdmin />
+          </AdminPanel>
         </Tabs.Content>
-        <Tabs.Content value='agent-governance'>
-          <AgentGovernanceAdmin />
+        <Tabs.Content value="agent-governance">
+          <AdminPanel mt={4} mb={0}>
+            <AgentGovernanceAdmin />
+          </AdminPanel>
         </Tabs.Content>
-        <Tabs.Content value='warehouse-topology'>
-          <WarehouseTopologyAdmin />
+        <Tabs.Content value="warehouse-topology">
+          <AdminPanel mt={4} mb={0}>
+            <WarehouseTopologyAdmin />
+          </AdminPanel>
         </Tabs.Content>
       </Tabs.Root>
     </Container>
-  );
+  )
 }
