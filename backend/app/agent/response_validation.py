@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import re
-
+from app.agent.answer_guardrails import numbers_grounded_in_text
 from app.agent.policy import extract_answer_body
 from app.core.config import settings
 
 FORMAT_ERROR_REPLY = "Ошибка формата ответа"
-
-_DIGITS = re.compile(r"\d+")
 
 
 def extract_answer_inner(text: str) -> str | None:
@@ -18,17 +15,12 @@ def extract_answer_inner(text: str) -> str | None:
     return body if body.strip() else None
 
 
-def extract_digit_groups(text: str) -> set[str]:
-    return set(_DIGITS.findall(text or ""))
-
-
 def validate_numbers_subset(answer_inner: str, context: str) -> bool:
-    """Все группы цифр из ответа должны встречаться как группы в grounding (как в спецификации subset)."""
-    a = extract_digit_groups(answer_inner)
-    if not a:
-        return True
-    c = extract_digit_groups(context)
-    return a.issubset(c)
+    """
+    Устаревшее имя: раньше сравнивались множества «целых» групп цифр (слишком грубо).
+    Используйте ту же семантику, что и structured-контур: `numbers_grounded_in_text`.
+    """
+    return numbers_grounded_in_text(answer_inner, context)
 
 
 def validate_structured_reply(raw_text: str, grounding: str) -> tuple[bool, str]:
@@ -41,7 +33,7 @@ def validate_structured_reply(raw_text: str, grounding: str) -> tuple[bool, str]
         return False, "format"  # только пустой вывод
     if not bool(getattr(settings, "AGENT_ANSWER_GUARDRAIL_ENABLED", True)):
         return True, inner
-    if not validate_numbers_subset(inner, grounding):
+    if not numbers_grounded_in_text(inner, grounding):
         return False, "numbers"
     return True, inner
 

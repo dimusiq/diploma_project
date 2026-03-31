@@ -77,6 +77,53 @@ def _stop_sequences() -> list[str]:
     return [x.strip() for x in str(raw).split(",") if x.strip()]
 
 
+async def _post_chat_completion_after_tools(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    main_model: str,
+    messages: list[dict[str, Any]],
+    sampling: dict[str, Any],
+    stop: list[str],
+    loop_kind: LlmTaskKind,
+) -> str | None:
+    """
+    Финальный non-streaming вызов после tool-rounds.
+    Раньше при HTTP 400 ответ терялся; vLLM часто принимает тот же запрос без stop или без repetition_penalty.
+    """
+    bodies: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def add(body: dict[str, Any]) -> None:
+        key = json.dumps(body, sort_keys=True, ensure_ascii=False)
+        if key not in seen:
+            seen.add(key)
+            bodies.append(body)
+
+    add({"model": main_model, "messages": messages, **sampling, "stop": stop})
+    if "repetition_penalty" in sampling:
+        light = {k: v for k, v in sampling.items() if k != "repetition_penalty"}
+        add({"model": main_model, "messages": messages, **light, "stop": stop})
+        add({"model": main_model, "messages": messages, **light})
+    else:
+        add({"model": main_model, "messages": messages, **sampling})
+
+    for body in bodies:
+        r2 = await client.post(url, json=body)
+        if r2.status_code != 200:
+            continue
+        data2 = r2.json()
+        t2, _ = extract_assistant_message(data2)
+        if t2 and t2.strip():
+            return t2
+    try:
+        return await llm_adapter.chat_completion_text_only_compat(
+            messages=messages, task_kind=loop_kind
+        )
+    except Exception:
+        return None
+
+
 async def _resolve_final_text(
     raw: str,
     messages: list[dict[str, Any]],
@@ -357,28 +404,16 @@ async def run_structured_agent_chat(
 
         if had_any_tool:
             messages.append({"role": "system", "content": GROUNDING_AFTER_TOOLS_SYSTEM})
-            payload_final: dict[str, Any] = {
-                "model": main_model,
-                "messages": messages,
-                **sampling,
-                "stop": _stop_sequences(),
-            }
-            r2 = await client.post(url, json=payload_final)
-            if r2.status_code == 400 and "repetition_penalty" in sampling:
-                payload_final = {
-                    "model": main_model,
-                    "messages": messages,
-                    **{k: v for k, v in sampling.items() if k != "repetition_penalty"},
-                    "stop": _stop_sequences(),
-                }
-                r2 = await client.post(url, json=payload_final)
-            if r2.status_code == 400:
-                last_text = last_text or ""
-            else:
-                r2.raise_for_status()
-                data2 = r2.json()
-                t2, _ = extract_assistant_message(data2)
-                last_text = t2 or last_text or ""
+            t_final = await _post_chat_completion_after_tools(
+                client,
+                url,
+                main_model=main_model,
+                messages=messages,
+                sampling=sampling,
+                stop=_stop_sequences(),
+                loop_kind=loop_kind,
+            )
+            last_text = (t_final or "").strip() or (last_text or "")
 
     candidate = last_text or ""
     out = await _resolve_final_text(candidate, messages, loop_kind=loop_kind)

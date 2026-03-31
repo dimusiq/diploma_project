@@ -53,6 +53,8 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
 
 async def llm_embed_query(text: str) -> list[float] | None:
+    if not settings.AGENT_RAG_EMBEDDING_HTTP_ENABLED:
+        return None
     base = resolve_llm_embeddings_base_url()
     if not base:
         return None

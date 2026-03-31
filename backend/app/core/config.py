@@ -146,6 +146,8 @@ class Settings(BaseSettings):
     LLM_EMBEDDING_API_STYLE: Literal["ollama", "openai"] = "openai"
     # Сколько справочных фрагментов подмешивать в контекст (keyword / эмбеддинг).
     AGENT_RAG_TOP_K: int = 3
+    # False: не вызывать POST /v1/embeddings (у многих vLLM только chat — иначе 404 в логах). Keyword-RAG остаётся.
+    AGENT_RAG_EMBEDDING_HTTP_ENABLED: bool = False
     # Лимит запросов к POST /agent/chat на пользователя в минуту (0 = без лимита).
     AGENT_CHAT_RATE_LIMIT_PER_MINUTE: int = 30
     # При сбое Redis в rate limit: memory — in-memory счётчик; reject — HTTP 503.
@@ -154,8 +156,8 @@ class Settings(BaseSettings):
     AGENT_MAX_TOOL_STEPS: int = 5
     # True: выбор read-инструментов в Python; False (по умолчанию): классический цикл vLLM + tool_choice auto.
     AGENT_CODE_ORCHESTRATION: bool = False
-    # Роль developer в chat/completions (OpenAI-стиль). False — объединить с system, если backend не принимает developer.
-    AGENT_USE_DEVELOPER_ROLE: bool = True
+    # Роль developer в chat/completions (OpenAI-стиль). False — объединить с system (совместимость с vLLM без роли developer).
+    AGENT_USE_DEVELOPER_ROLE: bool = False
     # Лимит символов JSON одного инструмента в финальном user-сообщении (code-оркестрация).
     AGENT_CODE_ORCH_MAX_TOOL_CHARS: int = 14000
     # Максимум read-инструментов за один запрос (code-оркестрация).
@@ -168,7 +170,7 @@ class Settings(BaseSettings):
     AGENT_LLM_MAX_TOKENS: int = 512
     # vLLM и др.; OpenAI official может отклонить поле — отключите флаг или поставьте None.
     AGENT_LLM_REPETITION_PENALTY: float | None = 1.15
-    AGENT_LLM_SEND_REPETITION_PENALTY: bool = True
+    AGENT_LLM_SEND_REPETITION_PENALTY: bool = False
     # Stop-последовательности для финального ответа (через запятую), напр. "</answer>".
     AGENT_LLM_STOP_SEQUENCES_STR: str = "</answer>"
     # Числа в ответе должны встречаться в user+tool grounding, иначе fallback.

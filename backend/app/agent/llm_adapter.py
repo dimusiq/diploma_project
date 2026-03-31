@@ -199,6 +199,50 @@ async def chat_completion(
         return r.json()
 
 
+def _stream_payload_variants(
+    *,
+    model: str,
+    messages: list[dict[str, Any]],
+    task_kind: LlmTaskKind,
+    stop: list[str] | None,
+    temperature: float | None,
+    top_p: float | None,
+    max_tokens: int | None,
+    repetition_penalty: float | None,
+) -> list[dict[str, Any]]:
+    """Несколько тел запроса: при 400 vLLM часто помогает убрать repetition_penalty или stop."""
+    base = build_openai_chat_payload(
+        model=model,
+        messages=messages,
+        task_kind=task_kind,
+        tools=None,
+        tool_choice=None,
+        stop=stop,
+        stream=False,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        repetition_penalty=repetition_penalty,
+    )
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def add(p: dict[str, Any]) -> None:
+        key = json.dumps(p, sort_keys=True, ensure_ascii=False)
+        if key not in seen:
+            seen.add(key)
+            out.append(p)
+
+    add(dict(base))
+    if "repetition_penalty" in base:
+        add({k: v for k, v in base.items() if k != "repetition_penalty"})
+    if "stop" in base:
+        add({k: v for k, v in base.items() if k != "stop"})
+    if "repetition_penalty" in base and "stop" in base:
+        add({k: v for k, v in base.items() if k not in ("repetition_penalty", "stop")})
+    return out
+
+
 async def iter_chat_completion_text_stream(
     *,
     messages: list[dict[str, Any]],
@@ -209,19 +253,16 @@ async def iter_chat_completion_text_stream(
     max_tokens: int | None = None,
     repetition_penalty: float | None = None,
 ) -> AsyncIterator[str]:
-    """SSE-стрим: только текстовые дельты assistant (без tools)."""
+    """SSE-стрим: только текстовые дельты assistant (без tools). При 400 — повторы и fallback без стрима."""
     if not llm_inference_configured():
         raise RuntimeError("LLM inference is not configured")
     url = f"{_base_url()}/v1/chat/completions"
     model = resolve_llm_model(task_kind)
-    payload = build_openai_chat_payload(
+    variants = _stream_payload_variants(
         model=model,
         messages=messages,
         task_kind=task_kind,
-        tools=None,
-        tool_choice=None,
         stop=stop,
-        stream=True,
         temperature=temperature,
         top_p=top_p,
         max_tokens=max_tokens,
@@ -230,26 +271,36 @@ async def iter_chat_completion_text_stream(
     timeout_sec = float(getattr(settings, "AGENT_LLM_TIMEOUT_SEC", 120.0) or 120.0)
     timeout = httpx.Timeout(timeout_sec, connect=10.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
-        async with client.stream("POST", url, json=payload) as r:
-            r.raise_for_status()
-            async for line in r.aiter_lines():
-                if not line or line.startswith(":"):
+        for payload in variants:
+            payload = dict(payload)
+            payload["stream"] = True
+            async with client.stream("POST", url, json=payload) as r:
+                if r.status_code == 400:
+                    await r.aread()
                     continue
-                if line.startswith("data: "):
-                    data = line[6:].strip()
-                    if data == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(data)
-                    except json.JSONDecodeError:
+                r.raise_for_status()
+                async for line in r.aiter_lines():
+                    if not line or line.startswith(":"):
                         continue
-                    choices = chunk.get("choices") or []
-                    if not choices:
-                        continue
-                    delta = (choices[0].get("delta") or {}) if isinstance(choices[0], dict) else {}
-                    piece = delta.get("content")
-                    if piece and isinstance(piece, str):
-                        yield piece
+                    if line.startswith("data: "):
+                        data = line[6:].strip()
+                        if data == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        choices = chunk.get("choices") or []
+                        if not choices:
+                            continue
+                        delta = (choices[0].get("delta") or {}) if isinstance(choices[0], dict) else {}
+                        piece = delta.get("content")
+                        if piece and isinstance(piece, str):
+                            yield piece
+                return
+        text = await chat_completion_text_only_compat(messages=messages, task_kind=task_kind)
+        if text:
+            yield text
 
 
 async def chat_completion_text_only(
