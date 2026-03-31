@@ -16,6 +16,8 @@ export default defineConfig({
     TanStackRouterVite(),
     VitePWA({
       registerType: "autoUpdate",
+      /* В dev по умолчанию SW выключен; в preview/production — только precache статики. */
+      devOptions: { enabled: false },
       includeAssets: ["favicon.ico", "images/favicon.png", "vite.svg"],
       manifest: {
         name: "Sklad",
@@ -37,19 +39,12 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         navigateFallback: "/index.html",
+        // Не отдавать index.html вместо реальных API-роутов (редиректы/закладки).
+        navigateFallbackDenylist: [/^\/api\//],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        runtimeCaching: [
-          {
-            urlPattern: /^https?:\/\/.*\/api\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
+        // Не регистрируем runtime routes для /api: любой handler (даже NetworkOnly)
+        // оставляет перехват fetch в SW и на части ответов Workbox всё равно вызывает Cache.put.
+        // Запросы к API идут мимо кеша SW (нет совпадения с precache).
       },
     }),
   ],

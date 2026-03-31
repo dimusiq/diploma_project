@@ -6,15 +6,26 @@
 инструменты при разрешении API (allow_mutating_tools, pending-actions).
 """
 
+import json
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlmodel import col, func, select
+from sqlmodel import Session, col, func, select
 
+from app.agent.agent_errors import (
+    AgentError,
+    agent_error_to_http_exception,
+    log_httpx_upstream_error,
+    public_inference_http_exception,
+    public_inference_unreachable_exception,
+    sse_error_dict_from_exception,
+)
 from app.agent.policy import sanitize_agent_reply_visible_text
 from app.agent.reasoning_runtime import reply_without_first_paragraph_when_multi
 from app.agent.tool_catalog import CATALOG_BY_NAME, tools_for_user
@@ -35,6 +46,7 @@ from app.core.permissions import (
     can_view_maintenance_schedule,
     user_has_permission,
 )
+from app.core.db import engine
 from app.models import (
     AgentChatLog,
     AgentChatLogList,
@@ -65,9 +77,12 @@ from app.models import (
     AgentRun,
     AgentRunList,
     AgentRunPublic,
+    User,
 )
 from app.realtime.twin_stream_hub import publish_agent_run_finished
-from app.services.agent_chat import run_agent_chat
+from app.services.agent_chat import AgentChatOutcome, iter_agent_chat_sse_events, run_agent_chat
+
+logger = logging.getLogger(__name__)
 from app.services.agent_operations import (
     append_session_fact,
     get_operation_session_for_user,
@@ -518,29 +533,23 @@ async def agent_chat(
             include_reasoning_debug=body.include_reasoning_debug,
             operation_session_id=body.operation_session_id,
         )
+    except AgentError as e:
+        raise agent_error_to_http_exception(e) from e
     except httpx.HTTPStatusError as e:
-        snippet = ""
-        try:
-            snippet = (e.response.text or "")[:800]
-        except Exception:
-            snippet = ""
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                f"Inference (vLLM) HTTP {e.response.status_code}; "
-                f"запрос: {e.request.url!s}"
-                + (f"; тело: {snippet}" if snippet else "")
-            ),
-        ) from e
+        log_httpx_upstream_error(e)
+        raise public_inference_http_exception(e.response.status_code) from e
     except httpx.RequestError as e:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Нет связи с inference (vLLM): {e!s}",
-        ) from e
+        raise public_inference_unreachable_exception() from e
     except Exception as e:
+        logger.exception("agent_chat_unexpected_error")
         raise HTTPException(
-            status_code=502,
-            detail=f"Не удалось обратиться к inference (vLLM): {e!s}",
+            status_code=500,
+            detail={
+                "error_code": "agent_internal_error",
+                "message": "Внутренняя ошибка при обработке запроса ассистента.",
+                "retryable": False,
+                "run_id": None,
+            },
         ) from e
 
     reply_for_client = (
@@ -622,6 +631,170 @@ async def agent_chat(
         public_reasoning=pr,
         reasoning_debug=outcome.reasoning_debug,
         run_id=str(run_uuid) if run_uuid else None,
+    )
+
+
+def _agent_sse_data_line(payload: dict[str, Any]) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@router.post(
+    "/chat/stream",
+    dependencies=[require_permission(PERM_AGENT_USE)],
+)
+async def agent_chat_stream(
+    body: AgentChatRequest,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Тот же контур, что POST /agent/chat: tool-раунды без стрима, финальный текст — SSE
+    (`token` + финальное `done` с санитизированным `reply` и метаданными).
+    Сессия БД держится открытой на время генератора ответа.
+    """
+    enforce_agent_chat_rate_limit(current_user.id)
+    allow_act = body.allow_mutating_tools
+    if allow_act and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403,
+            detail="allow_mutating_tools доступен только суперпользователю",
+        )
+    if body.include_reasoning_debug and not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403,
+            detail="include_reasoning_debug доступен только суперпользователю",
+        )
+
+    uid = current_user.id
+
+    async def event_gen():
+        try:
+            with Session(engine) as session:
+                user = session.get(User, uid)
+                if user is None or not user.is_active or user.deleted_at is not None:
+                    yield _agent_sse_data_line(
+                        {"type": "error", "detail": "Пользователь недоступен"}
+                    )
+                    return
+                if body.user_chat_id is not None:
+                    uc = get_user_chat_for_user(
+                        session, chat_id=body.user_chat_id, user=user
+                    )
+                    if uc is None:
+                        yield _agent_sse_data_line(
+                            {"type": "error", "detail": "Чат не найден"}
+                        )
+                        return
+
+                async for ev in iter_agent_chat_sse_events(
+                    session,
+                    user,
+                    body.message,
+                    allow_mutating_tools=allow_act,
+                    include_reasoning_debug=body.include_reasoning_debug,
+                    operation_session_id=body.operation_session_id,
+                ):
+                    if ev.get("type") == "done":
+                        reply_raw = ev.get("reply") or ""
+                        reply_for_client = (
+                            reply_without_first_paragraph_when_multi(reply_raw)
+                            if not body.include_public_reasoning
+                            else reply_raw
+                        )
+                        reply_for_client = sanitize_agent_reply_visible_text(
+                            reply_for_client
+                        )
+
+                        log = AgentChatLog(
+                            user_id=user.id,
+                            operation_session_id=body.operation_session_id,
+                            message_preview=body.message[:500],
+                            reply_preview=reply_for_client[:500],
+                            ollama_available=bool(ev.get("llm_available")),
+                            model=ev.get("model"),
+                        )
+                        session.add(log)
+                        session.flush()
+                        run_uuid: uuid.UUID | None = None
+                        rid = ev.get("run_id") or ""
+                        if rid:
+                            try:
+                                run_uuid = uuid.UUID(str(rid))
+                            except ValueError:
+                                run_uuid = None
+                        if run_uuid is not None:
+                            ar = AgentRun(
+                                id=run_uuid,
+                                user_id=user.id,
+                                agent_chat_log_id=log.id,
+                                ollama_available=bool(ev.get("llm_available")),
+                                model=ev.get("model"),
+                                steps=ev.get("trace_steps") or [],
+                                public_reasoning=ev.get("public_reasoning") or {},
+                            )
+                            session.add(ar)
+                        if body.operation_session_id is not None:
+                            op = get_operation_session_for_user(
+                                session,
+                                session_id=body.operation_session_id,
+                                user=user,
+                            )
+                            if op is not None:
+                                append_session_fact(
+                                    session,
+                                    op=op,
+                                    fact={
+                                        "phase": "conclude",
+                                        "at": datetime.now(timezone.utc)
+                                        .isoformat()
+                                        .replace("+00:00", "Z"),
+                                        "run_id": str(rid),
+                                        "message_excerpt": body.message[:240],
+                                        "reply_excerpt": reply_for_client[:400],
+                                    },
+                                )
+                        if body.user_chat_id is not None:
+                            outcome = AgentChatOutcome(
+                                reply=str(reply_raw),
+                                llm_available=bool(ev.get("llm_available")),
+                                model=ev.get("model"),
+                                public_reasoning=dict(ev.get("public_reasoning") or {}),
+                                reasoning_debug=ev.get("reasoning_debug"),
+                                run_id=str(rid),
+                                trace_steps=list(ev.get("trace_steps") or []),
+                            )
+                            append_user_chat_turn(
+                                session,
+                                chat_id=body.user_chat_id,
+                                user_message=body.message,
+                                outcome=outcome,
+                                run_uuid=run_uuid,
+                                include_public_reasoning_in_meta=body.include_public_reasoning,
+                                assistant_reply_text=reply_for_client,
+                            )
+                        session.commit()
+                        session.refresh(log)
+                        publish_agent_run_finished(
+                            user_id=user.id,
+                            log_id=log.id,
+                            message_preview=log.message_preview,
+                            llm_available=bool(ev.get("llm_available")),
+                        )
+                        out = dict(ev)
+                        out["reply"] = reply_for_client
+                        yield _agent_sse_data_line(out)
+                    else:
+                        yield _agent_sse_data_line(ev)
+        except Exception as e:
+            yield _agent_sse_data_line(sse_error_dict_from_exception(e))
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

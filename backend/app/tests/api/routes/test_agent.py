@@ -1,3 +1,4 @@
+import json
 import uuid
 from unittest.mock import AsyncMock, patch
 
@@ -9,6 +10,14 @@ from app.services.agent_chat import AgentChatOutcome
 
 def test_agent_chat_requires_auth(client: TestClient) -> None:
     r = client.post(f"{settings.API_V1_STR}/agent/chat", json={"message": "Сколько товаров?"})
+    assert r.status_code in (401, 403)
+
+
+def test_agent_chat_stream_requires_auth(client: TestClient) -> None:
+    r = client.post(
+        f"{settings.API_V1_STR}/agent/chat/stream",
+        json={"message": "Сколько товаров?"},
+    )
     assert r.status_code in (401, 403)
 
 
@@ -95,6 +104,31 @@ def test_agent_chat_logs_superuser(
     data = r.json()
     assert "data" in data
     assert "count" in data
+
+
+def test_agent_chat_stream_fallback_without_llm(
+    client: TestClient, superuser_token_headers: dict[str, str], monkeypatch
+) -> None:
+    monkeypatch.setattr(settings, "VLLM_BASE_URL", None)
+    monkeypatch.setattr(settings, "LLM_OPENAI_BASE_URL", None)
+    monkeypatch.setattr(settings, "OLLAMA_BASE_URL", None)
+    r = client.post(
+        f"{settings.API_V1_STR}/agent/chat/stream",
+        headers=superuser_token_headers,
+        json={"message": "Какой layout?"},
+    )
+    assert r.status_code == 200
+    assert "text/event-stream" in (r.headers.get("content-type") or "")
+    chunks = [
+        ln[6:]
+        for ln in r.text.splitlines()
+        if ln.startswith("data: ")
+    ]
+    assert len(chunks) == 1
+    payload = json.loads(chunks[0])
+    assert payload["type"] == "done"
+    assert payload["llm_available"] is False
+    assert "run_id" in payload
 
 
 def test_agent_chat_fallback_without_ollama(

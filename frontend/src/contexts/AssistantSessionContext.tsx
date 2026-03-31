@@ -24,6 +24,8 @@ import {
   postAgentChat,
 } from "@/api/agent.ts"
 import { ApiError } from "@/client/index.ts"
+import { getErrorHttpStatus } from "@/lib/apiClient.ts"
+import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import type { ChatMessage } from "@/lib/assistantChatStorage.ts"
 
@@ -182,6 +184,8 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     queryKey: ["agent-user-chat", activeChatId],
     queryFn: () => fetchUserAssistantChat(activeChatId!),
     enabled: !!activeChatId,
+    retry: (count, err) =>
+      getErrorHttpStatus(err) === 404 ? false : count < 1,
   })
 
   useEffect(() => {
@@ -195,17 +199,25 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
   const deleteChatMutation = useMutation({
     mutationFn: deleteUserAssistantChat,
     onSuccess: async (_, deletedId) => {
-      await queryClient.invalidateQueries({ queryKey: ["agent-user-chats"] })
+      safeInvalidateQueries(queryClient, { queryKey: ["agent-user-chats"] })
       queryClient.removeQueries({ queryKey: ["agent-user-chat", deletedId] })
       if (activeChatIdRef.current === deletedId) {
-        const list = await queryClient.fetchQuery({
-          queryKey: ["agent-user-chats"],
-          queryFn: fetchUserAssistantChats,
-        })
-        if (list.count === 0) {
+        try {
+          const list = await queryClient.fetchQuery({
+            queryKey: ["agent-user-chats"],
+            queryFn: fetchUserAssistantChats,
+          })
+          if (list.count === 0) {
+            setActiveChatId(null)
+            activeChatIdRef.current = null
+          } else {
+            setActiveChatId(list.data[0].id)
+            activeChatIdRef.current = list.data[0].id
+          }
+        } catch {
           setActiveChatId(null)
-        } else {
-          setActiveChatId(list.data[0].id)
+          activeChatIdRef.current = null
+          showErrorToast("Не удалось обновить список диалогов")
         }
       }
     },
@@ -216,6 +228,37 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     if (streamingMessageIdRef.current !== null) return
     setMessages(mapApiMessages(detailQuery.data.messages))
   }, [activeChatId, detailQuery.data])
+
+  /** Сервер вернул 404 по выбранному чату (другая БД / удалён) — сбрасываем выбор. */
+  useEffect(() => {
+    if (!activeChatId) return
+    const err = detailQuery.error
+    if (!detailQuery.isFetched || !err) return
+    if (getErrorHttpStatus(err) !== 404) return
+    showErrorToast("Этот диалог на сервере не найден.")
+    queryClient.removeQueries({ queryKey: ["agent-user-chat", activeChatId] })
+    setActiveChatId(null)
+    activeChatIdRef.current = null
+    setMessages([])
+    safeInvalidateQueries(queryClient, { queryKey: ["agent-user-chats"] })
+  }, [
+    activeChatId,
+    detailQuery.isFetched,
+    detailQuery.error,
+    queryClient,
+    showErrorToast,
+  ])
+
+  /** В списке с сервера нет выбранного id — убираем «призрачный» чат без лишних 404. */
+  useEffect(() => {
+    if (!activeChatId || !chatsQuery.isSuccess) return
+    const rows = chatsQuery.data?.data ?? []
+    if (rows.some((c) => c.id === activeChatId)) return
+    queryClient.removeQueries({ queryKey: ["agent-user-chat", activeChatId] })
+    setActiveChatId(null)
+    activeChatIdRef.current = null
+    setMessages([])
+  }, [activeChatId, chatsQuery.isSuccess, chatsQuery.data, queryClient])
 
   const sortedChats = useMemo(() => {
     const rows = chatsQuery.data?.data ?? []
@@ -315,22 +358,27 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
         if (pos >= full.length) {
           streamRafRef.current = null
           void (async () => {
-            const cid = activeChatIdRef.current
-            if (cid) {
-              await queryClient.refetchQueries({
-                queryKey: ["agent-user-chat", cid],
-              })
-              const d = queryClient.getQueryData<AgentUserChatDetailPublic>([
-                "agent-user-chat",
-                cid,
-              ])
-              if (d) setMessages(mapApiMessages(d.messages))
-              await queryClient.invalidateQueries({
-                queryKey: ["agent-user-chats"],
-              })
+            try {
+              const cid = activeChatIdRef.current
+              if (cid) {
+                await queryClient.refetchQueries({
+                  queryKey: ["agent-user-chat", cid],
+                })
+                const d = queryClient.getQueryData<AgentUserChatDetailPublic>([
+                  "agent-user-chat",
+                  cid,
+                ])
+                if (d) setMessages(mapApiMessages(d.messages))
+                await queryClient.invalidateQueries({
+                  queryKey: ["agent-user-chats"],
+                })
+              }
+            } catch {
+              /* refetch после ответа чата — не роняем UI необработанным rejection */
+            } finally {
+              streamingMessageIdRef.current = null
+              setStreamingMessageId(null)
             }
-            streamingMessageIdRef.current = null
-            setStreamingMessageId(null)
           })()
           return
         }
@@ -341,7 +389,11 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     },
     onError: (err) => {
       const msg =
-        err instanceof ApiError ? err.message : "Не удалось получить ответ"
+        err instanceof ApiError
+          ? err.message
+          : getErrorHttpStatus(err) != null && typeof err === "object" && err !== null && "message" in err
+            ? String((err as { message: unknown }).message)
+            : "Не удалось получить ответ"
       showErrorToast(msg)
     },
   })
@@ -401,7 +453,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     activeChatIdRef.current = null
     setMessages([])
     setInput("")
-    void queryClient.invalidateQueries({ queryKey: ["agent-user-chats"] })
+    safeInvalidateQueries(queryClient, { queryKey: ["agent-user-chats"] })
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
       composerRef.current?.focus()

@@ -1,6 +1,7 @@
 import { Box, Flex, Splitter } from "@chakra-ui/react"
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import { ApiError, UsersService } from "@/client/index.ts"
+import { UsersService } from "@/client/index.ts"
+import { getErrorHttpStatus } from "@/lib/apiClient.ts"
 import { Breadcrumbs } from "@/components/Common/Breadcrumbs.tsx"
 import { removeAccessToken } from "@/lib/authStorage.ts"
 import Navbar from "@/components/Common/Navbar.tsx"
@@ -23,7 +24,8 @@ export const Route = createFileRoute("/_layout")({
       })
       return { user }
     } catch (err) {
-      if (err instanceof ApiError && [401, 403, 404].includes(err.status)) {
+      const st = getErrorHttpStatus(err)
+      if (st === 401 || st === 403 || st === 404) {
         removeAccessToken()
         throw redirect({ to: "/login" })
       }

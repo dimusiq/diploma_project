@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef } from "react"
 
 import { getApiUrl } from "@/lib/apiClient.ts"
+import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 import { getAccessToken } from "@/lib/authStorage.ts"
 import {
   emitTwinStreamMessage,
@@ -131,22 +132,22 @@ function flushInvalidations(
   tags: Set<InvalidateTag>,
 ) {
   if (tags.has("items")) {
-    void queryClient.invalidateQueries({ queryKey: ["items"] })
+    safeInvalidateQueries(queryClient, { queryKey: ["items"] })
   }
   if (tags.has("warehouse")) {
-    void queryClient.invalidateQueries({ queryKey: ["warehouse"] })
+    safeInvalidateQueries(queryClient, { queryKey: ["warehouse"] })
   }
   if (tags.has("warehouse-twin-summary")) {
-    void queryClient.invalidateQueries({ queryKey: ["warehouse-twin-summary"] })
+    safeInvalidateQueries(queryClient, { queryKey: ["warehouse-twin-summary"] })
   }
   if (tags.has("equipment")) {
-    void queryClient.invalidateQueries({ queryKey: ["equipment"] })
+    safeInvalidateQueries(queryClient, { queryKey: ["equipment"] })
   }
   if (tags.has("notifications")) {
-    void queryClient.invalidateQueries({ queryKey: ["notifications"] })
+    safeInvalidateQueries(queryClient, { queryKey: ["notifications"] })
   }
   if (tags.has("tasks")) {
-    void queryClient.invalidateQueries({ queryKey: ["tasks"] })
+    safeInvalidateQueries(queryClient, { queryKey: ["tasks"] })
   }
 }
 

@@ -8,8 +8,10 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import React, { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
-import { ApiError, OpenAPI } from "./client/index.ts"
+import { OpenAPI } from "./client/index.ts"
 import { CustomProvider } from "./components/ui/provider.tsx"
+import { getErrorHttpStatus } from "./lib/apiClient.ts"
+import { isLikelyBrowserExtensionRejection } from "./lib/extensionNoise.ts"
 import { getAccessToken, removeAccessToken } from "./lib/authStorage.ts"
 import { routeTree } from "./routeTree.gen.ts"
 
@@ -42,11 +44,13 @@ declare module "@tanstack/react-router" {
 }
 
 // Обработчик ошибок API (использует getRouter(), т.к. router создаётся ниже)
-const handleApiError = (error: Error) => {
+const handleApiError = (error: unknown) => {
+  if (isLikelyBrowserExtensionRejection(error)) return
   if ((import.meta as ViteEnv).env?.DEV) {
     console.error("API Error:", error)
   }
-  if (error instanceof ApiError && [401, 403].includes(error.status)) {
+  const st = getErrorHttpStatus(error)
+  if (st === 401 || st === 403) {
     removeAccessToken()
     getRouter().navigate({ to: "/login" })
   }

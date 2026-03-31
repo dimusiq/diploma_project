@@ -132,11 +132,12 @@ class Settings(BaseSettings):
             "OLLAMA_MODEL_ROUTER",
         ),
     )
-    OLLAMA_EMBED_MODEL: str = Field(
+    # Имя embedding-модели (OpenAI /v1/embeddings). Env: LLM_EMBED_MODEL, VLLM_EMBED_MODEL, OLLAMA_EMBED_MODEL.
+    LLM_EMBED_MODEL: str = Field(
         default="BAAI/bge-base-en-v1.5",
         validation_alias=AliasChoices(
-            "VLLM_EMBED_MODEL",
             "LLM_EMBED_MODEL",
+            "VLLM_EMBED_MODEL",
             "OLLAMA_EMBED_MODEL",
         ),
     )
@@ -147,10 +148,35 @@ class Settings(BaseSettings):
     AGENT_RAG_TOP_K: int = 3
     # Лимит запросов к POST /agent/chat на пользователя в минуту (0 = без лимита).
     AGENT_CHAT_RATE_LIMIT_PER_MINUTE: int = 30
-    # Цикл агента (observe → reason → act → verify → conclude); верхняя граница раундов LLM+tools.
+    # При сбое Redis в rate limit: memory — in-memory счётчик; reject — HTTP 503.
+    AGENT_RL_REDIS_FAILOVER: Literal["memory", "reject"] = "memory"
+    # Цикл агента (observe → reason → act → verify → conclude); верхняя граница раундов LLM+tools (legacy-режим).
     AGENT_MAX_TOOL_STEPS: int = 5
+    # True: выбор read-инструментов в Python; False (по умолчанию): классический цикл vLLM + tool_choice auto.
+    AGENT_CODE_ORCHESTRATION: bool = False
+    # Роль developer в chat/completions (OpenAI-стиль). False — объединить с system, если backend не принимает developer.
+    AGENT_USE_DEVELOPER_ROLE: bool = True
+    # Лимит символов JSON одного инструмента в финальном user-сообщении (code-оркестрация).
+    AGENT_CODE_ORCH_MAX_TOOL_CHARS: int = 14000
+    # Максимум read-инструментов за один запрос (code-оркестрация).
+    AGENT_CODE_ORCH_MAX_TOOLS: int = 5
     # Таймаут HTTP к LLM (секунды).
     AGENT_LLM_TIMEOUT_SEC: float = 120.0
+    # Сэмплинг основного чата агента (CHAT/REASONING); router передаёт свои temperature/max_tokens.
+    AGENT_LLM_TEMPERATURE: float = 0.1
+    AGENT_LLM_TOP_P: float = 0.7
+    AGENT_LLM_MAX_TOKENS: int = 512
+    # vLLM и др.; OpenAI official может отклонить поле — отключите флаг или поставьте None.
+    AGENT_LLM_REPETITION_PENALTY: float | None = 1.15
+    AGENT_LLM_SEND_REPETITION_PENALTY: bool = True
+    # Stop-последовательности для финального ответа (через запятую), напр. "</answer>".
+    AGENT_LLM_STOP_SEQUENCES_STR: str = "</answer>"
+    # Числа в ответе должны встречаться в user+tool grounding, иначе fallback.
+    AGENT_ANSWER_GUARDRAIL_ENABLED: bool = True
+    # Финальный оркестратор: макс. раундов LLM→tools до финального текстового ответа.
+    AGENT_ORCHESTRATOR_MAX_STEPS: int = 3
+    # Ключевые вопросы → tool_choice=required (если есть tools и включено).
+    AGENT_MUST_USE_TOOL_ENABLED: bool = True
     # Режим песочницы: act-инструменты не пишут в БД (только симуляция / requires_confirmation).
     AGENT_SANDBOX_MODE: bool = True
     # Проверка AgentPolicy (tool_execution) перед вызовом инструментов.

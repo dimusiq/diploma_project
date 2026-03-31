@@ -1,7 +1,7 @@
 """
 Слоистая архитектура AI-агента склада.
 
-Слои: llm_adapter, policy, tool_registry, planner, memory, trace (+ evaluation).
+Слои: llm_adapter, policy, tool_registry, structured_orchestrator (router→tools→grounded→validators), tool_orchestrator, planner, memory, trace (+ evaluation).
 Точка входа для HTTP — `app.services.agent_chat.run_agent_chat`.
 Целевой inference: vLLM (OpenAI-совместимый API).
 """

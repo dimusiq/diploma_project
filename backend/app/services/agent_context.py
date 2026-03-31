@@ -10,9 +10,7 @@ from sqlmodel import Session, col, select
 
 from app.core.permissions import can_read_audit, can_see_all_items
 from app.models import (
-    EQUIPMENT_TYPES,
     DomainEvent,
-    Equipment,
     Item,
     TwinQueueDepthProjection,
     User,
@@ -82,17 +80,13 @@ def build_warehouse_context_for_user(session: Session, user: User) -> str:
         "Проекция — read-модель; при расхождении с карточкой товара опирайся на инструменты (ячейка/остаток)."
     )
 
-    eq_stmt = (
-        select(func.count())
-        .select_from(Equipment)
-        .where(col(Equipment.equipment_type).in_(EQUIPMENT_TYPES))
-    )
-    total_equipment = int(session.exec(eq_stmt).one())
     lines.append(
-        f"Складская техника (раздел «Техника»): в учёте {total_equipment} единиц; "
-        "подробности по моделям и operational status в карточке — get_equipment_status "
-        "(поля total_units, operational_status_breakdown_ru). Просрочка/скоро по плановому ТО "
-        "по моточасам — отдельно get_maintenance_calendar_events, не выводить из get_equipment_status."
+        "Складская техника ведётся в разделе «Техника». В этом тексте контекста **намеренно нет** числа единиц "
+        "и **нет** распределения по статусам эксплуатации в карточке (чтобы не подставлять выдуманные доли). "
+        "Цифры по парку и состояние «в эксплуатации / на обслуживании / выведена» — только из ответа read-инструмента "
+        "парка техники из твоего списка tools (поля total_units, operational_status_breakdown_ru, "
+        "breakdown_status_counts_sum). Не путай это с **плановым ТО по моточасам** (просрочено/скоро) — для того "
+        "другой инструмент в списке tools (календарь ТО). Без вызова read по парку не называй количество техники."
     )
 
     if see_all:

@@ -504,9 +504,12 @@ def handle_get_equipment_status(session: Session, _user: User, args: dict[str, A
     )
     rows = list(session.exec(stmt).all())
     listed = len(rows)
+    breakdown_sum = sum(operational_status_counts.values())
     return _json(
         {
             "total_units": total_units,
+            "breakdown_status_counts_sum": breakdown_sum,
+            "breakdown_sum_matches_total_units": breakdown_sum == total_units,
             "listed_units": listed,
             "list_truncated": listed < total_units,
             "operational_status_summary": operational_status_counts,

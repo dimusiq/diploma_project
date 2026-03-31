@@ -42,6 +42,35 @@ function buildRequestOptions(
   }
 }
 
+function detailToMessage(detail: unknown): string {
+  if (detail == null) return ""
+  if (typeof detail === "string") return detail
+  if (Array.isArray(detail)) {
+    return detail
+      .map((e) =>
+        typeof e === "object" && e !== null && "msg" in e
+          ? String((e as { msg?: string }).msg ?? "")
+          : "",
+      )
+      .filter(Boolean)
+      .join(", ")
+  }
+  if (typeof detail === "object" && "message" in detail) {
+    return String((detail as { message: unknown }).message)
+  }
+  return ""
+}
+
+/** HTTP-статус из ApiError или похожего объекта (обход дубликатов класса в бандле). */
+export function getErrorHttpStatus(err: unknown): number | undefined {
+  if (err instanceof ApiError) return err.status
+  if (typeof err === "object" && err !== null && "status" in err) {
+    const s = (err as { status: unknown }).status
+    return typeof s === "number" ? s : undefined
+  }
+  return undefined
+}
+
 async function throwApiError(
   requestOptions: ApiRequestOptions,
   status: number,
@@ -56,14 +85,12 @@ async function throwApiError(
     body,
     ok: false,
   }
-  const message =
-    typeof body === "object" && body !== null && "detail" in body
-      ? Array.isArray((body as { detail: unknown }).detail)
-        ? (body as { detail: Array<{ msg?: string }> }).detail
-            .map((e) => e.msg ?? "")
-            .join(", ")
-        : String((body as { detail: string }).detail)
-      : statusText
+  let message = statusText
+  if (typeof body === "object" && body !== null && "detail" in body) {
+    const d = (body as { detail: unknown }).detail
+    const fromDetail = detailToMessage(d)
+    if (fromDetail) message = fromDetail
+  }
   throw new ApiError(requestOptions, result, message)
 }
 

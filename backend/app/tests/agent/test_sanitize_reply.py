@@ -37,3 +37,20 @@ def test_sanitize_strips_double_get_paragraph() -> None:
     out = sanitize_agent_reply_visible_text(raw)
     assert "get_" not in out.lower()
     assert "Итог" in out
+
+
+def test_sanitize_extracts_answer_block_inner_only() -> None:
+    raw = "Лишний текст до.\n<answer>\nПо учёту три позиции.\n</answer>\nПосле."
+    assert sanitize_agent_reply_visible_text(raw) == "По учёту три позиции."
+
+
+def test_sanitize_full_meta_leak_replaced_with_safe_hint() -> None:
+    raw = (
+        "Для определения количества техники со статусом ТО необходимо использовать инструмент "
+        "`get_equipment_status`, который предоставляет данные. В текущем контексте отсутствуют "
+        "прямые цифры по парку. Откройте раздел «Техника»."
+    )
+    out = sanitize_agent_reply_visible_text(raw)
+    assert "get_" not in out.lower()
+    assert "Техника" in out
+    assert "необходимо использовать" not in out.lower()

@@ -12,7 +12,7 @@ import {
   Textarea,
 } from "@chakra-ui/react"
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 import {
   FiAnchor,
   FiCpu,
@@ -25,7 +25,7 @@ import {
   FiTrash2,
 } from "react-icons/fi"
 import { fetchAgentPermissions } from "@/api/agent.ts"
-import { ApiError } from "@/client/index.ts"
+import { getErrorHttpStatus } from "@/lib/apiClient.ts"
 import {
   DrawerBackdrop,
   DrawerBody,
@@ -63,7 +63,8 @@ export const Route = createFileRoute("/_layout/assistant")({
       if (!perm.can_use) throw redirect({ to: "/" })
     } catch (e) {
       if (isRedirect(e)) throw e
-      if (e instanceof ApiError && [401, 403].includes(e.status)) {
+      const st = getErrorHttpStatus(e)
+      if (st === 401 || st === 403) {
         throw redirect({ to: "/login" })
       }
       throw e
@@ -105,6 +106,12 @@ function AssistantPage() {
     composerDisabled,
     bootLoading,
   } = useAssistantSession()
+
+  const submitChat = useCallback(() => {
+    void send().catch(() => {
+      /* send не должен отклоняться; страховка от плавающего rejection */
+    })
+  }, [send])
 
   useEffect(() => {
     const el = scrollRef.current
@@ -848,7 +855,7 @@ function AssistantPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault()
-                        send()
+                        submitChat()
                       }
                     }}
                   />
@@ -911,7 +918,7 @@ function AssistantPage() {
                       pointerEvents="auto"
                       disabled={composerDisabled}
                       loading={chatMutation.isPending || isEnsuringChat}
-                      onClick={send}
+                      onClick={submitChat}
                     >
                       <FiSend />
                     </IconButton>

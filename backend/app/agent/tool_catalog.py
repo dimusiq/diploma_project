@@ -151,10 +151,10 @@ def _catalog() -> list[CatalogTool]:
             permission_code=PERM_AGENT_USE,
             description=(
                 "Техника: operational status в карточке (коды active/maintenance/decommissioned), "
-                "зона, моточасы. В ответе: total_units — всего единиц в учёте; listed_units — сколько "
-                "строк в массиве equipment (может быть меньше из‑за limit); operational_status_breakdown_ru — "
-                "численность по статусам с подписями на русском. Плановое ТО по моточасам (overdue/due_soon) "
-                "сюда не входит — только get_maintenance_calendar_events."
+                "зона, моточасы. В ответе: total_units; breakdown_status_counts_sum; "
+                "breakdown_sum_matches_total_units (должно быть true); operational_status_breakdown_ru — "
+                "численность по статусам; listed_units — длина списка equipment (≤ limit). "
+                "Плановое ТО по моточасам — только get_maintenance_calendar_events."
             ),
             parameters={
                 "limit": {

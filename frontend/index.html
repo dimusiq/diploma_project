@@ -24,6 +24,30 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- До бандла: подавляем типичный шум от расширений (Grammarly и т.д.) в unhandledrejection -->
+    <script>
+      ;(function () {
+        function isExtNoise(r) {
+          if (r == null || typeof r !== "object") return false
+          // REST приложения не отдаёт 403 в объекте при HTTP 200 — типично для content-scripts
+          if (r.code === 403 && r.httpStatus === 200) return true
+          if (
+            r.httpError === false &&
+            typeof r.httpStatus === "number" &&
+            typeof r.code === "number"
+          )
+            return true
+          return false
+        }
+        window.addEventListener(
+          "unhandledrejection",
+          function (e) {
+            if (isExtNoise(e.reason)) e.preventDefault()
+          },
+          true,
+        )
+      })()
+    </script>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>

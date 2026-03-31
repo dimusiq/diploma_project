@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef } from "react"
 
 import { getApiUrl } from "@/lib/apiClient.ts"
+import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 import { getAccessToken } from "@/lib/authStorage.ts"
 
 const RECONNECT_MS = 5_000
@@ -90,7 +91,7 @@ export function useNotificationSse() {
           try {
             const payload = JSON.parse(raw) as { type?: string }
             if (payload?.type === "notifications_updated") {
-              queryClient.invalidateQueries({ queryKey: ["notifications"] })
+              safeInvalidateQueries(queryClient, { queryKey: ["notifications"] })
             }
           } catch {
             /* ignore malformed */
