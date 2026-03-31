@@ -6,6 +6,7 @@ import {
   Badge,
   Box,
   Button,
+  ButtonGroup,
   Flex,
   Input,
   Table,
@@ -16,7 +17,7 @@ import {
 } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { FiChevronDown, FiChevronUp, FiDownload } from "react-icons/fi"
 
 import type { MaintenanceRecordCreate } from "@/api/equipment"
@@ -37,11 +38,19 @@ import {
   DialogBody,
   DialogCloseTrigger,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogRoot,
   DialogTitle,
 } from "@/components/ui/dialog.tsx"
+import {
+  PopoverBody,
+  PopoverCloseTrigger,
+  PopoverContent,
+  PopoverFooter,
+  PopoverHeader,
+  PopoverRoot,
+  PopoverTitle,
+} from "@/components/ui/popover.tsx"
 import {
   MenuContent,
   MenuItem,
@@ -259,19 +268,23 @@ function EquipmentMaintenanceRecordsList({
   )
 }
 
-/** Диалог «Записать проведённое ТО» для одной выбранной техники (из графика ТО). */
+/** Панель «Записать проведённое ТО», привязанная к бейджу статуса в строке графика. */
 function RecordMaintenanceDialog({
   equipment,
+  anchorEl,
   open,
   onOpenChange,
   onSuccess,
 }: {
   equipment: EquipmentPublic | null
+  anchorEl: HTMLElement | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
 }) {
   const toast = useCustomToast()
+  const anchorElRef = useRef<HTMLElement | null>(null)
+  anchorElRef.current = anchorEl
   const [performedAt, setPerformedAt] = useState(() =>
     new Date().toISOString().slice(0, 10),
   )
@@ -314,15 +327,27 @@ function RecordMaintenanceDialog({
   if (!equipment) return null
 
   return (
-    <DialogRoot open={open} onOpenChange={(e) => onOpenChange(e.open)}>
-      <DialogContent>
+    <PopoverRoot
+      open={open}
+      onOpenChange={(e) => onOpenChange(e.open)}
+      size="lg"
+      positioning={{
+        getAnchorElement: () => anchorElRef.current,
+        placement: "left-start",
+        gutter: 8,
+        flip: true,
+        slide: true,
+        fitViewport: true,
+      }}
+    >
+      <PopoverContent maxW="min(92dvw, 26rem)" minW="18rem">
         <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>
+          <PopoverHeader>
+            <PopoverTitle>
               Записать проведённое ТО — {equipment.brand_name} {equipment.model}
-            </DialogTitle>
-          </DialogHeader>
-          <DialogBody>
+            </PopoverTitle>
+          </PopoverHeader>
+          <PopoverBody>
             <VStack gap={3} align="stretch">
               <Box>
                 <Text fontSize="sm" mb={1} fontWeight="medium">
@@ -376,29 +401,29 @@ function RecordMaintenanceDialog({
                 />
               </Box>
             </VStack>
-          </DialogBody>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-            >
-              Отмена
-            </Button>
-            <Button
-              variant="solid"
-              size="sm"
-              type="submit"
-              loading={createMutation.isPending}
-            >
-              Записать
-            </Button>
-          </DialogFooter>
-          <DialogCloseTrigger />
+          </PopoverBody>
+          <PopoverFooter>
+            <ButtonGroup size="sm" ml="auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Отмена
+              </Button>
+              <Button
+                variant="solid"
+                type="submit"
+                loading={createMutation.isPending}
+              >
+                Записать
+              </Button>
+            </ButtonGroup>
+          </PopoverFooter>
+          <PopoverCloseTrigger />
         </form>
-      </DialogContent>
-    </DialogRoot>
+      </PopoverContent>
+    </PopoverRoot>
   )
 }
 
@@ -483,8 +508,11 @@ export function MaintenanceScheduleTable() {
   const [isExporting, setIsExporting] = useState(false)
   const [selectedEquipment, setSelectedEquipment] =
     useState<EquipmentPublic | null>(null)
-  const [equipmentForRecord, setEquipmentForRecord] =
-    useState<EquipmentPublic | null>(null)
+  const scheduleStatusAnchorRefs = useRef<Map<string, HTMLElement>>(new Map())
+  const [equipmentForRecord, setEquipmentForRecord] = useState<{
+    equipment: EquipmentPublic
+    anchorEl: HTMLElement
+  } | null>(null)
   const [scheduleSortBy, setScheduleSortBy] = useState<
     ScheduleSortField | undefined
   >(undefined)
@@ -883,6 +911,7 @@ export function MaintenanceScheduleTable() {
         onOpenChange={(e) => {
           if (!e.open) setSelectedEquipment(null)
         }}
+        placement="center"
       >
         <DialogContent>
           <DialogHeader>
@@ -912,7 +941,8 @@ export function MaintenanceScheduleTable() {
       </DialogRoot>
 
       <RecordMaintenanceDialog
-        equipment={equipmentForRecord}
+        equipment={equipmentForRecord?.equipment ?? null}
+        anchorEl={equipmentForRecord?.anchorEl ?? null}
         open={equipmentForRecord != null}
         onOpenChange={(open) => !open && setEquipmentForRecord(null)}
         onSuccess={refreshMaintenanceData}
@@ -1087,15 +1117,31 @@ export function MaintenanceScheduleTable() {
                       <Table.Cell onClick={(e) => e.stopPropagation()}>
                         <MenuRoot id={`schedule-status-menu-${equipment.id}`}>
                           <MenuTrigger asChild>
-                            <Badge
-                              size="sm"
-                              colorPalette={STATUS_COLOR[status]}
-                              cursor="pointer"
-                              _hover={{ opacity: 0.9 }}
-                              aria-label="Действия по статусу ТО"
+                            <Box
+                              as="span"
+                              display="inline-block"
+                              ref={(el: HTMLElement | null) => {
+                                if (el)
+                                  scheduleStatusAnchorRefs.current.set(
+                                    equipment.id,
+                                    el,
+                                  )
+                                else
+                                  scheduleStatusAnchorRefs.current.delete(
+                                    equipment.id,
+                                  )
+                              }}
                             >
-                              {STATUS_LABELS[status]}
-                            </Badge>
+                              <Badge
+                                size="sm"
+                                colorPalette={STATUS_COLOR[status]}
+                                cursor="pointer"
+                                _hover={{ opacity: 0.9 }}
+                                aria-label="Действия по статусу ТО"
+                              >
+                                {STATUS_LABELS[status]}
+                              </Badge>
+                            </Box>
                           </MenuTrigger>
                           <MenuContent>
                             <MenuItem
@@ -1118,7 +1164,14 @@ export function MaintenanceScheduleTable() {
                               value={`record-${equipment.id}`}
                               onClick={(e) => {
                                 e.stopPropagation()
-                                setEquipmentForRecord(equipment)
+                                const anchor =
+                                  scheduleStatusAnchorRefs.current.get(
+                                    equipment.id,
+                                  ) ?? e.currentTarget
+                                setEquipmentForRecord({
+                                  equipment,
+                                  anchorEl: anchor,
+                                })
                               }}
                             >
                               Записать проведённое ТО

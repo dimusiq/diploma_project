@@ -14,6 +14,7 @@ from sqlmodel import Session, col, func, select
 from app.agent.tool_safety import AgentToolContext, ToolSafetyClass
 from app.core.permissions import can_read_audit, can_see_all_items
 from app.models import (
+    EQUIPMENT_TYPES,
     AgentKnowledgeChunk,
     DomainEvent,
     Equipment,
@@ -32,6 +33,7 @@ from app.schemas.warehouse_topology import (
     default_topology_from_layout_spec,
     parse_topology_from_spec,
 )
+from app.services.maintenance_calendar_query import build_maintenance_calendar_event_list
 from app.simulation.des_engine import SimulationConfig, run_discrete_event_simulation
 
 
@@ -138,7 +140,14 @@ def handle_search_items_in_warehouse(session: Session, user: User, args: dict[st
         }
         for it in rows
     ]
-    return _json({"count": len(payload), "items": payload})
+    return _json(
+        {
+            "items_returned": len(payload),
+            "count": len(payload),
+            "note": "count — только строки в этом ответе (≤ limit); полного числа совпадений в БД нет.",
+            "items": payload,
+        }
+    )
 
 
 def handle_get_inventory_summary(session: Session, user: User, _args: dict[str, Any], _ctx: Any) -> str:
@@ -184,7 +193,9 @@ def handle_find_item_by_sku(session: Session, user: User, args: dict[str, Any], 
     rows = list(session.exec(stmt.limit(limit)).all())
     return _json(
         {
+            "items_returned": len(rows),
             "count": len(rows),
+            "note": "count — только строки в этом ответе (≤ limit); полного числа совпадений в БД нет.",
             "items": [
                 {
                     "id": str(it.id),
@@ -262,7 +273,9 @@ def handle_get_slot_state(session: Session, user: User, args: dict[str, Any], _c
     rows = list(session.exec(occ_stmt).all())
     return _json(
         {
+            "slots_returned": len(rows),
             "count": len(rows),
+            "note": "Без slot_key возвращается только последние записи (≤ limit), не все занятые ячейки склада.",
             "slots": [
                 {"slot_key": r.slot_key, "item_id": str(r.item_id)} for r in rows
             ],
@@ -302,7 +315,11 @@ def handle_list_zone_congestion(session: Session, user: User, args: dict[str, An
     return _json(
         {
             "zones": [{"zone_name": str(n), "item_count": int(c)} for n, c in rows],
-            "note": "По привязке ряд→зона активного layout",
+            "zones_returned": len(rows),
+            "note": (
+                "Только top-N зон по числу товаров на складе (limit_rows), не полный список зон; "
+                "item_count внутри зоны — полное число товаров в зоне по этой модели."
+            ),
         }
     )
 
@@ -320,13 +337,18 @@ def handle_get_expiring_inventory(session: Session, user: User, args: dict[str, 
     limit = max(1, min(limit, 200))
     today = date.today()
     horizon = today + timedelta(days=days)
-    stmt = (
-        select(Item)
-        .where(col(Item.expires_at).is_not(None))
-        .where(col(Item.expires_at) >= today)
-        .where(col(Item.expires_at) <= horizon)
-        .where(Item.status == "warehouse")
+    exp_filters = (
+        col(Item.expires_at).is_not(None),
+        col(Item.expires_at) >= today,
+        col(Item.expires_at) <= horizon,
+        Item.status == "warehouse",
     )
+    count_stmt = select(func.count()).select_from(Item).where(*exp_filters)
+    if not can_see_all_items(session, user):
+        count_stmt = count_stmt.where(Item.owner_id == user.id)
+    total_in_horizon = int(session.exec(count_stmt).one())
+
+    stmt = select(Item).where(*exp_filters)
     if not can_see_all_items(session, user):
         stmt = stmt.where(Item.owner_id == user.id)
     stmt = stmt.order_by(Item.expires_at).limit(limit)
@@ -334,7 +356,11 @@ def handle_get_expiring_inventory(session: Session, user: User, args: dict[str, 
     return _json(
         {
             "horizon_days": days,
+            "items_total_in_horizon": total_in_horizon,
+            "items_returned": len(rows),
             "count": len(rows),
+            "list_truncated": len(rows) < total_in_horizon,
+            "note": "count — только строки в items; items_total_in_horizon — всего позиций в окне срока годности.",
             "items": [
                 {
                     "id": str(it.id),
@@ -356,16 +382,24 @@ def handle_get_open_tasks(session: Session, _user: User, args: dict[str, Any], _
         limit = 25
     limit = max(1, min(limit, 100))
     status_f = str(args.get("status") or "").strip()
-    stmt = select(WarehouseTask).where(
-        col(WarehouseTask.status).not_in(("completed", "cancelled", "done"))
-    )
+    open_statuses = col(WarehouseTask.status).not_in(("completed", "cancelled", "done"))
+    count_stmt = select(func.count()).select_from(WarehouseTask).where(open_statuses)
+    if status_f:
+        count_stmt = count_stmt.where(WarehouseTask.status == status_f)
+    total_open = int(session.exec(count_stmt).one())
+
+    stmt = select(WarehouseTask).where(open_statuses)
     if status_f:
         stmt = stmt.where(WarehouseTask.status == status_f)
     stmt = stmt.order_by(WarehouseTask.updated_at.desc()).limit(limit)
     rows = list(session.exec(stmt).all())
     return _json(
         {
+            "tasks_total_open_matching_filter": total_open,
+            "tasks_returned": len(rows),
             "count": len(rows),
+            "list_truncated": len(rows) < total_open,
+            "note": "count — строк в tasks; tasks_total_open_matching_filter — всего открытых заданий по фильтру.",
             "tasks": [
                 {
                     "id": str(t.id),
@@ -380,22 +414,114 @@ def handle_get_open_tasks(session: Session, _user: User, args: dict[str, Any], _
     )
 
 
-def handle_get_equipment_status(session: Session, _user: User, args: dict[str, Any], _ctx: Any) -> str:
+def handle_get_maintenance_calendar_events(
+    session: Session, _user: User, args: dict[str, Any], _ctx: Any
+) -> str:
+    raw = str(args.get("status") or "").strip().lower()
+    status: str | None = raw if raw in {"overdue", "due_soon", "ok"} else None
+    if raw and status is None:
+        return _json({"error": "status: overdue | due_soon | ok или пусто"})
     try:
-        limit = int(args.get("limit") or 30)
+        limit = int(args.get("limit") or 50)
     except (TypeError, ValueError):
-        limit = 30
-    limit = max(1, min(limit, 100))
-    rows = list(session.exec(select(Equipment).limit(limit)).all())
+        limit = 50
+    limit = max(1, min(limit, 200))
+    data = build_maintenance_calendar_event_list(session, status=status, limit=limit)
+    total_m = data.total_matching if data.total_matching is not None else data.count
     return _json(
         {
-            "count": len(rows),
+            "events_returned": data.count,
+            "events_total_matching_filter": total_m,
+            "events_truncated_by_limit": total_m > data.count,
+            "count": data.count,
+            "note": (
+                "count и events_returned — сколько строк в массиве events (не больше limit). "
+                "events_total_matching_filter — сколько единиц техники попало под фильтр status до обрезки."
+            ),
+            "events": [
+                {
+                    "equipment_id": str(e.equipment_id),
+                    "equipment_name": e.equipment_name,
+                    "status": e.status,
+                    "engine_hours": e.engine_hours,
+                    "next_service_at_hours": e.next_service_at_hours,
+                    "remaining_hours": e.remaining_hours,
+                    "interval_hours": e.interval_hours,
+                }
+                for e in data.data
+            ],
+        }
+    )
+
+
+_EQUIPMENT_OPERATIONAL_STATUS_RU: dict[str, str] = {
+    "active": "В эксплуатации",
+    "maintenance": "На обслуживании",
+    "decommissioned": "Выведена из эксплуатации",
+}
+
+
+def handle_get_equipment_status(session: Session, _user: User, args: dict[str, Any], _ctx: Any) -> str:
+    try:
+        limit = int(args.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    limit = max(1, min(limit, 300))
+    status_filter = str(args.get("current_status") or "").strip()
+    base_where = col(Equipment.equipment_type).in_(EQUIPMENT_TYPES)
+    total_units = int(
+        session.exec(
+            select(func.count()).select_from(Equipment).where(base_where)
+        ).one()
+    )
+    summary_rows = session.exec(
+        select(Equipment.current_status, func.count())
+        .where(base_where)
+        .group_by(Equipment.current_status)
+    ).all()
+    operational_status_counts: dict[str, int] = {}
+    for st, n in summary_rows:
+        key = (st if st is not None else "") or "(пусто)"
+        operational_status_counts[key] = int(n)
+
+    breakdown_ru: list[dict[str, Any]] = []
+    for code, n in sorted(
+        operational_status_counts.items(), key=lambda x: (-x[1], x[0])
+    ):
+        if code == "(пусто)":
+            label_ru = "Статус в карточке не задан"
+        else:
+            label_ru = _EQUIPMENT_OPERATIONAL_STATUS_RU.get(code, f"Код «{code}» (как в БД)")
+        breakdown_ru.append(
+            {"status_code": code, "label_ru": label_ru, "count": n}
+        )
+
+    stmt = select(Equipment).where(base_where)
+    if status_filter:
+        stmt = stmt.where(Equipment.current_status == status_filter)
+    stmt = (
+        stmt.order_by(Equipment.current_status.asc(), Equipment.model.asc()).limit(limit)
+    )
+    rows = list(session.exec(stmt).all())
+    listed = len(rows)
+    return _json(
+        {
+            "total_units": total_units,
+            "listed_units": listed,
+            "list_truncated": listed < total_units,
+            "operational_status_summary": operational_status_counts,
+            "operational_status_breakdown_ru": breakdown_ru,
+            "planning_maintenance_hours_note": (
+                "Плановое ТО по моточасам (просрочено / скоро / в норме) этим инструментом "
+                "не считается и в ответе отсутствует. Не утверждайте, что «в системе нет данных "
+                "о просрочке ТО», если не вызывали get_maintenance_calendar_events."
+            ),
             "equipment": [
                 {
                     "id": str(e.id),
                     "type": e.equipment_type,
                     "model": e.model,
-                    "status": e.current_status,
+                    "operational_status": e.current_status,
                     "zone": e.zone,
                     "engine_hours": e.engine_hours,
                 }
@@ -421,7 +547,9 @@ def handle_get_recent_events(session: Session, user: User, args: dict[str, Any],
     rows = list(session.exec(stmt).all())
     return _json(
         {
+            "events_returned": len(rows),
             "count": len(rows),
+            "note": "Только последние события (≤ limit), не полный журнал; count — длина списка.",
             "events": [
                 {
                     "id": str(e.id),
@@ -458,7 +586,9 @@ def handle_search_sop_documents(session: Session, _user: User, args: dict[str, A
         top = [c for _, c in scored[:limit]]
     return _json(
         {
+            "chunks_returned": len(top),
             "count": len(top),
+            "note": "count — число фрагментов в ответе, не «всего документов в базе знаний».",
             "chunks": [
                 {"id": str(c.id), "title": c.title, "snippet": c.content[:400]}
                 for c in top
@@ -708,6 +838,7 @@ HANDLERS: dict[str, Any] = {
     "get_expiring_inventory": handle_get_expiring_inventory,
     "get_open_tasks": handle_get_open_tasks,
     "get_equipment_status": handle_get_equipment_status,
+    "get_maintenance_calendar_events": handle_get_maintenance_calendar_events,
     "get_recent_events": handle_get_recent_events,
     "search_sop_documents": handle_search_sop_documents,
     "get_layout_topology": handle_get_layout_topology,

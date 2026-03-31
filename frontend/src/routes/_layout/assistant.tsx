@@ -11,15 +11,8 @@ import {
   Text,
   Textarea,
 } from "@chakra-ui/react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router"
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { useEffect } from "react"
 import {
   FiAnchor,
   FiCpu,
@@ -31,19 +24,7 @@ import {
   FiShare2,
   FiTrash2,
 } from "react-icons/fi"
-import {
-  type AgentPublicReasoningSummary,
-  type AgentUserChatDetailPublic,
-  type AgentUserChatMessagePublic,
-  type AgentUserChatPublic,
-  createUserAssistantChat,
-  deleteUserAssistantChat,
-  fetchAgentPermissions,
-  fetchAgentRun,
-  fetchUserAssistantChat,
-  fetchUserAssistantChats,
-  postAgentChat,
-} from "@/api/agent.ts"
+import { fetchAgentPermissions } from "@/api/agent.ts"
 import { ApiError } from "@/client/index.ts"
 import {
   DrawerBackdrop,
@@ -60,8 +41,17 @@ import {
   MenuRoot,
   MenuTrigger,
 } from "@/components/ui/menu.tsx"
-import useCustomToast from "@/hooks/useCustomToast.ts"
-import type { ChatMessage } from "@/lib/assistantChatStorage.ts"
+import {
+  CHAT_COLUMN_MAX,
+  DS_AVATAR,
+  DS_CARET,
+  DS_MSG_IN,
+  DS_THINKING,
+  NEBARDAK_LOGO_SRC,
+  SIDEBAR_W,
+  useAssistantSession,
+} from "@/contexts/AssistantSessionContext.tsx"
+import { sanitizeAssistantChatContent } from "@/lib/agentReplySanitize.ts"
 
 export const Route = createFileRoute("/_layout/assistant")({
   beforeLoad: async ({ context }) => {
@@ -82,393 +72,45 @@ export const Route = createFileRoute("/_layout/assistant")({
   component: AssistantPage,
 })
 
-const STREAM_CHARS_PER_SEC_SMOOTH = 78
-const STREAM_CHARS_PER_SEC_LONG = 260
-const CHAT_COLUMN_MAX = "52rem"
-const SIDEBAR_W = "272px"
-const NEBARDAK_LOGO_SRC = "/images/nebardak-logo.svg"
-
-const DS_MSG_IN = {
-  animation: "dsMessageIn 0.38s cubic-bezier(0.22, 1, 0.36, 1) both",
-  "@keyframes dsMessageIn": {
-    from: { opacity: 0, transform: "translateY(8px)" },
-    to: { opacity: 1, transform: "translateY(0)" },
-  },
-} as const
-
-const DS_THINKING = {
-  animation: "dsThinking 1.25s ease-in-out infinite",
-  "@keyframes dsThinking": {
-    "0%, 100%": { opacity: 0.45 },
-    "50%": { opacity: 0.95 },
-  },
-} as const
-
-const DS_CARET = {
-  animation: "dsCaret 0.85s ease-in-out infinite",
-  "@keyframes dsCaret": {
-    "0%, 100%": { opacity: 0.2 },
-    "50%": { opacity: 1 },
-  },
-} as const
-
-const DS_AVATAR = {
-  animation: "dsAvatarIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both",
-  "@keyframes dsAvatarIn": {
-    from: { opacity: 0, transform: "scale(0.92)" },
-    to: { opacity: 1, transform: "scale(1)" },
-  },
-} as const
-
-function bucketLabelForChat(updatedAt: string): string {
-  const d = new Date(updatedAt)
-  const t = new Date()
-  const startD = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const startT = new Date(t.getFullYear(), t.getMonth(), t.getDate())
-  const dayDiff = Math.round(
-    (startT.getTime() - startD.getTime()) / 86400000,
-  )
-  if (dayDiff === 0) return "Сегодня"
-  if (dayDiff === 1) return "Вчера"
-  if (dayDiff >= 2 && dayDiff < 7) return "На этой неделе"
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-}
-
-function mapApiMessages(rows: AgentUserChatMessagePublic[]): ChatMessage[] {
-  return rows.map((m) => {
-    if (m.role === "user") {
-      return { id: m.id, role: "user", content: m.content }
-    }
-    const meta = (m.assistant_meta ?? {}) as Record<string, unknown>
-    return {
-      id: m.id,
-      role: "assistant",
-      content: m.content,
-      llmAvailable: Boolean(meta.llm_available),
-      model: (meta.model as string | null | undefined) ?? null,
-      publicReasoning: meta.public_reasoning
-        ? (meta.public_reasoning as AgentPublicReasoningSummary)
-        : undefined,
-      runId: (meta.run_id as string | null | undefined) ?? null,
-    }
-  })
-}
-
-function AgentRunTimeline({ runId }: { runId: string }) {
-  const [open, setOpen] = useState(false)
-  const q = useQuery({
-    queryKey: ["agent-run", runId],
-    queryFn: () => fetchAgentRun(runId),
-    enabled: open,
-  })
-  return (
-    <Box mt={2}>
-      <Button size="xs" variant="ghost" onClick={() => setOpen((v) => !v)}>
-        {open ? "Скрыть таймлайн" : "Таймлайн запуска (шаги)"}
-      </Button>
-      {open ? (
-        <Box mt={2}>
-          {q.isPending ? (
-            <Text fontSize="xs" color="fg.muted">
-              Загрузка…
-            </Text>
-          ) : q.isError ? (
-            <Text fontSize="xs" color="red.fg">
-              Не удалось загрузить трассировку
-            </Text>
-          ) : (
-            <Box
-              as="pre"
-              fontSize="10px"
-              overflow="auto"
-              maxH="200px"
-              p={2}
-              bg="bg.subtle"
-              borderRadius="md"
-            >
-              {JSON.stringify(q.data?.steps ?? [], null, 2)}
-            </Box>
-          )}
-        </Box>
-      ) : null}
-    </Box>
-  )
-}
-
 function AssistantPage() {
-  const { showErrorToast } = useCustomToast()
-  const queryClient = useQueryClient()
-  const [input, setInput] = useState("")
-  const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const composerRef = useRef<HTMLTextAreaElement | null>(null)
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(
-    null,
-  )
-  const streamRafRef = useRef<number | null>(null)
-  const streamingMessageIdRef = useRef<string | null>(null)
-  const activeChatIdRef = useRef<string | null>(null)
-
-  const [deepStudy, setDeepStudy] = useState(false)
-  const [chatSearchQuery, setChatSearchQuery] = useState("")
-  const [sidebarHoveredChatId, setSidebarHoveredChatId] = useState<
-    string | null
-  >(null)
-  const [chatMenuOpenId, setChatMenuOpenId] = useState<string | null>(null)
-
-  const [activeChatId, setActiveChatId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [isEnsuringChat, setIsEnsuringChat] = useState(false)
-
-  const chatsQuery = useQuery({
-    queryKey: ["agent-user-chats"],
-    queryFn: fetchUserAssistantChats,
-  })
-
-  const detailQuery = useQuery({
-    queryKey: ["agent-user-chat", activeChatId],
-    queryFn: () => fetchUserAssistantChat(activeChatId!),
-    enabled: !!activeChatId,
-  })
-
-  useEffect(() => {
-    activeChatIdRef.current = activeChatId
-  }, [activeChatId])
-
-  useEffect(() => {
-    streamingMessageIdRef.current = streamingMessageId
-  }, [streamingMessageId])
-
-  const deleteChatMutation = useMutation({
-    mutationFn: deleteUserAssistantChat,
-    onSuccess: async (_, deletedId) => {
-      await queryClient.invalidateQueries({ queryKey: ["agent-user-chats"] })
-      queryClient.removeQueries({ queryKey: ["agent-user-chat", deletedId] })
-      if (activeChatIdRef.current === deletedId) {
-        const list = await queryClient.fetchQuery({
-          queryKey: ["agent-user-chats"],
-          queryFn: fetchUserAssistantChats,
-        })
-        if (list.count === 0) {
-          setActiveChatId(null)
-        } else {
-          setActiveChatId(list.data[0].id)
-        }
-      }
-    },
-  })
-
-  useEffect(() => {
-    if (!detailQuery.data || detailQuery.data.id !== activeChatId) return
-    if (streamingMessageIdRef.current !== null) return
-    setMessages(mapApiMessages(detailQuery.data.messages))
-  }, [activeChatId, detailQuery.data])
-
-  const sortedChats = useMemo(() => {
-    const rows = chatsQuery.data?.data ?? []
-    return [...rows].sort(
-      (a, b) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
-    )
-  }, [chatsQuery.data])
-
-  const filteredChats = useMemo(() => {
-    const q = chatSearchQuery.trim().toLowerCase()
-    if (!q) return sortedChats
-    return sortedChats.filter((c) => c.title.toLowerCase().includes(q))
-  }, [sortedChats, chatSearchQuery])
-
-  const displayChats = useMemo(() => {
-    if (!activeChatId) return filteredChats
-    const hasActive = filteredChats.some((c) => c.id === activeChatId)
-    if (hasActive) return filteredChats
-    const current = sortedChats.find((c) => c.id === activeChatId)
-    if (!current) return filteredChats
-    return [current, ...filteredChats]
-  }, [filteredChats, sortedChats, activeChatId])
-
-  const groupedChats = useMemo(() => {
-    const out: { label: string; chats: AgentUserChatPublic[] }[] = []
-    for (const c of displayChats) {
-      const label = bucketLabelForChat(c.updated_at)
-      const last = out[out.length - 1]
-      if (last?.label === label) last.chats.push(c)
-      else out.push({ label, chats: [c] })
-    }
-    return out
-  }, [displayChats])
-
-  const stopStreamRaf = useCallback(() => {
-    if (streamRafRef.current !== null) {
-      cancelAnimationFrame(streamRafRef.current)
-      streamRafRef.current = null
-    }
-  }, [])
-
-  useEffect(() => () => stopStreamRaf(), [stopStreamRaf])
-
-  const chatMutation = useMutation({
-    mutationFn: (vars: {
-      text: string
-      includePublicReasoning: boolean
-      userChatId: string
-    }) =>
-      postAgentChat(vars.text, {
-        userChatId: vars.userChatId,
-        includePublicReasoning: vars.includePublicReasoning,
-      }),
-    onSuccess: (data, vars) => {
-      const id = crypto.randomUUID()
-      const full = data.reply
-      stopStreamRaf()
-      setStreamingMessageId(id)
-      streamingMessageIdRef.current = id
-      setActiveChatId(vars.userChatId)
-      activeChatIdRef.current = vars.userChatId
-      setMessages((prev) => [
-        ...prev,
-        {
-          id,
-          role: "assistant",
-          content: "",
-          llmAvailable: data.llm_available,
-          model: data.model ?? null,
-          publicReasoning: data.public_reasoning ?? undefined,
-          runId: data.run_id ?? null,
-        },
-      ])
-
-      const charsPerSec =
-        full.length > 4000
-          ? STREAM_CHARS_PER_SEC_LONG
-          : STREAM_CHARS_PER_SEC_SMOOTH
-      const t0 = performance.now()
-
-      const runStreamFrame = (now: number) => {
-        const elapsedSec = (now - t0) / 1000
-        const pos = Math.min(Math.floor(elapsedSec * charsPerSec), full.length)
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === id && m.role === "assistant"
-              ? { ...m, content: full.slice(0, pos) }
-              : m,
-          ),
-        )
-        if (pos >= full.length) {
-          streamRafRef.current = null
-          void (async () => {
-            const cid = activeChatIdRef.current
-            if (cid) {
-              await queryClient.refetchQueries({
-                queryKey: ["agent-user-chat", cid],
-              })
-              const d = queryClient.getQueryData<AgentUserChatDetailPublic>([
-                "agent-user-chat",
-                cid,
-              ])
-              if (d) setMessages(mapApiMessages(d.messages))
-              await queryClient.invalidateQueries({
-                queryKey: ["agent-user-chats"],
-              })
-            }
-            streamingMessageIdRef.current = null
-            setStreamingMessageId(null)
-          })()
-          return
-        }
-        streamRafRef.current = requestAnimationFrame(runStreamFrame)
-      }
-
-      streamRafRef.current = requestAnimationFrame(runStreamFrame)
-    },
-    onError: (err) => {
-      const msg =
-        err instanceof ApiError ? err.message : "Не удалось получить ответ"
-      showErrorToast(msg)
-    },
-  })
+  const {
+    input,
+    setInput,
+    messages,
+    activeChatId,
+    streamingMessageId,
+    deepStudy,
+    setDeepStudy,
+    historyDrawerOpen,
+    setHistoryDrawerOpen,
+    chatSearchQuery,
+    setChatSearchQuery,
+    sidebarHoveredChatId,
+    setSidebarHoveredChatId,
+    chatMenuOpenId,
+    setChatMenuOpenId,
+    isEnsuringChat,
+    scrollRef,
+    composerRef,
+    chatsQuery,
+    sortedChats,
+    filteredChats,
+    groupedChats,
+    deleteChatMutation,
+    chatMutation,
+    send,
+    newChat,
+    selectChat,
+    historyLocked,
+    composerDisabled,
+    bootLoading,
+  } = useAssistantSession()
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [messages, chatMutation.isPending, streamingMessageId])
-
-  const send = useCallback(async () => {
-    const text = input.trim()
-    if (
-      !text ||
-      chatMutation.isPending ||
-      streamingMessageId !== null ||
-      isEnsuringChat
-    )
-      return
-
-    let chatId = activeChatIdRef.current
-    if (!chatId) {
-      setIsEnsuringChat(true)
-      try {
-        const c = await createUserAssistantChat()
-        chatId = c.id
-        activeChatIdRef.current = chatId
-      } catch {
-        showErrorToast("Не удалось начать диалог")
-        return
-      } finally {
-        setIsEnsuringChat(false)
-      }
-    }
-
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: "user", content: text },
-    ])
-    setInput("")
-    chatMutation.mutate({
-      text,
-      includePublicReasoning: deepStudy,
-      userChatId: chatId,
-    })
-  }, [
-    chatMutation.mutate,
-    deepStudy,
-    input,
-    isEnsuringChat,
-    showErrorToast,
-    streamingMessageId,
-  ])
-
-  const historyLocked =
-    chatMutation.isPending ||
-    streamingMessageId !== null ||
-    isEnsuringChat
-
-  const newChat = useCallback(() => {
-    if (historyLocked) return
-    setActiveChatId(null)
-    activeChatIdRef.current = null
-    setMessages([])
-    setInput("")
-    void queryClient.invalidateQueries({ queryKey: ["agent-user-chats"] })
-    requestAnimationFrame(() => {
-      scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
-      composerRef.current?.focus()
-    })
-  }, [historyLocked, queryClient])
-
-  const selectChat = (id: string) => {
-    if (historyLocked || id === activeChatId) return
-    setActiveChatId(id)
-    setHistoryDrawerOpen(false)
-  }
-
-  const composerDisabled =
-    chatMutation.isPending ||
-    streamingMessageId !== null ||
-    isEnsuringChat ||
-    !input.trim()
-
-  const bootLoading = chatsQuery.isPending
+  }, [messages, chatMutation.isPending, streamingMessageId, scrollRef])
 
   const historyList = (
     <Flex direction="column" h="full" minH={0} gap={3}>
@@ -996,7 +638,7 @@ function AssistantPage() {
                             whiteSpace="pre-wrap"
                             color="fg"
                           >
-                            {m.content}
+                            {sanitizeAssistantChatContent(m.content)}
                             {streamingMessageId === m.id ? (
                               <Text
                                 as="span"
@@ -1089,14 +731,6 @@ function AssistantPage() {
                                     {m.publicReasoning.kpi_effect}
                                   </Text>
                                 ) : null}
-                                {m.publicReasoning.run_log_ref ? (
-                                  <Text mt={1} wordBreak="break-all">
-                                    <Text as="span" fontWeight="medium">
-                                      Лог запуска:{" "}
-                                    </Text>
-                                    {m.publicReasoning.run_log_ref}
-                                  </Text>
-                                ) : null}
                                 {m.publicReasoning.operational_cycle &&
                                 Object.keys(m.publicReasoning.operational_cycle)
                                   .length > 0 ? (
@@ -1114,14 +748,6 @@ function AssistantPage() {
                                   </Box>
                                 ) : null}
                               </Box>
-                            </Box>
-                          ) : null}
-                          {m.runId && streamingMessageId !== m.id ? (
-                            <Box mt={3} fontSize="xs" color="fg.muted">
-                              <Text mb={1}>
-                                Запуск: <code>{m.runId}</code>
-                              </Text>
-                              <AgentRunTimeline runId={m.runId} />
                             </Box>
                           ) : null}
                         </Box>
@@ -1301,7 +927,7 @@ function AssistantPage() {
                   bg="bg.subtle"
                 >
                   <Text fontSize="2xs" color="fg.muted">
-                    Enter — отправить · Shift+Enter — новая строка · без веб-поиска
+                    Enter — отправить · Shift+Enter — новая строка 
                   </Text>
                 </Flex>
               </Box>

@@ -23,6 +23,7 @@ class CatalogTool:
     parameters: dict[str, Any]
     requires_audit_read: bool = False
     requires_inbox_write: bool = False
+    requires_maintenance_schedule_view: bool = False
     superuser_only: bool = False
 
     def to_openai_tool(self) -> dict[str, Any]:
@@ -47,7 +48,8 @@ def _catalog() -> list[CatalogTool]:
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
             description=(
-                "Поиск товаров по фрагменту SKU или названия (read-only, границы прав пользователя)."
+                "Поиск товаров по фрагменту SKU или названия (read-only, границы прав пользователя). "
+                "В ответе count — только число строк (≤ limit), не полное число совпадений в БД."
             ),
             parameters={
                 "sku_fragment": {"type": "string", "description": "Подстрока SKU"},
@@ -68,7 +70,10 @@ def _catalog() -> list[CatalogTool]:
             version="1",
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
-            description="Найти товары по точному или частичному совпадению SKU.",
+            description=(
+                "Найти товары по точному или частичному совпадению SKU. "
+                "count в ответе — только строки в списке (≤ limit), не «всего найдено»."
+            ),
             parameters={
                 "sku": {"type": "string", "description": "SKU или фрагмент"},
                 "exact": {"type": "boolean", "description": "Точное совпадение, иначе ILIKE"},
@@ -91,7 +96,10 @@ def _catalog() -> list[CatalogTool]:
             version="1",
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
-            description="Состояние ячейки по slot_key или список последних занятых слотов.",
+            description=(
+                "Состояние ячейки по slot_key или список последних занятых слотов (без slot_key — выборка по limit, "
+                "не все занятые ячейки склада)."
+            ),
             parameters={
                 "slot_key": {"type": "string", "description": "Ключ ячейки (если пусто — выборка)"},
                 "limit": {"type": "integer", "description": "Лимит записей при отсутствии slot_key"},
@@ -102,7 +110,10 @@ def _catalog() -> list[CatalogTool]:
             version="1",
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
-            description="Псевдо-загрузка по зонам: число товаров на складе по зонам стеллажей (если есть привязка ряд→зона).",
+            description=(
+                "Псевдо-загрузка по зонам: top-N зон по числу товаров на складе (привязка ряд→зона активного layout); "
+                "остальные зоны в ответ не попадают."
+            ),
             parameters={"limit_rows": {"type": "integer", "description": "Макс. зон в ответе"}},
         ),
         CatalogTool(
@@ -110,7 +121,10 @@ def _catalog() -> list[CatalogTool]:
             version="1",
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
-            description="Товары со сроком годности в горизонте дней.",
+            description=(
+                "Товары со сроком годности в горизонте дней. "
+                "items_total_in_horizon — всего в окне; count/items_returned — только усечённый список (limit)."
+            ),
             parameters={
                 "days": {"type": "integer", "description": "Горизонт в днях, по умолчанию 30"},
                 "limit": {"type": "integer", "description": "Макс. позиций"},
@@ -121,7 +135,10 @@ def _catalog() -> list[CatalogTool]:
             version="1",
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
-            description="Открытые складские задания (warehouse_task не в финальном статусе).",
+            description=(
+                "Открытые складские задания (warehouse_task не в финальном статусе). "
+                "tasks_total_open_matching_filter — всего по фильтру; count — только строки в ответе (limit)."
+            ),
             parameters={
                 "limit": {"type": "integer", "description": "Макс. записей"},
                 "status": {"type": "string", "description": "Фильтр по статусу, опционально"},
@@ -129,18 +146,53 @@ def _catalog() -> list[CatalogTool]:
         ),
         CatalogTool(
             name="get_equipment_status",
-            version="1",
+            version="2",
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
-            description="Список техники: тип, модель, статус, зона.",
-            parameters={"limit": {"type": "integer", "description": "Макс. единиц техники"}},
+            description=(
+                "Техника: operational status в карточке (коды active/maintenance/decommissioned), "
+                "зона, моточасы. В ответе: total_units — всего единиц в учёте; listed_units — сколько "
+                "строк в массиве equipment (может быть меньше из‑за limit); operational_status_breakdown_ru — "
+                "численность по статусам с подписями на русском. Плановое ТО по моточасам (overdue/due_soon) "
+                "сюда не входит — только get_maintenance_calendar_events."
+            ),
+            parameters={
+                "limit": {
+                    "type": "integer",
+                    "description": "Макс. единиц в списке equipment, по умолчанию 100, макс. 300",
+                },
+                "current_status": {
+                    "type": "string",
+                    "description": "Фильтр по статусу эксплуатации; пусто — все статусы",
+                },
+            },
+        ),
+        CatalogTool(
+            name="get_maintenance_calendar_events",
+            version="2",
+            safety=ToolSafetyClass.READ,
+            permission_code=PERM_AGENT_USE,
+            description=(
+                "Плановое ТО по моточасам: overdue (просрочка), due_soon (скоро), ok (в норме). "
+                "Отдельно от operational status в карточке техники. "
+                "events_total_matching_filter — сколько единиц попало под фильтр; count/events_returned — строк в массиве (≤ limit)."
+            ),
+            parameters={
+                "status": {
+                    "type": "string",
+                    "description": "Фильтр: overdue | due_soon | ok; пусто — все три статуса",
+                },
+                "limit": {"type": "integer", "description": "Макс. записей, по умолчанию 50"},
+            },
         ),
         CatalogTool(
             name="get_recent_events",
             version="1",
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
-            description="Последние доменные события (требуется право просмотра аудита).",
+            description=(
+                "Последние доменные события (требуется право просмотра аудита); count — только последние limit записей, не весь журнал."
+            ),
             parameters={
                 "limit": {"type": "integer", "description": "Макс. событий"},
                 "event_type_prefix": {"type": "string", "description": "Фильтр по префиксу типа"},
@@ -152,7 +204,10 @@ def _catalog() -> list[CatalogTool]:
             version="1",
             safety=ToolSafetyClass.READ,
             permission_code=PERM_AGENT_USE,
-            description="Поиск по базе знаний ассистента (SOP, регламенты) по ключевым словам.",
+            description=(
+                "Поиск по базе знаний ассистента (SOP, регламенты) по ключевым словам; "
+                "count — число фрагментов в ответе, не размер всей базы."
+            ),
             parameters={
                 "query": {"type": "string", "description": "Поисковая строка"},
                 "limit": {"type": "integer", "description": "Макс. фрагментов"},
@@ -330,6 +385,7 @@ def tools_for_user(
     is_superuser: bool,
     has_audit_read: bool,
     has_inbox_write: bool = False,
+    has_maintenance_schedule_view: bool = False,
 ) -> list[CatalogTool]:
     out: list[CatalogTool] = []
     for t in CATALOG:
@@ -338,6 +394,8 @@ def tools_for_user(
         if t.requires_audit_read and not has_audit_read:
             continue
         if t.requires_inbox_write and not has_inbox_write:
+            continue
+        if t.requires_maintenance_schedule_view and not has_maintenance_schedule_view:
             continue
         out.append(t)
     return out
@@ -348,6 +406,7 @@ def openai_tools_for_user(
     is_superuser: bool,
     has_audit_read: bool,
     has_inbox_write: bool = False,
+    has_maintenance_schedule_view: bool = False,
 ) -> list[dict[str, Any]]:
     return [
         x.to_openai_tool()
@@ -355,5 +414,6 @@ def openai_tools_for_user(
             is_superuser=is_superuser,
             has_audit_read=has_audit_read,
             has_inbox_write=has_inbox_write,
+            has_maintenance_schedule_view=has_maintenance_schedule_view,
         )
     ]

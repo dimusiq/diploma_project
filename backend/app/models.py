@@ -2474,6 +2474,10 @@ class MaintenanceCalendarEventPublic(SQLModel):
 class MaintenanceCalendarEventList(SQLModel):
     data: list[MaintenanceCalendarEventPublic]
     count: int
+    total_matching: int | None = Field(
+        default=None,
+        description="Событий по фильтру до обрезки limit; если задано и больше count — список data усечён",
+    )
 
 
 class MaintenanceChainImportBody(SQLModel):

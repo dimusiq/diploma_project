@@ -15,6 +15,7 @@ from app.agent.tool_safety import AgentToolContext
 from app.core.permissions import (
     PERM_INTEGRATIONS_INBOX_WRITE,
     can_read_audit,
+    can_view_maintenance_schedule,
     user_has_permission,
 )
 from app.models import User
@@ -29,6 +30,7 @@ def llm_tools_payload(session: Session, user: User) -> list[dict[str, Any]]:
         is_superuser=bool(user.is_superuser),
         has_audit_read=can_read_audit(session, user),
         has_inbox_write=user_has_permission(session, user, PERM_INTEGRATIONS_INBOX_WRITE),
+        has_maintenance_schedule_view=can_view_maintenance_schedule(session, user),
     )
 
 
@@ -49,6 +51,10 @@ def can_run_tool(session: Session, user: User, tool_name: str) -> bool:
         return False
     if spec.requires_inbox_write and not user_has_permission(
         session, user, PERM_INTEGRATIONS_INBOX_WRITE
+    ):
+        return False
+    if spec.requires_maintenance_schedule_view and not can_view_maintenance_schedule(
+        session, user
     ):
         return False
     return True

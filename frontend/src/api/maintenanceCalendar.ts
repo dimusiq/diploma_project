@@ -15,6 +15,8 @@ export interface MaintenanceCalendarEventPublic {
 export interface MaintenanceCalendarEventListResponse {
   data: MaintenanceCalendarEventPublic[]
   count: number
+  /** Всего по фильтру до limit; если больше count — список усечён */
+  total_matching?: number | null
 }
 
 const BASE = "/api/v1/maintenance-calendar-events"

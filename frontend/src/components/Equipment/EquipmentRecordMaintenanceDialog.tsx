@@ -105,7 +105,11 @@ export function EquipmentRecordMaintenanceDialog({
   if (!equipment) return null
 
   return (
-    <DialogRoot open={open} onOpenChange={(e) => onOpenChange(e.open)}>
+    <DialogRoot
+      open={open}
+      onOpenChange={(e) => onOpenChange(e.open)}
+      placement="center"
+    >
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogCloseTrigger />

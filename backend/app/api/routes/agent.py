@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlmodel import col, func, select
 
+from app.agent.policy import sanitize_agent_reply_visible_text
 from app.agent.reasoning_runtime import reply_without_first_paragraph_when_multi
 from app.agent.tool_catalog import CATALOG_BY_NAME, tools_for_user
 from app.agent.tool_safety import ToolSafetyClass
@@ -31,6 +32,7 @@ from app.core.permissions import (
     PERM_AUDIT_READ,
     PERM_INTEGRATIONS_INBOX_WRITE,
     can_use_agent,
+    can_view_maintenance_schedule,
     user_has_permission,
 )
 from app.models import (
@@ -336,10 +338,12 @@ def list_agent_tools_catalog(
 ) -> AgentToolsListResponse:
     has_audit = user_has_permission(session, current_user, PERM_AUDIT_READ)
     has_inbox = user_has_permission(session, current_user, PERM_INTEGRATIONS_INBOX_WRITE)
+    has_maint = can_view_maintenance_schedule(session, current_user)
     items = tools_for_user(
         is_superuser=bool(current_user.is_superuser),
         has_audit_read=has_audit,
         has_inbox_write=has_inbox,
+        has_maintenance_schedule_view=has_maint,
     )
     return AgentToolsListResponse(
         tools=[
@@ -544,6 +548,7 @@ async def agent_chat(
         if not body.include_public_reasoning
         else outcome.reply
     )
+    reply_for_client = sanitize_agent_reply_visible_text(reply_for_client)
 
     log = AgentChatLog(
         user_id=current_user.id,

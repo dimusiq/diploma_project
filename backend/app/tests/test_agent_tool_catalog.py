@@ -33,6 +33,21 @@ def test_admin_tools_only_for_superuser_payload() -> None:
     assert "reindex_knowledge" in names_su
 
 
+def test_get_maintenance_calendar_available_with_agent_use_only() -> None:
+    """Календарь ТО для агента не отдельно от maintenance_schedule.view (только agent.use)."""
+    with_m = {t.name for t in tools_for_user(is_superuser=False, has_audit_read=True)}
+    without_m = {
+        t.name
+        for t in tools_for_user(
+            is_superuser=False,
+            has_audit_read=True,
+            has_maintenance_schedule_view=False,
+        )
+    }
+    assert "get_maintenance_calendar_events" in with_m
+    assert "get_maintenance_calendar_events" in without_m
+
+
 def test_enqueue_integration_requires_inbox_permission_in_payload_filter() -> None:
     with_inbox = {
         t.name
