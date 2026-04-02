@@ -177,8 +177,10 @@ class Settings(BaseSettings):
     AGENT_ANSWER_GUARDRAIL_ENABLED: bool = True
     # Финальный оркестратор: макс. раундов LLM→tools до финального текстового ответа.
     AGENT_ORCHESTRATOR_MAX_STEPS: int = 3
-    # Ключевые вопросы → tool_choice=required (если есть tools и включено).
+    # Ключевые вопросы → must_use_tool() (подсказка маршрутизатору); само по себе не включает required.
     AGENT_MUST_USE_TOOL_ENABLED: bool = True
+    # True: первый раунд с tools может отправить tool_choice=required (часто даёт HTTP 400 на vLLM).
+    AGENT_TOOL_CHOICE_REQUIRED_ENABLED: bool = False
     # Режим песочницы: act-инструменты не пишут в БД (только симуляция / requires_confirmation).
     AGENT_SANDBOX_MODE: bool = True
     # Проверка AgentPolicy (tool_execution) перед вызовом инструментов.

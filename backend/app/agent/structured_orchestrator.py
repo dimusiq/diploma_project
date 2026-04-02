@@ -183,7 +183,12 @@ async def _run_structured_tool_phases(
         if reasoning:
             reasoning.llm_rounds = round_idx + 1
 
-        use_required = round_idx == 0 and bool(tools) and must_use_tool(user_message)
+        use_required = (
+            round_idx == 0
+            and bool(tools)
+            and must_use_tool(user_message)
+            and bool(getattr(settings, "AGENT_TOOL_CHOICE_REQUIRED_ENABLED", False))
+        )
         tc = "required" if use_required else "auto"
 
         payload: dict[str, Any] = {
@@ -208,6 +213,19 @@ async def _run_structured_tool_phases(
                 "tool_choice": payload.get("tool_choice", tc),
             }
             r = await client.post(url, json=payload_light)
+        if r.status_code == 400 and tools:
+            # Минимальное тело: часть vLLM отклоняет top_p/прочие поля вместе с tools.
+            payload_min: dict[str, Any] = {
+                "model": main_model,
+                "messages": messages,
+                "temperature": float(sampling.get("temperature", 0.1)),
+                "tools": tools,
+                "tool_choice": "auto",
+            }
+            mt = sampling.get("max_tokens")
+            if mt is not None:
+                payload_min["max_tokens"] = int(mt)
+            r = await client.post(url, json=payload_min)
         if r.status_code == 400:
             if chat_completion_400_implies_tools_unsupported(r):
                 if trace:
