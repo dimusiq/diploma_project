@@ -1,6 +1,12 @@
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router"
 import { useCallback } from "react"
 import {
+  Attachment,
+  AttachmentPreview,
+  AttachmentRemove,
+  Attachments,
+} from "@/components/ai-elements/attachments.tsx"
+import {
   FiAnchor,
   FiCpu,
   FiEdit2,
@@ -20,33 +26,34 @@ import {
 } from "@/components/ai-elements/conversation.tsx"
 import {
   PromptInput,
-  PromptInputAttachments,
+  PromptInputActionAddAttachments,
+  PromptInputActionAddScreenshot,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
   PromptInputBody,
-  PromptInputFileInput,
-  PromptInputFileTrigger,
+  PromptInputButton,
   PromptInputFooter,
-  PromptInputFooterBar,
   PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
-  DrawerBody,
-  DrawerCloseTrigger,
-  DrawerContent,
-  DrawerHeader,
-  DrawerRoot,
-  DrawerTitle,
-} from "@/components/ui/drawer.tsx"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
-  MenuContent,
-  MenuItem,
-  MenuRoot,
-  MenuTrigger,
-} from "@/components/ui/menu.tsx"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx"
 import {
   CHAT_COLUMN_MAX,
   NEBARDAK_LOGO_SRC,
@@ -56,6 +63,76 @@ import {
 import { sanitizeAssistantChatContent } from "@/lib/agentReplySanitize.ts"
 import { getErrorHttpStatus } from "@/lib/apiClient.ts"
 import { cn } from "@/lib/utils.ts"
+
+function AssistantPromptAttachmentsHeader() {
+  const attachments = usePromptInputAttachments()
+  if (attachments.files.length === 0) return null
+  return (
+    <PromptInputHeader>
+      <Attachments variant="inline">
+        {attachments.files.map((attachment) => (
+          <Attachment
+            data={attachment}
+            key={attachment.id}
+            onRemove={() => attachments.remove(attachment.id)}
+          >
+            <AttachmentPreview />
+            <AttachmentRemove />
+          </Attachment>
+        ))}
+      </Attachments>
+    </PromptInputHeader>
+  )
+}
+
+function AssistantPromptFooter() {
+  const {
+    input,
+    historyLocked,
+    chatMutation,
+    isEnsuringChat,
+    deepStudy,
+    setDeepStudy,
+  } = useAssistantSession()
+  const { files } = usePromptInputAttachments()
+  const empty = !input.trim() && files.length === 0
+  return (
+    <PromptInputFooter>
+      <PromptInputTools>
+        <PromptInputActionMenu>
+          <PromptInputActionMenuTrigger />
+          <PromptInputActionMenuContent>
+            <PromptInputActionAddAttachments label="Добавить файлы" />
+            <PromptInputActionAddScreenshot label="Снимок экрана" />
+          </PromptInputActionMenuContent>
+        </PromptInputActionMenu>
+        <PromptInputButton
+          variant={!deepStudy ? "default" : "ghost"}
+          disabled={historyLocked}
+          onClick={() => setDeepStudy(false)}
+          title="Обычный ответ без расширенной сводки"
+        >
+          Стандарт
+        </PromptInputButton>
+        <PromptInputButton
+          variant={deepStudy ? "default" : "ghost"}
+          disabled={historyLocked}
+          onClick={() => setDeepStudy(true)}
+          title="Публичная сводка reasoning («как сформирован ответ»)"
+          className="gap-1.5"
+        >
+          <FiCpu size={14} />
+          Глубокое изучение
+        </PromptInputButton>
+      </PromptInputTools>
+      <PromptInputSubmit
+        aria-label="Отправить"
+        disabled={historyLocked || empty}
+        loading={chatMutation.isPending || isEnsuringChat}
+      />
+    </PromptInputFooter>
+  )
+}
 
 export const Route = createFileRoute("/_layout/assistant")({
   beforeLoad: async ({ context }) => {
@@ -81,13 +158,10 @@ function AssistantPage() {
   const {
     input,
     setInput,
-    attachmentFiles,
-    setAttachmentFiles,
+    composerResetKey,
     messages,
     activeChatId,
     streamingMessageId,
-    deepStudy,
-    setDeepStudy,
     historyDrawerOpen,
     setHistoryDrawerOpen,
     chatSearchQuery,
@@ -109,15 +183,8 @@ function AssistantPage() {
     newChat,
     selectChat,
     historyLocked,
-    composerDisabled,
     bootLoading,
   } = useAssistantSession()
-
-  const submitChat = useCallback(() => {
-    void send().catch(() => {
-      /* send не должен отклоняться; страховка от плавающего rejection */
-    })
-  }, [send])
 
   const onConversationContext = useCallback(
     (ctx: StickToBottomContext | null) => {
@@ -205,12 +272,12 @@ function AssistantPage() {
                       {c.title}
                     </span>
                   </Button>
-                  <MenuRoot
-                    onOpenChange={(details) =>
-                      setChatMenuOpenId(details.open ? c.id : null)
+                  <DropdownMenu
+                    onOpenChange={(open) =>
+                      setChatMenuOpenId(open ? c.id : null)
                     }
                   >
-                    <MenuTrigger asChild>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
                         variant="ghost"
@@ -227,42 +294,39 @@ function AssistantPage() {
                       >
                         <FiMoreHorizontal size={18} />
                       </Button>
-                    </MenuTrigger>
-                    <MenuContent className="min-w-[11rem] shadow-lg">
-                      <MenuItem
-                        value="rename"
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="min-w-44 shadow-lg">
+                      <DropdownMenuItem
                         className="gap-2 py-2 opacity-45"
                         disabled
                       >
                         <FiEdit2 size={16} />
                         Переименовать
-                      </MenuItem>
-                      <MenuItem
-                        value="pin"
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         className="gap-2 py-2 opacity-45"
                         disabled
                       >
                         <FiAnchor size={16} />
                         Закрепить
-                      </MenuItem>
-                      <MenuItem
-                        value="share"
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         className="gap-2 py-2 opacity-45"
                         disabled
                       >
                         <FiShare2 size={16} />
                         Поделиться
-                      </MenuItem>
-                      <MenuItem
-                        value="delete"
-                        className="gap-2 py-2 text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive dark:data-[highlighted]:bg-destructive/20"
-                        onClick={() => deleteChatMutation.mutate(c.id)}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        className="gap-2 py-2"
+                        onSelect={() => deleteChatMutation.mutate(c.id)}
                       >
                         <FiTrash2 size={16} />
                         Удалить
-                      </MenuItem>
-                    </MenuContent>
-                  </MenuRoot>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               )
             })}
@@ -548,25 +612,17 @@ function AssistantPage() {
           <div className="shrink-0 border-t border-border bg-background px-3 pb-4 pt-3 md:px-5">
             <div className="mx-auto w-full" style={{ maxWidth: CHAT_COLUMN_MAX }}>
               <PromptInput
+                key={composerResetKey}
                 globalDrop
-                onExternalFiles={(files) =>
-                  setAttachmentFiles((prev) => [...prev, ...files])
-                }
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  submitChat()
+                multiple
+                onSubmit={(msg) => {
+                  void send({
+                    text: msg.text ?? "",
+                    files: msg.files ?? [],
+                  })
                 }}
               >
-                {attachmentFiles.length > 0 ? (
-                  <PromptInputHeader>
-                    <PromptInputAttachments
-                      files={attachmentFiles}
-                      onRemove={(i) =>
-                        setAttachmentFiles((prev) => prev.filter((_, j) => j !== i))
-                      }
-                    />
-                  </PromptInputHeader>
-                ) : null}
+                <AssistantPromptAttachmentsHeader />
                 <PromptInputBody>
                   <PromptInputTextarea
                     ref={composerRef}
@@ -581,96 +637,39 @@ function AssistantPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault()
-                        submitChat()
+                        e.currentTarget.form?.requestSubmit()
                       }
                     }}
                   />
                 </PromptInputBody>
-                <PromptInputFooter>
-                  <PromptInputFooterBar>
-                    <PromptInputTools>
-                      <PromptInputFileInput
-                        onChange={(e) => {
-                          const list = e.target.files
-                          if (list?.length) {
-                            setAttachmentFiles((prev) => [
-                              ...prev,
-                              ...Array.from(list),
-                            ])
-                          }
-                          e.target.value = ""
-                        }}
-                      />
-                      <PromptInputFileTrigger />
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className={cn(
-                          "h-8 shrink-0 rounded-md px-2.5 text-sm font-normal text-zinc-600 dark:text-zinc-400",
-                          !deepStudy &&
-                            "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100",
-                        )}
-                        disabled={historyLocked}
-                        onClick={() => setDeepStudy(false)}
-                        title="Обычный ответ без расширенной сводки"
-                      >
-                        Стандарт
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className={cn(
-                          "h-8 gap-1.5 rounded-md px-2.5 text-sm font-normal text-zinc-600 dark:text-zinc-400",
-                          deepStudy &&
-                            "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100",
-                        )}
-                        disabled={historyLocked}
-                        onClick={() => setDeepStudy(true)}
-                        title="Публичная сводка reasoning («как сформирован ответ»)"
-                      >
-                        <FiCpu size={14} />
-                        Глубокое изучение
-                      </Button>
-                    </PromptInputTools>
-                    <PromptInputSubmit
-                      aria-label="Отправить"
-                      disabled={composerDisabled}
-                      loading={chatMutation.isPending || isEnsuringChat}
-                    />
-                  </PromptInputFooterBar>
-                  <p className="text-[0.65rem] leading-snug text-zinc-500 dark:text-zinc-500">
-                    Enter — отправить · Shift+Enter — новая строка · перетащите
-                    файлы в область ввода
-                  </p>
-                </PromptInputFooter>
+                <AssistantPromptFooter />
               </PromptInput>
+              <p className="mt-2 text-[0.65rem] leading-snug text-zinc-500 dark:text-zinc-500">
+                Enter — отправить · Shift+Enter — новая строка · перетащите файлы в
+                область ввода
+              </p>
             </div>
           </div>
         </div>
       </div>
-      <DrawerRoot
-        placement="start"
-        open={historyDrawerOpen}
-        onOpenChange={(e) => setHistoryDrawerOpen(e.open)}
-        size="xs"
-      >
-        <DrawerContent className="border border-sidebar-border bg-sidebar text-sidebar-foreground">
-          <DrawerCloseTrigger />
-          <DrawerHeader className="border-b-0 pb-0">
-            <DrawerTitle className="font-semibold tracking-tight text-sidebar-foreground">
+      <Sheet open={historyDrawerOpen} onOpenChange={setHistoryDrawerOpen}>
+        <SheetContent
+          side="left"
+          className="flex h-full max-h-full w-full flex-col gap-0 border border-sidebar-border bg-sidebar p-0 text-sidebar-foreground sm:max-w-[272px]"
+        >
+          <SheetHeader className="border-b-0 pb-0 pr-10 text-left">
+            <SheetTitle className="font-semibold tracking-tight text-sidebar-foreground">
               Nebardak
-            </DrawerTitle>
+            </SheetTitle>
             <p className="mt-0.5 text-[0.65rem] font-normal text-muted-foreground">
               История чатов
             </p>
-          </DrawerHeader>
-          <DrawerBody className="overflow-y-auto pt-2 pb-6">
+          </SheetHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-6">
             {historyList}
-          </DrawerBody>
-        </DrawerContent>
-      </DrawerRoot>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

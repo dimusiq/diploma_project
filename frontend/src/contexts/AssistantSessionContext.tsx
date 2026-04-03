@@ -6,9 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createContext,
-  type Dispatch,
   type ReactNode,
-  type SetStateAction,
   useCallback,
   useContext,
   useEffect,
@@ -111,8 +109,8 @@ export function mapApiMessages(rows: import("@/api/agent.ts").AgentUserChatMessa
 export type AssistantSessionContextValue = {
   input: string
   setInput: (v: string) => void
-  attachmentFiles: File[]
-  setAttachmentFiles: Dispatch<SetStateAction<File[]>>
+  /** Сбрасывает вложения в `<PromptInput key={composerResetKey} />` при новом чате. */
+  composerResetKey: number
   messages: ChatMessage[]
   activeChatId: string | null
   streamingMessageId: string | null
@@ -146,11 +144,11 @@ export type AssistantSessionContextValue = {
       unknown
     >
   >
-  send: () => Promise<void>
+  /** Текст и файлы берутся из поля ввода; можно передать явно из `PromptInput.onSubmit`. */
+  send: (override?: { text: string; files: File[] }) => Promise<void>
   newChat: () => void
   selectChat: (id: string) => void
   historyLocked: boolean
-  composerDisabled: boolean
   bootLoading: boolean
   showErrorToast: (msg: string) => void
 }
@@ -162,7 +160,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
   const { showErrorToast } = useCustomToast()
   const queryClient = useQueryClient()
   const [input, setInput] = useState("")
-  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
+  const [composerResetKey, setComposerResetKey] = useState(0)
   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
@@ -407,67 +405,68 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     },
   })
 
-  const send = useCallback(async () => {
-    const text = input.trim()
-    const files = attachmentFiles
-    if (
-      (!text && files.length === 0) ||
-      chatMutation.isPending ||
-      streamingMessageId !== null ||
-      isEnsuringChat
-    )
-      return
+  const send = useCallback(
+    async (override?: { text: string; files: File[] }) => {
+      const text = (override?.text ?? input).trim()
+      const files = override?.files ?? []
+      if (
+        (!text && files.length === 0) ||
+        chatMutation.isPending ||
+        streamingMessageId !== null ||
+        isEnsuringChat
+      )
+        return
 
-    let messageForApi = text
-    if (files.length > 0) {
-      try {
-        messageForApi = await buildAgentMessageWithFiles(text, files)
-      } catch {
-        showErrorToast("Не удалось прочитать вложения")
+      let messageForApi = text
+      if (files.length > 0) {
+        try {
+          messageForApi = await buildAgentMessageWithFiles(text, files)
+        } catch {
+          showErrorToast("Не удалось прочитать вложения")
+          return
+        }
+      }
+      if (!messageForApi.trim()) {
+        showErrorToast("Пустое сообщение")
         return
       }
-    }
-    if (!messageForApi.trim()) {
-      showErrorToast("Пустое сообщение")
-      return
-    }
 
-    let chatId = activeChatIdRef.current
-    if (!chatId) {
-      setIsEnsuringChat(true)
-      try {
-        const c = await createUserAssistantChat()
-        chatId = c.id
-        activeChatIdRef.current = chatId
-      } catch {
-        showErrorToast("Не удалось начать диалог")
-        return
-      } finally {
-        setIsEnsuringChat(false)
+      let chatId = activeChatIdRef.current
+      if (!chatId) {
+        setIsEnsuringChat(true)
+        try {
+          const c = await createUserAssistantChat()
+          chatId = c.id
+          activeChatIdRef.current = chatId
+        } catch {
+          showErrorToast("Не удалось начать диалог")
+          return
+        } finally {
+          setIsEnsuringChat(false)
+        }
       }
-    }
 
-    const userPreview = formatUserMessagePreview(text, files)
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: "user", content: userPreview },
-    ])
-    setInput("")
-    setAttachmentFiles([])
-    chatMutation.mutate({
-      text: messageForApi,
-      includePublicReasoning: deepStudy,
-      userChatId: chatId,
-    })
-  }, [
-    attachmentFiles,
-    chatMutation,
-    deepStudy,
-    input,
-    isEnsuringChat,
-    showErrorToast,
-    streamingMessageId,
-  ])
+      const userPreview = formatUserMessagePreview(text, files)
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "user", content: userPreview },
+      ])
+      setInput("")
+      chatMutation.mutate({
+        text: messageForApi,
+        includePublicReasoning: deepStudy,
+        userChatId: chatId,
+      })
+    },
+    [
+      chatMutation,
+      deepStudy,
+      input,
+      isEnsuringChat,
+      showErrorToast,
+      streamingMessageId,
+    ],
+  )
 
   const historyLocked =
     chatMutation.isPending ||
@@ -480,7 +479,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     activeChatIdRef.current = null
     setMessages([])
     setInput("")
-    setAttachmentFiles([])
+    setComposerResetKey((k) => k + 1)
     safeInvalidateQueries(queryClient, { queryKey: ["agent-user-chats"] })
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
@@ -497,20 +496,13 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
     [historyLocked, activeChatId],
   )
 
-  const composerDisabled =
-    chatMutation.isPending ||
-    streamingMessageId !== null ||
-    isEnsuringChat ||
-    (!input.trim() && attachmentFiles.length === 0)
-
   const bootLoading = chatsQuery.isPending
 
   const value = useMemo(
     (): AssistantSessionContextValue => ({
       input,
       setInput,
-      attachmentFiles,
-      setAttachmentFiles,
+      composerResetKey,
       messages,
       activeChatId,
       streamingMessageId,
@@ -539,13 +531,12 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
       newChat,
       selectChat,
       historyLocked,
-      composerDisabled,
       bootLoading,
       showErrorToast,
     }),
     [
       input,
-      attachmentFiles,
+      composerResetKey,
       messages,
       activeChatId,
       streamingMessageId,
@@ -567,7 +558,6 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
       newChat,
       selectChat,
       historyLocked,
-      composerDisabled,
       bootLoading,
       showErrorToast,
     ],

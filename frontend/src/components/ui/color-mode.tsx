@@ -1,5 +1,10 @@
 "use client"
 
+/**
+ * Тёмная тема: `next-themes` + `attribute="class"` (класс `dark` на корневом
+ * элементе документа). Замена Chakra `ColorModeProvider` / `chakra-theme`.
+ */
+
 import { MoonIcon, SunIcon } from "lucide-react"
 import type { ThemeProviderProps } from "next-themes"
 import { ThemeProvider, useTheme } from "next-themes"

@@ -26,14 +26,11 @@ import { UserActionsMenu } from "@/components/Common/UserActionsMenu.tsx"
 import PendingUsers from "@/components/Pending/PendingUsers.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
-  DrawerBackdrop,
-  DrawerBody,
-  DrawerCloseTrigger,
-  DrawerContent,
-  DrawerHeader,
-  DrawerRoot,
-  DrawerTitle,
-} from "@/components/ui/drawer.tsx"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
   PaginationItems,
@@ -184,23 +181,19 @@ function UserDetailDrawer({
   onClose: () => void
 }) {
   return (
-    <DrawerRoot
-      open={true}
-      onOpenChange={(e) => !e.open && onClose()}
-      size="lg"
-      placement="end"
-    >
-      <DrawerBackdrop />
-      <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>
+    <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="right"
+        className="flex h-full max-h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+      >
+        <SheetHeader className="shrink-0 border-b px-4 py-3 pr-10 text-left">
+          <SheetTitle>
             {user.full_name
               ? `${user.full_name} (${user.email})`
               : user.email}
-          </DrawerTitle>
-          <DrawerCloseTrigger />
-        </DrawerHeader>
-        <DrawerBody className="flex flex-col gap-6 overflow-y-auto">
+          </SheetTitle>
+        </SheetHeader>
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
           <UserAuditBlock
             title="Действия пользователя (журнал аудита)"
             queryKey={["audit", "by-user", user.id]}
@@ -219,9 +212,9 @@ function UserDetailDrawer({
               })
             }
           />
-        </DrawerBody>
-      </DrawerContent>
-    </DrawerRoot>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 

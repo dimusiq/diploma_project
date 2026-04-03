@@ -31,11 +31,11 @@ import {
 import { Button } from "@/components/ui/button.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
-  MenuContent,
-  MenuItem,
-  MenuRoot,
-  MenuTrigger,
-} from "@/components/ui/menu.tsx"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx"
 import {
   PaginationItems,
   PaginationNextTrigger,
@@ -820,29 +820,29 @@ export function MaintenanceScheduleTable() {
           </span>
         </div>
         <div id="maintenance-schedule-export-menu" className="contents">
-          <MenuRoot>
-          <MenuTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isExporting}
-              aria-label="Выгрузить отчёт"
-            >
-              <span className="inline-flex items-center gap-2">
-                <FiDownload className="size-4" />
-                Выгрузить
-              </span>
-            </Button>
-          </MenuTrigger>
-          <MenuContent>
-            <MenuItem value="csv" onClick={() => handleExport("csv")}>
-              CSV
-            </MenuItem>
-            <MenuItem value="xlsx" onClick={() => handleExport("xlsx")}>
-              Excel
-            </MenuItem>
-          </MenuContent>
-          </MenuRoot>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isExporting}
+                aria-label="Выгрузить отчёт"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <FiDownload className="size-4" />
+                  Выгрузить
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => handleExport("csv")}>
+                CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleExport("xlsx")}>
+                Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">
@@ -1138,71 +1138,68 @@ export function MaintenanceScheduleTable() {
                           id={`schedule-status-menu-${equipment.id}`}
                           className="contents"
                         >
-                          <MenuRoot>
-                          <MenuTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="inline-block h-auto min-h-0 border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:ring-1"
-                              aria-label="Действия по статусу ТО"
-                              ref={(el: HTMLButtonElement | null) => {
-                                if (el)
-                                  scheduleStatusAnchorRefs.current.set(
-                                    equipment.id,
-                                    el,
-                                  )
-                                else
-                                  scheduleStatusAnchorRefs.current.delete(
-                                    equipment.id,
-                                  )
-                              }}
-                            >
-                              <span
-                                className={cn(
-                                  "rounded-md border px-2 py-0.5 text-xs hover:opacity-90",
-                                  STATUS_BADGE_CLASS[status],
-                                )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="inline-block h-auto min-h-0 border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:ring-1"
+                                aria-label="Действия по статусу ТО"
+                                ref={(el: HTMLButtonElement | null) => {
+                                  if (el)
+                                    scheduleStatusAnchorRefs.current.set(
+                                      equipment.id,
+                                      el,
+                                    )
+                                  else
+                                    scheduleStatusAnchorRefs.current.delete(
+                                      equipment.id,
+                                    )
+                                }}
                               >
-                                {STATUS_LABELS[status]}
-                              </span>
-                            </Button>
-                          </MenuTrigger>
-                          <MenuContent>
-                            <MenuItem
-                              value={`to-maintenance-${equipment.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                updateStatusMutation.mutate({
-                                  id: equipment.id,
-                                  current_status: "maintenance",
-                                })
-                              }}
-                              disabled={
-                                updateStatusMutation.isPending ||
-                                equipment.current_status === "maintenance"
-                              }
-                            >
-                              Перевести на обслуживание
-                            </MenuItem>
-                            <MenuItem
-                              value={`record-${equipment.id}`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                const anchor =
-                                  scheduleStatusAnchorRefs.current.get(
-                                    equipment.id,
-                                  ) ?? e.currentTarget
-                                setEquipmentForRecord({
-                                  equipment,
-                                  anchorEl: anchor,
-                                })
-                              }}
-                            >
-                              Записать проведённое ТО
-                            </MenuItem>
-                          </MenuContent>
-                          </MenuRoot>
+                                <span
+                                  className={cn(
+                                    "rounded-md border px-2 py-0.5 text-xs hover:opacity-90",
+                                    STATUS_BADGE_CLASS[status],
+                                  )}
+                                >
+                                  {STATUS_LABELS[status]}
+                                </span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  updateStatusMutation.mutate({
+                                    id: equipment.id,
+                                    current_status: "maintenance",
+                                  })
+                                }}
+                                disabled={
+                                  updateStatusMutation.isPending ||
+                                  equipment.current_status === "maintenance"
+                                }
+                              >
+                                Перевести на обслуживание
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  const anchor =
+                                    scheduleStatusAnchorRefs.current.get(
+                                      equipment.id,
+                                    )
+                                  if (!anchor) return
+                                  setEquipmentForRecord({
+                                    equipment,
+                                    anchorEl: anchor,
+                                  })
+                                }}
+                              >
+                                Записать проведённое ТО
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </TableCell>
                     </TableRow>

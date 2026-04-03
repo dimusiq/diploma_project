@@ -23,15 +23,12 @@ import {
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
-  DrawerBackdrop,
-  DrawerBody,
-  DrawerCloseTrigger,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerRoot,
-  DrawerTitle,
-} from "@/components/ui/drawer.tsx"
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet.tsx"
 import { Field } from "@/components/ui/field.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
@@ -448,25 +445,26 @@ export function EquipmentFormDialog({
 
   if (asDrawer) {
     return (
-      <DrawerRoot
-        open={open}
-        onOpenChange={(e) => onOpenChange(e.open)}
-        placement="end"
-        size="md"
-      >
-        <DrawerBackdrop />
-        <DrawerContent>
-          <DrawerCloseTrigger />
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <DrawerHeader>
-              <DrawerTitle>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="right"
+          className="flex w-full max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+        >
+          <form
+            className="flex min-h-0 flex-1 flex-col"
+            onSubmit={handleSubmit(onSubmit)}
+          >
+            <SheetHeader className="border-b px-4 py-3 pr-10 text-left">
+              <SheetTitle>
                 {isEdit
                   ? `${editItem?.brand_name} ${editItem?.model}`
                   : "Добавить технику"}
-              </DrawerTitle>
-            </DrawerHeader>
-            <DrawerBody className="overflow-y-auto">{formContent}</DrawerBody>
-            <DrawerFooter className="flex flex-row flex-wrap gap-2">
+              </SheetTitle>
+            </SheetHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4">
+              {formContent}
+            </div>
+            <SheetFooter className="flex flex-row flex-wrap gap-2 border-t px-4 py-3">
               <Button
                 variant="outline"
                 size="sm"
@@ -479,10 +477,10 @@ export function EquipmentFormDialog({
               <Button variant="solid" size="sm" type="submit" disabled={loading} loading={loading}>
                 {isEdit ? "Сохранить" : "Добавить"}
               </Button>
-            </DrawerFooter>
+            </SheetFooter>
           </form>
-        </DrawerContent>
-      </DrawerRoot>
+        </SheetContent>
+      </Sheet>
     )
   }
 

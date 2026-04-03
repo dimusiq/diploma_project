@@ -2,8 +2,8 @@ import type * as React from "react"
 
 import { cn } from "@/lib/utils.ts"
 
-type ChakraSpace = {
-  /** Chakra-style размеры (как в Tailwind spacing scale: 4 → 1rem) */
+type SkeletonLegacySpace = {
+  /** Совместимость со старым API: размеры как в Tailwind spacing (4 → 1rem) */
   h?: string
   w?: string
   minH?: string
@@ -19,11 +19,11 @@ export type SkeletonProps = Omit<
   React.ComponentProps<"div">,
   "children"
 > &
-  ChakraSpace & {
+  SkeletonLegacySpace & {
     ref?: React.Ref<HTMLDivElement>
   }
 
-function chakraBorderRadius(r?: string) {
+function borderRadiusPropToClass(r?: string) {
   if (!r) return undefined
   if (r === "md") return "rounded-md"
   if (r === "lg") return "rounded-lg"
@@ -70,7 +70,7 @@ export function Skeleton({
   }
   if (mb != null) cls.push(`mb-${mb}`)
   if (mt != null) cls.push(`mt-${mt}`)
-  const rad = chakraBorderRadius(borderRadius)
+  const rad = borderRadiusPropToClass(borderRadius)
   if (rad) cls.push(rad)
 
   return (

@@ -1,19 +1,18 @@
 "use client"
 
-import { ThemeProvider } from "next-themes"
 import type { PropsWithChildren } from "react"
+import { ColorModeProvider } from "@/components/ui/color-mode.tsx"
 import { Toaster } from "@/components/ui/sonner.tsx"
 
-/** Корневой провайдер без Chakra: тема (next-themes) + Sonner. */
+/**
+ * Корневой провайдер: `next-themes` (`ColorModeProvider`) кладёт класс `dark` на
+ * `document.documentElement` — совместимо с Tailwind `dark:` и shadcn.
+ */
 export function CustomProvider(props: PropsWithChildren) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      disableTransitionOnChange
-    >
+    <ColorModeProvider defaultTheme="light" disableTransitionOnChange>
       {props.children}
       <Toaster position="top-right" richColors closeButton />
-    </ThemeProvider>
+    </ColorModeProvider>
   )
 }

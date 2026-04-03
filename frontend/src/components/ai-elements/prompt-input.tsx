@@ -1,14 +1,22 @@
 "use client"
 
 /**
- * Стили и разметка в духе AI Elements Prompt Input
+ * API и визуал в духе AI Elements Prompt Input
  * https://elements.ai-sdk.dev/components/prompt-input
  */
 
-import { CornerDownLeftIcon, PlusIcon, XIcon } from "lucide-react"
+import {
+  CornerDownLeftIcon,
+  ImageIcon,
+  Loader2Icon,
+  PlusIcon,
+  SquareIcon,
+  XIcon,
+} from "lucide-react"
 import * as React from "react"
 import {
   createContext,
+  type ComponentProps,
   type FormEvent,
   type ReactNode,
   useCallback,
@@ -19,33 +27,127 @@ import {
   useRef,
 } from "react"
 
+import type { AttachmentData } from "@/components/ai-elements/attachments.tsx"
 import { Button } from "@/components/ui/button.tsx"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupTextareaWrap,
+} from "@/components/ui/input-group.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.tsx"
 import { cn } from "@/lib/utils.ts"
 
-type PromptInputContextValue = {
-  fileInputId: string
-  attachmentListId: string
+// --- Types (совместимо с @ai-sdk/react useChat) --------------------------------
+
+export type PromptInputChatStatus =
+  | "ready"
+  | "submitted"
+  | "streaming"
+  | "error"
+
+export type PromptInputMessage = {
+  /** Текст из textarea */
+  text?: string
+  /** Файлы для отправки в модель */
+  files?: File[]
 }
 
-const PromptInputCtx = createContext<PromptInputContextValue | null>(null)
+export type PromptInputAttachment = AttachmentData
 
-export function usePromptInputIds() {
-  const v = useContext(PromptInputCtx)
+type PromptInputErrorCode = "max_files" | "max_file_size" | "accept"
+
+type PromptInputRootContextValue = {
+  fileInputId: string
+  attachmentListId: string
+  fileInputRef: React.RefObject<HTMLInputElement | null>
+  attachments: PromptInputAttachment[]
+  addFiles: (files: File[] | FileList) => void
+  removeAttachment: (id: string) => void
+  clearAttachments: () => void
+  openFileDialog: () => void
+  accept: string | undefined
+  multiple: boolean
+}
+
+const PromptInputRootCtx = createContext<PromptInputRootContextValue | null>(
+  null,
+)
+
+function usePromptInputRoot() {
+  const v = useContext(PromptInputRootCtx)
   if (!v) {
-    throw new Error("PromptInput components must be inside PromptInput")
+    throw new Error("PromptInput components must be used inside <PromptInput>")
   }
   return v
 }
+
+export function usePromptInputAttachments() {
+  const {
+    attachments,
+    addFiles,
+    removeAttachment,
+    clearAttachments,
+    openFileDialog,
+  } = usePromptInputRoot()
+  return {
+    files: attachments,
+    add: addFiles,
+    remove: removeAttachment,
+    clear: clearAttachments,
+    openFileDialog,
+  }
+}
+
+export function usePromptInputIds() {
+  const { fileInputId, attachmentListId } = usePromptInputRoot()
+  return { fileInputId, attachmentListId }
+}
+
+function fileListToArray(files: File[] | FileList): File[] {
+  return Array.isArray(files) ? files : Array.from(files)
+}
+
+// --- PromptInput --------------------------------------------------------------
 
 type PromptInputProps = Omit<
   React.ComponentProps<"form">,
   "onSubmit" | "children"
 > & {
-  onSubmit?: (event: FormEvent<HTMLFormElement>) => void
   children: ReactNode
+  /** Сообщение при отправке формы (Enter / кнопка). */
+  onSubmit?: (
+    message: PromptInputMessage,
+    event: FormEvent<HTMLFormElement>,
+  ) => void
   globalDrop?: boolean
+  /** @deprecated Используйте встроенные вложения; оставлено для обратной совместимости */
   onExternalFiles?: (files: File[]) => void
+  multiple?: boolean
+  accept?: string
+  maxFiles?: number
+  maxFileSize?: number
+  onError?: (err: {
+    code: PromptInputErrorCode
+    message: string
+  }) => void
 }
 
 export function PromptInput({
@@ -56,21 +158,149 @@ export function PromptInput({
   onExternalFiles,
   onDragOver,
   onDrop,
+  multiple = true,
+  accept,
+  maxFiles = 32,
+  maxFileSize = 20 * 1024 * 1024,
+  onError,
   ...props
 }: PromptInputProps) {
   const fileInputId = useId()
   const attachmentListId = useId()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [attachments, setAttachments] = React.useState<PromptInputAttachment[]>(
+    [],
+  )
+
+  const revokeAll = useCallback((list: PromptInputAttachment[]) => {
+    for (const a of list) {
+      URL.revokeObjectURL(a.url)
+    }
+  }, [])
+
+  const addFiles = useCallback(
+    (incoming: File[] | FileList) => {
+      let batch = fileListToArray(incoming).filter(Boolean)
+      if (batch.length === 0) return
+
+      if (accept) {
+        const ok = batch.filter((f) => {
+          const types = accept.split(",").map((s) => s.trim())
+          return types.some((t) => {
+            if (t.endsWith("/*")) {
+              const base = t.slice(0, -2)
+              return f.type.startsWith(`${base}/`)
+            }
+            return f.type === t || t === "*/*"
+          })
+        })
+        if (ok.length < batch.length) {
+          onError?.({
+            code: "accept",
+            message: "Неподходящий тип файла",
+          })
+        }
+        if (ok.length === 0) return
+        batch = ok
+      }
+
+      setAttachments((prev) => {
+        const next = [...prev]
+        for (const f of batch) {
+          if (f.size > maxFileSize) {
+            onError?.({
+              code: "max_file_size",
+              message: `Файл слишком большой: ${f.name}`,
+            })
+            continue
+          }
+          if (next.length >= maxFiles) {
+            onError?.({
+              code: "max_files",
+              message: "Слишком много вложений",
+            })
+            break
+          }
+          next.push({
+            id: crypto.randomUUID(),
+            file: f,
+            url: URL.createObjectURL(f),
+          })
+        }
+        return next
+      })
+    },
+    [accept, maxFileSize, maxFiles, onError],
+  )
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachments((prev) => {
+      const found = prev.find((a) => a.id === id)
+      if (found) URL.revokeObjectURL(found.url)
+      return prev.filter((a) => a.id !== id)
+    })
+  }, [])
+
+  const clearAttachments = useCallback(() => {
+    setAttachments((prev) => {
+      revokeAll(prev)
+      return []
+    })
+  }, [revokeAll])
+
+  const openFileDialog = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
   const ctx = useMemo(
-    () => ({ fileInputId, attachmentListId }),
-    [fileInputId, attachmentListId],
+    (): PromptInputRootContextValue => ({
+      fileInputId,
+      attachmentListId,
+      fileInputRef,
+      attachments,
+      addFiles,
+      removeAttachment,
+      clearAttachments,
+      openFileDialog,
+      accept,
+      multiple,
+    }),
+    [
+      fileInputId,
+      attachmentListId,
+      attachments,
+      addFiles,
+      removeAttachment,
+      clearAttachments,
+      openFileDialog,
+      accept,
+      multiple,
+    ],
   )
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      onSubmit?.(event)
+      const form = event.currentTarget
+      const ta = form.querySelector<HTMLTextAreaElement>(
+        "[data-prompt-input-textarea]",
+      )
+      const text = ta?.value ?? ""
+      const files = attachments.map((a) => a.file)
+      if (!text.trim() && files.length === 0) return
+
+      onSubmit?.(
+        {
+          text,
+          files: files.length > 0 ? files : undefined,
+        },
+        event,
+      )
+
+      clearAttachments()
+      if (fileInputRef.current) fileInputRef.current.value = ""
     },
-    [onSubmit],
+    [attachments, clearAttachments, onSubmit],
   )
 
   const handleDragOver = useCallback(
@@ -89,41 +319,57 @@ export function PromptInput({
       if (globalDrop && e.dataTransfer.files?.length) {
         e.preventDefault()
         e.stopPropagation()
+        addFiles(e.dataTransfer.files)
         onExternalFiles?.(Array.from(e.dataTransfer.files))
       }
       onDrop?.(e)
     },
-    [globalDrop, onDrop, onExternalFiles],
+    [globalDrop, onDrop, addFiles, onExternalFiles],
   )
 
   return (
-    <PromptInputCtx.Provider value={ctx}>
+    <PromptInputRootCtx.Provider value={ctx}>
       <form
-        className={cn(
-          "flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950",
-          className,
-        )}
+        className="w-full min-w-0"
         onSubmit={handleSubmit}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         {...props}
       >
-        {children}
+        <input
+          ref={fileInputRef}
+          id={fileInputId}
+          type="file"
+          className="sr-only"
+          accept={accept}
+          multiple={multiple}
+          data-prompt-input-files
+          data-slot="prompt-input-file"
+          onChange={(e) => {
+            const list = e.target.files
+            if (list?.length) {
+              addFiles(list)
+              onExternalFiles?.(Array.from(list))
+            }
+            e.target.value = ""
+          }}
+        />
+        <InputGroup className={className}>{children}</InputGroup>
       </form>
-    </PromptInputCtx.Provider>
+    </PromptInputRootCtx.Provider>
   )
 }
+
+// --- Sections ----------------------------------------------------------------
 
 export function PromptInputHeader({
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<typeof InputGroupAddon>) {
   return (
-    <div
-      className={cn(
-        "border-b border-zinc-200/80 px-4 py-2.5 dark:border-zinc-800",
-        className,
-      )}
+    <InputGroupAddon
+      align="block-start"
+      className={cn("text-foreground", className)}
       {...props}
     />
   )
@@ -132,10 +378,8 @@ export function PromptInputHeader({
 export function PromptInputBody({
   className,
   ...props
-}: React.ComponentProps<"div">) {
-  return (
-    <div className={cn("min-h-0 px-4 pb-2 pt-4", className)} {...props} />
-  )
+}: React.ComponentProps<typeof InputGroupTextareaWrap>) {
+  return <InputGroupTextareaWrap className={className} {...props} />
 }
 
 export type PromptInputTextareaProps =
@@ -185,12 +429,13 @@ export const PromptInputTextarea = React.forwardRef<
     <Textarea
       ref={setRefs}
       data-prompt-input-textarea
-      data-slot="prompt-input-textarea"
+      data-slot="input-group-control"
       rows={rows ?? minRows}
       value={value}
       onChange={onChange}
       className={cn(
-        "min-h-[52px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-zinc-900 shadow-none placeholder:text-zinc-500 focus-visible:ring-0 dark:text-zinc-100 dark:placeholder:text-zinc-500",
+        "flex min-h-[52px] max-h-[220px] w-full flex-1 resize-none rounded-none border-0 bg-transparent px-3 py-3 text-base leading-relaxed shadow-none outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:ring-0 md:text-sm dark:bg-transparent",
+        "[field-sizing:content]",
         className,
       )}
       {...props}
@@ -199,23 +444,21 @@ export const PromptInputTextarea = React.forwardRef<
 })
 PromptInputTextarea.displayName = "PromptInputTextarea"
 
-/** Нижняя полоса: слева инструменты, справа отправка (как в AI Elements). */
+/** Нижний аддон: слева `PromptInputTools`, справа `PromptInputSubmit` (input-group / AI Elements). */
 export function PromptInputFooter({
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<typeof InputGroupAddon>) {
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-1.5 border-t border-zinc-200 px-4 pb-3 pt-2.5 dark:border-zinc-800",
-        className,
-      )}
+    <InputGroupAddon
+      align="block-end"
+      className={cn("text-foreground", className)}
       {...props}
     />
   )
 }
 
-/** Одна строка: `justify-between` — инструменты и кнопка отправки. */
+/** @deprecated Используйте `<PromptInputFooter>` — в нём уже есть `justify-between`. */
 export function PromptInputFooterBar({
   className,
   ...props
@@ -223,7 +466,7 @@ export function PromptInputFooterBar({
   return (
     <div
       className={cn(
-        "flex w-full items-center justify-between gap-3",
+        "flex w-full min-w-0 items-center justify-between gap-3",
         className,
       )}
       {...props}
@@ -246,7 +489,7 @@ export function PromptInputTools({
   )
 }
 
-/** @deprecated Используйте строку инструментов внутри PromptInputFooter. */
+/** @deprecated */
 export function PromptInputToolbar({
   className,
   ...props
@@ -262,30 +505,271 @@ export function PromptInputToolbar({
   )
 }
 
+// --- Toolbar controls ---------------------------------------------------------
+
+export function PromptInputActionMenu({
+  ...props
+}: ComponentProps<typeof DropdownMenu>) {
+  return <DropdownMenu {...props} />
+}
+
+export function PromptInputActionMenuTrigger({
+  className,
+  ...props
+}: ComponentProps<typeof DropdownMenuTrigger>) {
+  return (
+    <DropdownMenuTrigger asChild {...props}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className={cn(
+          "size-8 shrink-0 rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
+          className,
+        )}
+        aria-label="Меню вложений"
+      >
+        <PlusIcon className="size-4" strokeWidth={2} />
+      </Button>
+    </DropdownMenuTrigger>
+  )
+}
+
+export function PromptInputActionMenuContent({
+  className,
+  align = "start",
+  ...props
+}: ComponentProps<typeof DropdownMenuContent>) {
+  return (
+    <DropdownMenuContent className={cn("min-w-[12rem]", className)} align={align} {...props} />
+  )
+}
+
+type MenuItemProps = ComponentProps<typeof DropdownMenuItem>
+
+export function PromptInputActionAddAttachments({
+  label = "Add photos or files",
+  ...props
+}: MenuItemProps & { label?: string }) {
+  const { openFileDialog } = usePromptInputAttachments()
+  return (
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault()
+        openFileDialog()
+      }}
+      {...props}
+    >
+      {label}
+    </DropdownMenuItem>
+  )
+}
+
+export function PromptInputActionAddScreenshot({
+  label = "Take screenshot",
+  ...props
+}: MenuItemProps & { label?: string }) {
+  const { add } = usePromptInputAttachments()
+  return (
+    <DropdownMenuItem
+      onSelect={async (e) => {
+        e.preventDefault()
+        try {
+          const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+          })
+          const track = stream.getVideoTracks()[0]
+          const video = document.createElement("video")
+          video.srcObject = stream
+          await new Promise<void>((res, rej) => {
+            video.onloadedmetadata = () => res()
+            video.onerror = () => rej(new Error("video"))
+          })
+          await video.play()
+          const canvas = document.createElement("canvas")
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          canvas.getContext("2d")?.drawImage(video, 0, 0)
+          track.stop()
+          stream.getTracks().forEach((t) => t.stop())
+          await new Promise<void>((resolve, reject) => {
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  reject(new Error("blob"))
+                  return
+                }
+                add([
+                  new File([blob], `screenshot-${Date.now()}.png`, {
+                    type: "image/png",
+                  }),
+                ])
+                resolve()
+              },
+              "image/png",
+              0.92,
+            )
+          })
+        } catch {
+          /* отмена или нет разрешения */
+        }
+      }}
+      {...props}
+    >
+      <ImageIcon className="size-4 opacity-70" />
+      {label}
+    </DropdownMenuItem>
+  )
+}
+
+type PromptInputButtonTooltip =
+  | string
+  | {
+      content: ReactNode
+      shortcut?: string
+      side?: ComponentProps<typeof TooltipContent>["side"]
+    }
+
+export type PromptInputButtonProps = ComponentProps<typeof Button> & {
+  tooltip?: PromptInputButtonTooltip
+}
+
+export function PromptInputButton({
+  className,
+  tooltip,
+  variant = "ghost",
+  size = "sm",
+  children,
+  ...props
+}: PromptInputButtonProps) {
+  const button = (
+    <Button
+      type="button"
+      variant={variant}
+      size={size}
+      className={cn(
+        "h-8 gap-1.5 rounded-md px-2 text-sm font-normal text-zinc-600 dark:text-zinc-400",
+        variant === "default" &&
+          "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </Button>
+  )
+
+  if (!tooltip) return button
+
+  const content = typeof tooltip === "string" ? tooltip : tooltip.content
+  const shortcut = typeof tooltip === "object" ? tooltip.shortcut : undefined
+  const side = typeof tooltip === "object" ? tooltip.side : undefined
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side={side} className="flex items-center gap-2">
+        <span>{content}</span>
+        {shortcut ? (
+          <kbd className="rounded border border-background/30 bg-background/20 px-1.5 py-0.5 font-mono text-[10px] opacity-90">
+            {shortcut}
+          </kbd>
+        ) : null}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+export function PromptInputSelect(props: ComponentProps<typeof Select>) {
+  return <Select {...props} />
+}
+
+export function PromptInputSelectTrigger({
+  className,
+  ...props
+}: ComponentProps<typeof SelectTrigger>) {
+  return (
+    <SelectTrigger
+      size="sm"
+      className={cn(
+        "h-8 w-fit min-w-0 max-w-[14rem] gap-1.5 border-0 bg-transparent px-2 shadow-none hover:bg-zinc-100 data-[placeholder]:text-zinc-500 dark:hover:bg-zinc-800 [&_svg]:opacity-50",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+export const PromptInputSelectValue = SelectValue
+
+export function PromptInputSelectContent({
+  className,
+  ...props
+}: ComponentProps<typeof SelectContent>) {
+  return <SelectContent className={cn(className)} {...props} />
+}
+
+export const PromptInputSelectItem = SelectItem
+
+type PromptInputSubmitProps = Omit<ComponentProps<typeof Button>, "type"> & {
+  type?: "submit" | "button"
+  /** Состояние чата из `useChat` (AI SDK). */
+  status?: PromptInputChatStatus
+}
+
+export function PromptInputSubmit({
+  className,
+  type = "submit",
+  children,
+  status = "ready",
+  disabled,
+  loading,
+  ...props
+}: PromptInputSubmitProps) {
+  const busy =
+    Boolean(loading) ||
+    status === "streaming" ||
+    status === "submitted"
+
+  const icon =
+    status === "error" ? (
+      <SquareIcon className="size-4" aria-hidden />
+    ) : busy ? (
+      <Loader2Icon className="size-4 animate-spin" aria-hidden />
+    ) : (
+      <CornerDownLeftIcon className="size-4" strokeWidth={2.5} aria-hidden />
+    )
+
+  return (
+    <Button
+      type={type}
+      variant="default"
+      data-slot="prompt-input-submit"
+      disabled={disabled}
+      className={cn(
+        "shrink-0 rounded-md p-0 shadow-none",
+        className,
+      )}
+      size="icon-sm"
+      {...props}
+    >
+      {children ?? icon}
+    </Button>
+  )
+}
+
+// --- Legacy: явный file input / чипы (без хука) --------------------------------
+
 type PromptInputFileInputProps = Omit<
   React.ComponentProps<"input">,
-  "type" | "className"
+  "type" | "className" | "id"
 > & {
   className?: string
 }
 
-export function PromptInputFileInput({
-  className,
-  multiple = true,
-  ...props
-}: PromptInputFileInputProps) {
-  const { fileInputId } = usePromptInputIds()
-  return (
-    <input
-      id={fileInputId}
-      type="file"
-      data-prompt-input-files
-      data-slot="prompt-input-file"
-      multiple={multiple}
-      className={cn("sr-only", className)}
-      {...props}
-    />
-  )
+/** Пустой маркер: файл задаётся одним скрытым `<input>` внутри `<PromptInput>`. */
+export function PromptInputFileInput(_props: PromptInputFileInputProps) {
+  return null
 }
 
 export function PromptInputFileTrigger({
@@ -310,24 +794,25 @@ export function PromptInputFileTrigger({
   )
 }
 
-export type PromptInputAttachmentsProps = {
+export type PromptInputAttachmentsLegacyProps = {
   files: File[]
   onRemove: (index: number) => void
   className?: string
 }
 
+/** @deprecated Используйте `Attachments` + `usePromptInputAttachments`. */
 export function PromptInputAttachments({
   files,
   onRemove,
   className,
-}: PromptInputAttachmentsProps) {
+}: PromptInputAttachmentsLegacyProps) {
   const { attachmentListId } = usePromptInputIds()
   if (files.length === 0) return null
   return (
     <div
       id={attachmentListId}
       role="list"
-      data-slot="prompt-input-attachments"
+      data-slot="prompt-input-attachments-legacy"
       className={cn("flex flex-wrap gap-2", className)}
     >
       {files.map((file, i) => (
@@ -353,31 +838,5 @@ export function PromptInputAttachments({
         </span>
       ))}
     </div>
-  )
-}
-
-type PromptInputSubmitProps = React.ComponentProps<typeof Button>
-
-export function PromptInputSubmit({
-  className,
-  type = "submit",
-  children,
-  ...props
-}: PromptInputSubmitProps) {
-  return (
-    <Button
-      type={type}
-      data-slot="prompt-input-submit"
-      className={cn(
-        "shrink-0 rounded-lg bg-blue-600 p-0 text-white shadow-none hover:bg-blue-700 focus-visible:ring-blue-500/40 dark:bg-blue-600 dark:hover:bg-blue-500",
-        className,
-      )}
-      size="icon-sm"
-      {...props}
-    >
-      {children ?? (
-        <CornerDownLeftIcon className="size-4" aria-hidden strokeWidth={2.5} />
-      )}
-    </Button>
   )
 }

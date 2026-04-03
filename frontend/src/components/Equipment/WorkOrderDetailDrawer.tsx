@@ -21,14 +21,11 @@ import {
 import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
-  DrawerBackdrop,
-  DrawerBody,
-  DrawerCloseTrigger,
-  DrawerContent,
-  DrawerHeader,
-  DrawerRoot,
-  DrawerTitle,
-} from "@/components/ui/drawer.tsx"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
   Select,
@@ -140,16 +137,17 @@ export function WorkOrderDetailDrawer({
   if (!open) return null
 
   return (
-    <DrawerRoot open={open} onOpenChange={(e) => onOpenChange(e.open)} size="md" placement="end">
-      <DrawerBackdrop />
-      <DrawerContent>
-        <DrawerCloseTrigger />
-        <DrawerHeader>
-          <DrawerTitle>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex w-full max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
+      >
+        <SheetHeader className="border-b px-4 py-3 pr-10 text-left">
+          <SheetTitle>
             {isLoading ? "Загрузка…" : order?.title ?? "Заявка"}
-          </DrawerTitle>
-        </DrawerHeader>
-        <DrawerBody className="overflow-y-auto pb-6">
+          </SheetTitle>
+        </SheetHeader>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
           {!order ? (
             <p className="text-muted-foreground">Загрузка…</p>
           ) : (
@@ -192,9 +190,9 @@ export function WorkOrderDetailDrawer({
               addConsumptionLoading={addConsumptionMutation.isPending}
             />
           )}
-        </DrawerBody>
-      </DrawerContent>
-    </DrawerRoot>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
