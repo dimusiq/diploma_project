@@ -111,14 +111,14 @@ export type ConversationDownloadProps = Omit<
 > & {
   messages: ConversationDownloadMessage[]
   filename?: string
-  formatMessage?: (message: ConversationDownloadMessage, index: number) => string
+  formatMessage?: (
+    message: ConversationDownloadMessage,
+    index: number,
+  ) => string
 }
 
-const defaultFormatMessage = (
-  message: ConversationDownloadMessage,
-): string => {
-  const roleLabel =
-    message.role.charAt(0).toUpperCase() + message.role.slice(1)
+const defaultFormatMessage = (message: ConversationDownloadMessage): string => {
+  const roleLabel = message.role.charAt(0).toUpperCase() + message.role.slice(1)
   return `**${roleLabel}:** ${message.content}`
 }
 

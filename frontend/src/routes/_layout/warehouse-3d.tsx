@@ -308,10 +308,11 @@ function Warehouse3DPage() {
   const geom = useMemo(
     () => buildWarehouseGeometry(layoutSpecResolved),
     [
-      layoutSpecResolved.rows, 
-      layoutSpecResolved.levels, 
-      layoutSpecResolved.cellX, 
-      layoutSpecResolved.cellZ, layoutSpecResolved
+      layoutSpecResolved.rows,
+      layoutSpecResolved.levels,
+      layoutSpecResolved.cellX,
+      layoutSpecResolved.cellZ,
+      layoutSpecResolved,
     ],
   )
 
@@ -493,7 +494,10 @@ function Warehouse3DPage() {
   return (
     <div className="mx-auto w-full max-w-full py-4">
       <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-        <RouterLink to="/warehouse" className="font-medium text-primary hover:underline">
+        <RouterLink
+          to="/warehouse"
+          className="font-medium text-primary hover:underline"
+        >
           Склад
         </RouterLink>
         <FiChevronRight className="size-3 shrink-0" aria-hidden />
@@ -611,9 +615,13 @@ function Warehouse3DPage() {
                   <SelectValue placeholder="Метрика" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="congestion">Загруженность рядов</SelectItem>
+                  <SelectItem value="congestion">
+                    Загруженность рядов
+                  </SelectItem>
                   <SelectItem value="pick_density">Остаток в ячейке</SelectItem>
-                  <SelectItem value="sla_risk">Риск по сроку годности</SelectItem>
+                  <SelectItem value="sla_risk">
+                    Риск по сроку годности
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -795,7 +803,9 @@ function Warehouse3DPage() {
         <div
           className={cn(
             "w-full overflow-hidden bg-muted",
-            isFullscreen ? "h-full min-h-0" : "min-h-[480px] h-[calc(100vh-200px)] rounded-lg",
+            isFullscreen
+              ? "h-full min-h-0"
+              : "min-h-[480px] h-[calc(100vh-200px)] rounded-lg",
           )}
         >
           <Suspense

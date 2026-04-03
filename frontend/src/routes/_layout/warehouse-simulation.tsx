@@ -142,8 +142,8 @@ function WarehouseSimulationPage() {
         Снимок показателей из базы: занятость по зонам, рядам и уровням ячеек,
         среднее время нахождения на складе, сроки годности, оценка точности
         запасов по событиям. Дискретно-событийная модель прогнозирует очереди,
-        работу доков, отбор, пополнение и загрузку ресурсов до изменения планировки
-        или правил.
+        работу доков, отбор, пополнение и загрузку ресурсов до изменения
+        планировки или правил.
       </p>
 
       <h2 className="font-heading mb-3 text-sm font-semibold">
@@ -151,7 +151,9 @@ function WarehouseSimulationPage() {
       </h2>
       {snapQ.isPending && <Skeleton className="mb-8 h-[120px]" />}
       {snapQ.isError && (
-        <p className="mb-8 text-sm text-destructive">Не удалось загрузить снимок.</p>
+        <p className="mb-8 text-sm text-destructive">
+          Не удалось загрузить снимок.
+        </p>
       )}
       {snapQ.data && (
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
@@ -210,10 +212,7 @@ function WarehouseSimulationPage() {
             </h2>
             <div className="flex flex-col gap-1 text-sm">
               {snapQ.data.occupancy_by_zone.map((z) => (
-                <div
-                  key={z.zone_name}
-                  className="flex justify-between gap-2"
-                >
+                <div key={z.zone_name} className="flex justify-between gap-2">
                   <span>{z.zone_name}</span>
                   <span className="font-medium">{z.item_count}</span>
                 </div>
@@ -261,18 +260,19 @@ function WarehouseSimulationPage() {
       <Card className="mb-6 bg-muted/30 ring-foreground/5">
         <CardContent className="pt-6">
           <p className="mb-4 text-sm text-muted-foreground">
-            «Масштаб пути» отражает удлинение маршрутов при усложнении планировки;
-            дополнительные минуты размещения имитируют перестановки в песочнице
-            (дольше уходит размещение). Старт из twin подставляет глубины очередей
-            из проекций (имена очередей: dock*, pick*, putaway* / staging).
+            «Масштаб пути» отражает удлинение маршрутов при усложнении
+            планировки; дополнительные минуты размещения имитируют перестановки
+            в песочнице (дольше уходит размещение). Старт из twin подставляет
+            глубины очередей из проекций (имена очередей: dock*, pick*, putaway*
+            / staging).
           </p>
           <div className="mb-4 flex flex-col gap-3">
             <Checkbox
               checked={seedFromTwin}
               onCheckedChange={(c) => setSeedFromTwin(c)}
             >
-              Стартовать сценарий из актуального twin (очереди док / размещение /
-              отбор)
+              Стартовать сценарий из актуального twin (очереди док / размещение
+              / отбор)
             </Checkbox>
             {seedFromTwin && (
               <div>
@@ -507,7 +507,9 @@ function WarehouseSimulationPage() {
                   <h2 className="font-heading mb-2 text-sm font-semibold">
                     Стартовое состояние из twin
                   </h2>
-                  <TwinInitialStateView state={lastSimResult.twin_initial_state} />
+                  <TwinInitialStateView
+                    state={lastSimResult.twin_initial_state}
+                  />
                 </CardContent>
               </Card>
             )}
@@ -569,8 +571,8 @@ function TwinInitialStateView({ state }: { state: Record<string, unknown> }) {
           <div className="flex flex-col gap-0.5 text-xs">
             {rows.slice(0, 24).map((r, i) => (
               <p key={i}>
-                {String((r as { queue_name?: string }).queue_name ?? "?")}: depth{" "}
-                {String((r as { depth?: number }).depth ?? "?")} (
+                {String((r as { queue_name?: string }).queue_name ?? "?")}:
+                depth {String((r as { depth?: number }).depth ?? "?")} (
                 {String((r as { category?: string | null }).category ?? "—")})
               </p>
             ))}

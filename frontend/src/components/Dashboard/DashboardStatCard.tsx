@@ -1,9 +1,6 @@
 import type { ReactNode } from "react"
 
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card.tsx"
+import { Card, CardContent } from "@/components/ui/card.tsx"
 import { cn } from "@/lib/utils"
 
 interface DashboardStatCardProps {
@@ -42,9 +39,7 @@ export function DashboardStatCard({
   return (
     <Card>
       <CardContent className="flex flex-col gap-2 pt-4">
-        {icon && (
-          <div className={cn("text-xl", iconColor)}>{icon}</div>
-        )}
+        {icon && <div className={cn("text-xl", iconColor)}>{icon}</div>}
         <p className="text-lg font-bold">{label}</p>
         <p className={cn("text-2xl font-bold", color)}>{value}</p>
         {helpText && (

@@ -34,7 +34,11 @@ type AttachmentsProps = {
   children: ReactNode
 }
 
-export function Attachments({ variant = "inline", className, children }: AttachmentsProps) {
+export function Attachments({
+  variant = "inline",
+  className,
+  children,
+}: AttachmentsProps) {
   return (
     <div
       data-slot="attachments"
@@ -56,11 +60,13 @@ type AttachmentProps = {
   children: ReactNode
 }
 
-export function Attachment({ data, onRemove, className, children }: AttachmentProps) {
-  const value = useMemo(
-    () => ({ data, onRemove }),
-    [data, onRemove],
-  )
+export function Attachment({
+  data,
+  onRemove,
+  className,
+  children,
+}: AttachmentProps) {
+  const value = useMemo(() => ({ data, onRemove }), [data, onRemove])
 
   return (
     <AttachmentItemCtx.Provider value={value}>
@@ -96,7 +102,10 @@ export function AttachmentPreview({ className }: { className?: string }) {
         className,
       )}
     >
-      <FileIcon className="size-4 text-zinc-600 dark:text-zinc-400" aria-hidden />
+      <FileIcon
+        className="size-4 text-zinc-600 dark:text-zinc-400"
+        aria-hidden
+      />
     </div>
   )
 }

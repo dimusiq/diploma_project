@@ -169,10 +169,14 @@ export function WorkOrderList() {
                   </TableCell>
                   <TableCell>{order.title}</TableCell>
                   <TableCell>
-                    {WORK_ORDER_STATUS_LABELS[order.status as keyof typeof WORK_ORDER_STATUS_LABELS] ?? order.status}
+                    {WORK_ORDER_STATUS_LABELS[
+                      order.status as keyof typeof WORK_ORDER_STATUS_LABELS
+                    ] ?? order.status}
                   </TableCell>
                   <TableCell>
-                    {WORK_ORDER_PRIORITY_LABELS[order.priority as keyof typeof WORK_ORDER_PRIORITY_LABELS] ?? order.priority}
+                    {WORK_ORDER_PRIORITY_LABELS[
+                      order.priority as keyof typeof WORK_ORDER_PRIORITY_LABELS
+                    ] ?? order.priority}
                   </TableCell>
                   <TableCell>{order.assigned_to_email ?? "—"}</TableCell>
                   <TableCell>

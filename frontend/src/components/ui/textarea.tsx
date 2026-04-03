@@ -7,7 +7,11 @@ export type TextareaProps = React.ComponentProps<"textarea"> & {
 }
 
 /** Те же приёмы, что у input в full-stack-fastapi-template: rounded-md, shadow-xs, focus ring. */
-function Textarea({ className, "data-slot": dataSlot, ...props }: TextareaProps) {
+function Textarea({
+  className,
+  "data-slot": dataSlot,
+  ...props
+}: TextareaProps) {
   return (
     <textarea
       data-slot={dataSlot ?? "textarea"}

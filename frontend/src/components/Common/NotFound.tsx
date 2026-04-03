@@ -10,7 +10,9 @@ const NotFound = () => {
     >
       <div className="z-[1] flex items-center">
         <div className="ml-4 flex flex-col items-center justify-center p-4">
-          <p className="mb-4 text-6xl leading-none font-bold md:text-8xl">404</p>
+          <p className="mb-4 text-6xl leading-none font-bold md:text-8xl">
+            404
+          </p>
           <p className="mb-2 text-2xl font-bold">Ошибка!</p>
         </div>
       </div>

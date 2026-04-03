@@ -144,14 +144,15 @@ export function EquipmentImportDialog({
               Выбрать файл…
             </Button>
             {lastResult && lastResult.errors.length > 0 ? (
-              <div
-                className="max-h-[200px] overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-xs"
-              >
+              <div className="max-h-[200px] overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-xs">
                 <p className="mb-1 font-medium">
                   Ошибки по строкам (номер строки в файле):
                 </p>
                 {lastResult.errors.map((e) => (
-                  <p key={`${e.row}-${e.message}`} className="text-muted-foreground">
+                  <p
+                    key={`${e.row}-${e.message}`}
+                    className="text-muted-foreground"
+                  >
                     Стр. {e.row}: {e.message}
                   </p>
                 ))}

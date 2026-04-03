@@ -5,7 +5,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { FiAlertTriangle, FiPlus } from "react-icons/fi"
-import { type SparePartCreate, type SparePartPublic, sparePartsApi } from "@/api/spareParts.ts"
+import {
+  type SparePartCreate,
+  type SparePartPublic,
+  sparePartsApi,
+} from "@/api/spareParts.ts"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import {
   DialogBody,
@@ -77,9 +81,17 @@ export function SparePartsList() {
       toast.showSuccessToast("Запчасть добавлена")
       queryClient.invalidateQueries({ queryKey: ["spare-parts"] })
       setCreateOpen(false)
-      setForm({ title: "", sku: "", description: "", quantity: 0, min_quantity: undefined, unit: "" })
+      setForm({
+        title: "",
+        sku: "",
+        description: "",
+        quantity: 0,
+        min_quantity: undefined,
+        unit: "",
+      })
     },
-    onError: (e) => toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
+    onError: (e) =>
+      toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
   })
 
   const parts = data?.data ?? []
@@ -105,10 +117,7 @@ export function SparePartsList() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          onClick={() => setCreateOpen(true)}
-        >
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
           <span className="inline-flex items-center gap-1.5">
             <FiPlus />
             Добавить запчасть
@@ -145,36 +154,36 @@ export function SparePartsList() {
             <DialogBody>
               <div className="flex flex-col gap-3">
                 <div>
-                  <p className="mb-1 text-sm font-medium">
-                    Название *
-                  </p>
+                  <p className="mb-1 text-sm font-medium">Название *</p>
                   <Input
                     value={form.title}
-                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, title: e.target.value }))
+                    }
                     placeholder="Название запчасти"
                     className="h-7"
                     maxLength={255}
                   />
                 </div>
                 <div>
-                  <p className="mb-1 text-sm font-medium">
-                    Артикул
-                  </p>
+                  <p className="mb-1 text-sm font-medium">Артикул</p>
                   <Input
                     value={form.sku ?? ""}
-                    onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, sku: e.target.value }))
+                    }
                     placeholder="Артикул"
                     className="h-7"
                     maxLength={64}
                   />
                 </div>
                 <div>
-                  <p className="mb-1 text-sm font-medium">
-                    Описание
-                  </p>
+                  <p className="mb-1 text-sm font-medium">Описание</p>
                   <Input
                     value={form.description ?? ""}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, description: e.target.value }))
+                    }
                     placeholder="Описание"
                     className="h-7"
                     maxLength={512}
@@ -182,14 +191,17 @@ export function SparePartsList() {
                 </div>
                 <div className="flex gap-3">
                   <div className="min-w-0 flex-1">
-                    <p className="mb-1 text-sm font-medium">
-                      Остаток
-                    </p>
+                    <p className="mb-1 text-sm font-medium">Остаток</p>
                     <Input
                       type="number"
                       min={0}
                       value={form.quantity ?? 0}
-                      onChange={(e) => setForm((f) => ({ ...f, quantity: parseInt(e.target.value, 10) || 0 }))}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          quantity: parseInt(e.target.value, 10) || 0,
+                        }))
+                      }
                       className="h-7"
                     />
                   </div>
@@ -204,7 +216,10 @@ export function SparePartsList() {
                       onChange={(e) =>
                         setForm((f) => ({
                           ...f,
-                          min_quantity: e.target.value === "" ? undefined : parseInt(e.target.value, 10) || 0,
+                          min_quantity:
+                            e.target.value === ""
+                              ? undefined
+                              : parseInt(e.target.value, 10) || 0,
                         }))
                       }
                       placeholder="—"
@@ -212,12 +227,12 @@ export function SparePartsList() {
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="mb-1 text-sm font-medium">
-                      Ед. изм.
-                    </p>
+                    <p className="mb-1 text-sm font-medium">Ед. изм.</p>
                     <Input
                       value={form.unit ?? ""}
-                      onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, unit: e.target.value }))
+                      }
                       placeholder="шт."
                       className="h-7"
                       maxLength={32}
@@ -227,7 +242,12 @@ export function SparePartsList() {
               </div>
             </DialogBody>
             <DialogFooter>
-              <Button type="button" size="sm" variant="outline" onClick={() => setCreateOpen(false)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setCreateOpen(false)}
+              >
                 Отмена
               </Button>
               <Button
@@ -272,12 +292,16 @@ export function SparePartsList() {
                 return (
                   <TableRow key={part.id}>
                     <TableCell className="font-medium">{part.title}</TableCell>
-                    <TableCell className="text-muted-foreground">{part.sku ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {part.sku ?? "—"}
+                    </TableCell>
                     <TableCell className="text-end">{part.quantity}</TableCell>
                     <TableCell className="text-end">
                       {part.min_quantity != null ? part.min_quantity : "—"}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{part.unit ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {part.unit ?? "—"}
+                    </TableCell>
                     <TableCell>
                       {alert ? (
                         <span className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-xs text-destructive">

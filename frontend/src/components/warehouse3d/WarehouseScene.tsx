@@ -75,9 +75,7 @@ function isCellFilled(
   iz: number,
   occupiedCellKeys?: Set<string> | null,
 ): boolean {
-  return Boolean(
-    occupiedCellKeys?.has(geom.cellKey(rackIndex, level, ix, iz)),
-  )
+  return Boolean(occupiedCellKeys?.has(geom.cellKey(rackIndex, level, ix, iz)))
 }
 
 export interface CellInfo {
@@ -331,39 +329,17 @@ function Rack({
       }
     }
     return out
-  }, [
-    geom,
-    rackIndex,
-    occupiedCellKeys,
-    expiringCellKeys,
-    expiredCellKeys,
-  ])
+  }, [geom, rackIndex, occupiedCellKeys, expiringCellKeys, expiredCellKeys])
 
   const rackH = geom.levels * LEVEL_HEIGHT
 
   return (
     <group position={[baseX, 0, baseZ]}>
       {[
-        [
-          -geom.rackLength / 2 - 0.04,
-          rackH / 2,
-          -geom.rackDepth / 2 - 0.04,
-        ],
-        [
-          geom.rackLength / 2 + 0.04,
-          rackH / 2,
-          -geom.rackDepth / 2 - 0.04,
-        ],
-        [
-          -geom.rackLength / 2 - 0.04,
-          rackH / 2,
-          geom.rackDepth / 2 + 0.04,
-        ],
-        [
-          geom.rackLength / 2 + 0.04,
-          rackH / 2,
-          geom.rackDepth / 2 + 0.04,
-        ],
+        [-geom.rackLength / 2 - 0.04, rackH / 2, -geom.rackDepth / 2 - 0.04],
+        [geom.rackLength / 2 + 0.04, rackH / 2, -geom.rackDepth / 2 - 0.04],
+        [-geom.rackLength / 2 - 0.04, rackH / 2, geom.rackDepth / 2 + 0.04],
+        [geom.rackLength / 2 + 0.04, rackH / 2, geom.rackDepth / 2 + 0.04],
       ].map(([px, py, pz], i) => (
         <mesh key={i} position={[px, py, pz]}>
           <boxGeometry args={[0.08, rackH, 0.08]} />
@@ -375,10 +351,8 @@ function Rack({
         </mesh>
       ))}
       {cells.map(({ level, ix, iz, filled, expiring, expired }, i) => {
-        const ox =
-          (ix - (geom.cellsLength - 1) / 2) * (CELL_SIZE + CELL_GAP)
-        const oz =
-          (iz - (geom.cellsDepth - 1) / 2) * (CELL_SIZE + CELL_GAP)
+        const ox = (ix - (geom.cellsLength - 1) / 2) * (CELL_SIZE + CELL_GAP)
+        const oz = (iz - (geom.cellsDepth - 1) / 2) * (CELL_SIZE + CELL_GAP)
         const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02
         const isSelected =
           selectedCell?.row === rackIndex &&
@@ -669,11 +643,7 @@ function RoutePathLayer({
         </mesh>
       ))}
       {pathPoints.length >= 2 && (
-        <Line
-          points={pathPoints}
-          color={ROUTE_LINE_COLOR}
-          lineWidth={2.5}
-        />
+        <Line points={pathPoints} color={ROUTE_LINE_COLOR} lineWidth={2.5} />
       )}
     </group>
   )
@@ -831,8 +801,7 @@ function WarehouseContent({
     [geom, routeWaypoints],
   )
 
-  const routeClicksEnabled =
-    interactionMode === "route" && !simulationActive
+  const routeClicksEnabled = interactionMode === "route" && !simulationActive
 
   return (
     <>

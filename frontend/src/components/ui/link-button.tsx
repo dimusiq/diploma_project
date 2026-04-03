@@ -14,7 +14,10 @@ export const LinkButton = React.forwardRef<HTMLAnchorElement, LinkButtonProps>(
     return (
       <a
         ref={ref}
-        className={cn(buttonVariants({ variant: variant ?? "default", size }), className)}
+        className={cn(
+          buttonVariants({ variant: variant ?? "default", size }),
+          className,
+        )}
         {...props}
       />
     )

@@ -77,10 +77,7 @@ function CreateOrderDialog({
   const chainIntervals = getIntervalHoursForEquipment(equipmentId, chains)
 
   useEffect(() => {
-    if (
-      chainIntervals.length > 0 &&
-      !chainIntervals.includes(intervalHours)
-    ) {
+    if (chainIntervals.length > 0 && !chainIntervals.includes(intervalHours)) {
       setIntervalHours(chainIntervals[0])
     }
   }, [chainIntervals, intervalHours])
@@ -136,9 +133,7 @@ function CreateOrderDialog({
           <DialogBody>
             <div className="flex flex-col gap-3">
               <div>
-                <p className="mb-1 text-sm font-medium">
-                  Техника
-                </p>
+                <p className="mb-1 text-sm font-medium">Техника</p>
                 <Select
                   value={toSelectAll(equipmentId)}
                   onValueChange={(v) => {
@@ -173,9 +168,7 @@ function CreateOrderDialog({
                 </Select>
               </div>
               <div>
-                <p className="mb-1 text-sm font-medium">
-                  Дата проведения ТО
-                </p>
+                <p className="mb-1 text-sm font-medium">Дата проведения ТО</p>
                 <Input
                   type="date"
                   value={performedAt}
@@ -185,9 +178,7 @@ function CreateOrderDialog({
                 />
               </div>
               <div>
-                <p className="mb-1 text-sm font-medium">
-                  Интервал ТО (м/ч)
-                </p>
+                <p className="mb-1 text-sm font-medium">Интервал ТО (м/ч)</p>
                 {chainIntervals.length > 0 ? (
                   <Select
                     value={String(
@@ -195,9 +186,7 @@ function CreateOrderDialog({
                         ? intervalHours
                         : chainIntervals[0],
                     )}
-                    onValueChange={(v) =>
-                      setIntervalHours(parseInt(v, 10))
-                    }
+                    onValueChange={(v) => setIntervalHours(parseInt(v, 10))}
                   >
                     <SelectTrigger className="h-9 w-full text-sm">
                       <SelectValue />
@@ -217,9 +206,7 @@ function CreateOrderDialog({
                       min={1}
                       value={intervalHours}
                       onChange={(e) =>
-                        setIntervalHours(
-                          parseInt(e.target.value, 10) || 500,
-                        )
+                        setIntervalHours(parseInt(e.target.value, 10) || 500)
                       }
                       className="h-7"
                     />
@@ -362,7 +349,9 @@ export function PerformedMaintenanceList() {
                     ? r.engine_hours_at_service
                     : "—"}
                 </TableCell>
-                <TableCell className="whitespace-normal">{r.comment ?? "—"}</TableCell>
+                <TableCell className="whitespace-normal">
+                  {r.comment ?? "—"}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

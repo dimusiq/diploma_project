@@ -77,16 +77,16 @@ export function bucketLabelForChat(updatedAt: string): string {
   const t = new Date()
   const startD = new Date(d.getFullYear(), d.getMonth(), d.getDate())
   const startT = new Date(t.getFullYear(), t.getMonth(), t.getDate())
-  const dayDiff = Math.round(
-    (startT.getTime() - startD.getTime()) / 86400000,
-  )
+  const dayDiff = Math.round((startT.getTime() - startD.getTime()) / 86400000)
   if (dayDiff === 0) return "Сегодня"
   if (dayDiff === 1) return "Вчера"
   if (dayDiff >= 2 && dayDiff < 7) return "На этой неделе"
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
 }
 
-export function mapApiMessages(rows: import("@/api/agent.ts").AgentUserChatMessagePublic[]): ChatMessage[] {
+export function mapApiMessages(
+  rows: import("@/api/agent.ts").AgentUserChatMessagePublic[],
+): ChatMessage[] {
   return rows.map((m) => {
     if (m.role === "user") {
       return { id: m.id, role: "user", content: m.content }
@@ -127,7 +127,9 @@ export type AssistantSessionContextValue = {
   isEnsuringChat: boolean
   scrollRef: React.RefObject<HTMLDivElement | null>
   composerRef: React.RefObject<HTMLTextAreaElement | null>
-  chatsQuery: ReturnType<typeof useQuery<import("@/api/agent.ts").AgentUserChatListResponse>>
+  chatsQuery: ReturnType<
+    typeof useQuery<import("@/api/agent.ts").AgentUserChatListResponse>
+  >
   detailQuery: ReturnType<typeof useQuery<AgentUserChatDetailPublic>>
   sortedChats: AgentUserChatPublic[]
   filteredChats: AgentUserChatPublic[]
@@ -156,7 +158,11 @@ export type AssistantSessionContextValue = {
 const AssistantSessionContext =
   createContext<AssistantSessionContextValue | null>(null)
 
-export function AssistantSessionProvider({ children }: { children: ReactNode }) {
+export function AssistantSessionProvider({
+  children,
+}: {
+  children: ReactNode
+}) {
   const { showErrorToast } = useCustomToast()
   const queryClient = useQueryClient()
   const [input, setInput] = useState("")
@@ -398,7 +404,10 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
       const msg =
         err instanceof ApiError
           ? err.message
-          : getErrorHttpStatus(err) != null && typeof err === "object" && err !== null && "message" in err
+          : getErrorHttpStatus(err) != null &&
+              typeof err === "object" &&
+              err !== null &&
+              "message" in err
             ? String((err as { message: unknown }).message)
             : "Не удалось получить ответ"
       showErrorToast(msg)
@@ -469,9 +478,7 @@ export function AssistantSessionProvider({ children }: { children: ReactNode }) 
   )
 
   const historyLocked =
-    chatMutation.isPending ||
-    streamingMessageId !== null ||
-    isEnsuringChat
+    chatMutation.isPending || streamingMessageId !== null || isEnsuringChat
 
   const newChat = useCallback(() => {
     if (historyLocked) return

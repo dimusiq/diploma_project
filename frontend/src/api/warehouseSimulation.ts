@@ -106,7 +106,9 @@ export interface SimulationScenarioList {
 }
 
 export function fetchSimulationScenarios(): Promise<SimulationScenarioList> {
-  return request<SimulationScenarioList>("/api/v1/warehouse/simulations/scenarios")
+  return request<SimulationScenarioList>(
+    "/api/v1/warehouse/simulations/scenarios",
+  )
 }
 
 export function postSimulationScenario(body: {
@@ -114,10 +116,13 @@ export function postSimulationScenario(body: {
   description?: string | null
   config: SimulationRunBody
 }): Promise<SimulationScenario> {
-  return request<SimulationScenario>("/api/v1/warehouse/simulations/scenarios", {
-    method: "POST",
-    body,
-  })
+  return request<SimulationScenario>(
+    "/api/v1/warehouse/simulations/scenarios",
+    {
+      method: "POST",
+      body,
+    },
+  )
 }
 
 export function postSimulationScenarioRun(

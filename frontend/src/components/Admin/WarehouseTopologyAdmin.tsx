@@ -122,8 +122,7 @@ function TopologyPlanSvg({
       })}
       {zones.map((z) => {
         const x = pad + ((z.cell_x_from_1based - 1) / cx) * iw
-        const w =
-          ((z.cell_x_to_1based - z.cell_x_from_1based + 1) / cx) * iw
+        const w = ((z.cell_x_to_1based - z.cell_x_from_1based + 1) / cx) * iw
         const y = pad + ((z.row_from_1based - 1) / rr) * ih
         const h = ((z.row_to_1based - z.row_from_1based + 1) / rr) * ih
         return (
@@ -165,7 +164,8 @@ function TopologyPlanSvg({
         fill="#64748b"
         style={{ fontFamily: "system-ui" }}
       >
-        Ось X — позиции по длине стеллажа; ось Y — ряды (1…{rr}). Доки — норм. координаты.
+        Ось X — позиции по длине стеллажа; ось Y — ряды (1…{rr}). Доки — норм.
+        координаты.
       </text>
     </svg>
   )
@@ -221,8 +221,7 @@ export function WarehouseTopologyAdmin() {
   })
 
   const syncGraphMut = useMutation({
-    mutationFn: () =>
-      warehouseTopologyApi.syncRouteGraph(layout?.id ?? null),
+    mutationFn: () => warehouseTopologyApi.syncRouteGraph(layout?.id ?? null),
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ["warehouse", "route-graph"] })
       showSuccessToast(
@@ -233,14 +232,17 @@ export function WarehouseTopologyAdmin() {
       showErrorToast(e.message || "Не удалось синхронизировать граф"),
   })
 
-  const updateZone = useCallback((i: number, patch: Partial<TopologyStorageZone>) => {
-    setDraft((prev) => {
-      if (!prev) return prev
-      const zones = [...prev.zones]
-      zones[i] = { ...zones[i], ...patch }
-      return { ...prev, zones }
-    })
-  }, [])
+  const updateZone = useCallback(
+    (i: number, patch: Partial<TopologyStorageZone>) => {
+      setDraft((prev) => {
+        if (!prev) return prev
+        const zones = [...prev.zones]
+        zones[i] = { ...zones[i], ...patch }
+        return { ...prev, zones }
+      })
+    },
+    [],
+  )
 
   const addZone = useCallback(() => {
     setDraft((prev) => {
@@ -270,14 +272,17 @@ export function WarehouseTopologyAdmin() {
     })
   }, [])
 
-  const updateAisle = useCallback((i: number, patch: Partial<TopologyAisle>) => {
-    setDraft((prev) => {
-      if (!prev) return prev
-      const aisles = [...prev.aisles]
-      aisles[i] = { ...aisles[i], ...patch }
-      return { ...prev, aisles }
-    })
-  }, [])
+  const updateAisle = useCallback(
+    (i: number, patch: Partial<TopologyAisle>) => {
+      setDraft((prev) => {
+        if (!prev) return prev
+        const aisles = [...prev.aisles]
+        aisles[i] = { ...aisles[i], ...patch }
+        return { ...prev, aisles }
+      })
+    },
+    [],
+  )
 
   const addAisle = useCallback(() => {
     setDraft((prev) => {
@@ -303,14 +308,17 @@ export function WarehouseTopologyAdmin() {
     })
   }, [])
 
-  const updateBuffer = useCallback((i: number, patch: Partial<TopologyBufferZone>) => {
-    setDraft((prev) => {
-      if (!prev) return prev
-      const buffer_zones = [...prev.buffer_zones]
-      buffer_zones[i] = { ...buffer_zones[i], ...patch }
-      return { ...prev, buffer_zones }
-    })
-  }, [])
+  const updateBuffer = useCallback(
+    (i: number, patch: Partial<TopologyBufferZone>) => {
+      setDraft((prev) => {
+        if (!prev) return prev
+        const buffer_zones = [...prev.buffer_zones]
+        buffer_zones[i] = { ...buffer_zones[i], ...patch }
+        return { ...prev, buffer_zones }
+      })
+    },
+    [],
+  )
 
   const addBuffer = useCallback(() => {
     setDraft((prev) => {
@@ -396,11 +404,10 @@ export function WarehouseTopologyAdmin() {
   return (
     <div>
       <p className="mb-4 text-sm text-muted-foreground">
-        Зоны задают диапазоны{" "}
-        <strong>рядов / уровней / ячеек</strong> (нумерация как в карточке товара).
-        Проходы — полилиния в координатах 0…1 (x,z через «;»). Доки — точка на
-        плане. Сохранение требует право <strong>zones.manage</strong> (как у
-        справочника зон).
+        Зоны задают диапазоны <strong>рядов / уровней / ячеек</strong>{" "}
+        (нумерация как в карточке товара). Проходы — полилиния в координатах 0…1
+        (x,z через «;»). Доки — точка на плане. Сохранение требует право{" "}
+        <strong>zones.manage</strong> (как у справочника зон).
       </p>
       <div className="mb-4 flex flex-wrap gap-2">
         <Button
@@ -441,7 +448,9 @@ export function WarehouseTopologyAdmin() {
       </div>
 
       <div className="mb-6">
-        <h3 className="mb-2 font-heading text-sm font-semibold">План (схема)</h3>
+        <h3 className="mb-2 font-heading text-sm font-semibold">
+          План (схема)
+        </h3>
         <TopologyPlanSvg
           rows={Number(rows) || 12}
           cellX={Number(cellX) || 20}
@@ -623,7 +632,11 @@ export function WarehouseTopologyAdmin() {
                     />
                   </TableCell>
                   <TableCell>
-                    <Button size="xs" variant="ghost" onClick={() => removeZone(i)}>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => removeZone(i)}
+                    >
                       Удалить
                     </Button>
                   </TableCell>
@@ -692,7 +705,12 @@ export function WarehouseTopologyAdmin() {
                   }
                 />
               </Field>
-              <Button size="xs" variant="ghost" className="mt-2" onClick={() => removeAisle(i)}>
+              <Button
+                size="xs"
+                variant="ghost"
+                className="mt-2"
+                onClick={() => removeAisle(i)}
+              >
                 Удалить проход
               </Button>
             </div>
@@ -753,7 +771,12 @@ export function WarehouseTopologyAdmin() {
                   onChange={(e) => updateBuffer(i, { notes: e.target.value })}
                 />
               </Field>
-              <Button size="xs" variant="ghost" className="mt-2" onClick={() => removeBuffer(i)}>
+              <Button
+                size="xs"
+                variant="ghost"
+                className="mt-2"
+                onClick={() => removeBuffer(i)}
+              >
                 Удалить
               </Button>
             </div>
@@ -844,7 +867,12 @@ export function WarehouseTopologyAdmin() {
                   />
                 </Field>
               </div>
-              <Button size="xs" variant="ghost" className="mt-2" onClick={() => removeDock(i)}>
+              <Button
+                size="xs"
+                variant="ghost"
+                className="mt-2"
+                onClick={() => removeDock(i)}
+              >
                 Удалить док
               </Button>
             </div>

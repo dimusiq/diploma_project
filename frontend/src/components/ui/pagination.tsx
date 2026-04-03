@@ -1,10 +1,6 @@
 "use client"
 
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  EllipsisIcon,
-} from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon, EllipsisIcon } from "lucide-react"
 import * as React from "react"
 
 import { Button } from "@/components/ui/button.tsx"
@@ -13,9 +9,7 @@ import type { LinkButtonProps } from "./link-button.tsx"
 import { LinkButton } from "./link-button.tsx"
 
 type BtnSize = React.ComponentProps<typeof Button>["size"]
-type ShadcnVariant = NonNullable<
-  React.ComponentProps<typeof Button>["variant"]
->
+type ShadcnVariant = NonNullable<React.ComponentProps<typeof Button>["variant"]>
 
 interface VariantMap {
   current: ShadcnVariant
@@ -115,7 +109,10 @@ export function PaginationRoot({
   children,
   ...rest
 }: PaginationRootProps) {
-  const totalPages = Math.max(1, Math.ceil(Math.max(0, count) / Math.max(1, pageSize)))
+  const totalPages = Math.max(
+    1,
+    Math.ceil(Math.max(0, count) / Math.max(1, pageSize)),
+  )
   const [internalPage, setInternalPage] = React.useState(() =>
     Math.min(Math.max(1, defaultPage), totalPages),
   )
@@ -214,13 +211,7 @@ export function PaginationItem({
   className,
   ...rest
 }: { value: number } & React.ComponentProps<typeof Button>) {
-  const {
-    page,
-    setPage,
-    getHref,
-    size,
-    variantMap,
-  } = usePaginationContext()
+  const { page, setPage, getHref, size, variantMap } = usePaginationContext()
   const current = page === value
   const variant = current ? variantMap.current : variantMap.default
 
@@ -271,7 +262,10 @@ export function PaginationPrevTrigger({
         href={previousPage != null ? getHref(previousPage) : "#"}
         size={size}
         variant={toLinkVariant(variantMap.default)}
-        className={cn(previousPage == null && "pointer-events-none opacity-50", className)}
+        className={cn(
+          previousPage == null && "pointer-events-none opacity-50",
+          className,
+        )}
         aria-disabled={previousPage == null}
         onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
           if (previousPage == null) e.preventDefault()
@@ -288,14 +282,21 @@ export function PaginationPrevTrigger({
   }
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
-      disabled: previousPage == null,
-      onClick: (e: React.MouseEvent) => {
-        go()
-        const orig = (children as React.ReactElement<{ onClick?: (ev: React.MouseEvent) => void }>).props.onClick
-        orig?.(e)
+    return React.cloneElement(
+      children as React.ReactElement<Record<string, unknown>>,
+      {
+        disabled: previousPage == null,
+        onClick: (e: React.MouseEvent) => {
+          go()
+          const orig = (
+            children as React.ReactElement<{
+              onClick?: (ev: React.MouseEvent) => void
+            }>
+          ).props.onClick
+          orig?.(e)
+        },
       },
-    })
+    )
   }
 
   return (
@@ -319,7 +320,8 @@ export function PaginationNextTrigger({
   className,
   ...rest
 }: React.ComponentProps<typeof Button> & { asChild?: boolean }) {
-  const { nextPage, setPage, getHref, size, variantMap } = usePaginationContext()
+  const { nextPage, setPage, getHref, size, variantMap } =
+    usePaginationContext()
 
   if (getHref) {
     return (
@@ -327,7 +329,10 @@ export function PaginationNextTrigger({
         href={nextPage != null ? getHref(nextPage) : "#"}
         size={size}
         variant={toLinkVariant(variantMap.default)}
-        className={cn(nextPage == null && "pointer-events-none opacity-50", className)}
+        className={cn(
+          nextPage == null && "pointer-events-none opacity-50",
+          className,
+        )}
         aria-disabled={nextPage == null}
         onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
           if (nextPage == null) e.preventDefault()
@@ -344,14 +349,21 @@ export function PaginationNextTrigger({
   }
 
   if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
-      disabled: nextPage == null,
-      onClick: (e: React.MouseEvent) => {
-        go()
-        const orig = (children as React.ReactElement<{ onClick?: (ev: React.MouseEvent) => void }>).props.onClick
-        orig?.(e)
+    return React.cloneElement(
+      children as React.ReactElement<Record<string, unknown>>,
+      {
+        disabled: nextPage == null,
+        onClick: (e: React.MouseEvent) => {
+          go()
+          const orig = (
+            children as React.ReactElement<{
+              onClick?: (ev: React.MouseEvent) => void
+            }>
+          ).props.onClick
+          orig?.(e)
+        },
       },
-    })
+    )
   }
 
   return (

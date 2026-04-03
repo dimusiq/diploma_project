@@ -20,12 +20,6 @@ import {
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
   Select,
@@ -34,6 +28,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
   fromSelectAll,
@@ -71,7 +71,8 @@ export function WorkOrderDetailDrawer({
       queryClient.invalidateQueries({ queryKey: ["work-order", workOrderId] })
       setCommentText("")
     },
-    onError: (e) => toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
+    onError: (e) =>
+      toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
   })
 
   const updateOrderMutation = useMutation({
@@ -83,7 +84,8 @@ export function WorkOrderDetailDrawer({
       setStatusEditing(false)
       setStatusComment("")
     },
-    onError: (e) => toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
+    onError: (e) =>
+      toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
   })
 
   const addChecklistMutation = useMutation({
@@ -93,15 +95,18 @@ export function WorkOrderDetailDrawer({
       queryClient.invalidateQueries({ queryKey: ["work-order", workOrderId] })
       setNewCheckItem("")
     },
-    onError: (e) => toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
+    onError: (e) =>
+      toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
   })
 
   const toggleCheckMutation = useMutation({
     mutationFn: ({
       itemId,
       completed,
-    }: { itemId: string; completed: boolean }) =>
-      workOrdersApi.updateChecklistItem(workOrderId, itemId, { completed }),
+    }: {
+      itemId: string
+      completed: boolean
+    }) => workOrdersApi.updateChecklistItem(workOrderId, itemId, { completed }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["work-order", workOrderId] })
     },
@@ -113,7 +118,8 @@ export function WorkOrderDetailDrawer({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["work-order", workOrderId] })
     },
-    onError: (e) => toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
+    onError: (e) =>
+      toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
   })
 
   const deleteReservationMutation = useMutation({
@@ -122,7 +128,8 @@ export function WorkOrderDetailDrawer({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["work-order", workOrderId] })
     },
-    onError: (e) => toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
+    onError: (e) =>
+      toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
   })
 
   const addConsumptionMutation = useMutation({
@@ -131,7 +138,8 @@ export function WorkOrderDetailDrawer({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["work-order", workOrderId] })
     },
-    onError: (e) => toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
+    onError: (e) =>
+      toast.showErrorToast(e instanceof Error ? e.message : "Ошибка"),
   })
 
   if (!open) return null
@@ -144,7 +152,7 @@ export function WorkOrderDetailDrawer({
       >
         <SheetHeader className="border-b px-4 py-3 pr-10 text-left">
           <SheetTitle>
-            {isLoading ? "Загрузка…" : order?.title ?? "Заявка"}
+            {isLoading ? "Загрузка…" : (order?.title ?? "Заявка")}
           </SheetTitle>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
@@ -156,7 +164,8 @@ export function WorkOrderDetailDrawer({
               commentText={commentText}
               setCommentText={setCommentText}
               onAddComment={() => {
-                if (commentText.trim()) addCommentMutation.mutate({ body: commentText.trim() })
+                if (commentText.trim())
+                  addCommentMutation.mutate({ body: commentText.trim() })
               }}
               addCommentLoading={addCommentMutation.isPending}
               statusEditing={statusEditing}
@@ -164,7 +173,10 @@ export function WorkOrderDetailDrawer({
               statusComment={statusComment}
               setStatusComment={setStatusComment}
               onUpdateStatus={(status, comment) =>
-                updateOrderMutation.mutate({ status, status_comment: comment || undefined })
+                updateOrderMutation.mutate({
+                  status,
+                  status_comment: comment || undefined,
+                })
               }
               newCheckItem={newCheckItem}
               setNewCheckItem={setNewCheckItem}
@@ -241,8 +253,14 @@ function WorkOrderDetailContent({
   onAddConsumption: (spare_part_id: string, quantity: number) => void
   addConsumptionLoading: boolean
 }) {
-  const statusLabel = WORK_ORDER_STATUS_LABELS[order.status as keyof typeof WORK_ORDER_STATUS_LABELS] ?? order.status
-  const priorityLabel = WORK_ORDER_PRIORITY_LABELS[order.priority as keyof typeof WORK_ORDER_PRIORITY_LABELS] ?? order.priority
+  const statusLabel =
+    WORK_ORDER_STATUS_LABELS[
+      order.status as keyof typeof WORK_ORDER_STATUS_LABELS
+    ] ?? order.status
+  const priorityLabel =
+    WORK_ORDER_PRIORITY_LABELS[
+      order.priority as keyof typeof WORK_ORDER_PRIORITY_LABELS
+    ] ?? order.priority
 
   const timeline: Array<{
     type: "status" | "comment"
@@ -270,16 +288,12 @@ function WorkOrderDetailContent({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p className="mb-1 text-sm text-muted-foreground">
-          Техника
-        </p>
+        <p className="mb-1 text-sm text-muted-foreground">Техника</p>
         <p className="font-medium">{order.equipment_name ?? "—"}</p>
       </div>
       {order.description && (
         <div>
-          <p className="mb-1 text-sm text-muted-foreground">
-            Описание
-          </p>
+          <p className="mb-1 text-sm text-muted-foreground">Описание</p>
           <p>{order.description}</p>
         </div>
       )}
@@ -425,11 +439,7 @@ function WorkOrderDetailContent({
           <div className="flex flex-col gap-1">
             {order.attachments.map((a) => (
               <p key={a.id} className="text-sm">
-                <a
-                  href={a.file_path}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a href={a.file_path} target="_blank" rel="noopener noreferrer">
                   {a.filename || a.file_path}
                 </a>
                 {a.kind !== "attachment" && (
@@ -499,7 +509,9 @@ function PartReservationsSection({
         list.map((r) => (
           <div key={r.id} className="flex items-center justify-between gap-2">
             <p className="text-sm">
-              {r.spare_part_title ?? "—"} {r.spare_part_sku ? `(${r.spare_part_sku})` : ""} — {r.quantity} шт.
+              {r.spare_part_title ?? "—"}{" "}
+              {r.spare_part_sku ? `(${r.spare_part_sku})` : ""} — {r.quantity}{" "}
+              шт.
             </p>
             <Button
               size="sm"
@@ -513,9 +525,7 @@ function PartReservationsSection({
           </div>
         ))
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Резервов нет
-        </p>
+        <p className="text-sm text-muted-foreground">Резервов нет</p>
       )}
       <DialogRoot open={dialogOpen} onOpenChange={(e) => setDialogOpen(e.open)}>
         <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
@@ -529,9 +539,7 @@ function PartReservationsSection({
             <DialogBody>
               <div className="flex flex-col gap-3">
                 <div>
-                  <p className="mb-1 text-sm font-medium">
-                    Запчасть
-                  </p>
+                  <p className="mb-1 text-sm font-medium">Запчасть</p>
                   <Select
                     value={toSelectAll(sparePartId)}
                     onValueChange={(v) => setSparePartId(fromSelectAll(v))}
@@ -540,31 +548,39 @@ function PartReservationsSection({
                       <SelectValue placeholder="Запчасть" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={SELECT_ALL_VALUE}>— Выберите —</SelectItem>
+                      <SelectItem value={SELECT_ALL_VALUE}>
+                        — Выберите —
+                      </SelectItem>
                       {parts.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.title} {p.sku ? `(${p.sku})` : ""} — остаток {p.quantity}
+                          {p.title} {p.sku ? `(${p.sku})` : ""} — остаток{" "}
+                          {p.quantity}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <p className="mb-1 text-sm font-medium">
-                    Количество
-                  </p>
+                  <p className="mb-1 text-sm font-medium">Количество</p>
                   <Input
                     type="number"
                     min={1}
                     value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
+                    onChange={(e) =>
+                      setQuantity(parseInt(e.target.value, 10) || 1)
+                    }
                     className="h-7"
                   />
                 </div>
               </div>
             </DialogBody>
             <DialogFooter>
-              <Button type="button" size="sm" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+              >
                 Отмена
               </Button>
               <Button type="submit" size="sm" loading={addReservationLoading}>
@@ -610,14 +626,13 @@ function PartConsumptionsSection({
       {list.length > 0 ? (
         list.map((c) => (
           <p key={c.id} className="text-sm">
-            {c.spare_part_title ?? "—"} {c.spare_part_sku ? `(${c.spare_part_sku})` : ""} — {c.quantity} шт. (
-            {new Date(c.consumed_at).toLocaleString("ru")})
+            {c.spare_part_title ?? "—"}{" "}
+            {c.spare_part_sku ? `(${c.spare_part_sku})` : ""} — {c.quantity} шт.
+            ({new Date(c.consumed_at).toLocaleString("ru")})
           </p>
         ))
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Списаний нет
-        </p>
+        <p className="text-sm text-muted-foreground">Списаний нет</p>
       )}
       <DialogRoot open={dialogOpen} onOpenChange={(e) => setDialogOpen(e.open)}>
         <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
@@ -631,9 +646,7 @@ function PartConsumptionsSection({
             <DialogBody>
               <div className="flex flex-col gap-3">
                 <div>
-                  <p className="mb-1 text-sm font-medium">
-                    Запчасть
-                  </p>
+                  <p className="mb-1 text-sm font-medium">Запчасть</p>
                   <Select
                     value={toSelectAll(sparePartId)}
                     onValueChange={(v) => setSparePartId(fromSelectAll(v))}
@@ -642,31 +655,39 @@ function PartConsumptionsSection({
                       <SelectValue placeholder="Запчасть" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={SELECT_ALL_VALUE}>— Выберите —</SelectItem>
+                      <SelectItem value={SELECT_ALL_VALUE}>
+                        — Выберите —
+                      </SelectItem>
                       {parts.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
-                          {p.title} {p.sku ? `(${p.sku})` : ""} — остаток {p.quantity}
+                          {p.title} {p.sku ? `(${p.sku})` : ""} — остаток{" "}
+                          {p.quantity}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <p className="mb-1 text-sm font-medium">
-                    Количество
-                  </p>
+                  <p className="mb-1 text-sm font-medium">Количество</p>
                   <Input
                     type="number"
                     min={1}
                     value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
+                    onChange={(e) =>
+                      setQuantity(parseInt(e.target.value, 10) || 1)
+                    }
                     className="h-7"
                   />
                 </div>
               </div>
             </DialogBody>
             <DialogFooter>
-              <Button type="button" size="sm" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+              >
                 Отмена
               </Button>
               <Button type="submit" size="sm" loading={addConsumptionLoading}>

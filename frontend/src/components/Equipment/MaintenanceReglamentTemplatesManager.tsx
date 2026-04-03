@@ -192,7 +192,12 @@ export function MaintenanceReglamentTemplatesManager() {
           >
             Новый шаблон
           </Button>
-          <Button size="sm" variant="default" onClick={handleSave} loading={isSaving}>
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleSave}
+            loading={isSaving}
+          >
             Сохранить
           </Button>
           {selectedId ? (
@@ -239,10 +244,14 @@ export function MaintenanceReglamentTemplatesManager() {
               >
                 <div className="text-left">
                   <p className="text-sm font-medium">
-                    {EQUIPMENT_TYPE_LABELS[t.equipment_type] ?? t.equipment_type}
+                    {EQUIPMENT_TYPE_LABELS[t.equipment_type] ??
+                      t.equipment_type}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Интервал: {t.interval_hours == null ? "общий" : `${t.interval_hours} м/ч`}
+                    Интервал:{" "}
+                    {t.interval_hours == null
+                      ? "общий"
+                      : `${t.interval_hours} м/ч`}
                   </p>
                 </div>
               </Button>
@@ -251,15 +260,11 @@ export function MaintenanceReglamentTemplatesManager() {
         </div>
 
         <div className="min-w-[320px] flex-1">
-          <p className="mb-2 text-sm text-muted-foreground">
-            Форма шаблона
-          </p>
+          <p className="mb-2 text-sm text-muted-foreground">Форма шаблона</p>
 
           <div className="flex flex-col gap-3">
             <div>
-              <p className="mb-1 text-sm">
-                Тип техники
-              </p>
+              <p className="mb-1 text-sm">Тип техники</p>
               <Select
                 value={draft.equipment_type}
                 onValueChange={(v) =>
@@ -280,14 +285,14 @@ export function MaintenanceReglamentTemplatesManager() {
             </div>
 
             <div>
-              <p className="mb-1 text-sm">
-                Интервал ТО (м/ч)
-              </p>
+              <p className="mb-1 text-sm">Интервал ТО (м/ч)</p>
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
                   variant={draft.interval_hours == null ? "default" : "outline"}
-                  onClick={() => setDraft((d) => ({ ...d, interval_hours: null }))}
+                  onClick={() =>
+                    setDraft((d) => ({ ...d, interval_hours: null }))
+                  }
                 >
                   Общий
                 </Button>
@@ -309,12 +314,13 @@ export function MaintenanceReglamentTemplatesManager() {
             </div>
 
             <div>
-              <p className="mb-1 text-sm">
-                Чек-лист
-              </p>
+              <p className="mb-1 text-sm">Чек-лист</p>
               <div className="flex flex-col gap-2">
                 {draft.checklist_items.map((c, idx) => (
-                  <div key={`${idx}-${c.id ?? "new"}`} className="flex flex-wrap gap-2">
+                  <div
+                    key={`${idx}-${c.id ?? "new"}`}
+                    className="flex flex-wrap gap-2"
+                  >
                     <Input
                       value={c.title}
                       className="h-8 min-w-0 flex-1 text-sm"
@@ -323,7 +329,11 @@ export function MaintenanceReglamentTemplatesManager() {
                         const value = e.target.value
                         setDraft((d) => {
                           const next = [...d.checklist_items]
-                          next[idx] = { ...next[idx], title: value, sort_order: idx }
+                          next[idx] = {
+                            ...next[idx],
+                            title: value,
+                            sort_order: idx,
+                          }
                           return { ...d, checklist_items: next }
                         })
                       }}
@@ -333,8 +343,15 @@ export function MaintenanceReglamentTemplatesManager() {
                       variant="outline"
                       onClick={() => {
                         setDraft((d) => {
-                          const next = d.checklist_items.filter((_, i) => i !== idx)
-                          return { ...d, checklist_items: next.length ? next : [{ title: "", sort_order: 0 }] }
+                          const next = d.checklist_items.filter(
+                            (_, i) => i !== idx,
+                          )
+                          return {
+                            ...d,
+                            checklist_items: next.length
+                              ? next
+                              : [{ title: "", sort_order: 0 }],
+                          }
                         })
                       }}
                       disabled={draft.checklist_items.length <= 1}
@@ -363,12 +380,13 @@ export function MaintenanceReglamentTemplatesManager() {
             </div>
 
             <div>
-              <p className="mb-1 text-sm">
-                Требуемые запчасти
-              </p>
+              <p className="mb-1 text-sm">Требуемые запчасти</p>
               <div className="flex flex-col gap-2">
                 {draft.spare_part_requirements.map((r, idx) => (
-                  <div key={`${idx}-${r.id ?? "new"}`} className="flex flex-wrap gap-2">
+                  <div
+                    key={`${idx}-${r.id ?? "new"}`}
+                    className="flex flex-wrap gap-2"
+                  >
                     <Select
                       value={toSelectAll(r.spare_part_id)}
                       onValueChange={(value) => {
@@ -416,9 +434,10 @@ export function MaintenanceReglamentTemplatesManager() {
                       onClick={() => {
                         setDraft((d) => ({
                           ...d,
-                          spare_part_requirements: d.spare_part_requirements.filter(
-                            (_, i) => i !== idx,
-                          ),
+                          spare_part_requirements:
+                            d.spare_part_requirements.filter(
+                              (_, i) => i !== idx,
+                            ),
                         }))
                       }}
                     >
@@ -450,4 +469,3 @@ export function MaintenanceReglamentTemplatesManager() {
     </div>
   )
 }
-

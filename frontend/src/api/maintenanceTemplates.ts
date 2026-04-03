@@ -53,10 +53,7 @@ export interface MaintenanceReglamentTemplateListResponse {
 const BASE = "/api/v1/maintenance-templates"
 
 export const maintenanceTemplatesApi = {
-  list: () =>
-    request<MaintenanceReglamentTemplateListResponse>(
-      `${BASE}`,
-    ),
+  list: () => request<MaintenanceReglamentTemplateListResponse>(`${BASE}`),
 
   get: (id: string) =>
     request<MaintenanceReglamentTemplateDetailPublic>(`${BASE}/${id}`),
@@ -76,4 +73,3 @@ export const maintenanceTemplatesApi = {
   delete: (id: string) =>
     request<{ message: string }>(`${BASE}/${id}`, { method: "DELETE" }),
 }
-

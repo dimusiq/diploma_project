@@ -92,11 +92,14 @@ export const warehouseTopologyApi = {
     }),
   /** Пересборка route_node/route_edge из проходов и доков топологии (активный layout). */
   syncRouteGraph: (warehouse_layout_id?: string | null) =>
-    request<RouteGraphSyncResult>("/api/v1/warehouse/topology/sync-route-graph", {
-      method: "POST",
-      body:
-        warehouse_layout_id != null && warehouse_layout_id !== ""
-          ? { warehouse_layout_id }
-          : {},
-    }),
+    request<RouteGraphSyncResult>(
+      "/api/v1/warehouse/topology/sync-route-graph",
+      {
+        method: "POST",
+        body:
+          warehouse_layout_id != null && warehouse_layout_id !== ""
+            ? { warehouse_layout_id }
+            : {},
+      },
+    ),
 }

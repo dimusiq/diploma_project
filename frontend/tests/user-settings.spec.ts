@@ -9,12 +9,7 @@ function changePasswordSection(page: Page) {
   return page.getByRole("heading", { name: "Изменить пароль" }).locator("..")
 }
 
-const tabs = [
-  "Мой профиль",
-  "Пароль",
-  "Уведомления и отчёты",
-  "Настройка темы",
-]
+const tabs = ["Мой профиль", "Пароль", "Уведомления и отчёты", "Настройка темы"]
 
 // User Information
 
@@ -236,7 +231,9 @@ test.describe("Change password with invalid data", () => {
     await pwdForm
       .getByPlaceholder("Новый пароль", { exact: true })
       .fill(newPassword)
-    await pwdForm.getByPlaceholder("Подвердите новый пароль").fill(confirmPassword)
+    await pwdForm
+      .getByPlaceholder("Подвердите новый пароль")
+      .fill(confirmPassword)
     await pwdForm.getByPlaceholder("Подвердите новый пароль").blur()
     await expect(page.getByText("Пароль не совпадает")).toBeVisible()
   })
@@ -254,7 +251,9 @@ test.describe("Change password with invalid data", () => {
     await page.getByRole("tab", { name: "Пароль" }).click()
     const pwdForm = changePasswordSection(page)
     await pwdForm.getByPlaceholder("Текущий пароль").fill(password)
-    await pwdForm.getByPlaceholder("Новый пароль", { exact: true }).fill(password)
+    await pwdForm
+      .getByPlaceholder("Новый пароль", { exact: true })
+      .fill(password)
     await pwdForm.getByPlaceholder("Подвердите новый пароль").fill(password)
     await pwdForm
       .getByRole("button", { name: "Сохранить изменения" })

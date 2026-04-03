@@ -20,7 +20,7 @@
     <div id="root"></div>
     <!-- До бандла: подавляем типичный шум от расширений (Grammarly и т.д.) в unhandledrejection -->
     <script>
-      ;(function () {
+      ;(() => {
         function isExtNoise(r) {
           if (r == null || typeof r !== "object") return false
           if (r.code === 403 && r.httpStatus === 200) return true
@@ -34,7 +34,7 @@
         }
         window.addEventListener(
           "unhandledrejection",
-          function (e) {
+          (e) => {
             if (isExtNoise(e.reason)) e.preventDefault()
           },
           true,

@@ -1,9 +1,6 @@
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card.tsx"
+import { Card, CardContent } from "@/components/ui/card.tsx"
 
 export const Route = createFileRoute("/_layout/operator-hub")({
   component: OperatorHubPage,

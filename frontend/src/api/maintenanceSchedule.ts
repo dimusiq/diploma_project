@@ -74,8 +74,7 @@ export const maintenanceScheduleApi = {
   getPermissions: () =>
     request<MaintenanceSchedulePermissions>(`${BASE}/permissions`),
 
-  listChains: () =>
-    request<MaintenanceChainListResponse>(`${BASE}/chains`),
+  listChains: () => request<MaintenanceChainListResponse>(`${BASE}/chains`),
 
   getChain: (chainId: string) =>
     request<MaintenanceChainPublic>(`${BASE}/chains/${chainId}`),
@@ -102,8 +101,7 @@ export const maintenanceScheduleApi = {
       `${BASE}/chains/${chainId}/history`,
     ),
 
-  getConfig: () =>
-    request<MaintenanceScheduleConfigPublic>(`${BASE}/config`),
+  getConfig: () => request<MaintenanceScheduleConfigPublic>(`${BASE}/config`),
 
   updateConfig: (body: MaintenanceScheduleConfigPublic) =>
     request<MaintenanceScheduleConfigPublic>(`${BASE}/config`, {
@@ -112,10 +110,13 @@ export const maintenanceScheduleApi = {
     }),
 
   importFromLocal: (chains: LocalChainFormat[]) =>
-    request<{ imported: number; message: string }>(`${BASE}/chains/import-from-local`, {
-      method: "POST",
-      body: { chains },
-    }),
+    request<{ imported: number; message: string }>(
+      `${BASE}/chains/import-from-local`,
+      {
+        method: "POST",
+        body: { chains },
+      },
+    ),
 }
 
 /** Преобразование ответа API в формат, совместимый с MaintenanceChain (id, name, intervalHours, colorTag, remindBeforeHours, equipmentIds). */

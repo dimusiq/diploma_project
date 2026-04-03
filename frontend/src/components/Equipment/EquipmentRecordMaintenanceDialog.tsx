@@ -8,7 +8,10 @@ import {
   equipmentApi,
   type MaintenanceRecordCreate,
 } from "@/api/equipment.ts"
-import { apiChainToLegacyFormat, maintenanceScheduleApi } from "@/api/maintenanceSchedule.ts"
+import {
+  apiChainToLegacyFormat,
+  maintenanceScheduleApi,
+} from "@/api/maintenanceSchedule.ts"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -62,7 +65,11 @@ export function EquipmentRecordMaintenanceDialog({
     : []
 
   useEffect(() => {
-    if (open && chainIntervals.length > 0 && !chainIntervals.includes(intervalHours)) {
+    if (
+      open &&
+      chainIntervals.length > 0 &&
+      !chainIntervals.includes(intervalHours)
+    ) {
       setIntervalHours(chainIntervals[0])
     }
   }, [open, chainIntervals, intervalHours])
@@ -81,7 +88,9 @@ export function EquipmentRecordMaintenanceDialog({
       queryClient.invalidateQueries({
         queryKey: ["equipment-maintenance-records", equipment?.id],
       })
-      queryClient.invalidateQueries({ queryKey: ["equipment", "all-maintenance-records"] })
+      queryClient.invalidateQueries({
+        queryKey: ["equipment", "all-maintenance-records"],
+      })
     },
     onError: (err) => {
       toast.showErrorToast(
@@ -122,9 +131,7 @@ export function EquipmentRecordMaintenanceDialog({
           <DialogBody>
             <div className="flex flex-col gap-3">
               <div>
-                <p className="mb-1 text-sm font-medium">
-                  Дата проведения ТО
-                </p>
+                <p className="mb-1 text-sm font-medium">Дата проведения ТО</p>
                 <Input
                   type="date"
                   value={performedAt}
@@ -134,9 +141,7 @@ export function EquipmentRecordMaintenanceDialog({
                 />
               </div>
               <div>
-                <p className="mb-1 text-sm font-medium">
-                  Интервал ТО (м/ч)
-                </p>
+                <p className="mb-1 text-sm font-medium">Интервал ТО (м/ч)</p>
                 <Select
                   value={String(intervalHours)}
                   onValueChange={(v) =>
@@ -147,13 +152,14 @@ export function EquipmentRecordMaintenanceDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(chainIntervals.length ? chainIntervals : [500, 1000, 1500]).map(
-                      (h) => (
-                        <SelectItem key={h} value={String(h)}>
-                          {h} м/ч
-                        </SelectItem>
-                      ),
-                    )}
+                    {(chainIntervals.length
+                      ? chainIntervals
+                      : [500, 1000, 1500]
+                    ).map((h) => (
+                      <SelectItem key={h} value={String(h)}>
+                        {h} м/ч
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

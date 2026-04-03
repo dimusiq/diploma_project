@@ -36,7 +36,7 @@ export const auditApi = {
     if (params?.limit != null) search.set("limit", String(params.limit))
     if (params?.resource_type) search.set("resource_type", params.resource_type)
     if (params?.resource_id) search.set("resource_id", params.resource_id)
-  if (params?.user_id) search.set("user_id", params.user_id)
+    if (params?.user_id) search.set("user_id", params.user_id)
     const query = search.toString()
     return request<AuditLogListResponse>(
       `/api/v1/audit/${query ? `?${query}` : ""}`,

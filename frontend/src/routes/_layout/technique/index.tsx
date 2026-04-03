@@ -38,14 +38,15 @@ const DEFAULT_SECTION = "assets"
 
 function TechniqueIndexPage() {
   const { section: sectionParam } = Route.useSearch()
-  const section = sectionParam && sectionParam in SECTION_LABELS ? sectionParam : DEFAULT_SECTION
+  const section =
+    sectionParam && sectionParam in SECTION_LABELS
+      ? sectionParam
+      : DEFAULT_SECTION
   const current = SECTION_LABELS[section]
 
   return (
     <div className="mx-auto w-full max-w-full px-4">
-      <p className="mb-4 text-sm text-muted-foreground">
-        {current.title}
-      </p>
+      <p className="mb-4 text-sm text-muted-foreground">{current.title}</p>
       {section === "assets" ? (
         <EquipmentList />
       ) : section === "maintenance" ? (

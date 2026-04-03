@@ -118,13 +118,11 @@ export function Reasoning({
   )
 }
 
-export type ReasoningTriggerProps =
-  React.ComponentProps<typeof CollapsibleTrigger> & {
-    getThinkingMessage?: (
-      isStreaming: boolean,
-      duration?: number,
-    ) => ReactNode
-  }
+export type ReasoningTriggerProps = React.ComponentProps<
+  typeof CollapsibleTrigger
+> & {
+  getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode
+}
 
 export function ReasoningTrigger({
   className,
@@ -175,8 +173,7 @@ function defaultThinkingLabel(
   duration?: number,
 ): ReactNode {
   if (isStreaming) return "Думаем…"
-  if (duration != null && duration >= 0)
-    return `Размышление · ${duration} с`
+  if (duration != null && duration >= 0) return `Размышление · ${duration} с`
   return "Размышление"
 }
 

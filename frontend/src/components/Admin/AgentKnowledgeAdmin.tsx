@@ -51,7 +51,11 @@ export function AgentKnowledgeAdmin() {
   const createMut = useMutation({
     mutationFn: () =>
       agentKnowledgeApi.create(
-        { title: title.trim(), content: content.trim(), source: source.trim() || "manual" },
+        {
+          title: title.trim(),
+          content: content.trim(),
+          source: source.trim() || "manual",
+        },
         true,
       ),
     onSuccess: () => {
@@ -67,7 +71,11 @@ export function AgentKnowledgeAdmin() {
     mutationFn: () =>
       agentKnowledgeApi.update(
         editId!,
-        { title: title.trim(), content: content.trim(), source: source.trim() || "manual" },
+        {
+          title: title.trim(),
+          content: content.trim(),
+          source: source.trim() || "manual",
+        },
         true,
       ),
     onSuccess: () => {
@@ -107,7 +115,12 @@ export function AgentKnowledgeAdmin() {
     onError: (e: Error) => showErrorToast(e.message),
   })
 
-  const openEdit = (row: { id: string; title: string; content: string; source: string }) => {
+  const openEdit = (row: {
+    id: string
+    title: string
+    content: string
+    source: string
+  }) => {
     setEditId(row.id)
     setTitle(row.title)
     setContent(row.content)
@@ -119,13 +132,19 @@ export function AgentKnowledgeAdmin() {
   return (
     <div>
       <p className="mb-4 text-sm text-muted-foreground">
-        Справочные тексты для RAG ассистента. Эмбеддинги — через OpenAI-совместимый
-        API (например vLLM: <code>VLLM_EMBED_MODEL</code> /{" "}
+        Справочные тексты для RAG ассистента. Эмбеддинги — через
+        OpenAI-совместимый API (например vLLM: <code>VLLM_EMBED_MODEL</code> /{" "}
         <code>LLM_EMBED_MODEL</code>, размерность 768 по умолчанию). Требуется
         Postgres с расширением pgvector.
       </p>
       <div className="mb-4 flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true) }}>
+        <Button
+          size="sm"
+          onClick={() => {
+            resetForm()
+            setCreateOpen(true)
+          }}
+        >
           Новый фрагмент
         </Button>
         <Button

@@ -4,7 +4,8 @@ import useCustomToast from "./hooks/useCustomToast.ts"
 /** Извлечь сообщение об ошибке из ApiError или unknown (для useActionState и т.д.) */
 export function getApiErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
-    const detail = (err.body as { detail?: string | Array<{ msg?: string }> })?.detail
+    const detail = (err.body as { detail?: string | Array<{ msg?: string }> })
+      ?.detail
     if (typeof detail === "string") return detail
     if (Array.isArray(detail) && detail[0]?.msg) return detail[0].msg
     return err.message

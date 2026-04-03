@@ -1,8 +1,4 @@
-import {
-  createFileRoute,
-  redirect,
-  useNavigate,
-} from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { FiLock } from "react-icons/fi"
 

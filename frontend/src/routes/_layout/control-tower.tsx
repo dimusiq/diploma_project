@@ -4,10 +4,7 @@ import { fetchFeatureFlags } from "@/api/integrations.ts"
 import { fetchKpiSnapshot } from "@/api/warehouseSimulation.ts"
 import { DashboardService } from "@/client/index.ts"
 import { Button } from "@/components/ui/button.tsx"
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card.tsx"
+import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 export const Route = createFileRoute("/_layout/control-tower")({
   component: ControlTowerPage,
@@ -65,7 +62,9 @@ function ControlTowerPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-2 py-6 md:px-4 md:py-10">
-      <h1 className="font-heading mb-2 text-2xl font-semibold">Control Tower</h1>
+      <h1 className="font-heading mb-2 text-2xl font-semibold">
+        Control Tower
+      </h1>
       <p className="mb-8 text-sm text-muted-foreground">
         Сводка KPI, ссылка на live-поток двойника и быстрый доступ к заданиям и
         симуляциям.
@@ -126,10 +125,20 @@ function ControlTowerPage() {
                 (тот же канал, что <code>/api/v1/twin/stream</code>), с токеном
                 авторизации.
               </p>
-              <Button variant="outline" size="sm" asChild className="inline-flex w-fit">
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="inline-flex w-fit"
+              >
                 <Link to="/warehouse-twin">Аналитика двойника</Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="inline-flex w-fit">
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="inline-flex w-fit"
+              >
                 <Link to="/warehouse-tasks">Складские задания</Link>
               </Button>
             </div>

@@ -120,10 +120,7 @@ export function MoveItemsDialog({
           </p>
           {hasAllowedTargets ? (
             <Field label="Статус">
-              <Select
-                value={targetStatus}
-                onValueChange={setTargetStatus}
-              >
+              <Select value={targetStatus} onValueChange={setTargetStatus}>
                 <SelectTrigger className="h-9 min-w-[180px] text-sm">
                   <SelectValue placeholder="Статус" />
                 </SelectTrigger>
@@ -152,7 +149,11 @@ export function MoveItemsDialog({
         <DialogFooter>
           <div className="flex flex-wrap gap-2">
             <DialogActionTrigger asChild>
-              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+              >
                 Отмена
               </Button>
             </DialogActionTrigger>

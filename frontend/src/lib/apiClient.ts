@@ -155,7 +155,10 @@ export async function fetchWithAuth(
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }))
     await throwApiError(
-      { method: (init?.method as ApiRequestOptions["method"]) ?? "GET", url: path },
+      {
+        method: (init?.method as ApiRequestOptions["method"]) ?? "GET",
+        url: path,
+      },
       res.status,
       res.statusText,
       body,

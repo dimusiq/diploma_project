@@ -218,11 +218,7 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
               pathname === path || (path === "/" && pathname === "/")
             return (
               <SidebarMenuItem key={title}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isActive}
-                  tooltip={title}
-                >
+                <SidebarMenuButton asChild isActive={isActive} tooltip={title}>
                   <RouterLink to={path} onClick={onNavigate}>
                     <Icon className="size-4 shrink-0" aria-hidden />
                     <span>{title}</span>

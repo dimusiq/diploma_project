@@ -19,7 +19,10 @@ export interface WhatIfResult {
   baseline_utilization_ratio: number | null
   projected_occupied_slots: number
   projected_utilization_ratio: number | null
-  warehouse_items_by_row_after: Array<{ storage_row: number; item_count: number }>
+  warehouse_items_by_row_after: Array<{
+    storage_row: number
+    item_count: number
+  }>
 }
 
 export function postTwinWhatIf(

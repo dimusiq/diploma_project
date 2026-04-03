@@ -61,9 +61,12 @@ export const notificationsApi = {
     }),
 
   markAllRead: () =>
-    request<{ message: string; marked: number }>("/api/v1/notifications/read-all", {
-      method: "POST",
-    }),
+    request<{ message: string; marked: number }>(
+      "/api/v1/notifications/read-all",
+      {
+        method: "POST",
+      },
+    ),
 
   clearAll: () =>
     request<{ message: string; archived: number }>("/api/v1/notifications", {

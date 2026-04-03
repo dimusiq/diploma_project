@@ -22,13 +22,6 @@ import {
   DialogTitle,
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet.tsx"
 import { Field } from "@/components/ui/field.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
@@ -38,6 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx"
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
@@ -275,7 +275,9 @@ export function EquipmentFormDialog({
               <SelectValue placeholder="Бренд" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={SELECT_ALL_VALUE}>— Выберите бренд —</SelectItem>
+              <SelectItem value={SELECT_ALL_VALUE}>
+                — Выберите бренд —
+              </SelectItem>
               {brands.map((b: BrandPublic) => (
                 <SelectItem key={b.id} value={b.id}>
                   {b.name}
@@ -434,7 +436,13 @@ export function EquipmentFormDialog({
             >
               Назад
             </Button>
-            <Button variant="solid" size="sm" type="submit" disabled={loading} loading={loading}>
+            <Button
+              variant="solid"
+              size="sm"
+              type="submit"
+              disabled={loading}
+              loading={loading}
+            >
               {isEdit ? "Сохранить" : "Добавить"}
             </Button>
           </div>
@@ -474,7 +482,13 @@ export function EquipmentFormDialog({
               >
                 Закрыть
               </Button>
-              <Button variant="solid" size="sm" type="submit" disabled={loading} loading={loading}>
+              <Button
+                variant="solid"
+                size="sm"
+                type="submit"
+                disabled={loading}
+                loading={loading}
+              >
                 {isEdit ? "Сохранить" : "Добавить"}
               </Button>
             </SheetFooter>
@@ -505,7 +519,13 @@ export function EquipmentFormDialog({
                 Отмена
               </Button>
             </DialogActionTrigger>
-            <Button variant="solid" size="sm" type="submit" disabled={loading} loading={loading}>
+            <Button
+              variant="solid"
+              size="sm"
+              type="submit"
+              disabled={loading}
+              loading={loading}
+            >
               {isEdit ? "Сохранить" : "Добавить"}
             </Button>
           </DialogFooter>

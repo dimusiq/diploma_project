@@ -311,13 +311,14 @@ const EditItem = ({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={SELECT_ALL_VALUE}>—</SelectItem>
-                      {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
-                        (n) => (
-                          <SelectItem key={n} value={String(n)}>
-                            {n}
-                          </SelectItem>
-                        ),
-                      )}
+                      {Array.from(
+                        { length: STORAGE_ROWS },
+                        (_, i) => i + 1,
+                      ).map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </Field>
@@ -415,7 +416,12 @@ const EditItem = ({
                   Отменить
                 </Button>
               </DialogActionTrigger>
-              <Button variant="solid" size="sm" type="submit" loading={isSubmitting}>
+              <Button
+                variant="solid"
+                size="sm"
+                type="submit"
+                loading={isSubmitting}
+              >
                 Сохранить
               </Button>
             </div>

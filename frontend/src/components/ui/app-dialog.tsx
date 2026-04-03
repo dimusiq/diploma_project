@@ -142,7 +142,11 @@ export function DialogCloseTrigger({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Close>) {
   return (
-    <DialogPrimitive.Close data-slot="app-dialog-close-trigger" asChild {...props}>
+    <DialogPrimitive.Close
+      data-slot="app-dialog-close-trigger"
+      asChild
+      {...props}
+    >
       <CloseButton className={cn("absolute top-2 right-2", className)}>
         {children}
       </CloseButton>

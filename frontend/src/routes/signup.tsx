@@ -41,7 +41,10 @@ async function signupAction(
   const confirm_password = formData.get("confirm_password") as string
 
   if (!full_name || full_name.length < 3) {
-    return { error: "Полное имя обязательно (не менее 3 символов)", success: false }
+    return {
+      error: "Полное имя обязательно (не менее 3 символов)",
+      success: false,
+    }
   }
   if (!email) {
     return { error: "Email обязателен", success: false }
@@ -99,10 +102,7 @@ function SignUp() {
             })
             return
           }
-          const next = await signupAction(
-            { error: null, success: false },
-            fd,
-          )
+          const next = await signupAction({ error: null, success: false }, fd)
           setState(next)
         }}
       >

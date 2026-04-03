@@ -5,7 +5,11 @@ import { cn } from "@/lib/utils.ts"
 
 export type CloseButtonProps = ButtonProps
 
-export function CloseButton({ className, children, ...props }: CloseButtonProps) {
+export function CloseButton({
+  className,
+  children,
+  ...props
+}: CloseButtonProps) {
   return (
     <Button
       type="button"

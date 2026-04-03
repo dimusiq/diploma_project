@@ -3,7 +3,11 @@ import { useState } from "react"
 import { type SubmitHandler, useForm } from "react-hook-form"
 import { FaPlus } from "react-icons/fa"
 import type { ApiError } from "@/client/core/ApiError.ts"
-import { CategoriesService, type ItemCreate, ItemsService } from "@/client/index.ts"
+import {
+  CategoriesService,
+  type ItemCreate,
+  ItemsService,
+} from "@/client/index.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
   fromSelectAll,
@@ -132,7 +136,9 @@ const AddItem = () => {
             <DialogTitle>Добавить поступление</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <p className="mb-4 text-sm">Заполните поля. Название обязательно.</p>
+            <p className="mb-4 text-sm">
+              Заполните поля. Название обязательно.
+            </p>
             <div className="flex flex-col gap-4">
               <Field
                 required
@@ -286,13 +292,14 @@ const AddItem = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={SELECT_ALL_VALUE}>—</SelectItem>
-                      {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
-                        (n) => (
-                          <SelectItem key={n} value={String(n)}>
-                            {n}
-                          </SelectItem>
-                        ),
-                      )}
+                      {Array.from(
+                        { length: STORAGE_ROWS },
+                        (_, i) => i + 1,
+                      ).map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </Field>

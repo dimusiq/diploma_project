@@ -30,8 +30,7 @@ const buttonVariants = cva(
         icon: "size-9",
         "icon-sm": "size-8",
         "icon-lg": "size-10",
-        "icon-xs":
-          "size-6 [&_svg:not([class*='size-'])]:size-3.5 rounded-md",
+        "icon-xs": "size-6 [&_svg:not([class*='size-'])]:size-3.5 rounded-md",
       },
     },
     defaultVariants: {
@@ -61,70 +60,68 @@ export type ButtonProps = React.ComponentProps<"button"> &
     asChild?: boolean
   }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  function Button(
-    {
-      className,
-      variant: variantProp,
-      size = "default",
-      loading,
-      loadingText,
-      disabled,
-      children,
-      type = "button",
-      asChild = false,
-      ...props
-    },
-    ref,
-  ) {
-    const variant = mapVariant(variantProp)
-    const useAsChild = Boolean(asChild) && !loading && !loadingText
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    className,
+    variant: variantProp,
+    size = "default",
+    loading,
+    loadingText,
+    disabled,
+    children,
+    type = "button",
+    asChild = false,
+    ...props
+  },
+  ref,
+) {
+  const variant = mapVariant(variantProp)
+  const useAsChild = Boolean(asChild) && !loading && !loadingText
 
-    if (useAsChild) {
-      return (
-        <Slot
-          data-slot="button"
-          className={cn(buttonVariants({ variant, size }), className)}
-          ref={ref}
-          {...props}
-        >
-          {children}
-        </Slot>
-      )
-    }
-
+  if (useAsChild) {
     return (
-      <button
-        ref={ref}
-        type={type}
+      <Slot
         data-slot="button"
-        className={cn(
-          buttonVariants({ variant, size }),
-          loading && !loadingText && "relative",
-          className,
-        )}
-        disabled={Boolean(loading) || disabled}
+        className={cn(buttonVariants({ variant, size }), className)}
+        ref={ref}
         {...props}
       >
-        {loading && !loadingText ? (
-          <>
-            <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <Loader2Icon className="size-4 animate-spin" aria-hidden />
-            </span>
-            <span className="opacity-0">{children}</span>
-          </>
-        ) : loading && loadingText ? (
-          <>
-            <Loader2Icon className="size-4 shrink-0 animate-spin" aria-hidden />
-            {loadingText}
-          </>
-        ) : (
-          children
-        )}
-      </button>
+        {children}
+      </Slot>
     )
-  },
-)
+  }
+
+  return (
+    <button
+      ref={ref}
+      type={type}
+      data-slot="button"
+      className={cn(
+        buttonVariants({ variant, size }),
+        loading && !loadingText && "relative",
+        className,
+      )}
+      disabled={Boolean(loading) || disabled}
+      {...props}
+    >
+      {loading && !loadingText ? (
+        <>
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <Loader2Icon className="size-4 animate-spin" aria-hidden />
+          </span>
+          <span className="opacity-0">{children}</span>
+        </>
+      ) : loading && loadingText ? (
+        <>
+          <Loader2Icon className="size-4 shrink-0 animate-spin" aria-hidden />
+          {loadingText}
+        </>
+      ) : (
+        children
+      )}
+    </button>
+  )
+})
 Button.displayName = "Button"
 
 export { Button, buttonVariants }

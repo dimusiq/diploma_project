@@ -146,10 +146,13 @@ export async function updateAgentPolicy(
   code: string,
   body: { title?: string; rules?: Record<string, unknown> },
 ): Promise<AgentPolicyPublic> {
-  return request<AgentPolicyPublic>(`/api/v1/agent/policies/${encodeURIComponent(code)}`, {
-    method: "PUT",
-    body,
-  })
+  return request<AgentPolicyPublic>(
+    `/api/v1/agent/policies/${encodeURIComponent(code)}`,
+    {
+      method: "PUT",
+      body,
+    },
+  )
 }
 
 export interface AgentRunListResponse {

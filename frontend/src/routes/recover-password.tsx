@@ -54,10 +54,7 @@ function RecoverPassword() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <form
-        action={formAction}
-        className="flex w-full max-w-sm flex-col gap-4"
-      >
+      <form action={formAction} className="flex w-full max-w-sm flex-col gap-4">
         <h1 className="mb-2 text-center text-2xl font-semibold text-primary">
           Восстановление пароля
         </h1>

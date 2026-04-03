@@ -11,7 +11,11 @@ import {
 } from "@/api/audit.ts"
 import { type BrandPublic, brandsApi } from "@/api/brands.ts"
 import { type ZonePublic, zonesApi } from "@/api/zones.ts"
-import { CategoriesService, RolesService, UsersService } from "@/client/index.ts"
+import {
+  CategoriesService,
+  RolesService,
+  UsersService,
+} from "@/client/index.ts"
 import AddUser from "@/components/Admin/AddUser.tsx"
 import { AdminPanel } from "@/components/Admin/AdminPanel.tsx"
 import { AgentChatLogsAdmin } from "@/components/Admin/AgentChatLogsAdmin.tsx"
@@ -25,12 +29,6 @@ import { ShortId } from "@/components/Common/ShortId.tsx"
 import { UserActionsMenu } from "@/components/Common/UserActionsMenu.tsx"
 import PendingUsers from "@/components/Pending/PendingUsers.tsx"
 import { Button } from "@/components/ui/button.tsx"
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
   PaginationItems,
@@ -45,6 +43,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet.tsx"
 import {
   Table,
   TableBody,
@@ -128,11 +132,11 @@ function UserAuditBlock({
   })
   const rows = data?.data ?? []
   if (isLoading)
-    return (
-      <p className="text-sm text-muted-foreground">Загрузка…</p>
-    )
+    return <p className="text-sm text-muted-foreground">Загрузка…</p>
   if (isError)
-    return <p className="text-sm text-destructive">Не удалось загрузить записи.</p>
+    return (
+      <p className="text-sm text-destructive">Не удалось загрузить записи.</p>
+    )
   if (rows.length === 0)
     return <p className="text-sm text-muted-foreground">Записей нет.</p>
   return (
@@ -154,7 +158,9 @@ function UserAuditBlock({
                 <TableCell className="whitespace-nowrap text-xs">
                   {formatDateTime(r.created_at)}
                 </TableCell>
-                <TableCell>{AUDIT_ACTION_LABELS[r.action] ?? r.action}</TableCell>
+                <TableCell>
+                  {AUDIT_ACTION_LABELS[r.action] ?? r.action}
+                </TableCell>
                 <TableCell>
                   {AUDIT_RESOURCE_LABELS[r.resource_type] ?? r.resource_type}
                 </TableCell>
@@ -188,9 +194,7 @@ function UserDetailDrawer({
       >
         <SheetHeader className="shrink-0 border-b px-4 py-3 pr-10 text-left">
           <SheetTitle>
-            {user.full_name
-              ? `${user.full_name} (${user.email})`
-              : user.email}
+            {user.full_name ? `${user.full_name} (${user.email})` : user.email}
           </SheetTitle>
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
@@ -241,11 +245,25 @@ function UsersTable() {
   })
 
   const setPage = (p: number) =>
-    (navigate as unknown as (opts: { search: (prev: { page: number; deleted: boolean }) => { page: number; deleted: boolean } }) => void)({
+    (
+      navigate as unknown as (opts: {
+        search: (prev: { page: number; deleted: boolean }) => {
+          page: number
+          deleted: boolean
+        }
+      }) => void
+    )({
       search: (prev) => ({ ...prev, page: p }),
     })
   const setDeleted = (d: boolean) =>
-    (navigate as unknown as (opts: { search: (prev: { page: number; deleted: boolean }) => { page: number; deleted: boolean } }) => void)({
+    (
+      navigate as unknown as (opts: {
+        search: (prev: { page: number; deleted: boolean }) => {
+          page: number
+          deleted: boolean
+        }
+      }) => void
+    )({
       search: (prev) => ({ ...prev, deleted: d, page: 1 }),
     })
 
@@ -314,7 +332,9 @@ function UsersTable() {
                     </span>
                   )}
                 </TableCell>
-                <TableCell className="max-w-sm truncate">{user.email}</TableCell>
+                <TableCell className="max-w-sm truncate">
+                  {user.email}
+                </TableCell>
                 <TableCell>
                   {user.is_superuser
                     ? "Суперпользователь"
@@ -490,7 +510,9 @@ function EditCategory({
                   <SelectValue placeholder="Родитель" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={SELECT_ALL_VALUE}>— Категории —</SelectItem>
+                  <SelectItem value={SELECT_ALL_VALUE}>
+                    — Категории —
+                  </SelectItem>
                   {parentOpts.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
@@ -500,7 +522,11 @@ function EditCategory({
               </Select>
             </div>
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Отмена
               </Button>
               <Button
@@ -594,9 +620,7 @@ function CategoriesList() {
         cancelLabel="Отмена"
         variant="danger"
         isLoading={deleteCat.isPending}
-        onConfirm={() =>
-          deleteConfirm && deleteCat.mutate(deleteConfirm.id)
-        }
+        onConfirm={() => deleteConfirm && deleteCat.mutate(deleteConfirm.id)}
       />
     </>
   )
@@ -677,7 +701,11 @@ function EditBrand({ brand }: { brand: BrandPublic }) {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Отмена
               </Button>
               <Button
@@ -764,9 +792,7 @@ function BrandsList() {
         cancelLabel="Отмена"
         variant="danger"
         isLoading={deleteBrand.isPending}
-        onConfirm={() =>
-          deleteConfirm && deleteBrand.mutate(deleteConfirm.id)
-        }
+        onConfirm={() => deleteConfirm && deleteBrand.mutate(deleteConfirm.id)}
       />
     </>
   )
@@ -847,7 +873,11 @@ function EditZone({ zone }: { zone: ZonePublic }) {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Отмена
               </Button>
               <Button
@@ -929,7 +959,9 @@ function AuditLogSection() {
       {isLoading && !data ? (
         <p className="text-sm text-muted-foreground">Загрузка журнала…</p>
       ) : isError ? (
-        <p className="text-sm text-destructive">Не удалось загрузить журнал аудита.</p>
+        <p className="text-sm text-destructive">
+          Не удалось загрузить журнал аудита.
+        </p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Записей пока нет.</p>
       ) : (
@@ -968,7 +1000,9 @@ function AuditLogSection() {
                     >
                       {r.details ?? "—"}
                     </TableCell>
-                    <TableCell className="text-xs">{r.ip_address ?? "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {r.ip_address ?? "—"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1060,9 +1094,7 @@ function ZonesList() {
         cancelLabel="Отмена"
         variant="danger"
         isLoading={deleteZone.isPending}
-        onConfirm={() =>
-          deleteConfirm && deleteZone.mutate(deleteConfirm.id)
-        }
+        onConfirm={() => deleteConfirm && deleteZone.mutate(deleteConfirm.id)}
       />
     </>
   )
@@ -1108,7 +1140,8 @@ function Admin() {
           Администрирование
         </h1>
         <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground">
-          Настройки приложения, пользователи, журнал аудита и сервисы ассистента.
+          Настройки приложения, пользователи, журнал аудита и сервисы
+          ассистента.
         </p>
       </div>
 

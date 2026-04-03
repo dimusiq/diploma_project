@@ -26,7 +26,13 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs.tsx"
 
-const TAB_KEYS = ["passport", "maintenance", "repairs", "documents", "history"] as const
+const TAB_KEYS = [
+  "passport",
+  "maintenance",
+  "repairs",
+  "documents",
+  "history",
+] as const
 type TabKey = (typeof TAB_KEYS)[number]
 
 const TAB_LABELS: Record<TabKey, string> = {
@@ -43,7 +49,10 @@ function parseAttachments(attachments: string | null): string[] {
     const v = JSON.parse(attachments)
     return Array.isArray(v) ? v : [attachments]
   } catch {
-    return attachments.split(/\n/).map((s) => s.trim()).filter(Boolean)
+    return attachments
+      .split(/\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
   }
 }
 
@@ -59,13 +68,16 @@ export function EquipmentCard({
   const [tab, setTab] = useState<TabKey>(initialTab)
   const [recordMaintenanceOpen, setRecordMaintenanceOpen] = useState(false)
 
-  const { data: equipment, isLoading, error } = useQuery({
+  const {
+    data: equipment,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["equipment", equipmentId],
     queryFn: () => equipmentApi.get(equipmentId),
   })
 
-  const cardUrl =
-    typeof window !== "undefined" ? window.location.href : ""
+  const cardUrl = typeof window !== "undefined" ? window.location.href : ""
 
   if (isLoading) {
     return (
@@ -137,13 +149,17 @@ export function EquipmentCard({
         </TabsContent>
 
         <TabsContent value="maintenance" className="mt-0 outline-none">
-          <MaintenanceTab equipment={equipment} onRecordOpen={() => setRecordMaintenanceOpen(true)} />
+          <MaintenanceTab
+            equipment={equipment}
+            onRecordOpen={() => setRecordMaintenanceOpen(true)}
+          />
         </TabsContent>
 
         <TabsContent value="repairs" className="mt-0 outline-none">
           <div className="rounded-md bg-muted/40 p-4">
             <p className="text-sm text-muted-foreground">
-              Раздел «Ремонты» в разработке. Пока учёт ремонтов ведётся через вкладку «ТО» и журнал обслуживания.
+              Раздел «Ремонты» в разработке. Пока учёт ремонтов ведётся через
+              вкладку «ТО» и журнал обслуживания.
             </p>
           </div>
         </TabsContent>
@@ -233,7 +249,8 @@ function DocumentsTab({ equipment }: { equipment: EquipmentPublic }) {
     return (
       <div className="rounded-md bg-muted/40 p-4">
         <p className="text-sm text-muted-foreground">
-          Документы и ссылки можно добавить в паспорте техники (поле «Фото / документация» и «Инструкции»).
+          Документы и ссылки можно добавить в паспорте техники (поле «Фото /
+          документация» и «Инструкции»).
         </p>
       </div>
     )
@@ -262,7 +279,9 @@ function DocumentsTab({ equipment }: { equipment: EquipmentPublic }) {
       {hasInstructions && (
         <div>
           <p className="mb-2 font-medium">Инструкции по эксплуатации</p>
-          <p className="whitespace-pre-wrap text-sm">{equipment.instructions}</p>
+          <p className="whitespace-pre-wrap text-sm">
+            {equipment.instructions}
+          </p>
         </div>
       )}
     </div>
@@ -282,8 +301,14 @@ function HistoryTab({ equipmentId }: { equipmentId: string }) {
 
   const rows = data?.data ?? []
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Загрузка…</p>
-  if (isError) return <p className="text-sm text-muted-foreground">Не удалось загрузить историю.</p>
+  if (isLoading)
+    return <p className="text-sm text-muted-foreground">Загрузка…</p>
+  if (isError)
+    return (
+      <p className="text-sm text-muted-foreground">
+        Не удалось загрузить историю.
+      </p>
+    )
   if (rows.length === 0) {
     return (
       <div className="rounded-md bg-muted/40 p-4">
@@ -317,7 +342,10 @@ function HistoryTab({ equipmentId }: { equipmentId: string }) {
             </TableCell>
             <TableCell>{r.action}</TableCell>
             <TableCell>{r.user_email ?? "—"}</TableCell>
-            <TableCell className="max-w-[200px] truncate" title={r.details ?? undefined}>
+            <TableCell
+              className="max-w-[200px] truncate"
+              title={r.details ?? undefined}
+            >
               {r.details ?? "—"}
             </TableCell>
           </TableRow>

@@ -6,7 +6,10 @@ import { useMemo } from "react"
 import { Vector3 } from "three"
 import type { EquipmentPublic } from "@/api/equipment.ts"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
-import type { TopologyDocument, TopologyStorageZone } from "@/api/warehouseTopology.ts"
+import type {
+  TopologyDocument,
+  TopologyStorageZone,
+} from "@/api/warehouseTopology.ts"
 import {
   normXZToWorldFloor,
   routeNodeToWorldFloor,
@@ -84,12 +87,12 @@ function TopologyZonesLayer({
   const boxes = useMemo(() => {
     if (!topology?.zones?.length) return []
     const out: Array<{
-  key: string
-  center: [number, number, number]
-  size: [number, number, number]
-  color: string
-  name: string
-}> = []
+      key: string
+      center: [number, number, number]
+      size: [number, number, number]
+      color: string
+      name: string
+    }> = []
     for (const z of topology.zones) {
       const a = zoneAabb(geom, z)
       if (!a) continue
@@ -192,15 +195,19 @@ function RouteGraphLayer({
   const geom = useWarehouseGeometry()
   const { nodePositions, edgeSegments } = useMemo(() => {
     if (!graph?.nodes?.length) {
-      return { nodePositions: [] as Array<[number, number, number]>, edgeSegments: [] }
+      return {
+        nodePositions: [] as Array<[number, number, number]>,
+        edgeSegments: [],
+      }
     }
     const idToPos = new Map<string, [number, number, number]>()
     for (const n of graph.nodes) {
       const w = routeNodeToWorldFloor(geom, n.position)
       if (w) idToPos.set(n.id, w)
     }
-    const segments: Array<[[number, number, number], [number, number, number]]> =
-      []
+    const segments: Array<
+      [[number, number, number], [number, number, number]]
+    > = []
     for (const e of graph.edges ?? []) {
       const a = idToPos.get(e.from_node_id)
       const b = idToPos.get(e.to_node_id)
@@ -281,7 +288,11 @@ function EquipmentMarkersLayer({
       {markers.map((m) => (
         <group key={m.id} position={m.pos}>
           <WarehouseEquipmentMesh kind={"forklift" as WarehouseEquipmentKind} />
-          <Html position={[0.6, 1.1, 0]} center style={{ pointerEvents: "none" }}>
+          <Html
+            position={[0.6, 1.1, 0]}
+            center
+            style={{ pointerEvents: "none" }}
+          >
             <div
               style={{
                 background: "rgba(15,23,42,0.88)",

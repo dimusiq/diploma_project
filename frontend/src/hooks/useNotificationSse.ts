@@ -91,7 +91,9 @@ export function useNotificationSse() {
           try {
             const payload = JSON.parse(raw) as { type?: string }
             if (payload?.type === "notifications_updated") {
-              safeInvalidateQueries(queryClient, { queryKey: ["notifications"] })
+              safeInvalidateQueries(queryClient, {
+                queryKey: ["notifications"],
+              })
             }
           } catch {
             /* ignore malformed */

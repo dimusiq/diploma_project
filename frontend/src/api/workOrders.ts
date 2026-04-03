@@ -197,13 +197,20 @@ export const workOrdersApi = {
     )
   },
 
-  events: (params: { from: string; to: string; skip?: number; limit?: number }) => {
+  events: (params: {
+    from: string
+    to: string
+    skip?: number
+    limit?: number
+  }) => {
     const q = new URLSearchParams()
     q.set("from", params.from)
     q.set("to", params.to)
     if (params.skip != null) q.set("skip", String(params.skip))
     if (params.limit != null) q.set("limit", String(params.limit))
-    return request<WorkOrderListResponse>(`/api/v1/work-orders/events?${q.toString()}`)
+    return request<WorkOrderListResponse>(
+      `/api/v1/work-orders/events?${q.toString()}`,
+    )
   },
 
   createFromMaintenanceEvent: (body: {

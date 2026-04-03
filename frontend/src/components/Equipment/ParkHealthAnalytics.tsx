@@ -163,22 +163,41 @@ export function ParkHealthAnalytics() {
   ])
 
   const maintenanceChartData = useMemo(() => {
-    const ok =
-      kpis.total - kpis.overdue - kpis.dueSoon
+    const ok = kpis.total - kpis.overdue - kpis.dueSoon
     return [
-      { name: "Просрочено ТО", value: kpis.overdue, fill: MAINTENANCE_STATUS_COLORS[0] },
-      { name: "Скоро ТО", value: kpis.dueSoon, fill: MAINTENANCE_STATUS_COLORS[1] },
+      {
+        name: "Просрочено ТО",
+        value: kpis.overdue,
+        fill: MAINTENANCE_STATUS_COLORS[0],
+      },
+      {
+        name: "Скоро ТО",
+        value: kpis.dueSoon,
+        fill: MAINTENANCE_STATUS_COLORS[1],
+      },
       { name: "Норма", value: ok, fill: MAINTENANCE_STATUS_COLORS[2] },
     ].filter((d) => d.value > 0)
   }, [kpis.overdue, kpis.dueSoon, kpis.total])
 
   const equipmentStatusChartData = useMemo(() => {
-    const active = equipmentList.filter((e) => e.current_status === "active").length
-    const maintenance = equipmentList.filter((e) => e.current_status === "maintenance").length
+    const active = equipmentList.filter(
+      (e) => e.current_status === "active",
+    ).length
+    const maintenance = equipmentList.filter(
+      (e) => e.current_status === "maintenance",
+    ).length
     const other = kpis.total - active - maintenance
     return [
-      { name: "В эксплуатации", value: active, fill: EQUIPMENT_STATUS_COLORS[0] },
-      { name: "На обслуживании", value: maintenance, fill: EQUIPMENT_STATUS_COLORS[1] },
+      {
+        name: "В эксплуатации",
+        value: active,
+        fill: EQUIPMENT_STATUS_COLORS[0],
+      },
+      {
+        name: "На обслуживании",
+        value: maintenance,
+        fill: EQUIPMENT_STATUS_COLORS[1],
+      },
       { name: "Прочее", value: other, fill: EQUIPMENT_STATUS_COLORS[2] },
     ].filter((d) => d.value > 0)
   }, [equipmentList, kpis.total])
@@ -310,7 +329,10 @@ export function ParkHealthAnalytics() {
                     </Pie>
                     <Tooltip
                       cursor={false}
-                      formatter={(value: number | undefined) => [value ?? 0, "ед. техники"]}
+                      formatter={(value: number | undefined) => [
+                        value ?? 0,
+                        "ед. техники",
+                      ]}
                     />
                     <Legend />
                   </PieChart>
@@ -351,7 +373,10 @@ export function ParkHealthAnalytics() {
                     </Pie>
                     <Tooltip
                       cursor={false}
-                      formatter={(value: number | undefined) => [value ?? 0, "ед. техники"]}
+                      formatter={(value: number | undefined) => [
+                        value ?? 0,
+                        "ед. техники",
+                      ]}
                     />
                     <Legend />
                   </PieChart>
@@ -371,8 +396,16 @@ export function ParkHealthAnalytics() {
         const barData = [
           { label: "Просрочено ТО", count: kpis.overdue, fill: "#e53e3e" },
           { label: "Скоро ТО", count: kpis.dueSoon, fill: "#d69e2e" },
-          { label: "На обслуживании", count: kpis.underMaintenance, fill: "#3182ce" },
-          { label: "Доступно", count: Math.max(0, kpis.total - kpis.underMaintenance), fill: "#38a169" },
+          {
+            label: "На обслуживании",
+            count: kpis.underMaintenance,
+            fill: "#3182ce",
+          },
+          {
+            label: "Доступно",
+            count: Math.max(0, kpis.total - kpis.underMaintenance),
+            fill: "#38a169",
+          },
         ]
         return (
           <Card className="mt-6">

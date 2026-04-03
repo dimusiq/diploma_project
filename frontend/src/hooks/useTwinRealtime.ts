@@ -104,20 +104,12 @@ function tagsForMessage(
       out.add("equipment")
       break
     case "alerts":
-      if (
-        currentUserId == null ||
-        uid == null ||
-        uid === currentUserId
-      ) {
+      if (currentUserId == null || uid == null || uid === currentUserId) {
         out.add("notifications")
       }
       break
     case "agent_runs":
-      if (
-        currentUserId == null ||
-        uid == null ||
-        uid === currentUserId
-      ) {
+      if (currentUserId == null || uid == null || uid === currentUserId) {
         out.add("warehouse-twin-summary")
       }
       break

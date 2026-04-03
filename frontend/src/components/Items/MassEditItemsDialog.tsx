@@ -128,7 +128,11 @@ export function MassEditItemsDialog({
         </DialogBody>
         <DialogFooter>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
               Отмена
             </Button>
             <Button

@@ -48,8 +48,7 @@ export const agentKnowledgeApi = {
     }),
 
   reindexAll: () =>
-    request<{ success: number; failed: number }>(
-      `${BASE}/chunks/reindex-all`,
-      { method: "POST" },
-    ),
+    request<{ success: number; failed: number }>(`${BASE}/chunks/reindex-all`, {
+      method: "POST",
+    }),
 }

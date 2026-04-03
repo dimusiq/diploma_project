@@ -29,13 +29,13 @@ import {
   DialogTitle,
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
-import { Input } from "@/components/ui/input.tsx"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   PaginationItems,
   PaginationNextTrigger,
@@ -286,7 +286,9 @@ function EquipmentMaintenanceRecordsList({
                     ? r.engine_hours_at_service
                     : "—"}
                 </TableCell>
-                <TableCell className="whitespace-normal">{r.comment ?? "—"}</TableCell>
+                <TableCell className="whitespace-normal">
+                  {r.comment ?? "—"}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -378,9 +380,7 @@ function RecordMaintenanceDialog({
           <PopoverBody>
             <div className="flex flex-col gap-3">
               <div>
-                <p className="mb-1 text-sm font-medium">
-                  Дата проведения ТО
-                </p>
+                <p className="mb-1 text-sm font-medium">Дата проведения ТО</p>
                 <Input
                   type="date"
                   value={performedAt}
@@ -390,9 +390,7 @@ function RecordMaintenanceDialog({
                 />
               </div>
               <div>
-                <p className="mb-1 text-sm font-medium">
-                  Интервал ТО (м/ч)
-                </p>
+                <p className="mb-1 text-sm font-medium">Интервал ТО (м/ч)</p>
                 <Input
                   type="number"
                   min={1}
@@ -845,15 +843,11 @@ export function MaintenanceScheduleTable() {
           </DropdownMenu>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            Статус:
-          </span>
+          <span className="text-sm text-muted-foreground">Статус:</span>
           <Select
             value={toSelectAll(statusFilter)}
             onValueChange={(v) =>
-              setStatusFilter(
-                (fromSelectAll(v) || "") as ScheduleStatus | "",
-              )
+              setStatusFilter((fromSelectAll(v) || "") as ScheduleStatus | "")
             }
           >
             <SelectTrigger className="h-9 min-w-[120px] text-sm">
@@ -867,9 +861,7 @@ export function MaintenanceScheduleTable() {
               <SelectItem value="ok">Норма</SelectItem>
             </SelectContent>
           </Select>
-          <span className="ml-2 text-sm text-muted-foreground">
-            Тип:
-          </span>
+          <span className="ml-2 text-sm text-muted-foreground">Тип:</span>
           <Select
             value={toSelectAll(typeFilter)}
             onValueChange={(v) => setTypeFilter(fromSelectAll(v))}
@@ -969,7 +961,9 @@ export function MaintenanceScheduleTable() {
       />
 
       {filteredRows.length === 0 ? (
-        <p className="text-muted-foreground">Нет техники по выбранным фильтрам.</p>
+        <p className="text-muted-foreground">
+          Нет техники по выбранным фильтрам.
+        </p>
       ) : (
         <div>
           <Table>
@@ -1208,9 +1202,7 @@ export function MaintenanceScheduleTable() {
               )}
             </TableBody>
           </Table>
-          <div
-            className="mt-4 flex flex-wrap items-center justify-between gap-3"
-          >
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-muted-foreground">
               {`Строки ${rangeStart}–${rangeEnd} из ${filteredCount}${
                 filteredCount !== totalRows

@@ -15,10 +15,7 @@ type SkeletonLegacySpace = {
   mt?: number
 }
 
-export type SkeletonProps = Omit<
-  React.ComponentProps<"div">,
-  "children"
-> &
+export type SkeletonProps = Omit<React.ComponentProps<"div">, "children"> &
   SkeletonLegacySpace & {
     ref?: React.Ref<HTMLDivElement>
   }
@@ -77,11 +74,7 @@ export function Skeleton({
     <div
       ref={ref}
       data-slot="skeleton"
-      className={cn(
-        "animate-pulse rounded-md bg-accent",
-        cls,
-        className,
-      )}
+      className={cn("animate-pulse rounded-md bg-accent", cls, className)}
       style={Object.keys(st).length ? st : undefined}
       {...props}
     />

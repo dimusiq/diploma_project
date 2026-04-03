@@ -45,9 +45,7 @@ function PolicyEditor({ row }: { row: AgentPolicyPublic }) {
   })
   return (
     <div className="mb-8 rounded-md border border-border p-4">
-      <h3 className="font-heading mb-1 text-sm font-semibold">
-        {row.title}
-      </h3>
+      <h3 className="font-heading mb-1 text-sm font-semibold">{row.title}</h3>
       <p className="mb-2 text-xs text-muted-foreground">
         code: {row.code} · обновлено {formatDt(row.updated_at)}
       </p>
@@ -91,14 +89,15 @@ export function AgentGovernanceAdmin() {
         Политики и безопасность агента
       </h2>
       <p className="mb-4 text-sm text-muted-foreground">
-        Запись в БД <code>agent_policy</code> (например deny_tools, allow_act_tools).
-        Изменения влияют на вызов инструментов на сервере.
+        Запись в БД <code>agent_policy</code> (например deny_tools,
+        allow_act_tools). Изменения влияют на вызов инструментов на сервере.
       </p>
       {polQ.isPending ? (
         <p className="text-sm">Загрузка политик…</p>
       ) : polQ.isError ? (
         <p className="text-sm text-destructive">
-          Нет доступа или ошибка загрузки политик (нужно право agent.policies.read).
+          Нет доступа или ошибка загрузки политик (нужно право
+          agent.policies.read).
         </p>
       ) : (
         polQ.data?.data.map((p) => <PolicyEditor key={p.id} row={p} />)

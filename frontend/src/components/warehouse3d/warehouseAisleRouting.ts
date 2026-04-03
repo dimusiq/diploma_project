@@ -14,7 +14,10 @@ import {
 const EPS = 0.02
 
 /** Z центра прохода перед рядом (внешняя сторона блока стеллажей). */
-export function pickLaneWorldZ(geom: WarehouseGeometry, rowIndex: number): number {
+export function pickLaneWorldZ(
+  geom: WarehouseGeometry,
+  rowIndex: number,
+): number {
   const p = Math.floor(rowIndex / 2)
   const inPair = rowIndex % 2
   const blockStart = -geom.totalZ / 2 + p * (geom.blockWidth + PASSAGE_WIDTH)
@@ -99,7 +102,12 @@ export function buildAisleRoutePolyline(
   const out: Vector3[] = []
   out.push(stagingPointOnFloor(geom, waypoints[0], floorY))
   for (let i = 1; i < waypoints.length; i++) {
-    const seg = segmentThroughAisles(geom, waypoints[i - 1], waypoints[i], floorY)
+    const seg = segmentThroughAisles(
+      geom,
+      waypoints[i - 1],
+      waypoints[i],
+      floorY,
+    )
     for (let k = 1; k < seg.length; k++) {
       appendUnique(out, seg[k])
     }

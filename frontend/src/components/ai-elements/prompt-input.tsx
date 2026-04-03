@@ -15,8 +15,8 @@ import {
 } from "lucide-react"
 import * as React from "react"
 import {
-  createContext,
   type ComponentProps,
+  createContext,
   type FormEvent,
   type ReactNode,
   useCallback,
@@ -36,17 +36,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupTextareaWrap,
+} from "@/components/ui/input-group.tsx"
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupTextareaWrap,
-} from "@/components/ui/input-group.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
 import {
   Tooltip,
@@ -144,10 +144,7 @@ type PromptInputProps = Omit<
   accept?: string
   maxFiles?: number
   maxFileSize?: number
-  onError?: (err: {
-    code: PromptInputErrorCode
-    message: string
-  }) => void
+  onError?: (err: { code: PromptInputErrorCode; message: string }) => void
 }
 
 export function PromptInput({
@@ -382,11 +379,10 @@ export function PromptInputBody({
   return <InputGroupTextareaWrap className={className} {...props} />
 }
 
-export type PromptInputTextareaProps =
-  React.ComponentProps<typeof Textarea> & {
-    minRows?: number
-    maxHeightPx?: number
-  }
+export type PromptInputTextareaProps = React.ComponentProps<typeof Textarea> & {
+  minRows?: number
+  maxHeightPx?: number
+}
 
 export const PromptInputTextarea = React.forwardRef<
   HTMLTextAreaElement,
@@ -409,12 +405,14 @@ export const PromptInputTextarea = React.forwardRef<
       innerRef.current = el
       if (typeof forwardedRef === "function") forwardedRef(el)
       else if (forwardedRef)
-        (forwardedRef as React.MutableRefObject<HTMLTextAreaElement | null>).current =
-          el
+        (
+          forwardedRef as React.MutableRefObject<HTMLTextAreaElement | null>
+        ).current = el
     },
     [forwardedRef],
   )
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: controlled `value` задаёт scrollHeight textarea
   useLayoutEffect(() => {
     const el = innerRef.current
     if (!el) return
@@ -541,7 +539,11 @@ export function PromptInputActionMenuContent({
   ...props
 }: ComponentProps<typeof DropdownMenuContent>) {
   return (
-    <DropdownMenuContent className={cn("min-w-[12rem]", className)} align={align} {...props} />
+    <DropdownMenuContent
+      className={cn("min-w-[12rem]", className)}
+      align={align}
+      {...props}
+    />
   )
 }
 
@@ -727,9 +729,7 @@ export function PromptInputSubmit({
   ...props
 }: PromptInputSubmitProps) {
   const busy =
-    Boolean(loading) ||
-    status === "streaming" ||
-    status === "submitted"
+    Boolean(loading) || status === "streaming" || status === "submitted"
 
   const icon =
     status === "error" ? (
@@ -746,10 +746,7 @@ export function PromptInputSubmit({
       variant="default"
       data-slot="prompt-input-submit"
       disabled={disabled}
-      className={cn(
-        "shrink-0 rounded-md p-0 shadow-none",
-        className,
-      )}
+      className={cn("shrink-0 rounded-md p-0 shadow-none", className)}
       size="icon-sm"
       {...props}
     >
@@ -809,16 +806,14 @@ export function PromptInputAttachments({
   const { attachmentListId } = usePromptInputIds()
   if (files.length === 0) return null
   return (
-    <div
+    <ul
       id={attachmentListId}
-      role="list"
       data-slot="prompt-input-attachments-legacy"
-      className={cn("flex flex-wrap gap-2", className)}
+      className={cn("flex list-none flex-wrap gap-2 p-0", className)}
     >
       {files.map((file, i) => (
-        <span
+        <li
           key={`${file.name}-${file.size}-${i}`}
-          role="listitem"
           className="inline-flex max-w-full items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
         >
           <span className="truncate" title={file.name}>
@@ -835,8 +830,8 @@ export function PromptInputAttachments({
           >
             <XIcon className="size-3.5" />
           </button>
-        </span>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }

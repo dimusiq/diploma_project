@@ -74,7 +74,9 @@ export function CreateWorkOrderDialog({
       setDueAt("")
     },
     onError: (err) => {
-      toast.showErrorToast(err instanceof Error ? err.message : "Ошибка создания заявки")
+      toast.showErrorToast(
+        err instanceof Error ? err.message : "Ошибка создания заявки",
+      )
     },
   })
 
@@ -106,124 +108,120 @@ export function CreateWorkOrderDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody>
-          <div className="flex flex-col gap-3">
-            <div>
-              <p className="mb-1 text-sm font-medium">
-                Техника
-              </p>
-              <Select
-                value={toSelectAll(equipmentId)}
-                onValueChange={(v) => setEquipmentId(fromSelectAll(v))}
-              >
-                <SelectTrigger className="h-9 w-full text-sm">
-                  <SelectValue placeholder="— Выберите технику —" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SELECT_ALL_VALUE}>
-                    — Выберите технику —
-                  </SelectItem>
-                  {equipmentList.map((eq) => (
-                    <SelectItem key={eq.id} value={eq.id}>
-                      {[eq.brand_name, eq.model].filter(Boolean).join(" ")}{" "}
-                      {eq.garage_number ? `(${eq.garage_number})` : ""}
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="mb-1 text-sm font-medium">Техника</p>
+                <Select
+                  value={toSelectAll(equipmentId)}
+                  onValueChange={(v) => setEquipmentId(fromSelectAll(v))}
+                >
+                  <SelectTrigger className="h-9 w-full text-sm">
+                    <SelectValue placeholder="— Выберите технику —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECT_ALL_VALUE}>
+                      — Выберите технику —
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium">
-                Заголовок
-              </p>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Краткое описание заявки"
-                maxLength={256}
-                className="h-8 text-sm"
-              />
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium">
-                Описание (необязательно)
-              </p>
-              <Input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Подробности"
-                className="h-8 text-sm"
-              />
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium">
-                Приоритет
-              </p>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger className="h-9 w-full text-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(WORK_ORDER_PRIORITY_LABELS).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>
-                      {v}
+                    {equipmentList.map((eq) => (
+                      <SelectItem key={eq.id} value={eq.id}>
+                        {[eq.brand_name, eq.model].filter(Boolean).join(" ")}{" "}
+                        {eq.garage_number ? `(${eq.garage_number})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">Заголовок</p>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Краткое описание заявки"
+                  maxLength={256}
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
+                  Описание (необязательно)
+                </p>
+                <Input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Подробности"
+                  className="h-8 text-sm"
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">Приоритет</p>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger className="h-9 w-full text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(WORK_ORDER_PRIORITY_LABELS).map(
+                      ([k, v]) => (
+                        <SelectItem key={k} value={k}>
+                          {v}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
+                  Исполнитель (необязательно)
+                </p>
+                <Select
+                  value={toSelectAll(assignedToId)}
+                  onValueChange={(v) => setAssignedToId(fromSelectAll(v))}
+                >
+                  <SelectTrigger className="h-9 w-full text-sm">
+                    <SelectValue placeholder="Исполнитель" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECT_ALL_VALUE}>
+                      — Не назначен —
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.full_name || u.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">Срок (необязательно)</p>
+                <Input
+                  type="date"
+                  value={dueAt}
+                  onChange={(e) => setDueAt(e.target.value)}
+                  className="h-8 text-sm"
+                />
+              </div>
             </div>
-            <div>
-              <p className="mb-1 text-sm font-medium">
-                Исполнитель (необязательно)
-              </p>
-              <Select
-                value={toSelectAll(assignedToId)}
-                onValueChange={(v) => setAssignedToId(fromSelectAll(v))}
-              >
-                <SelectTrigger className="h-9 w-full text-sm">
-                  <SelectValue placeholder="Исполнитель" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SELECT_ALL_VALUE}>— Не назначен —</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.full_name || u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <p className="mb-1 text-sm font-medium">
-                Срок (необязательно)
-              </p>
-              <Input
-                type="date"
-                value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-                className="h-8 text-sm"
-              />
-            </div>
-          </div>
-        </DialogBody>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-          >
-            Отмена
-          </Button>
-          <Button
-            type="submit"
-            variant="solid"
-            size="sm"
-            loading={createMutation.isPending}
-            disabled={createMutation.isPending}
-          >
-            Создать
-          </Button>
-        </DialogFooter>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
+              Отмена
+            </Button>
+            <Button
+              type="submit"
+              variant="solid"
+              size="sm"
+              loading={createMutation.isPending}
+              disabled={createMutation.isPending}
+            >
+              Создать
+            </Button>
+          </DialogFooter>
         </form>
       </DialogContent>
     </DialogRoot>

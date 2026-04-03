@@ -19,10 +19,13 @@ function mapPlacement(placement?: string): {
   align: "start" | "center" | "end"
 } {
   if (!placement) return { side: "bottom", align: "center" }
-  const [sideRaw, alignRaw] = placement.split("-") as [string, string | undefined]
-  const side = (["top", "bottom", "left", "right"].includes(sideRaw)
-    ? sideRaw
-    : "bottom") as "top" | "bottom" | "left" | "right"
+  const [sideRaw, alignRaw] = placement.split("-") as [
+    string,
+    string | undefined,
+  ]
+  const side = (
+    ["top", "bottom", "left", "right"].includes(sideRaw) ? sideRaw : "bottom"
+  ) as "top" | "bottom" | "left" | "right"
   let align: "start" | "center" | "end" = "center"
   if (alignRaw === "start") align = "start"
   else if (alignRaw === "end") align = "end"
@@ -212,7 +215,10 @@ export function PopoverFooter({
   return (
     <div
       data-slot="popover-footer"
-      className={cn("mt-4 flex flex-row flex-wrap justify-end gap-2", className)}
+      className={cn(
+        "mt-4 flex flex-row flex-wrap justify-end gap-2",
+        className,
+      )}
       {...props}
     />
   )

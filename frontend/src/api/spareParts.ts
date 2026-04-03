@@ -61,8 +61,7 @@ export const sparePartsApi = {
     )
   },
 
-  get: (id: string) =>
-    request<SparePartPublic>(`/api/v1/spare-parts/${id}`),
+  get: (id: string) => request<SparePartPublic>(`/api/v1/spare-parts/${id}`),
 
   create: (body: SparePartCreate) =>
     request<SparePartPublic>("/api/v1/spare-parts/", {

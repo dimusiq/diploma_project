@@ -268,7 +268,12 @@ const EditUser = ({ user }: EditUserProps) => {
                 Отменить
               </Button>
             </DialogActionTrigger>
-            <Button variant="solid" size="sm" type="submit" loading={isSubmitting}>
+            <Button
+              variant="solid"
+              size="sm"
+              type="submit"
+              loading={isSubmitting}
+            >
               Сохранить
             </Button>
           </DialogFooter>

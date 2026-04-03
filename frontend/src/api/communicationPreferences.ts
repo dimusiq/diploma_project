@@ -39,4 +39,3 @@ export const communicationPreferencesApi = {
       { method: "PUT", body },
     ),
 }
-

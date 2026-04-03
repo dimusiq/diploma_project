@@ -63,8 +63,8 @@ function WarehouseTwinPage() {
       </h1>
       <p className="mb-8 text-sm text-muted-foreground">
         Сводка по вашим правам на товары и ячейки. События домена за 7 дней —
-        только при праве просмотра аудита. Уведомления по порогам (ряд, занятость)
-        подтягиваются при открытии центра уведомлений (
+        только при праве просмотра аудита. Уведомления по порогам (ряд,
+        занятость) подтягиваются при открытии центра уведомлений (
         <code>TWIN_NOTIFICATION_*</code> в настройках API).
       </p>
 
@@ -76,8 +76,8 @@ function WarehouseTwinPage() {
             Что если (упрощённая модель)
           </h2>
           <p className="mb-3 text-sm text-muted-foreground">
-            Добавить условные единицы товара в ряд (1 единица ≈ 1 ячейка). Занятость
-            не превышает ёмкость layout.
+            Добавить условные единицы товара в ряд (1 единица ≈ 1 ячейка).
+            Занятость не превышает ёмкость layout.
           </p>
           <div className="flex flex-wrap items-end gap-2">
             <div>
@@ -139,8 +139,12 @@ function WarehouseTwinPage() {
           <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Товаров на складе</p>
-                <p className="text-2xl font-bold">{data.warehouse_items_total}</p>
+                <p className="text-sm text-muted-foreground">
+                  Товаров на складе
+                </p>
+                <p className="text-2xl font-bold">
+                  {data.warehouse_items_total}
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -168,7 +172,9 @@ function WarehouseTwinPage() {
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground">Заполнение ёмкости</p>
+                <p className="text-sm text-muted-foreground">
+                  Заполнение ёмкости
+                </p>
                 <p className="text-2xl font-bold">
                   {data.slot_utilization_ratio != null
                     ? `${Math.round(data.slot_utilization_ratio * 100)}%`
@@ -248,8 +254,7 @@ function statusBadgeClass(status: TwinConnectionStatus): {
     case "offline":
       return {
         label: "SSE: нет соединения",
-        className:
-          "border-destructive/40 bg-destructive/10 text-destructive",
+        className: "border-destructive/40 bg-destructive/10 text-destructive",
       }
     default:
       return {
@@ -280,14 +285,16 @@ function TwinLiveFeedPanel() {
           </span>
         </div>
         <p className="mb-3 text-sm text-muted-foreground">
-          Поток событий с сервера: <code>GET /api/v1/twin/stream</code> (все каналы,
-          replay). Карточки и графики ниже обновляются через React Query при событиях
-          (занятость, телеметрия, интеграции → <code>telemetry</code> и др.). Тот же
-          контракт доступен по WebSocket <code>/api/v1/twin/ws</code>.
+          Поток событий с сервера: <code>GET /api/v1/twin/stream</code> (все
+          каналы, replay). Карточки и графики ниже обновляются через React Query
+          при событиях (занятость, телеметрия, интеграции →{" "}
+          <code>telemetry</code> и др.). Тот же контракт доступен по WebSocket{" "}
+          <code>/api/v1/twin/ws</code>.
         </p>
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Пока нет событий с каналами (или идёт replay только служебных сообщений).
+            Пока нет событий с каналами (или идёт replay только служебных
+            сообщений).
           </p>
         ) : (
           <ul

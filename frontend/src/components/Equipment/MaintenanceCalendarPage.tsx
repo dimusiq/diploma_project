@@ -50,10 +50,15 @@ export function MaintenanceCalendarPage() {
     queryFn: () => UsersService.readUsers({ skip: 0, limit: 200 }),
   })
 
-  const users = (usersData?.data ?? []) as { id: string; full_name: string | null; email: string }[]
+  const users = (usersData?.data ?? []) as {
+    id: string
+    full_name: string | null
+    email: string
+  }[]
 
   const [dropDialogOpen, setDropDialogOpen] = useState(false)
-  const [pendingDrop, setPendingDrop] = useState<MaintenanceEventDropArgs | null>(null)
+  const [pendingDrop, setPendingDrop] =
+    useState<MaintenanceEventDropArgs | null>(null)
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>("")
 
   const openDropDialog = (args: MaintenanceEventDropArgs) => {
@@ -74,11 +79,14 @@ export function MaintenanceCalendarPage() {
       const assigned_to_id = selectedAssigneeId ? selectedAssigneeId : null
 
       if (pendingDrop.target_work_order_id) {
-        const updated = await workOrdersApi.update(pendingDrop.target_work_order_id, {
-          start_at: pendingDrop.start_at,
-          end_at: pendingDrop.end_at,
-          assigned_to_id,
-        })
+        const updated = await workOrdersApi.update(
+          pendingDrop.target_work_order_id,
+          {
+            start_at: pendingDrop.start_at,
+            end_at: pendingDrop.end_at,
+            assigned_to_id,
+          },
+        )
         return updated
       }
 
@@ -93,13 +101,17 @@ export function MaintenanceCalendarPage() {
     },
     onSuccess: (order: WorkOrderDetailPublic | any) => {
       queryClient.invalidateQueries({ queryKey: ["work-orders", "events"] })
-      queryClient.invalidateQueries({ queryKey: ["maintenance-calendar-events"] })
+      queryClient.invalidateQueries({
+        queryKey: ["maintenance-calendar-events"],
+      })
       queryClient.invalidateQueries({ queryKey: ["work-order", order.id] })
 
       setSelectedWorkOrderId(order.id)
       setDrawerOpen(true)
       toast.showSuccessToast(
-        pendingDrop?.target_work_order_id ? "Заявка перенесена" : "Заявка создана из календаря ТО",
+        pendingDrop?.target_work_order_id
+          ? "Заявка перенесена"
+          : "Заявка создана из календаря ТО",
       )
 
       setDropDialogOpen(false)
@@ -107,7 +119,9 @@ export function MaintenanceCalendarPage() {
     },
     onError: (err) => {
       toast.showErrorToast(
-        err instanceof Error ? err.message : "Не удалось создать/перенести заявку",
+        err instanceof Error
+          ? err.message
+          : "Не удалось создать/перенести заявку",
       )
     },
   })
@@ -126,7 +140,10 @@ export function MaintenanceCalendarPage() {
         />
       ) : null}
 
-      <DialogRoot open={dropDialogOpen} onOpenChange={(e) => (e.open ? null : onCancel())}>
+      <DialogRoot
+        open={dropDialogOpen}
+        onOpenChange={(e) => (e.open ? null : onCancel())}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Назначение и подтверждение</DialogTitle>
@@ -143,7 +160,9 @@ export function MaintenanceCalendarPage() {
                 <SelectValue placeholder="Исполнитель" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SELECT_ALL_VALUE}>— Не назначен —</SelectItem>
+                <SelectItem value={SELECT_ALL_VALUE}>
+                  — Не назначен —
+                </SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.full_name || u.email}
@@ -154,7 +173,12 @@ export function MaintenanceCalendarPage() {
           </DialogBody>
           <DialogFooter>
             <div className="flex w-full items-center justify-between">
-              <Button variant="outline" size="sm" onClick={onCancel} disabled={createOrRescheduleMutation.isPending}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onCancel}
+                disabled={createOrRescheduleMutation.isPending}
+              >
                 Отмена
               </Button>
               <Button

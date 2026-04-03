@@ -7,13 +7,13 @@ import { cn } from "@/lib/utils.ts"
 /**
  * Группа ввода (shadcn / AI Elements): общая рамка, фокус по контролу, аддоны по краям.
  */
-function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
+function InputGroup({ className, ...props }: React.ComponentProps<"fieldset">) {
   return (
-    <div
-      role="group"
+    <fieldset
       data-slot="input-group"
       className={cn(
-        "group/input-group border-input bg-background dark:bg-input/30 relative flex w-full min-w-0 flex-col items-stretch overflow-hidden rounded-md border shadow-xs transition-[color,box-shadow] outline-none",
+        "m-0 min-w-0 p-0",
+        "group/input-group border-input bg-background dark:bg-input/30 relative flex w-full min-w-0 flex-col items-stretch overflow-hidden rounded-md border border-solid shadow-xs transition-[color,box-shadow] outline-none",
         "has-[>textarea]:h-auto",
         "has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-[3px] has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50",
         "has-[[data-slot=input-group-control][aria-invalid=true]]:border-destructive has-[[data-slot=input-group-control][aria-invalid=true]]:ring-destructive/20 dark:has-[[data-slot=input-group-control][aria-invalid=true]]:ring-destructive/40",
@@ -39,7 +39,6 @@ function InputGroupAddon({
 }) {
   return (
     <div
-      role="group"
       data-slot="input-group-addon"
       data-align={align}
       className={cn(

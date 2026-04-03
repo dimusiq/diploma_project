@@ -71,7 +71,7 @@ export function AgentChatLogsAdmin() {
                   </span>
                 </TableCell>
                 <TableCell className="text-xs">
-                  {row.llm_available ? row.model ?? "да" : "нет"}
+                  {row.llm_available ? (row.model ?? "да") : "нет"}
                 </TableCell>
               </TableRow>
             ))}

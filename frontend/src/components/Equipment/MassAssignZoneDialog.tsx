@@ -105,7 +105,9 @@ export function MassAssignZoneDialog({
                 <SelectValue placeholder="Зона" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={SELECT_ALL_VALUE}>— Не назначена —</SelectItem>
+                <SelectItem value={SELECT_ALL_VALUE}>
+                  — Не назначена —
+                </SelectItem>
                 {zones.map((z) => (
                   <SelectItem key={z.id} value={z.id}>
                     {z.name}
@@ -118,7 +120,11 @@ export function MassAssignZoneDialog({
         <DialogFooter>
           <div className="flex flex-wrap gap-2">
             <DialogActionTrigger asChild>
-              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenChange(false)}
+              >
                 Отмена
               </Button>
             </DialogActionTrigger>

@@ -59,13 +59,8 @@ function WarehouseTasksPage() {
   })
 
   const patchMut = useMutation({
-    mutationFn: ({
-      id,
-      status,
-    }: {
-      id: string
-      status: string
-    }) => patchWarehouseTask(id, { status }),
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      patchWarehouseTask(id, { status }),
     onSuccess: () => {
       showSuccessToast("Задание обновлено")
       void qc.invalidateQueries({ queryKey: ["warehouse-tasks"] })

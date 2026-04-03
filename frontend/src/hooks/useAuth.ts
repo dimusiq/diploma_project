@@ -10,7 +10,11 @@ import {
   type UserRegister,
   UsersService,
 } from "@/client/index.ts"
-import { hasAccessToken, removeAccessToken, setAccessToken } from "@/lib/authStorage.ts"
+import {
+  hasAccessToken,
+  removeAccessToken,
+  setAccessToken,
+} from "@/lib/authStorage.ts"
 import { handleError } from "@/utils.ts"
 
 const isLoggedIn = () => hasAccessToken()
@@ -42,9 +46,7 @@ const useAuth = () => {
     },
   })
 
-  const login = async (
-    data: AccessToken & { remember?: boolean },
-  ) => {
+  const login = async (data: AccessToken & { remember?: boolean }) => {
     const response = await LoginService.loginAccessToken({
       formData: data,
     })
