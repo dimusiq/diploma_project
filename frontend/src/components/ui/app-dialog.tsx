@@ -1,5 +1,7 @@
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import * as React from "react"
+"use client"
+
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import type * as React from "react"
 import { createContext, useContext } from "react"
 
 import { cn } from "@/lib/utils.ts"
@@ -45,7 +47,7 @@ function sizeToMaxWidthClass(
 }
 
 export type DialogRootCompatProps = Omit<
-  DialogPrimitive.Root.Props,
+  React.ComponentProps<typeof DialogPrimitive.Root>,
   "onOpenChange"
 > & {
   /** Chakra-style handler */
@@ -77,7 +79,7 @@ export function DialogRoot({
 }
 
 interface DialogContentProps
-  extends Omit<DialogPrimitive.Popup.Props, "ref"> {
+  extends Omit<React.ComponentProps<typeof DialogPrimitive.Content>, "ref"> {
   ref?: React.Ref<HTMLDivElement>
   portalled?: boolean
   portalRef?: React.RefObject<HTMLElement | null>
@@ -100,26 +102,26 @@ export function DialogContent({
   const popup = (
     <>
       {backdrop && (
-        <DialogPrimitive.Backdrop
+        <DialogPrimitive.Overlay
           data-slot="chakra-compat-dialog-backdrop"
           className={cn(
-            "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+            "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
           )}
         />
       )}
-      <DialogPrimitive.Popup
+      <DialogPrimitive.Content
         ref={ref}
         data-slot="chakra-compat-dialog-content"
         role={popupRole}
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid max-h-[min(90vh,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid max-h-[min(90vh,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           maxW,
           className,
         )}
         {...rest}
       >
         {children}
-      </DialogPrimitive.Popup>
+      </DialogPrimitive.Content>
     </>
   )
 
@@ -128,7 +130,7 @@ export function DialogContent({
   }
 
   return (
-    <DialogPrimitive.Portal container={portalRef ?? undefined}>
+    <DialogPrimitive.Portal container={portalRef?.current ?? undefined}>
       {popup}
     </DialogPrimitive.Portal>
   )
@@ -138,16 +140,12 @@ export function DialogCloseTrigger({
   children,
   className,
   ...props
-}: DialogPrimitive.Close.Props) {
+}: React.ComponentProps<typeof DialogPrimitive.Close>) {
   return (
-    <DialogPrimitive.Close
-      data-slot="chakra-compat-dialog-close-trigger"
-      render={
-        <CloseButton className={cn("absolute top-2 right-2", className)} />
-      }
-      {...props}
-    >
-      {children ?? <span className="sr-only">Закрыть</span>}
+    <DialogPrimitive.Close data-slot="chakra-compat-dialog-close-trigger" asChild {...props}>
+      <CloseButton className={cn("absolute top-2 right-2", className)}>
+        {children}
+      </CloseButton>
     </DialogPrimitive.Close>
   )
 }
@@ -209,7 +207,7 @@ export function DialogBody({
 export function DialogTitle({
   className,
   ...props
-}: DialogPrimitive.Title.Props) {
+}: React.ComponentProps<typeof DialogPrimitive.Title>) {
   return (
     <DialogPrimitive.Title
       className={cn(
@@ -224,7 +222,7 @@ export function DialogTitle({
 export function DialogDescription({
   className,
   ...props
-}: DialogPrimitive.Description.Props) {
+}: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
       className={cn("text-sm text-muted-foreground", className)}
@@ -234,10 +232,10 @@ export function DialogDescription({
 }
 
 export function DialogBackdrop(
-  props: DialogPrimitive.Backdrop.Props,
+  props: React.ComponentProps<typeof DialogPrimitive.Overlay>,
 ) {
   return (
-    <DialogPrimitive.Backdrop
+    <DialogPrimitive.Overlay
       data-slot="chakra-compat-dialog-backdrop-only"
       className={cn(
         "fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs",
@@ -252,19 +250,15 @@ export function DialogTrigger({
   asChild,
   children,
   ...props
-}: DialogPrimitive.Trigger.Props & { asChild?: boolean }) {
-  if (asChild && React.isValidElement(children)) {
-    return (
-      <DialogPrimitive.Trigger
-        data-slot="chakra-compat-dialog-trigger"
-        nativeButton={false}
-        render={children as React.ReactElement<Record<string, unknown>>}
-        {...props}
-      />
-    )
-  }
+}: React.ComponentProps<typeof DialogPrimitive.Trigger> & {
+  asChild?: boolean
+}) {
   return (
-    <DialogPrimitive.Trigger data-slot="chakra-compat-dialog-trigger" {...props}>
+    <DialogPrimitive.Trigger
+      data-slot="chakra-compat-dialog-trigger"
+      asChild={asChild}
+      {...props}
+    >
       {children}
     </DialogPrimitive.Trigger>
   )
@@ -274,19 +268,15 @@ export function DialogActionTrigger({
   asChild,
   children,
   ...props
-}: DialogPrimitive.Close.Props & { asChild?: boolean }) {
-  if (asChild && React.isValidElement(children)) {
-    return (
-      <DialogPrimitive.Close
-        data-slot="chakra-compat-dialog-action-trigger"
-        nativeButton={false}
-        render={children as React.ReactElement<Record<string, unknown>>}
-        {...props}
-      />
-    )
-  }
+}: React.ComponentProps<typeof DialogPrimitive.Close> & {
+  asChild?: boolean
+}) {
   return (
-    <DialogPrimitive.Close data-slot="chakra-compat-dialog-action-trigger" {...props}>
+    <DialogPrimitive.Close
+      data-slot="chakra-compat-dialog-action-trigger"
+      asChild={asChild}
+      {...props}
+    >
       {children}
     </DialogPrimitive.Close>
   )

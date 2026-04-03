@@ -1,12 +1,12 @@
 "use client"
 
-import { Menu as MenuPrimitive } from "@base-ui/react/menu"
-import * as React from "react"
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+import type * as React from "react"
 
 import { cn } from "@/lib/utils.ts"
 
 export type MenuRootProps = Omit<
-  MenuPrimitive.Root.Props,
+  React.ComponentProps<typeof DropdownMenuPrimitive.Root>,
   "onOpenChange"
 > & {
   onOpenChange?: (details: { open: boolean }) => void
@@ -14,7 +14,7 @@ export type MenuRootProps = Omit<
 
 export function MenuRoot({ onOpenChange, ...rest }: MenuRootProps) {
   return (
-    <MenuPrimitive.Root
+    <DropdownMenuPrimitive.Root
       data-slot="menu-root"
       onOpenChange={(open) => onOpenChange?.({ open })}
       {...rest}
@@ -26,25 +26,25 @@ export function MenuTrigger({
   asChild,
   children,
   ...props
-}: MenuPrimitive.Trigger.Props & { asChild?: boolean }) {
-  if (asChild && React.isValidElement(children)) {
-    return (
-      <MenuPrimitive.Trigger
-        data-slot="menu-trigger"
-        nativeButton={false}
-        render={children as React.ReactElement<Record<string, unknown>>}
-        {...props}
-      />
-    )
-  }
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Trigger> & {
+  asChild?: boolean
+}) {
   return (
-    <MenuPrimitive.Trigger data-slot="menu-trigger" {...props}>
+    <DropdownMenuPrimitive.Trigger
+      data-slot="menu-trigger"
+      asChild={asChild}
+      {...props}
+    >
       {children}
-    </MenuPrimitive.Trigger>
+    </DropdownMenuPrimitive.Trigger>
   )
 }
 
-interface MenuContentProps extends Omit<MenuPrimitive.Popup.Props, "ref"> {
+interface MenuContentProps
+  extends Omit<
+    React.ComponentProps<typeof DropdownMenuPrimitive.Content>,
+    "ref"
+  > {
   ref?: React.Ref<HTMLDivElement>
   portalled?: boolean
   portalRef?: React.RefObject<HTMLElement | null>
@@ -69,37 +69,36 @@ export function MenuContent({
   borderWidth: _bw,
   borderColor: _bc,
   boxShadow: _bs,
+  side = "bottom",
+  align = "start",
+  sideOffset = 4,
   ...rest
 }: MenuContentProps) {
-  const inner = (
-    <MenuPrimitive.Positioner
-      className="isolate z-50 outline-none"
-      side="bottom"
-      align="start"
-      sideOffset={4}
+  const content = (
+    <DropdownMenuPrimitive.Content
+      ref={ref}
+      data-slot="menu-content"
+      side={side}
+      align={align}
+      sideOffset={sideOffset}
+      className={cn(
+        "z-50 max-h-[var(--radix-popper-available-height)] min-w-32 origin-[var(--radix-popper-transform-origin)] overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+        className,
+      )}
+      {...rest}
     >
-      <MenuPrimitive.Popup
-        ref={ref}
-        data-slot="menu-content"
-        className={cn(
-          "max-h-(--available-height) min-w-32 origin-(--transform-origin) overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className,
-        )}
-        {...rest}
-      >
-        {children}
-      </MenuPrimitive.Popup>
-    </MenuPrimitive.Positioner>
+      {children}
+    </DropdownMenuPrimitive.Content>
   )
 
   if (!portalled) {
-    return inner
+    return content
   }
 
   return (
-    <MenuPrimitive.Portal container={portalRef ?? undefined}>
-      {inner}
-    </MenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={portalRef?.current ?? undefined}>
+      {content}
+    </DropdownMenuPrimitive.Portal>
   )
 }
 
@@ -123,9 +122,10 @@ export function MenuItem({
   opacity,
   cursor: _cursor,
   ...rest
-}: MenuPrimitive.Item.Props & ChakraMenuItemLegacy) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Item> &
+  ChakraMenuItemLegacy) {
   return (
-    <MenuPrimitive.Item
+    <DropdownMenuPrimitive.Item
       data-slot="menu-item"
       className={cn(
         "flex cursor-default items-center rounded-md text-sm outline-none select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50",

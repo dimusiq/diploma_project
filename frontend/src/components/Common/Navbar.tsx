@@ -5,8 +5,8 @@ import { FaRobot } from "react-icons/fa"
 import { fetchAgentPermissions } from "@/api/agent.ts"
 import { buttonVariants } from "@/components/ui/button.tsx"
 import { ColorModeButton } from "@/components/ui/color-mode.tsx"
+import { SidebarTrigger } from "@/components/ui/sidebar.tsx"
 import { cn } from "@/lib/utils"
-import Logo from "/images/nebardak-logo.svg"
 import { NotificationCenter } from "./NotificationCenter.tsx"
 import UserMenu from "./UserMenu.tsx"
 
@@ -20,13 +20,13 @@ function Navbar() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 hidden w-full items-center justify-between bg-muted/95 p-4 text-foreground backdrop-blur md:flex",
+        "sticky top-0 z-40 flex w-full shrink-0 items-center justify-between gap-2 border-b border-border bg-muted/95 p-3 text-foreground backdrop-blur md:p-4",
       )}
     >
-      <Link to="/">
-        <img src={Logo} alt="Nebardak" className="max-w-[10rem] p-2" />
-      </Link>
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <SidebarTrigger className="-ml-1" />
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
         {showAssistant ? (
           <Link
             to="/assistant"

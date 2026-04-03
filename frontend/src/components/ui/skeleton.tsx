@@ -78,7 +78,7 @@ export function Skeleton({
       ref={ref}
       data-slot="skeleton"
       className={cn(
-        "animate-pulse rounded-md bg-muted",
+        "animate-pulse rounded-md bg-accent",
         cls,
         className,
       )}

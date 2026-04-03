@@ -21,12 +21,23 @@ import {
 import type { IconType } from "react-icons/lib"
 import { TbForklift } from "react-icons/tb"
 import { fetchAgentPermissions } from "@/api/agent.ts"
-
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible.tsx"
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  sidebarMenuButtonVariants,
+} from "@/components/ui/sidebar.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 import { cn } from "@/lib/utils"
 
@@ -89,14 +100,14 @@ const items: Item[] = [
 ]
 
 interface SidebarItemsProps {
-  onClose?: () => void
+  onNavigate?: () => void
 }
 
 function isExpandable(item: Item): item is ItemExpandable {
   return item.path === null && "children" in item && item.children != null
 }
 
-const SidebarItems = ({ onClose }: SidebarItemsProps) => {
+function SidebarItems({ onNavigate }: SidebarItemsProps) {
   const currentUser = useCurrentUser()
   const location = useLocation()
   const pathname = location.pathname
@@ -139,75 +150,90 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
     return true
   })
 
-  const listItems = navItems.map((item) => {
-    if (isExpandable(item)) {
-      const Icon = item.icon
-      return (
-        <Collapsible
-          key={item.title}
-          open={techniqueExpanded}
-          onOpenChange={setTechniqueExpanded}
-        >
-          <CollapsibleTrigger className="flex w-full items-center gap-4 rounded-md px-4 py-2 text-left text-sm text-foreground hover:bg-muted">
-            <Icon className="size-4 shrink-0 self-center" aria-hidden />
-            <span className="ml-2">{item.title}</span>
-            <FiChevronDown
-              className={cn(
-                "ml-auto size-4 shrink-0 transition-transform",
-                techniqueExpanded ? "rotate-0" : "-rotate-90",
-              )}
-              aria-hidden
-            />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="px-2 pb-1 pl-6">
-              {item.children.map((sub) => {
-                const isActive = currentSection === sub.id
-                return (
-                  <RouterLink
-                    key={sub.id}
-                    to="/technique"
-                    search={{ section: sub.id }}
-                    onClick={onClose}
-                    className={cn(
-                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted",
-                      isActive &&
-                        "border-l-[3px] border-primary bg-muted font-bold",
-                      !isActive && "font-medium",
-                    )}
-                  >
-                    {sub.title}
-                  </RouterLink>
-                )
-              })}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )
-    }
-    const { icon: Icon, title, path } = item
-    const isActive = pathname === path || (path === "/" && pathname === "/")
-    return (
-      <RouterLink key={title} to={path} onClick={onClose}>
-        <div
-          className={cn(
-            "flex items-center gap-4 rounded-md px-4 py-2 text-sm hover:bg-muted",
-            isActive && "border-l-[3px] border-primary bg-muted font-bold",
-            !isActive && "font-normal",
-          )}
-        >
-          <Icon className="size-4 shrink-0 self-center" aria-hidden />
-          <span className="ml-2">{title}</span>
-        </div>
-      </RouterLink>
-    )
-  })
-
   return (
-    <>
-      <p className="px-4 py-2 text-xs font-bold text-muted-foreground">Меню</p>
-      <div>{listItems}</div>
-    </>
+    <SidebarGroup>
+      <SidebarGroupLabel>Меню</SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {navItems.map((item) => {
+            if (isExpandable(item)) {
+              const Icon = item.icon
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <Collapsible
+                    open={techniqueExpanded}
+                    onOpenChange={setTechniqueExpanded}
+                    className="group/collapsible w-full min-w-0"
+                  >
+                    <CollapsibleTrigger
+                      type="button"
+                      className={cn(
+                        sidebarMenuButtonVariants({
+                          variant: "default",
+                          size: "default",
+                        }),
+                        "w-full",
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" aria-hidden />
+                      <span>{item.title}</span>
+                      <FiChevronDown
+                        className={cn(
+                          "ml-auto size-4 shrink-0 transition-transform",
+                          techniqueExpanded ? "rotate-0" : "-rotate-90",
+                        )}
+                        aria-hidden
+                      />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {item.children.map((sub) => {
+                          const isActive = currentSection === sub.id
+                          return (
+                            <SidebarMenuSubItem key={sub.id}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={isActive}
+                                size="md"
+                              >
+                                <RouterLink
+                                  to="/technique"
+                                  search={{ section: sub.id }}
+                                  onClick={onNavigate}
+                                >
+                                  <span>{sub.title}</span>
+                                </RouterLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          )
+                        })}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </SidebarMenuItem>
+              )
+            }
+            const { icon: Icon, title, path } = item
+            const isActive =
+              pathname === path || (path === "/" && pathname === "/")
+            return (
+              <SidebarMenuItem key={title}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={title}
+                >
+                  <RouterLink to={path} onClick={onNavigate}>
+                    <Icon className="size-4 shrink-0" aria-hidden />
+                    <span>{title}</span>
+                  </RouterLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   )
 }
 

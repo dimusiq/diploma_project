@@ -116,7 +116,7 @@ export function EquipmentCard({
 
       <Tabs
         value={tab}
-        onValueChange={(v) => setTab(v as TabKey)}
+        onValueChange={(v: string) => setTab(v as TabKey)}
         className="w-full"
       >
         <TabsList className="mb-4 h-auto w-full flex-wrap justify-start gap-1 bg-muted/60">
