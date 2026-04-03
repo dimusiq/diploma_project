@@ -412,6 +412,7 @@ export function WarehouseTopologyAdmin() {
       <div className="mb-4 flex flex-wrap gap-2">
         <Button
           size="sm"
+          variant="outline"
           loading={putMut.isPending}
           onClick={() => putMut.mutate(draft)}
         >

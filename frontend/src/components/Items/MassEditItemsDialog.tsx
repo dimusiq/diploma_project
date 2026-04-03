@@ -136,7 +136,7 @@ export function MassEditItemsDialog({
               Отмена
             </Button>
             <Button
-              variant="solid"
+              variant="outline"
               size="sm"
               onClick={handleApply}
               disabled={!hasChange || mutation.isPending}

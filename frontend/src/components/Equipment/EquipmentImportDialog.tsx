@@ -119,9 +119,9 @@ export function EquipmentImportDialog({
               зона и др. — см. подписи в форме добавления техники.
             </p>
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="h-auto min-h-0 self-start px-0 font-normal underline"
+              className="self-start"
               loading={templateLoading}
               onClick={() => void handleDownloadTemplate()}
             >

@@ -103,6 +103,7 @@ function WarehouseTwinPage() {
             </div>
             <Button
               size="sm"
+              variant="outline"
               loading={whatIfMut.isPending}
               onClick={() => whatIfMut.mutate()}
             >

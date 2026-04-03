@@ -295,11 +295,9 @@ function ShipmentTable() {
               Сбросить фильтры
             </Button>
           ) : (
-            <RouterLink to="/warehouse">
-              <Button size="sm" variant="solid" className="mt-2">
-                Перейти на склад
-              </Button>
-            </RouterLink>
+            <Button asChild size="sm" variant="outline" className="mt-2">
+              <RouterLink to="/warehouse">Перейти на склад</RouterLink>
+            </Button>
           )}
         </div>
       </div>

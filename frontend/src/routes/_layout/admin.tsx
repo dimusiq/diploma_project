@@ -478,7 +478,7 @@ function EditCategory({
 
   return (
     <>
-      <Button size="xs" variant="ghost" onClick={onOpen}>
+      <Button size="xs" variant="outline" onClick={onOpen}>
         Изменить
       </Button>
       {open && (
@@ -530,7 +530,7 @@ function EditCategory({
                 Отмена
               </Button>
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
                 onClick={() => update.mutate()}
                 loading={update.isPending}
@@ -675,7 +675,7 @@ function EditBrand({ brand }: { brand: BrandPublic }) {
 
   return (
     <>
-      <Button size="xs" variant="ghost" onClick={onOpen}>
+      <Button size="xs" variant="outline" onClick={onOpen}>
         Изменить
       </Button>
       {open && (
@@ -708,7 +708,7 @@ function EditBrand({ brand }: { brand: BrandPublic }) {
                 Отмена
               </Button>
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
                 onClick={() => update.mutate()}
                 loading={update.isPending}
@@ -846,7 +846,7 @@ function EditZone({ zone }: { zone: ZonePublic }) {
 
   return (
     <>
-      <Button size="xs" variant="ghost" onClick={onOpen}>
+      <Button size="xs" variant="outline" onClick={onOpen}>
         Изменить
       </Button>
       {open && (
@@ -879,7 +879,7 @@ function EditZone({ zone }: { zone: ZonePublic }) {
                 Отмена
               </Button>
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
                 onClick={() => update.mutate()}
                 loading={update.isPending}

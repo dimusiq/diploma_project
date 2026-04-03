@@ -437,7 +437,7 @@ export function EquipmentFormDialog({
               Назад
             </Button>
             <Button
-              variant={isEdit ? "solid" : "outlineSky"}
+              variant="outline"
               size="sm"
               type="submit"
               disabled={loading}
@@ -483,7 +483,7 @@ export function EquipmentFormDialog({
                 Закрыть
               </Button>
               <Button
-                variant={isEdit ? "solid" : "outlineSky"}
+                variant="outline"
                 size="sm"
                 type="submit"
                 disabled={loading}
@@ -520,7 +520,7 @@ export function EquipmentFormDialog({
               </Button>
             </DialogActionTrigger>
             <Button
-              variant={isEdit ? "solid" : "outlineSky"}
+              variant="outline"
               size="sm"
               type="submit"
               disabled={loading}

@@ -1,5 +1,6 @@
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 
+import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 
 export const Route = createFileRoute("/_layout/operator-hub")({
@@ -98,11 +99,9 @@ function OperatorHubPage() {
           Layout, топология, база знаний RAG, политики агента и журналы — в
           разделе «Администрирование» (суперпользователь).
         </p>
-        <RouterLink to="/admin">
-          <span className="text-sm font-medium text-primary">
-            Открыть админку →
-          </span>
-        </RouterLink>
+        <Button asChild size="sm" variant="outline">
+          <RouterLink to="/admin">Открыть админку →</RouterLink>
+        </Button>
       </div>
     </div>
   )

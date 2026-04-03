@@ -140,6 +140,7 @@ export function AgentKnowledgeAdmin() {
       <div className="mb-4 flex flex-wrap gap-2">
         <Button
           size="sm"
+          variant="outline"
           onClick={() => {
             resetForm()
             setCreateOpen(true)
@@ -194,14 +195,14 @@ export function AgentKnowledgeAdmin() {
                   <div className="flex flex-wrap justify-end gap-1">
                     <Button
                       size="xs"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => openEdit(row)}
                     >
                       Изменить
                     </Button>
                     <Button
                       size="xs"
-                      variant="ghost"
+                      variant="outline"
                       loading={reindexOneMut.isPending}
                       onClick={() => reindexOneMut.mutate(row.id)}
                     >
@@ -265,6 +266,7 @@ export function AgentKnowledgeAdmin() {
               Отмена
             </Button>
             <Button
+              variant="outline"
               loading={createMut.isPending}
               disabled={!title.trim() || !content.trim()}
               onClick={() => createMut.mutate()}
@@ -325,6 +327,7 @@ export function AgentKnowledgeAdmin() {
               Отмена
             </Button>
             <Button
+              variant="outline"
               loading={editMut.isPending}
               disabled={!title.trim() || !content.trim()}
               onClick={() => editMut.mutate()}

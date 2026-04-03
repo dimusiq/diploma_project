@@ -158,7 +158,7 @@ export function MoveItemsDialog({
               </Button>
             </DialogActionTrigger>
             <Button
-              variant="solid"
+              variant="outline"
               size="sm"
               onClick={handleConfirm}
               loading={mutation.isPending}

@@ -71,7 +71,7 @@ const ChangePassword = () => {
           errors={errors}
         />
         <Button
-          variant="solid"
+          variant="outline"
           size="sm"
           type="submit"
           loading={mutation.isPending}

@@ -109,7 +109,7 @@ const UserInformation = () => {
           {editMode ? (
             <>
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
                 type="submit"
                 loading={isSubmitting}
@@ -129,7 +129,7 @@ const UserInformation = () => {
             </>
           ) : (
             <Button
-              variant="solid"
+              variant="outline"
               size="sm"
               type="button"
               onClick={() => setEditMode(true)}

@@ -277,7 +277,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
                 Отмена
               </Button>
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
                 onClick={handleConfirmMove}
                 loading={move.isPending}
@@ -395,7 +395,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
                 Отмена
               </Button>
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
                 onClick={() => duplicateItem.mutate(duplicateCell)}
                 loading={duplicateItem.isPending}

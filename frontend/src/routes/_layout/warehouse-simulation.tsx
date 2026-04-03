@@ -376,6 +376,7 @@ function WarehouseSimulationPage() {
             </div>
             <Button
               size="sm"
+              variant="outline"
               loading={runMut.isPending}
               onClick={() => runMut.mutate()}
             >
@@ -427,6 +428,7 @@ function WarehouseSimulationPage() {
                     <span className="text-sm font-medium">{s.name}</span>
                     <Button
                       size="xs"
+                      variant="outline"
                       loading={runSavedMut.isPending}
                       onClick={() => runSavedMut.mutate(s.id)}
                     >

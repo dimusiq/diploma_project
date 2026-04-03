@@ -182,7 +182,7 @@ export function MaintenanceCalendarPage() {
                 Отмена
               </Button>
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
                 onClick={() => createOrRescheduleMutation.mutate()}
                 loading={createOrRescheduleMutation.isPending}

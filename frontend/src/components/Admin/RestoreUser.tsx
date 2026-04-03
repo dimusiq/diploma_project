@@ -24,7 +24,7 @@ const RestoreUser = ({ id }: { id: string }) => {
 
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="sm"
       className="gap-2 text-green-600 hover:text-green-700 dark:text-green-500"
       onClick={() => mutation.mutate()}

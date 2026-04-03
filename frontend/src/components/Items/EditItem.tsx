@@ -154,7 +154,7 @@ const EditItem = ({
     >
       {!isControlled && (
         <DialogTrigger asChild>
-          <Button variant="ghost" size="sm">
+          <Button variant="outline" size="sm">
             <FaExchangeAlt className="size-4" />
             Изменить поступление
           </Button>
@@ -417,7 +417,7 @@ const EditItem = ({
                 </Button>
               </DialogActionTrigger>
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
                 type="submit"
                 loading={isSubmitting}

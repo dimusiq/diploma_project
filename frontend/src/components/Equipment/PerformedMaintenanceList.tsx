@@ -253,7 +253,12 @@ function CreateOrderDialog({
             >
               Отмена
             </Button>
-            <Button size="sm" type="submit" loading={createMutation.isPending}>
+            <Button
+              size="sm"
+              type="submit"
+              variant="outline"
+              loading={createMutation.isPending}
+            >
               Создать
             </Button>
           </DialogFooter>

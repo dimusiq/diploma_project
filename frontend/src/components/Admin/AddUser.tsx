@@ -261,7 +261,7 @@ const AddUser = () => {
               </Button>
             </DialogActionTrigger>
             <Button
-              variant="solid"
+              variant="outline"
               size="sm"
               type="submit"
               disabled={!isValid}

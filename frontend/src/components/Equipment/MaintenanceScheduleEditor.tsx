@@ -541,12 +541,12 @@ export function MaintenanceScheduleEditor() {
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Разделы:</span>
           <a href="#sequence-to">
-            <Button size="xs" variant="ghost">
+            <Button size="xs" variant="outline">
               Последовательность ТО
             </Button>
           </a>
           <a href="#service-periods">
-            <Button size="xs" variant="ghost">
+            <Button size="xs" variant="outline">
               Сервисные периоды
             </Button>
           </a>
@@ -564,7 +564,12 @@ export function MaintenanceScheduleEditor() {
           </p>
 
           {canEdit && (
-            <Button className="mb-4" size="sm" onClick={startNewChain}>
+            <Button
+              className="mb-4"
+              size="sm"
+              variant="outline"
+              onClick={startNewChain}
+            >
               Создать последовательность ТО
             </Button>
           )}
@@ -675,7 +680,7 @@ export function MaintenanceScheduleEditor() {
                 </h4>
                 <Button
                   size="sm"
-                  variant="ghost"
+                  variant="outline"
                   onClick={cancelChainForm}
                   aria-label="Закрыть форму"
                 >
@@ -815,7 +820,7 @@ export function MaintenanceScheduleEditor() {
                             <>
                               <Button
                                 size="xs"
-                                variant="ghost"
+                                variant="outline"
                                 onClick={() => moveChainIntervalUp(index)}
                                 title="Поднять"
                               >
@@ -823,7 +828,7 @@ export function MaintenanceScheduleEditor() {
                               </Button>
                               <Button
                                 size="xs"
-                                variant="ghost"
+                                variant="outline"
                                 onClick={() => moveChainIntervalDown(index)}
                                 title="Опустить"
                               >
@@ -948,7 +953,7 @@ export function MaintenanceScheduleEditor() {
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <div className="flex gap-2">
                   {canEdit && (
-                    <Button size="sm" onClick={handleSaveChain}>
+                    <Button size="sm" variant="outline" onClick={handleSaveChain}>
                       Сохранить
                     </Button>
                   )}

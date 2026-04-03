@@ -351,7 +351,7 @@ export function EquipmentList() {
         </Button>
         <Button
           size="sm"
-          variant="ghost"
+          variant="outline"
           onClick={() => setSelectedIds(new Set())}
         >
           Снять выделение

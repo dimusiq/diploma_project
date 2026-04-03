@@ -513,19 +513,19 @@ function CellPopup({
               Статус: {item.status}
             </div>
             {item.id && (
-              <a
-                href={`/items?open=${encodeURIComponent(item.id)}`}
-                style={{
-                  display: "inline-block",
-                  marginTop: 8,
-                  fontSize: "12px",
-                  color: "#1f80aa",
-                  fontWeight: 600,
-                  textDecoration: "none",
-                }}
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="mt-2 h-7 text-xs"
               >
-                Подробнее →
-              </a>
+                <a
+                  href={`/items?open=${encodeURIComponent(item.id)}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Подробнее →
+                </a>
+              </Button>
             )}
           </>
         ) : (

@@ -285,11 +285,9 @@ function WarehouseTable() {
               Сбросить фильтры
             </Button>
           ) : (
-            <RouterLink to="/items">
-              <Button size="sm" variant="solid" className="mt-2">
-                Перейти в поступления
-              </Button>
-            </RouterLink>
+            <Button asChild size="sm" variant="outline" className="mt-2">
+              <RouterLink to="/items">Перейти в поступления</RouterLink>
+            </Button>
           )}
         </div>
       </div>

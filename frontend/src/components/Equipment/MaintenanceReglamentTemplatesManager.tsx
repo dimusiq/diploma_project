@@ -194,7 +194,7 @@ export function MaintenanceReglamentTemplatesManager() {
           </Button>
           <Button
             size="sm"
-            variant="default"
+            variant="outline"
             onClick={handleSave}
             loading={isSaving}
           >

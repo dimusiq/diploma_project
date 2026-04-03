@@ -376,12 +376,9 @@ export function Dashboard() {
                   </div>
                 ))}
                 <div className="mt-2">
-                  <RouterLink
-                    to="/items"
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Все поступления →
-                  </RouterLink>
+                  <Button asChild size="sm" variant="outline">
+                    <RouterLink to="/items">Все поступления →</RouterLink>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -401,12 +398,9 @@ export function Dashboard() {
             <p className="mb-3 text-sm text-muted-foreground">
               товаров в отгрузке
             </p>
-            <RouterLink
-              to="/shipment"
-              className="text-sm text-primary hover:underline"
-            >
-              К отгрузке →
-            </RouterLink>
+            <Button asChild size="sm" variant="outline">
+              <RouterLink to="/shipment">К отгрузке →</RouterLink>
+            </Button>
           </CardContent>
         </Card>
       </div>

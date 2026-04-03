@@ -494,12 +494,9 @@ function Warehouse3DPage() {
   return (
     <div className="mx-auto w-full max-w-full py-4">
       <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-        <RouterLink
-          to="/warehouse"
-          className="font-medium text-primary hover:underline"
-        >
-          Склад
-        </RouterLink>
+        <Button asChild size="xs" variant="outline" className="font-medium">
+          <RouterLink to="/warehouse">Склад</RouterLink>
+        </Button>
         <FiChevronRight className="size-3 shrink-0" aria-hidden />
         <span>Цифровой двойник</span>
       </div>
@@ -758,7 +755,7 @@ function Warehouse3DPage() {
               </Button>
               <Button
                 size="sm"
-                variant="solid"
+                variant="outline"
                 onClick={startSimulation}
                 disabled={routeWaypoints.length < 2 || simulationActive}
               >

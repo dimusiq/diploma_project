@@ -85,7 +85,7 @@ export function ItemSelectionToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      <Button size="sm" variant="ghost" onClick={onClear}>
+      <Button size="sm" variant="outline" onClick={onClear}>
         <span className="inline-flex items-center gap-2">
           <FiX />
           Снять выделение

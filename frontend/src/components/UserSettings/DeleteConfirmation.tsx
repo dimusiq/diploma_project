@@ -28,7 +28,7 @@ const DeleteConfirmation = () => {
   const mutation = useMutation({
     mutationFn: () => UsersService.deleteUserMe(),
     onSuccess: () => {
-      showSuccessToast("Your account has been successfully deleted")
+      showSuccessToast("Аккаунт удалён")
       setIsOpen(false)
       logout()
     },
@@ -53,19 +53,18 @@ const DeleteConfirmation = () => {
         type="button"
         onClick={() => setIsOpen(true)}
       >
-        Delete
+        Удалить
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md" showCloseButton>
           <form onSubmit={handleSubmit(onSubmit)}>
             <DialogHeader>
-              <DialogTitle>Confirmation Required</DialogTitle>
+              <DialogTitle>Подтверждение удаления</DialogTitle>
               <DialogDescription>
-                All your account data will be{" "}
-                <strong>permanently deleted.</strong> If you are sure, please
-                click <strong>&quot;Confirm&quot;</strong> to proceed. This
-                action cannot be undone.
+                Все данные аккаунта будут{" "}
+                <strong>безвозвратно удалены.</strong> Если вы уверены, нажмите
+                «Удалить». Отменить это действие будет нельзя.
               </DialogDescription>
             </DialogHeader>
             <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -76,7 +75,7 @@ const DeleteConfirmation = () => {
                 disabled={isSubmitting}
                 onClick={() => setIsOpen(false)}
               >
-                Cancel
+                Отмена
               </Button>
               <Button
                 variant="outlineDestructive"
@@ -84,7 +83,7 @@ const DeleteConfirmation = () => {
                 type="submit"
                 loading={isSubmitting}
               >
-                Delete
+                Удалить
               </Button>
             </div>
           </form>

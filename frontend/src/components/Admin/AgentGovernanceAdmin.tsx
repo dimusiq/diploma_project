@@ -57,6 +57,7 @@ function PolicyEditor({ row }: { row: AgentPolicyPublic }) {
       />
       <Button
         size="sm"
+        variant="outline"
         loading={mut.isPending}
         onClick={() => {
           try {
