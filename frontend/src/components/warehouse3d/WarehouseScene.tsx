@@ -17,6 +17,7 @@ import { Vector3 } from "three"
 import type { EquipmentPublic } from "@/api/equipment.ts"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
 import type { TopologyDocument } from "@/api/warehouseTopology.ts"
+import { Button } from "@/components/ui/button.tsx"
 import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
 import {
   type WarehouseEquipmentKind,
@@ -556,24 +557,18 @@ function CellPopup({
         ) : (
           <div style={{ color: "#64748b" }}>Ячейка свободна</div>
         )}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
+          className="mt-2.5 h-7 text-xs"
           onClick={(e) => {
             e.stopPropagation()
             onClose()
           }}
-          style={{
-            marginTop: 10,
-            padding: "4px 10px",
-            fontSize: "12px",
-            cursor: "pointer",
-            background: "#f1f5f9",
-            border: "1px solid #e2e8f0",
-            borderRadius: "6px",
-          }}
         >
           Закрыть
-        </button>
+        </Button>
       </div>
     </Html>
   )

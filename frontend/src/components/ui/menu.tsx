@@ -82,7 +82,7 @@ export function MenuContent({
       align={align}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 max-h-[var(--radix-popper-available-height)] min-w-32 origin-[var(--radix-popper-transform-origin)] overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+        "z-50 max-h-[var(--radix-popper-available-height)] min-w-32 origin-[var(--radix-popper-transform-origin)] overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
         className,
       )}
       {...rest}
@@ -128,7 +128,7 @@ export function MenuItem({
     <DropdownMenuPrimitive.Item
       data-slot="menu-item"
       className={cn(
-        "flex cursor-default items-center rounded-md text-sm outline-none select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
+        "flex cursor-default items-center rounded-md text-sm text-popover-foreground outline-none select-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
         gap === 2 && "gap-2",
         gap === 3 && "gap-3",
         py === 2 && "py-2",

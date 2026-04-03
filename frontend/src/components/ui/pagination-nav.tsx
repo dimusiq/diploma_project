@@ -2,6 +2,7 @@
  * Низкоуровневые блоки пагинации как в fastapi/full-stack-fastapi-template.
  * Для контекстной пагинации (PaginationRoot и т.д.) см. `pagination.tsx`.
  */
+import type { VariantProps } from "class-variance-authority"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -9,7 +10,7 @@ import {
 } from "lucide-react"
 import type * as React from "react"
 
-import { type Button, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 function PaginationNav({ className, ...props }: React.ComponentProps<"nav">) {
@@ -42,7 +43,7 @@ function PaginationNavItem({ ...props }: React.ComponentProps<"li">) {
 
 type PaginationNavLinkProps = {
   isActive?: boolean
-} & Pick<React.ComponentProps<typeof Button>, "size"> &
+} & Pick<VariantProps<typeof buttonVariants>, "size"> &
   React.ComponentProps<"a">
 
 function PaginationNavLink({

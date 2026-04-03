@@ -34,8 +34,20 @@ import {
 } from "@/components/ui/drawer.tsx"
 import { Field } from "@/components/ui/field.tsx"
 import { Input } from "@/components/ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { handleError } from "@/utils.ts"
 
 const STATUS_OPTIONS = [
@@ -113,6 +125,9 @@ export function EquipmentFormDialog({
     register,
     handleSubmit,
     reset,
+    setError,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: getDefaultValues(firstBrandId),
@@ -164,6 +179,10 @@ export function EquipmentFormDialog({
   })
 
   const onSubmit: SubmitHandler<FormValues> = (data) => {
+    if (!data.brand_id?.trim()) {
+      setError("brand_id", { type: "required", message: "Укажите бренд" })
+      return
+    }
     const attachmentsStr =
       typeof data.attachments === "string" && data.attachments.trim()
         ? data.attachments.trim()
@@ -225,22 +244,23 @@ export function EquipmentFormDialog({
           errorText={errors.equipment_type?.message}
           label="Тип техники"
         >
-          <select
-            id="equipment_type"
-            {...register("equipment_type", { required: "Укажите тип" })}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "1px solid var(--border)",
-            }}
+          <Select
+            value={watch("equipment_type")}
+            onValueChange={(v) =>
+              setValue("equipment_type", v, { shouldValidate: true })
+            }
           >
-            {EQUIPMENT_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="equipment_type" className="h-9 w-full text-sm">
+              <SelectValue placeholder="Тип" />
+            </SelectTrigger>
+            <SelectContent>
+              {EQUIPMENT_TYPE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field
           required
@@ -248,23 +268,24 @@ export function EquipmentFormDialog({
           errorText={errors.brand_id?.message}
           label="Бренд"
         >
-          <select
-            id="brand_id"
-            {...register("brand_id", { required: "Укажите бренд" })}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "1px solid var(--border)",
-            }}
+          <Select
+            value={toSelectAll(watch("brand_id") ?? "")}
+            onValueChange={(v) =>
+              setValue("brand_id", fromSelectAll(v), { shouldValidate: true })
+            }
           >
-            <option value="">— Выберите бренд —</option>
-            {brands.map((b: BrandPublic) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="brand_id" className="h-9 w-full text-sm">
+              <SelectValue placeholder="Бренд" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_ALL_VALUE}>— Выберите бренд —</SelectItem>
+              {brands.map((b: BrandPublic) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field
           invalid={!!errors.vin}
@@ -332,48 +353,48 @@ export function EquipmentFormDialog({
           />
         </Field>
         <Field label="Текущее состояние">
-          <select
-            id="current_status"
-            {...register("current_status")}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "1px solid var(--border)",
-            }}
+          <Select
+            value={watch("current_status") ?? "active"}
+            onValueChange={(v) => setValue("current_status", v)}
           >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="current_status" className="h-9 w-full text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field label="Зона склада">
           {zones.length > 0 ? (
-            <select
-              id="zone"
-              {...register("zone")}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: "6px",
-                border: "1px solid var(--border)",
-              }}
+            <Select
+              value={toSelectAll(watch("zone") ?? "")}
+              onValueChange={(v) =>
+                setValue("zone", fromSelectAll(v), { shouldValidate: true })
+              }
             >
-              <option value="">— Не указана —</option>
-              {editItem?.zone?.trim() &&
-                !zones.some((z) => z.name === editItem.zone) && (
-                  <option value={editItem.zone}>
-                    {editItem.zone} (текущее)
-                  </option>
-                )}
-              {zones.map((z) => (
-                <option key={z.id} value={z.name}>
-                  {z.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger id="zone" className="h-9 w-full text-sm">
+                <SelectValue placeholder="Зона" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SELECT_ALL_VALUE}>— Не указана —</SelectItem>
+                {editItem?.zone?.trim() &&
+                  !zones.some((z) => z.name === editItem.zone) && (
+                    <SelectItem value={editItem.zone}>
+                      {editItem.zone} (текущее)
+                    </SelectItem>
+                  )}
+                {zones.map((z) => (
+                  <SelectItem key={z.id} value={z.name}>
+                    {z.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           ) : (
             <Input id="zone" {...register("zone")} placeholder="Зона склада" />
           )}

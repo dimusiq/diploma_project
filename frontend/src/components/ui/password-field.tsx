@@ -1,11 +1,11 @@
 "use client"
 
+import { EyeIcon, EyeOffIcon } from "lucide-react"
 import type * as React from "react"
 import { forwardRef, useState } from "react"
-import { FiEye, FiEyeOff } from "react-icons/fi"
 
+import { Button } from "@/components/ui/button.tsx"
 import { InputWithIcon } from "@/components/ui/input-with-icon.tsx"
-import { cn } from "@/lib/utils"
 
 type InputProps = React.ComponentProps<"input">
 
@@ -30,23 +30,21 @@ export const PasswordField = forwardRef<
       inputClassName={inputClassName}
       startElement={startElement}
       endElement={
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           tabIndex={-1}
           aria-label={visible ? "Скрыть пароль" : "Показать пароль"}
-          className={cn(
-            "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors",
-            "hover:bg-muted hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
-          )}
+          className="size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
           onPointerDown={(e) => {
             if (e.button !== 0) return
             e.preventDefault()
             setVisible((v) => !v)
           }}
         >
-          {visible ? <FiEyeOff /> : <FiEye />}
-        </button>
+          {visible ? <EyeOffIcon /> : <EyeIcon />}
+        </Button>
       }
     />
   )

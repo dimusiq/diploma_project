@@ -10,7 +10,19 @@ import { type SparePartPublic, sparePartsApi } from "@/api/spareParts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Input } from "@/components/ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 
 type ChecklistItemDraft = {
   id?: string
@@ -248,19 +260,23 @@ export function MaintenanceReglamentTemplatesManager() {
               <p className="mb-1 text-sm">
                 Тип техники
               </p>
-              <select
+              <Select
                 value={draft.equipment_type}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, equipment_type: e.target.value }))
+                onValueChange={(v) =>
+                  setDraft((d) => ({ ...d, equipment_type: v }))
                 }
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               >
-                {EQUIPMENT_TYPE_IDS.map((id) => (
-                  <option key={id} value={id}>
-                    {EQUIPMENT_TYPE_LABELS[id] ?? id}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 w-full text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EQUIPMENT_TYPE_IDS.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {EQUIPMENT_TYPE_LABELS[id] ?? id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
@@ -353,26 +369,30 @@ export function MaintenanceReglamentTemplatesManager() {
               <div className="flex flex-col gap-2">
                 {draft.spare_part_requirements.map((r, idx) => (
                   <div key={`${idx}-${r.id ?? "new"}`} className="flex flex-wrap gap-2">
-                    <select
-                      value={r.spare_part_id}
-                      onChange={(e) => {
-                        const value = e.target.value
+                    <Select
+                      value={toSelectAll(r.spare_part_id)}
+                      onValueChange={(value) => {
+                        const id = fromSelectAll(value)
                         setDraft((d) => {
                           const next = [...d.spare_part_requirements]
-                          next[idx] = { ...next[idx], spare_part_id: value }
+                          next[idx] = { ...next[idx], spare_part_id: id }
                           return { ...d, spare_part_requirements: next }
                         })
                       }}
-                      className="min-w-0 flex-1 rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm"
                     >
-                      <option value="">—</option>
-                      {sparePartsOptions.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title}
-                          {p.sku ? `(${p.sku})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-9 min-w-0 flex-1 text-sm">
+                        <SelectValue placeholder="—" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={SELECT_ALL_VALUE}>—</SelectItem>
+                        {sparePartsOptions.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.title}
+                            {p.sku ? `(${p.sku})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Input
                       type="number"
                       min={1}

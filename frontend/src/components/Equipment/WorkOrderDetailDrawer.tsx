@@ -30,7 +30,19 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer.tsx"
 import { Input } from "@/components/ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { cn } from "@/lib/utils.ts"
 
 export function WorkOrderDetailDrawer({
@@ -278,22 +290,24 @@ function WorkOrderDetailContent({
           <p className="text-xs text-muted-foreground">Статус</p>
           {statusEditing ? (
             <div className="mt-1 flex flex-col gap-1">
-              <select
-                defaultValue={order.status}
-                onBlur={(e) => {
-                  const v = e.target.value
-                  if (v !== order.status) onUpdateStatus(v, statusComment)
-                  setStatusEditing(false)
+              <Select
+                value={order.status}
+                onValueChange={(v) => onUpdateStatus(v, statusComment)}
+                onOpenChange={(open) => {
+                  if (!open) setStatusEditing(false)
                 }}
-                onChange={(e) => onUpdateStatus(e.target.value, statusComment)}
-                className="rounded-md border border-border px-2 py-1 text-[13px]"
               >
-                {Object.entries(WORK_ORDER_STATUS_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-8 max-w-[220px] text-[13px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(WORK_ORDER_STATUS_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 className="h-7 text-xs"
                 placeholder="Комментарий к смене статуса"
@@ -302,13 +316,15 @@ function WorkOrderDetailContent({
               />
             </div>
           ) : (
-            <button
+            <Button
               type="button"
-              className="mt-1 cursor-pointer rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs"
+              variant="outline"
+              size="sm"
+              className="mt-1 h-auto border-border bg-muted/50 py-0.5 text-xs font-normal"
               onClick={() => setStatusEditing(true)}
             >
               {statusLabel}
-            </button>
+            </Button>
           )}
         </div>
         <div>
@@ -518,19 +534,22 @@ function PartReservationsSection({
                   <p className="mb-1 text-sm font-medium">
                     Запчасть
                   </p>
-                  <select
-                    value={sparePartId}
-                    onChange={(e) => setSparePartId(e.target.value)}
-                    required
-                    className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                  <Select
+                    value={toSelectAll(sparePartId)}
+                    onValueChange={(v) => setSparePartId(fromSelectAll(v))}
                   >
-                    <option value="">— Выберите —</option>
-                    {parts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title} {p.sku ? `(${p.sku})` : ""} — остаток {p.quantity}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-9 w-full text-sm">
+                      <SelectValue placeholder="Запчасть" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SELECT_ALL_VALUE}>— Выберите —</SelectItem>
+                      {parts.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.title} {p.sku ? `(${p.sku})` : ""} — остаток {p.quantity}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <p className="mb-1 text-sm font-medium">
@@ -617,19 +636,22 @@ function PartConsumptionsSection({
                   <p className="mb-1 text-sm font-medium">
                     Запчасть
                   </p>
-                  <select
-                    value={sparePartId}
-                    onChange={(e) => setSparePartId(e.target.value)}
-                    required
-                    className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                  <Select
+                    value={toSelectAll(sparePartId)}
+                    onValueChange={(v) => setSparePartId(fromSelectAll(v))}
                   >
-                    <option value="">— Выберите —</option>
-                    {parts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title} {p.sku ? `(${p.sku})` : ""} — остаток {p.quantity}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-9 w-full text-sm">
+                      <SelectValue placeholder="Запчасть" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SELECT_ALL_VALUE}>— Выберите —</SelectItem>
+                      {parts.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.title} {p.sku ? `(${p.sku})` : ""} — остаток {p.quantity}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <p className="mb-1 text-sm font-medium">

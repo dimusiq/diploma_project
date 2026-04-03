@@ -17,6 +17,13 @@ import { Button } from "@/components/ui/button.tsx"
 import { Field } from "@/components/ui/field.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
   Table,
   TableBody,
   TableCell,
@@ -482,24 +489,31 @@ export function WarehouseTopologyAdmin() {
                     />
                   </TableCell>
                   <TableCell>
-                    <select
+                    <Select
                       value={z.zone_type}
-                      onChange={(e) =>
+                      onValueChange={(v) =>
                         updateZone(i, {
-                          zone_type: e.target.value as TopologyStorageZone["zone_type"],
+                          zone_type: v as TopologyStorageZone["zone_type"],
                         })
                       }
-                      style={{ fontSize: 13, maxWidth: 120 }}
                     >
-                      <option value="storage">Хранение</option>
-                      <option value="staging">Стадирование</option>
-                      <option value="buffer">Буфер</option>
-                      <option value="dock_area">Зона доков</option>
-                      <option value="cross_dock">Кросс-док</option>
-                      <option value="receiving">Приёмка</option>
-                      <option value="shipping">Отгрузка</option>
-                      <option value="other">Прочее</option>
-                    </select>
+                      <SelectTrigger
+                        className="h-8 max-w-[120px] text-[13px]"
+                        size="sm"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="storage">Хранение</SelectItem>
+                        <SelectItem value="staging">Стадирование</SelectItem>
+                        <SelectItem value="buffer">Буфер</SelectItem>
+                        <SelectItem value="dock_area">Зона доков</SelectItem>
+                        <SelectItem value="cross_dock">Кросс-док</SelectItem>
+                        <SelectItem value="receiving">Приёмка</SelectItem>
+                        <SelectItem value="shipping">Отгрузка</SelectItem>
+                        <SelectItem value="other">Прочее</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -637,17 +651,21 @@ export function WarehouseTopologyAdmin() {
                 />
               </Field>
               <Field label="Тип" className="mt-2">
-                <select
+                <Select
                   value={a.kind}
-                  onChange={(e) =>
-                    updateAisle(i, { kind: e.target.value as TopologyAisle["kind"] })
+                  onValueChange={(v) =>
+                    updateAisle(i, { kind: v as TopologyAisle["kind"] })
                   }
-                  style={{ fontSize: 14 }}
                 >
-                  <option value="main">Главный</option>
-                  <option value="cross">Поперечный</option>
-                  <option value="feeder">Подъездной</option>
-                </select>
+                  <SelectTrigger className="h-9 w-full text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="main">Главный</SelectItem>
+                    <SelectItem value="cross">Поперечный</SelectItem>
+                    <SelectItem value="feeder">Подъездной</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Ширина, м" className="mt-2">
                 <Input
@@ -767,19 +785,23 @@ export function WarehouseTopologyAdmin() {
                   />
                 </Field>
                 <Field label="Тип">
-                  <select
+                  <Select
                     value={d.dock_type}
-                    onChange={(e) =>
+                    onValueChange={(v) =>
                       updateDock(i, {
-                        dock_type: e.target.value as TopologyDock["dock_type"],
+                        dock_type: v as TopologyDock["dock_type"],
                       })
                     }
-                    style={{ fontSize: 14 }}
                   >
-                    <option value="inbound">Вход</option>
-                    <option value="outbound">Выход</option>
-                    <option value="cross">Кросс</option>
-                  </select>
+                    <SelectTrigger className="h-9 min-w-[100px] text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inbound">Вход</SelectItem>
+                      <SelectItem value="outbound">Выход</SelectItem>
+                      <SelectItem value="cross">Кросс</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </Field>
               </div>
               <div className="mt-2 flex flex-wrap gap-2">

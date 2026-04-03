@@ -31,6 +31,13 @@ import {
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
   Table,
   TableBody,
   TableCell,
@@ -39,6 +46,11 @@ import {
   TableRow,
 } from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { cn } from "@/lib/utils.ts"
 import { handleError } from "@/utils.ts"
 
@@ -315,13 +327,6 @@ export function EquipmentList() {
     pageItems.length > 0 && pageItems.every((i) => selectedIds.has(i.id))
   const isSomeSelected = pageItems.some((i) => selectedIds.has(i.id))
 
-  const selectStyle = {
-    padding: "6px 12px",
-    borderRadius: "6px",
-    border: "1px solid var(--border)",
-    fontSize: "14px",
-  } as const
-
   return (
     <div>
       <div
@@ -359,28 +364,38 @@ export function EquipmentList() {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            style={selectStyle}
+          <Select
+            value={toSelectAll(typeFilter)}
+            onValueChange={(v) => setTypeFilter(fromSelectAll(v))}
           >
-            <option value="">Все типы</option>
-            {Object.entries(EQUIPMENT_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={selectStyle}
+            <SelectTrigger className="h-8 min-w-[10rem] text-sm">
+              <SelectValue placeholder="Тип" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_ALL_VALUE}>Все типы</SelectItem>
+              {Object.entries(EQUIPMENT_TYPE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={toSelectAll(statusFilter)}
+            onValueChange={(v) => setStatusFilter(fromSelectAll(v))}
           >
-            <option value="">Все состояния</option>
-            <option value="active">В эксплуатации</option>
-            <option value="maintenance">На обслуживании</option>
-            <option value="decommissioned">Выведена из эксплуатации</option>
-          </select>
+            <SelectTrigger className="h-8 min-w-[12rem] text-sm">
+              <SelectValue placeholder="Состояние" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_ALL_VALUE}>Все состояния</SelectItem>
+              <SelectItem value="active">В эксплуатации</SelectItem>
+              <SelectItem value="maintenance">На обслуживании</SelectItem>
+              <SelectItem value="decommissioned">
+                Выведена из эксплуатации
+              </SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             size="sm"
@@ -588,7 +603,7 @@ export function EquipmentList() {
                         <MenuItem
                           value="delete"
                           onClick={() => handleDeleteClick(item)}
-                          className="text-destructive data-highlighted:text-destructive"
+                          className="text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive dark:data-[highlighted]:bg-destructive/20"
                         >
                           Удалить
                         </MenuItem>

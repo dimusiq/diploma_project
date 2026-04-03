@@ -20,6 +20,13 @@ import {
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Input } from "@/components/ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { getIntervalHoursForEquipment } from "@/utils/maintenanceChains.ts"
@@ -130,21 +137,25 @@ export function EquipmentRecordMaintenanceDialog({
                 <p className="mb-1 text-sm font-medium">
                   Интервал ТО (м/ч)
                 </p>
-                <select
-                  value={intervalHours}
-                  onChange={(e) =>
-                    setIntervalHours(parseInt(e.target.value, 10) || 500)
+                <Select
+                  value={String(intervalHours)}
+                  onValueChange={(v) =>
+                    setIntervalHours(parseInt(v, 10) || 500)
                   }
-                  className="min-w-[120px] rounded-md border border-border px-3 py-2 text-sm"
                 >
-                  {(chainIntervals.length ? chainIntervals : [500, 1000, 1500]).map(
-                    (h) => (
-                      <option key={h} value={h}>
-                        {h} м/ч
-                      </option>
-                    ),
-                  )}
-                </select>
+                  <SelectTrigger className="h-9 min-w-[120px] text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(chainIntervals.length ? chainIntervals : [500, 1000, 1500]).map(
+                      (h) => (
+                        <SelectItem key={h} value={String(h)}>
+                          {h} м/ч
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <p className="mb-1 text-sm font-medium">

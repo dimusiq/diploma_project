@@ -24,6 +24,13 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu.tsx"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
   Table,
   TableBody,
   TableCell,
@@ -759,19 +766,23 @@ export function MaintenanceScheduleEditor() {
                   </p>
                   {canEdit && (
                     <div className="mb-2 flex flex-wrap items-center gap-2">
-                      <select
-                        value={addIntervalValue}
-                        onChange={(e) =>
-                          setAddIntervalValue(Number(e.target.value))
+                      <Select
+                        value={String(addIntervalValue)}
+                        onValueChange={(v) =>
+                          setAddIntervalValue(Number(v))
                         }
-                        className="min-w-[120px] rounded-md border border-border px-2.5 py-1.5 text-sm"
                       >
-                        {intervals.map((val) => (
-                          <option key={val} value={val}>
-                            {val} м/ч
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="h-9 min-w-[120px] text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {intervals.map((val) => (
+                            <SelectItem key={val} value={String(val)}>
+                              {val} м/ч
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Button
                         size="sm"
                         variant="outline"

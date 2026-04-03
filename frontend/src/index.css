@@ -94,7 +94,8 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
 
-  --sidebar: oklch(0.985 0 0);
+  /* Чуть темнее фона страницы — панель навигации читается в светлой теме */
+  --sidebar: oklch(0.965 0.004 250);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -160,12 +161,17 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Нативные <select>, date/color inputs: выпадающий список ОС наследует color-scheme с html */
   html {
     font-size: 16px;
+    color-scheme: light;
     @apply font-sans;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  html.dark {
+    color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground;

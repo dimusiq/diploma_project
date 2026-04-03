@@ -3,14 +3,12 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { fetchFeatureFlags } from "@/api/integrations.ts"
 import { fetchKpiSnapshot } from "@/api/warehouseSimulation.ts"
 import { DashboardService } from "@/client/index.ts"
-import { buttonVariants } from "@/components/ui/button.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import {
   Card,
   CardContent,
 } from "@/components/ui/card.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
-import { cn } from "@/lib/utils.ts"
-
 export const Route = createFileRoute("/_layout/control-tower")({
   component: ControlTowerPage,
 })
@@ -50,13 +48,14 @@ function ControlTowerPage() {
           Экран отключён feature flag <code>control_tower.enabled</code> или
           недоступен. Обратитесь к администратору.
         </p>
-        <button
+        <Button
           type="button"
-          className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
+          variant="outline"
+          className="mt-4"
           onClick={() => void navigate({ to: "/" })}
         >
           На главную
-        </button>
+        </Button>
       </div>
     )
   }
@@ -127,24 +126,12 @@ function ControlTowerPage() {
                 (тот же канал, что <code>/api/v1/twin/stream</code>), с токеном
                 авторизации.
               </p>
-              <Link
-                to="/warehouse-twin"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "inline-flex w-fit",
-                )}
-              >
-                Аналитика двойника
-              </Link>
-              <Link
-                to="/warehouse-tasks"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "inline-flex w-fit",
-                )}
-              >
-                Складские задания
-              </Link>
+              <Button variant="outline" size="sm" asChild className="inline-flex w-fit">
+                <Link to="/warehouse-twin">Аналитика двойника</Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild className="inline-flex w-fit">
+                <Link to="/warehouse-tasks">Складские задания</Link>
+              </Button>
             </div>
           </CardContent>
         </Card>

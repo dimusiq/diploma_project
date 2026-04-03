@@ -28,7 +28,11 @@ export function AppSidebar() {
   }
 
   return (
-    <SidebarRoot collapsible="offcanvas" variant="sidebar">
+    <SidebarRoot
+      collapsible="offcanvas"
+      variant="sidebar"
+      className="shadow-sm"
+    >
       <SidebarHeader className="border-b border-sidebar-border">
         <SidebarMenu>
           <SidebarMenuItem>

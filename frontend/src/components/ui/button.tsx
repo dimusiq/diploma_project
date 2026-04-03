@@ -1,6 +1,7 @@
+import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Loader2Icon } from "lucide-react"
-import type * as React from "react"
+import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -56,49 +57,74 @@ export type ButtonProps = React.ComponentProps<"button"> &
     size?: VariantProps<typeof buttonVariants>["size"]
     loading?: boolean
     loadingText?: React.ReactNode
+    /** Составной дочерний элемент (как в shadcn): ссылка, `Link` и т.п. Несовместимо с `loading`. */
+    asChild?: boolean
   }
 
-function Button({
-  className,
-  variant: variantProp,
-  size = "default",
-  loading,
-  loadingText,
-  disabled,
-  children,
-  type = "button",
-  ...props
-}: ButtonProps) {
-  const variant = mapVariant(variantProp)
-  return (
-    <button
-      type={type}
-      data-slot="button"
-      className={cn(
-        buttonVariants({ variant, size }),
-        loading && !loadingText && "relative",
-        className,
-      )}
-      disabled={Boolean(loading) || disabled}
-      {...props}
-    >
-      {loading && !loadingText ? (
-        <>
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <Loader2Icon className="size-4 animate-spin" aria-hidden />
-          </span>
-          <span className="opacity-0">{children}</span>
-        </>
-      ) : loading && loadingText ? (
-        <>
-          <Loader2Icon className="size-4 shrink-0 animate-spin" aria-hidden />
-          {loadingText}
-        </>
-      ) : (
-        children
-      )}
-    </button>
-  )
-}
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button(
+    {
+      className,
+      variant: variantProp,
+      size = "default",
+      loading,
+      loadingText,
+      disabled,
+      children,
+      type = "button",
+      asChild = false,
+      ...props
+    },
+    ref,
+  ) {
+    const variant = mapVariant(variantProp)
+    const useAsChild = Boolean(asChild) && !loading && !loadingText
+
+    if (useAsChild) {
+      return (
+        <Slot
+          data-slot="button"
+          className={cn(buttonVariants({ variant, size }), className)}
+          ref={ref}
+          {...props}
+        >
+          {children}
+        </Slot>
+      )
+    }
+
+    return (
+      <button
+        ref={ref}
+        type={type}
+        data-slot="button"
+        className={cn(
+          buttonVariants({ variant, size }),
+          loading && !loadingText && "relative",
+          className,
+        )}
+        disabled={Boolean(loading) || disabled}
+        {...props}
+      >
+        {loading && !loadingText ? (
+          <>
+            <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <Loader2Icon className="size-4 animate-spin" aria-hidden />
+            </span>
+            <span className="opacity-0">{children}</span>
+          </>
+        ) : loading && loadingText ? (
+          <>
+            <Loader2Icon className="size-4 shrink-0 animate-spin" aria-hidden />
+            {loadingText}
+          </>
+        ) : (
+          children
+        )}
+      </button>
+    )
+  },
+)
+Button.displayName = "Button"
 
 export { Button, buttonVariants }

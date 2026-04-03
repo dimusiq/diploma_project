@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import type { ChangeEvent, ReactNode } from "react"
+import type { ReactNode } from "react"
 import { useState } from "react"
 import {
   fetchKpiSnapshot,
@@ -16,8 +16,20 @@ import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
 import { Input } from "@/components/ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 
 export const Route = createFileRoute("/_layout/warehouse-simulation")({
   component: WarehouseSimulationPage,
@@ -274,20 +286,24 @@ function WarehouseSimulationPage() {
                     Не удалось загрузить список складов.
                   </p>
                 ) : (
-                  <select
-                    value={simWarehouseId}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                      setSimWarehouseId(e.target.value)
-                    }
-                    className="w-full max-w-[320px] rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                  <Select
+                    value={toSelectAll(simWarehouseId)}
+                    onValueChange={(v) => setSimWarehouseId(fromSelectAll(v))}
                   >
-                    <option value="">По умолчанию</option>
-                    {(whSeedQ.data ?? []).map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.code} — {w.name}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-8 w-full max-w-[320px] text-sm">
+                      <SelectValue placeholder="Склад" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SELECT_ALL_VALUE}>
+                        По умолчанию
+                      </SelectItem>
+                      {(whSeedQ.data ?? []).map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          {w.code} — {w.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
             )}
@@ -344,17 +360,19 @@ function WarehouseSimulationPage() {
             </Field>
             <div>
               <p className="mb-1 text-xs">Правило размещения</p>
-              <select
+              <Select
                 value={putawayRule}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                  setPutawayRule(e.target.value as PutawayRule)
-                }
-                className="w-[200px] rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                onValueChange={(v) => setPutawayRule(v as PutawayRule)}
               >
-                <option value="nearest">Ближайшая ячейка</option>
-                <option value="round_robin">По кругу</option>
-                <option value="random">Случайно</option>
-              </select>
+                <SelectTrigger className="h-8 w-[200px] text-sm">
+                  <SelectValue placeholder="Правило" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nearest">Ближайшая ячейка</SelectItem>
+                  <SelectItem value="round_robin">По кругу</SelectItem>
+                  <SelectItem value="random">Случайно</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Button
               size="sm"

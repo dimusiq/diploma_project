@@ -14,7 +14,19 @@ import {
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Field } from "@/components/ui/field.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 
 interface MassAssignZoneDialogProps {
   open: boolean
@@ -85,18 +97,22 @@ export function MassAssignZoneDialog({
             Выбрано единиц техники: {selectedIds.length}. Укажите зону склада.
           </p>
           <Field label="Зона">
-            <select
-              value={zoneId}
-              onChange={(e) => setZoneId(e.target.value)}
-              className="min-w-[200px] rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+            <Select
+              value={toSelectAll(zoneId)}
+              onValueChange={(v) => setZoneId(fromSelectAll(v))}
             >
-              <option value="">— Не назначена —</option>
-              {zones.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 min-w-[200px] text-sm">
+                <SelectValue placeholder="Зона" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SELECT_ALL_VALUE}>— Не назначена —</SelectItem>
+                {zones.map((z) => (
+                  <SelectItem key={z.id} value={z.id}>
+                    {z.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </DialogBody>
         <DialogFooter>

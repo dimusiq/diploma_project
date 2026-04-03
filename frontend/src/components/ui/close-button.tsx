@@ -1,4 +1,4 @@
-import { LuX } from "react-icons/lu"
+import { XIcon } from "lucide-react"
 import type { ButtonProps } from "@/components/ui/button.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { cn } from "@/lib/utils.ts"
@@ -15,7 +15,7 @@ export function CloseButton({ className, children, ...props }: CloseButtonProps)
       className={cn(className)}
       {...props}
     >
-      {children ?? <LuX className="size-4" />}
+      {children ?? <XIcon className="size-4" />}
     </Button>
   )
 }

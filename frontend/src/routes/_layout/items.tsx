@@ -35,6 +35,13 @@ import {
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
   Table,
   TableBody,
   TableCell,
@@ -44,6 +51,11 @@ import {
 } from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { useOptimisticItems } from "@/hooks/useOptimisticItems.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { cn } from "@/lib/utils.ts"
 
 const itemsSearchSchema = z.object({
@@ -315,20 +327,24 @@ function ItemsTable() {
           onChange={(e) => setSearchParams({ search: e.target.value, page: 1 })}
           className="h-8 max-w-xs text-sm"
         />
-        <select
-          value={searchParams.category_id}
-          onChange={(e) =>
-            setSearchParams({ category_id: e.target.value, page: 1 })
+        <Select
+          value={toSelectAll(searchParams.category_id)}
+          onValueChange={(v) =>
+            setSearchParams({ category_id: fromSelectAll(v), page: 1 })
           }
-          className="min-w-[160px] rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm"
         >
-          <option value="">Все категории</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 min-w-[160px] w-[min(100%,220px)] text-sm">
+            <SelectValue placeholder="Категория" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SELECT_ALL_VALUE}>Все категории</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Input
           type="date"
           className="h-8 max-w-[10rem] text-sm"

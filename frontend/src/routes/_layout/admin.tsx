@@ -42,6 +42,13 @@ import {
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
   Table,
   TableBody,
   TableCell,
@@ -56,6 +63,11 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { cn } from "@/lib/utils.ts"
 
 const usersSearchSchema = z.object({
@@ -254,30 +266,24 @@ function UsersTable() {
   return (
     <>
       <div className="mb-4 inline-flex gap-1 rounded-lg border border-border bg-muted/30 p-1">
-        <button
+        <Button
           type="button"
-          className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-            !deleted
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+          variant={!deleted ? "secondary" : "ghost"}
+          size="sm"
+          className="rounded-md shadow-none"
           onClick={() => setDeleted(false)}
         >
           Активные
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-            deleted
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+          variant={deleted ? "secondary" : "ghost"}
+          size="sm"
+          className="rounded-md shadow-none"
           onClick={() => setDeleted(true)}
         >
           Удалённые
-        </button>
+        </Button>
       </div>
       <div className="overflow-x-auto">
         <Table>
@@ -398,23 +404,22 @@ function AddCategory() {
         onChange={(e) => setName(e.target.value)}
         className="max-w-xs"
       />
-      <select
-        value={parentId}
-        onChange={(e) => setParentId((e.target as HTMLSelectElement).value)}
-        style={{
-          padding: "6px 10px",
-          borderRadius: "6px",
-          border: "1px solid #e2e8f0",
-          minWidth: "140px",
-        }}
+      <Select
+        value={toSelectAll(parentId)}
+        onValueChange={(v) => setParentId(fromSelectAll(v))}
       >
-        <option value="">— Категории —</option>
-        {categories.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className="h-8 min-w-[140px] text-sm">
+          <SelectValue placeholder="Родитель" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={SELECT_ALL_VALUE}>— Категории —</SelectItem>
+          {categories.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Button
         variant="solid"
         size="sm"
@@ -484,24 +489,22 @@ function EditCategory({
                 placeholder="Название"
                 className="h-7 text-sm"
               />
-              <select
-                value={parentId}
-                onChange={(e) =>
-                  setParentId((e.target as HTMLSelectElement).value)
-                }
-                style={{
-                  padding: 8,
-                  borderRadius: 6,
-                  border: "1px solid #e2e8f0",
-                }}
+              <Select
+                value={toSelectAll(parentId)}
+                onValueChange={(v) => setParentId(fromSelectAll(v))}
               >
-                <option value="">— Категории —</option>
-                {parentOpts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-8 w-full text-sm">
+                  <SelectValue placeholder="Родитель" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SELECT_ALL_VALUE}>— Категории —</SelectItem>
+                  {parentOpts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
@@ -907,21 +910,25 @@ function AuditLogSection() {
     <>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">Тип ресурса:</span>
-        <select
-          value={resourceTypeFilter}
-          onChange={(e) => {
-            setResourceTypeFilter(e.target.value)
+        <Select
+          value={toSelectAll(resourceTypeFilter)}
+          onValueChange={(v) => {
+            setResourceTypeFilter(fromSelectAll(v))
             setAuditPage(1)
           }}
-          className="min-w-[140px] rounded-md border border-input bg-background px-2.5 py-1.5 text-sm"
         >
-          <option value="">— Все —</option>
-          {Object.entries(AUDIT_RESOURCE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 min-w-[140px] text-sm">
+            <SelectValue placeholder="Тип ресурса" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SELECT_ALL_VALUE}>— Все —</SelectItem>
+            {Object.entries(AUDIT_RESOURCE_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <FetchingIndicator active={isFetching && !!data} mb={2} />

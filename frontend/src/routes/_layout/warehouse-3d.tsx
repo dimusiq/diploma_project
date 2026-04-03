@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 import {
-  type ChangeEvent,
   lazy,
   Suspense,
   useCallback,
@@ -23,6 +22,13 @@ import type { ItemPublic } from "@/client/index.ts"
 import { ItemsService } from "@/client/index.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import {
   blockedCellKeysFromTopology,
@@ -567,55 +573,49 @@ function Warehouse3DPage() {
             <p className="mb-1 text-xs font-medium text-muted-foreground">
               Режим наложения
             </p>
-            <select
+            <Select
               value={overlayMode}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setOverlayMode(e.target.value as TwinOverlayMode)
-              }
-              style={{
-                width: "100%",
-                maxWidth: 280,
-                padding: "6px 8px",
-                borderRadius: 6,
-                borderWidth: 1,
-                fontSize: 14,
-              }}
+              onValueChange={(v) => setOverlayMode(v as TwinOverlayMode)}
             >
-              <option value="standard">Стандарт</option>
-              <option value="occupancy">Занятость + зоны / проходы</option>
-              <option value="workload">Нагрузка (heatmap)</option>
-              <option value="replenishment_need">Потребность в пополнении</option>
-              <option value="anomaly_alerts">
-                Аномалии (SLA + блок/резерв/карантин)
-              </option>
-              <option value="maintenance_safety">
-                Техника + граф + проходы
-              </option>
-            </select>
+              <SelectTrigger className="h-9 w-full max-w-[280px] text-sm">
+                <SelectValue placeholder="Режим" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">Стандарт</SelectItem>
+                <SelectItem value="occupancy">
+                  Занятость + зоны / проходы
+                </SelectItem>
+                <SelectItem value="workload">Нагрузка (heatmap)</SelectItem>
+                <SelectItem value="replenishment_need">
+                  Потребность в пополнении
+                </SelectItem>
+                <SelectItem value="anomaly_alerts">
+                  Аномалии (SLA + блок/резерв/карантин)
+                </SelectItem>
+                <SelectItem value="maintenance_safety">
+                  Техника + граф + проходы
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {overlayMode === "workload" && (
             <div className="min-w-[180px]">
               <p className="mb-1 text-xs font-medium text-muted-foreground">
                 Метрика heatmap
               </p>
-              <select
+              <Select
                 value={heatMetric}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                  setHeatMetric(e.target.value as HeatMetric)
-                }
-                style={{
-                  width: "100%",
-                  maxWidth: 260,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  borderWidth: 1,
-                  fontSize: 14,
-                }}
+                onValueChange={(v) => setHeatMetric(v as HeatMetric)}
               >
-                <option value="congestion">Загруженность рядов</option>
-                <option value="pick_density">Остаток в ячейке</option>
-                <option value="sla_risk">Риск по сроку годности</option>
-              </select>
+                <SelectTrigger className="h-9 w-full max-w-[260px] text-sm">
+                  <SelectValue placeholder="Метрика" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="congestion">Загруженность рядов</SelectItem>
+                  <SelectItem value="pick_density">Остаток в ячейке</SelectItem>
+                  <SelectItem value="sla_risk">Риск по сроку годности</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
           <div className="min-w-[220px] flex-1">
@@ -675,22 +675,22 @@ function Warehouse3DPage() {
           </div>
           <div className="flex min-w-[180px] flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground">Техника</p>
-            <select
+            <Select
               value={equipmentKind}
-              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                setEquipmentKind(e.target.value as WarehouseEquipmentKind)
+              onValueChange={(v) =>
+                setEquipmentKind(v as WarehouseEquipmentKind)
               }
-              style={{
-                maxWidth: 220,
-                padding: "6px 8px",
-                borderRadius: 6,
-                borderWidth: 1,
-                fontSize: 14,
-              }}
             >
-              <option value="forklift">Вилочный погрузчик</option>
-              <option value="pallet_jack">Рохля (гидравлическая тележка)</option>
-            </select>
+              <SelectTrigger className="h-9 max-w-[220px] text-sm">
+                <SelectValue placeholder="Техника" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="forklift">Вилочный погрузчик</SelectItem>
+                <SelectItem value="pallet_jack">
+                  Рохля (гидравлическая тележка)
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <Checkbox
               checked={simulationShowCargo}
               onCheckedChange={(c) => setSimulationShowCargo(c)}

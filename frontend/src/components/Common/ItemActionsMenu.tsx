@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Field } from "@/components/ui/field.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
   getAllowedNextStatuses,
@@ -292,65 +299,78 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
             </p>
             <div className="flex flex-wrap gap-3">
               <Field label="Ряд (1–12)">
-                <select
-                  value={duplicateCell.storage_row}
-                  onChange={(e) =>
+                <Select
+                  value={String(duplicateCell.storage_row)}
+                  onValueChange={(v) =>
                     setDuplicateCell((c) => ({
                       ...c,
-                      storage_row: Number(e.target.value),
+                      storage_row: Number(v),
                     }))
                   }
-                  className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 >
-                  {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
-                    (n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ),
-                  )}
-                </select>
+                  <SelectTrigger className="h-9 min-w-[80px] w-full text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
+                      (n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ),
+                    )}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Уровень (1–4)">
-                <select
-                  value={duplicateCell.storage_level}
-                  onChange={(e) =>
+                <Select
+                  value={String(duplicateCell.storage_level)}
+                  onValueChange={(v) =>
                     setDuplicateCell((c) => ({
                       ...c,
-                      storage_level: Number(e.target.value),
+                      storage_level: Number(v),
                     }))
                   }
-                  className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 >
-                  {Array.from({ length: STORAGE_LEVELS }, (_, i) => i + 1).map(
-                    (n) => (
-                      <option key={n} value={n}>
+                  <SelectTrigger className="h-9 min-w-[80px] w-full text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from(
+                      { length: STORAGE_LEVELS },
+                      (_, i) => i + 1,
+                    ).map((n) => (
+                      <SelectItem key={n} value={String(n)}>
                         {n}
-                      </option>
-                    ),
-                  )}
-                </select>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Позиция (1–20)">
-                <select
-                  value={duplicateCell.storage_cell_x}
-                  onChange={(e) =>
+                <Select
+                  value={String(duplicateCell.storage_cell_x)}
+                  onValueChange={(v) =>
                     setDuplicateCell((c) => ({
                       ...c,
-                      storage_cell_x: Number(e.target.value),
+                      storage_cell_x: Number(v),
                     }))
                   }
-                  className="min-w-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 >
-                  {Array.from(
-                    { length: STORAGE_CELLS_LENGTH },
-                    (_, i) => i + 1,
-                  ).map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-9 min-w-[100px] w-full text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from(
+                      { length: STORAGE_CELLS_LENGTH },
+                      (_, i) => i + 1,
+                    ).map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
             </div>
             {isCellOccupied && (

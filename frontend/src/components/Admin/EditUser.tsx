@@ -10,6 +10,11 @@ import {
   type UserUpdate,
 } from "@/client/index.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { emailPattern, handleError } from "@/utils.ts"
 import {
   DialogActionTrigger,
@@ -26,6 +31,13 @@ import { Button } from "../ui/button.tsx"
 import { Checkbox } from "../ui/checkbox.tsx"
 import { Field } from "../ui/field.tsx"
 import { Input } from "../ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select.tsx"
 
 interface EditUserProps {
   user: UserPublic
@@ -51,6 +63,8 @@ const EditUser = ({ user }: EditUserProps) => {
     handleSubmit,
     reset,
     getValues,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<UserUpdateForm>({
     mode: "onBlur",
@@ -151,23 +165,28 @@ const EditUser = ({ user }: EditUserProps) => {
               </Field>
 
               <Field label="Роль">
-                <select
-                  id="role_id"
-                  {...register("role_id")}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--border)",
-                  }}
+                <Select
+                  value={toSelectAll(watch("role_id") ?? ROLE_EMPTY)}
+                  onValueChange={(v) =>
+                    setValue("role_id", fromSelectAll(v), {
+                      shouldValidate: true,
+                    })
+                  }
                 >
-                  <option value={ROLE_EMPTY}>— не выбрана —</option>
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="role_id" className="h-9 w-full text-sm">
+                    <SelectValue placeholder="Роль" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECT_ALL_VALUE}>
+                      — не выбрана —
+                    </SelectItem>
+                    {roles.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
 
               <Field

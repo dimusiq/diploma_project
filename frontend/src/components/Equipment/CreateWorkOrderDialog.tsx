@@ -21,7 +21,19 @@ import {
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Input } from "@/components/ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 
 export function CreateWorkOrderDialog({
   open,
@@ -86,9 +98,6 @@ export function CreateWorkOrderDialog({
     })
   }
 
-  const selectClass =
-    "w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-
   return (
     <DialogRoot open={open} onOpenChange={(e) => onOpenChange(e.open)}>
       <DialogContent>
@@ -102,20 +111,25 @@ export function CreateWorkOrderDialog({
               <p className="mb-1 text-sm font-medium">
                 Техника
               </p>
-              <select
-                value={equipmentId}
-                onChange={(e) => setEquipmentId(e.target.value)}
-                required
-                className={selectClass}
+              <Select
+                value={toSelectAll(equipmentId)}
+                onValueChange={(v) => setEquipmentId(fromSelectAll(v))}
               >
-                <option value="">— Выберите технику —</option>
-                {equipmentList.map((eq) => (
-                  <option key={eq.id} value={eq.id}>
-                    {[eq.brand_name, eq.model].filter(Boolean).join(" ")}{" "}
-                    {eq.garage_number ? `(${eq.garage_number})` : ""}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 w-full text-sm">
+                  <SelectValue placeholder="— Выберите технику —" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SELECT_ALL_VALUE}>
+                    — Выберите технику —
+                  </SelectItem>
+                  {equipmentList.map((eq) => (
+                    <SelectItem key={eq.id} value={eq.id}>
+                      {[eq.brand_name, eq.model].filter(Boolean).join(" ")}{" "}
+                      {eq.garage_number ? `(${eq.garage_number})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <p className="mb-1 text-sm font-medium">
@@ -144,34 +158,39 @@ export function CreateWorkOrderDialog({
               <p className="mb-1 text-sm font-medium">
                 Приоритет
               </p>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className={selectClass}
-              >
-                {Object.entries(WORK_ORDER_PRIORITY_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger className="h-9 w-full text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(WORK_ORDER_PRIORITY_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <p className="mb-1 text-sm font-medium">
                 Исполнитель (необязательно)
               </p>
-              <select
-                value={assignedToId}
-                onChange={(e) => setAssignedToId(e.target.value)}
-                className={selectClass}
+              <Select
+                value={toSelectAll(assignedToId)}
+                onValueChange={(v) => setAssignedToId(fromSelectAll(v))}
               >
-                <option value="">— Не назначен —</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.full_name || u.email}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 w-full text-sm">
+                  <SelectValue placeholder="Исполнитель" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SELECT_ALL_VALUE}>— Не назначен —</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.full_name || u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <p className="mb-1 text-sm font-medium">

@@ -27,6 +27,13 @@ import {
 import { Button } from "@/components/ui/button.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
   Table,
   TableBody,
   TableCell,
@@ -36,6 +43,11 @@ import {
 } from "@/components/ui/table.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { getIntervalHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
 function CreateOrderDialog({
@@ -127,10 +139,10 @@ function CreateOrderDialog({
                 <p className="mb-1 text-sm font-medium">
                   Техника
                 </p>
-                <select
-                  value={equipmentId}
-                  onChange={(e) => {
-                    const id = e.target.value
+                <Select
+                  value={toSelectAll(equipmentId)}
+                  onValueChange={(v) => {
+                    const id = fromSelectAll(v)
                     setEquipmentId(id)
                     const intervals = getIntervalHoursForEquipment(id, chains)
                     if (intervals.length > 0) {
@@ -143,17 +155,22 @@ function CreateOrderDialog({
                       setIntervalHours(500)
                     }
                   }}
-                  required
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm"
                 >
-                  <option value="">— Выберите технику —</option>
-                  {equipmentList.map((eq) => (
-                    <option key={eq.id} value={eq.id}>
-                      {[eq.brand_name, eq.model].filter(Boolean).join(" ")}{" "}
-                      {eq.garage_number ? `(${eq.garage_number})` : ""}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-9 w-full text-sm">
+                    <SelectValue placeholder="— Выберите технику —" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECT_ALL_VALUE}>
+                      — Выберите технику —
+                    </SelectItem>
+                    {equipmentList.map((eq) => (
+                      <SelectItem key={eq.id} value={eq.id}>
+                        {[eq.brand_name, eq.model].filter(Boolean).join(" ")}{" "}
+                        {eq.garage_number ? `(${eq.garage_number})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <p className="mb-1 text-sm font-medium">
@@ -172,24 +189,27 @@ function CreateOrderDialog({
                   Интервал ТО (м/ч)
                 </p>
                 {chainIntervals.length > 0 ? (
-                  <select
-                    value={
+                  <Select
+                    value={String(
                       chainIntervals.includes(intervalHours)
                         ? intervalHours
-                        : chainIntervals[0]
+                        : chainIntervals[0],
+                    )}
+                    onValueChange={(v) =>
+                      setIntervalHours(parseInt(v, 10))
                     }
-                    onChange={(e) =>
-                      setIntervalHours(parseInt(e.target.value, 10))
-                    }
-                    required
-                    className="w-full rounded-md border border-border px-3 py-2 text-sm"
                   >
-                    {chainIntervals.map((h) => (
-                      <option key={h} value={h}>
-                        {h} м/ч
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-9 w-full text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {chainIntervals.map((h) => (
+                        <SelectItem key={h} value={String(h)}>
+                          {h} м/ч
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <>
                     <Input

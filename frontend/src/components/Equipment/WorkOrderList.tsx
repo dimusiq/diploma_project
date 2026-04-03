@@ -16,6 +16,13 @@ import { CreateWorkOrderDialog } from "@/components/Equipment/CreateWorkOrderDia
 import { WorkOrderDetailDrawer } from "@/components/Equipment/WorkOrderDetailDrawer.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
   Table,
   TableBody,
   TableCell,
@@ -23,6 +30,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table.tsx"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 
 export function WorkOrderList() {
   const [statusFilter, setStatusFilter] = useState<string>("")
@@ -58,14 +70,6 @@ export function WorkOrderList() {
   const orders = data?.data ?? []
   const count = data?.count ?? 0
 
-  const selectStyle = {
-    padding: "6px 10px",
-    borderRadius: "6px",
-    border: "1px solid var(--border)",
-    minWidth: "140px",
-    fontSize: "14px",
-  } as const
-
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -76,30 +80,38 @@ export function WorkOrderList() {
               Создать заявку
             </span>
           </Button>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={selectStyle}
+          <Select
+            value={toSelectAll(statusFilter)}
+            onValueChange={(v) => setStatusFilter(fromSelectAll(v))}
           >
-            <option value="">Все статусы</option>
-            {Object.entries(WORK_ORDER_STATUS_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            style={{ ...selectStyle, minWidth: "130px" }}
+            <SelectTrigger className="h-9 min-w-[140px] text-sm">
+              <SelectValue placeholder="Статус" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_ALL_VALUE}>Все статусы</SelectItem>
+              {Object.entries(WORK_ORDER_STATUS_LABELS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={toSelectAll(priorityFilter)}
+            onValueChange={(v) => setPriorityFilter(fromSelectAll(v))}
           >
-            <option value="">Все приоритеты</option>
-            {Object.entries(WORK_ORDER_PRIORITY_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 min-w-[130px] text-sm">
+              <SelectValue placeholder="Приоритет" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_ALL_VALUE}>Все приоритеты</SelectItem>
+              {Object.entries(WORK_ORDER_PRIORITY_LABELS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {count > 0 && (
           <p className="text-sm text-muted-foreground">Заявок: {count}</p>

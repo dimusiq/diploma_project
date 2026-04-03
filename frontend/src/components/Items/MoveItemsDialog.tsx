@@ -13,6 +13,13 @@ import {
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Field } from "@/components/ui/field.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
   getAllowedNextStatuses,
@@ -113,17 +120,21 @@ export function MoveItemsDialog({
           </p>
           {hasAllowedTargets ? (
             <Field label="Статус">
-              <select
+              <Select
                 value={targetStatus}
-                onChange={(e) => setTargetStatus(e.target.value)}
-                className="min-w-[180px] rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                onValueChange={setTargetStatus}
               >
-                {allowedStatuses.map((value) => (
-                  <option key={value} value={value}>
-                    {getStatusLabel(value)}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 min-w-[180px] text-sm">
+                  <SelectValue placeholder="Статус" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedStatuses.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {getStatusLabel(value)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {targetStatus === "warehouse" && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   У каждого товара должна быть указана ячейка хранения (ряд,

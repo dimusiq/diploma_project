@@ -13,7 +13,7 @@ export function CustomProvider(props: PropsWithChildren) {
       disableTransitionOnChange
     >
       {props.children}
-      <Toaster position="top-end" richColors closeButton />
+      <Toaster position="top-right" richColors closeButton />
     </ThemeProvider>
   )
 }

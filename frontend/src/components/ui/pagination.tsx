@@ -1,7 +1,11 @@
 "use client"
 
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  EllipsisIcon,
+} from "lucide-react"
 import * as React from "react"
-import { HiChevronLeft, HiChevronRight, HiMiniEllipsisHorizontal } from "react-icons/hi2"
 
 import { Button } from "@/components/ui/button.tsx"
 import { cn } from "@/lib/utils.ts"
@@ -199,7 +203,7 @@ export function PaginationEllipsis({
         tabIndex={-1}
         aria-hidden
       >
-        <HiMiniEllipsisHorizontal className="size-4" />
+        <EllipsisIcon className="size-4" />
       </Button>
     </span>
   )
@@ -274,7 +278,7 @@ export function PaginationPrevTrigger({
         }}
         {...(rest as React.ComponentProps<typeof LinkButton>)}
       >
-        {children ?? <HiChevronLeft className="size-4" />}
+        {children ?? <ChevronLeftIcon className="size-4" />}
       </LinkButton>
     )
   }
@@ -304,7 +308,7 @@ export function PaginationPrevTrigger({
       onClick={go}
       {...rest}
     >
-      {children ?? <HiChevronLeft className="size-4" />}
+      {children ?? <ChevronLeftIcon className="size-4" />}
     </Button>
   )
 }
@@ -330,7 +334,7 @@ export function PaginationNextTrigger({
         }}
         {...(rest as React.ComponentProps<typeof LinkButton>)}
       >
-        {children ?? <HiChevronRight className="size-4" />}
+        {children ?? <ChevronRightIcon className="size-4" />}
       </LinkButton>
     )
   }
@@ -360,7 +364,7 @@ export function PaginationNextTrigger({
       onClick={go}
       {...rest}
     >
-      {children ?? <HiChevronRight className="size-4" />}
+      {children ?? <ChevronRightIcon className="size-4" />}
     </Button>
   )
 }

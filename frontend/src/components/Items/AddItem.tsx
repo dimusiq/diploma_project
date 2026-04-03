@@ -5,6 +5,11 @@ import { FaPlus } from "react-icons/fa"
 import type { ApiError } from "@/client/core/ApiError.ts"
 import { CategoriesService, type ItemCreate, ItemsService } from "@/client/index.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { handleError } from "@/utils.ts"
 import {
   DialogActionTrigger,
@@ -20,6 +25,13 @@ import {
 import { Button } from "../ui/button.tsx"
 import { Field } from "../ui/field.tsx"
 import { Input } from "../ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select.tsx"
 
 const STORAGE_ROWS = 12
 const STORAGE_LEVELS = 4
@@ -53,6 +65,7 @@ const AddItem = () => {
     register,
     handleSubmit,
     reset,
+    setValue,
     watch,
     formState: { errors, isValid, isSubmitting },
   } = useForm<ItemCreate>({
@@ -205,19 +218,31 @@ const AddItem = () => {
               </Field>
 
               <Field label="Категория">
-                <select
-                  id="category_id"
-                  {...register("category_id")}
-                  value={watch("category_id") ?? ""}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                <Select
+                  value={toSelectAll(watch("category_id") ?? "")}
+                  onValueChange={(v) =>
+                    setValue("category_id", fromSelectAll(v) || null, {
+                      shouldValidate: true,
+                    })
+                  }
                 >
-                  <option value="">Выберите категорию</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    id="category_id"
+                    className="h-9 w-full text-sm"
+                  >
+                    <SelectValue placeholder="Выберите категорию" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECT_ALL_VALUE}>
+                      Выберите категорию
+                    </SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
 
               <Field
@@ -237,60 +262,111 @@ const AddItem = () => {
               </p>
               <div className="flex flex-wrap gap-3">
                 <Field label="Ряд (1–12)">
-                  <select
-                    id="storage_row"
-                    {...register("storage_row", {
-                      setValueAs: (v) => (v === "" ? null : Number(v)),
-                    })}
-                    className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                  <Select
+                    value={
+                      watch("storage_row") == null
+                        ? SELECT_ALL_VALUE
+                        : String(watch("storage_row"))
+                    }
+                    onValueChange={(v) =>
+                      setValue(
+                        "storage_row",
+                        fromSelectAll(v) === ""
+                          ? null
+                          : Number(fromSelectAll(v)),
+                        { shouldValidate: true },
+                      )
+                    }
                   >
-                    <option value="">—</option>
-                    {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
-                      (n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ),
-                    )}
-                  </select>
+                    <SelectTrigger
+                      id="storage_row"
+                      className="h-9 min-w-[80px] w-full text-sm"
+                    >
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SELECT_ALL_VALUE}>—</SelectItem>
+                      {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
+                        (n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field label="Уровень (1–4)">
-                  <select
-                    id="storage_level"
-                    {...register("storage_level", {
-                      setValueAs: (v) => (v === "" ? null : Number(v)),
-                    })}
-                    className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                  <Select
+                    value={
+                      watch("storage_level") == null
+                        ? SELECT_ALL_VALUE
+                        : String(watch("storage_level"))
+                    }
+                    onValueChange={(v) =>
+                      setValue(
+                        "storage_level",
+                        fromSelectAll(v) === ""
+                          ? null
+                          : Number(fromSelectAll(v)),
+                        { shouldValidate: true },
+                      )
+                    }
                   >
-                    <option value="">—</option>
-                    {Array.from(
-                      { length: STORAGE_LEVELS },
-                      (_, i) => i + 1,
-                    ).map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id="storage_level"
+                      className="h-9 min-w-[80px] w-full text-sm"
+                    >
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SELECT_ALL_VALUE}>—</SelectItem>
+                      {Array.from(
+                        { length: STORAGE_LEVELS },
+                        (_, i) => i + 1,
+                      ).map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field label="Позиция в ряду (1–20)">
-                  <select
-                    id="storage_cell_x"
-                    {...register("storage_cell_x", {
-                      setValueAs: (v) => (v === "" ? null : Number(v)),
-                    })}
-                    className="min-w-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                  <Select
+                    value={
+                      watch("storage_cell_x") == null
+                        ? SELECT_ALL_VALUE
+                        : String(watch("storage_cell_x"))
+                    }
+                    onValueChange={(v) =>
+                      setValue(
+                        "storage_cell_x",
+                        fromSelectAll(v) === ""
+                          ? null
+                          : Number(fromSelectAll(v)),
+                        { shouldValidate: true },
+                      )
+                    }
                   >
-                    <option value="">—</option>
-                    {Array.from(
-                      { length: STORAGE_CELLS_LENGTH },
-                      (_, i) => i + 1,
-                    ).map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id="storage_cell_x"
+                      className="h-9 min-w-[100px] w-full text-sm"
+                    >
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SELECT_ALL_VALUE}>—</SelectItem>
+                      {Array.from(
+                        { length: STORAGE_CELLS_LENGTH },
+                        (_, i) => i + 1,
+                      ).map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
               </div>
 

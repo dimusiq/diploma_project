@@ -13,7 +13,19 @@ import {
 import { Button } from "@/components/ui/button.tsx"
 import { Field } from "@/components/ui/field.tsx"
 import { Input } from "@/components/ui/input.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 
 interface MassEditItemsDialogProps {
   open: boolean
@@ -88,18 +100,22 @@ export function MassEditItemsDialog({
         </DialogHeader>
         <DialogBody>
           <Field label="Категория">
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+            <Select
+              value={toSelectAll(categoryId)}
+              onValueChange={(v) => setCategoryId(fromSelectAll(v))}
             >
-              <option value="">— Не менять</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 w-full text-sm">
+                <SelectValue placeholder="Категория" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SELECT_ALL_VALUE}>— Не менять</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Единица измерения" className="mt-3">
             <Input

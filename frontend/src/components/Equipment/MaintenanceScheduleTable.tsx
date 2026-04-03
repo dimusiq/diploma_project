@@ -52,6 +52,13 @@ import {
   PopoverTitle,
 } from "@/components/ui/popover.tsx"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
+import {
   Table,
   TableBody,
   TableCell,
@@ -61,6 +68,11 @@ import {
 } from "@/components/ui/table.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { cn } from "@/lib/utils.ts"
 import { getRemindBeforeHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
@@ -836,49 +848,63 @@ export function MaintenanceScheduleTable() {
           <span className="text-sm text-muted-foreground">
             Статус:
           </span>
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter((e.target.value || "") as ScheduleStatus | "")
+          <Select
+            value={toSelectAll(statusFilter)}
+            onValueChange={(v) =>
+              setStatusFilter(
+                (fromSelectAll(v) || "") as ScheduleStatus | "",
+              )
             }
-            className="rounded-md border border-border px-2.5 py-1.5 text-sm"
           >
-            <option value="">Все</option>
-            <option value="in_repair">В ремонте</option>
-            <option value="overdue">Просрочено</option>
-            <option value="due_soon">Скоро</option>
-            <option value="ok">Норма</option>
-          </select>
+            <SelectTrigger className="h-9 min-w-[120px] text-sm">
+              <SelectValue placeholder="Статус" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_ALL_VALUE}>Все</SelectItem>
+              <SelectItem value="in_repair">В ремонте</SelectItem>
+              <SelectItem value="overdue">Просрочено</SelectItem>
+              <SelectItem value="due_soon">Скоро</SelectItem>
+              <SelectItem value="ok">Норма</SelectItem>
+            </SelectContent>
+          </Select>
           <span className="ml-2 text-sm text-muted-foreground">
             Тип:
           </span>
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="rounded-md border border-border px-2.5 py-1.5 text-sm"
+          <Select
+            value={toSelectAll(typeFilter)}
+            onValueChange={(v) => setTypeFilter(fromSelectAll(v))}
           >
-            <option value="">Все типы</option>
-            {Object.entries(EQUIPMENT_TYPE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 min-w-[140px] text-sm">
+              <SelectValue placeholder="Тип" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_ALL_VALUE}>Все типы</SelectItem>
+              {Object.entries(EQUIPMENT_TYPE_LABELS).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <span className="ml-2 text-sm text-muted-foreground">
             Последовательность ТО:
           </span>
-          <select
-            value={chainFilter}
-            onChange={(e) => setChainFilter(e.target.value)}
-            className="min-w-[160px] rounded-md border border-border px-2.5 py-1.5 text-sm"
+          <Select
+            value={toSelectAll(chainFilter)}
+            onValueChange={(v) => setChainFilter(fromSelectAll(v))}
           >
-            <option value="">Все</option>
-            {chains.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 min-w-[160px] text-sm">
+              <SelectValue placeholder="Цепочка" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SELECT_ALL_VALUE}>Все</SelectItem>
+              {chains.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <label className="ml-2 flex cursor-pointer items-center gap-1.5 text-sm">
             <input
               type="checkbox"
@@ -1114,9 +1140,11 @@ export function MaintenanceScheduleTable() {
                         >
                           <MenuRoot>
                           <MenuTrigger asChild>
-                            <button
+                            <Button
                               type="button"
-                              className="inline-block cursor-pointer border-0 bg-transparent p-0"
+                              variant="ghost"
+                              size="sm"
+                              className="inline-block h-auto min-h-0 border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:ring-1"
                               aria-label="Действия по статусу ТО"
                               ref={(el: HTMLButtonElement | null) => {
                                 if (el)
@@ -1138,7 +1166,7 @@ export function MaintenanceScheduleTable() {
                               >
                                 {STATUS_LABELS[status]}
                               </span>
-                            </button>
+                            </Button>
                           </MenuTrigger>
                           <MenuContent>
                             <MenuItem

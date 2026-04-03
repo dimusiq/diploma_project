@@ -1,10 +1,10 @@
 "use client"
 
+import { MoonIcon, SunIcon } from "lucide-react"
 import type { ThemeProviderProps } from "next-themes"
 import { ThemeProvider, useTheme } from "next-themes"
 import type * as React from "react"
 import { useEffect, useState } from "react"
-import { LuMoon, LuSun } from "react-icons/lu"
 
 import { Button } from "@/components/ui/button.tsx"
 import { cn } from "@/lib/utils"
@@ -44,7 +44,7 @@ export function useColorModeValue<T>(light: T, dark: T) {
 
 export function ColorModeIcon() {
   const { colorMode } = useColorMode()
-  return colorMode === "dark" ? <LuMoon /> : <LuSun />
+  return colorMode === "dark" ? <MoonIcon /> : <SunIcon />
 }
 
 function ClientOnly({

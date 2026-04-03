@@ -8,6 +8,13 @@ import {
 } from "@/api/warehouseTasks.ts"
 import { ApiError } from "@/client/index.ts"
 import { Button } from "@/components/ui/button.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import {
   Table,
@@ -18,6 +25,11 @@ import {
   TableRow,
 } from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 import { cn } from "@/lib/utils.ts"
 
 export const Route = createFileRoute("/_layout/warehouse-tasks")({
@@ -25,12 +37,12 @@ export const Route = createFileRoute("/_layout/warehouse-tasks")({
 })
 
 const STATUS_OPTIONS = [
-  { value: "", label: "Все статусы" },
+  { value: SELECT_ALL_VALUE, label: "Все статусы" },
   { value: "pending", label: "pending" },
   { value: "in_progress", label: "in_progress" },
   { value: "completed", label: "completed" },
   { value: "cancelled", label: "cancelled" },
-]
+] as const
 
 function WarehouseTasksPage() {
   const { showErrorToast, showSuccessToast } = useCustomToast()
@@ -74,17 +86,21 @@ function WarehouseTasksPage() {
       </p>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-full min-w-[220px] rounded-md border border-input bg-transparent px-3 py-2 text-sm sm:w-auto"
+        <Select
+          value={toSelectAll(statusFilter)}
+          onValueChange={(v) => setStatusFilter(fromSelectAll(v))}
         >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value || "all"} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-9 w-full min-w-[220px] text-sm sm:w-auto">
+            <SelectValue placeholder="Статус" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {listQ.isPending ? (

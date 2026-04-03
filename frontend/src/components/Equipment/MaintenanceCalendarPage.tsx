@@ -13,7 +13,19 @@ import {
   DialogTitle,
 } from "@/components/ui/app-dialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import {
+  fromSelectAll,
+  SELECT_ALL_VALUE,
+  toSelectAll,
+} from "@/lib/selectAllValue.ts"
 
 type MaintenanceEventDropArgs = {
   payload: {
@@ -123,18 +135,22 @@ export function MaintenanceCalendarPage() {
             <p className="mb-2 text-sm text-muted-foreground">
               Выберите исполнителя для создаваемой/переносимой заявки.
             </p>
-            <select
-              value={selectedAssigneeId}
-              onChange={(e) => setSelectedAssigneeId(e.target.value)}
-              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+            <Select
+              value={toSelectAll(selectedAssigneeId)}
+              onValueChange={(v) => setSelectedAssigneeId(fromSelectAll(v))}
             >
-              <option value="">— Не назначен —</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.full_name || u.email}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 w-full text-sm">
+                <SelectValue placeholder="Исполнитель" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SELECT_ALL_VALUE}>— Не назначен —</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.full_name || u.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </DialogBody>
           <DialogFooter>
             <div className="flex w-full items-center justify-between">

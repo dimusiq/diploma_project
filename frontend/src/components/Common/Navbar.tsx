@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { FaRobot } from "react-icons/fa"
 
 import { fetchAgentPermissions } from "@/api/agent.ts"
-import { buttonVariants } from "@/components/ui/button.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import { ColorModeButton } from "@/components/ui/color-mode.tsx"
 import { SidebarTrigger } from "@/components/ui/sidebar.tsx"
 import { cn } from "@/lib/utils"
@@ -28,16 +28,16 @@ function Navbar() {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {showAssistant ? (
-          <Link
-            to="/assistant"
-            aria-label="Ассистент склада"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "rounded-md hover:bg-white/10",
-            )}
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="rounded-md hover:bg-white/10"
           >
-            <FaRobot className="size-5" aria-hidden />
-          </Link>
+            <Link to="/assistant" aria-label="Ассистент склада">
+              <FaRobot className="size-5" aria-hidden />
+            </Link>
+          </Button>
         ) : null}
         <NotificationCenter />
         <ColorModeButton className="hover:bg-white/10" />
