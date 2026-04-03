@@ -117,7 +117,7 @@ export function SparePartsList() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button variant="outlineSky" size="sm" onClick={() => setCreateOpen(true)}>
           <span className="inline-flex items-center gap-1.5">
             <FiPlus />
             Добавить запчасть
@@ -252,6 +252,7 @@ export function SparePartsList() {
               </Button>
               <Button
                 type="submit"
+                variant="outlineSky"
                 size="sm"
                 loading={createMutation.isPending}
                 disabled={!form.title.trim()}

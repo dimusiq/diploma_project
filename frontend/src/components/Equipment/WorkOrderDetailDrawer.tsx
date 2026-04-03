@@ -423,7 +423,7 @@ function WorkOrderDetailContent({
           />
           <Button
             size="sm"
-            variant="outline"
+            variant="outlineSky"
             onClick={onAddCheckItem}
             loading={addChecklistLoading}
             disabled={!newCheckItem.trim()}
@@ -515,8 +515,7 @@ function PartReservationsSection({
             </p>
             <Button
               size="sm"
-              variant="ghost"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              variant="outlineDestructive"
               onClick={() => onDeleteReservation(r.id)}
               loading={deleteReservationLoading}
             >
@@ -528,7 +527,7 @@ function PartReservationsSection({
         <p className="text-sm text-muted-foreground">Резервов нет</p>
       )}
       <DialogRoot open={dialogOpen} onOpenChange={(e) => setDialogOpen(e.open)}>
-        <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" variant="outlineSky" onClick={() => setDialogOpen(true)}>
           Добавить резерв
         </Button>
         <DialogContent>

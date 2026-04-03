@@ -223,9 +223,9 @@ export function NotificationCenter() {
             ) : null}
             <Button
               type="button"
-              variant="ghost"
+              variant="outlineDestructive"
               size="sm"
-              className="w-full justify-center text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="w-full justify-center"
               loading={clearAllMutation.isPending}
               onClick={() => clearAllMutation.mutate()}
             >

@@ -49,7 +49,7 @@ export function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button
-            variant={variant === "danger" ? "destructive" : "default"}
+            variant={variant === "danger" ? "outlineDestructive" : "default"}
             size="sm"
             type="button"
             loading={isLoading}

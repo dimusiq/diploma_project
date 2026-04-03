@@ -470,7 +470,7 @@ export function WarehouseTopologyAdmin() {
 
         <TabsContent value="zones" className="mt-0 outline-none">
           <div className="mb-2 flex justify-end">
-            <Button size="sm" variant="outline" onClick={addZone}>
+            <Button size="sm" variant="outlineSky" onClick={addZone}>
               Добавить зону
             </Button>
           </div>
@@ -634,7 +634,7 @@ export function WarehouseTopologyAdmin() {
                   <TableCell>
                     <Button
                       size="xs"
-                      variant="ghost"
+                      variant="outlineDestructive"
                       onClick={() => removeZone(i)}
                     >
                       Удалить
@@ -648,7 +648,7 @@ export function WarehouseTopologyAdmin() {
 
         <TabsContent value="aisles" className="mt-0 outline-none">
           <div className="mb-2 flex justify-end">
-            <Button size="sm" variant="outline" onClick={addAisle}>
+            <Button size="sm" variant="outlineSky" onClick={addAisle}>
               Добавить проход
             </Button>
           </div>
@@ -707,7 +707,7 @@ export function WarehouseTopologyAdmin() {
               </Field>
               <Button
                 size="xs"
-                variant="ghost"
+                variant="outlineDestructive"
                 className="mt-2"
                 onClick={() => removeAisle(i)}
               >
@@ -719,7 +719,7 @@ export function WarehouseTopologyAdmin() {
 
         <TabsContent value="buffers" className="mt-0 outline-none">
           <div className="mb-2 flex justify-end">
-            <Button size="sm" variant="outline" onClick={addBuffer}>
+            <Button size="sm" variant="outlineSky" onClick={addBuffer}>
               Добавить буфер
             </Button>
           </div>
@@ -773,7 +773,7 @@ export function WarehouseTopologyAdmin() {
               </Field>
               <Button
                 size="xs"
-                variant="ghost"
+                variant="outlineDestructive"
                 className="mt-2"
                 onClick={() => removeBuffer(i)}
               >
@@ -785,7 +785,7 @@ export function WarehouseTopologyAdmin() {
 
         <TabsContent value="docks" className="mt-0 outline-none">
           <div className="mb-2 flex justify-end">
-            <Button size="sm" variant="outline" onClick={addDock}>
+            <Button size="sm" variant="outlineSky" onClick={addDock}>
               Добавить док
             </Button>
           </div>
@@ -869,7 +869,7 @@ export function WarehouseTopologyAdmin() {
               </div>
               <Button
                 size="xs"
-                variant="ghost"
+                variant="outlineDestructive"
                 className="mt-2"
                 onClick={() => removeDock(i)}
               >

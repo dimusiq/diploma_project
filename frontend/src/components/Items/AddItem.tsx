@@ -125,7 +125,7 @@ const AddItem = () => {
       onOpenChange={({ open }) => setIsOpen(open)}
     >
       <DialogTrigger asChild>
-        <Button variant="solid" size="sm" value="add-item" className="my-4">
+        <Button variant="outlineSky" size="sm" value="add-item" className="my-4">
           <FaPlus className="size-4" />
           Добавить
         </Button>

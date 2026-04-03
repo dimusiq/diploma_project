@@ -47,7 +47,7 @@ const DeleteConfirmation = () => {
   return (
     <>
       <Button
-        variant="destructive"
+        variant="outlineDestructive"
         size="sm"
         className="mt-4"
         type="button"
@@ -79,7 +79,7 @@ const DeleteConfirmation = () => {
                 Cancel
               </Button>
               <Button
-                variant="destructive"
+                variant="outlineDestructive"
                 size="sm"
                 type="submit"
                 loading={isSubmitting}

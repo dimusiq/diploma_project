@@ -58,11 +58,7 @@ const DeleteUser = ({ id }: { id: string }) => {
       onOpenChange={({ open }) => setIsOpen(open)}
     >
       <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-destructive hover:text-destructive"
-        >
+        <Button variant="outlineDestructive" size="sm">
           <FiTrash2 className="size-4" />
           Удалить Пользователя
         </Button>
@@ -87,7 +83,7 @@ const DeleteUser = ({ id }: { id: string }) => {
               </Button>
             </DialogActionTrigger>
             <Button
-              variant="destructive"
+              variant="outlineDestructive"
               size="sm"
               type="submit"
               loading={isSubmitting}

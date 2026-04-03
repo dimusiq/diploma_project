@@ -106,7 +106,7 @@ const AddUser = () => {
       onOpenChange={({ open }) => setIsOpen(open)}
     >
       <DialogTrigger asChild>
-        <Button variant="solid" size="sm" value="add-user">
+        <Button variant="outlineSky" size="sm" value="add-user">
           <FaPlus fontSize="16px" />
           Добавить пользователя
         </Button>

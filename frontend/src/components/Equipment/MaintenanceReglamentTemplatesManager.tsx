@@ -203,8 +203,7 @@ export function MaintenanceReglamentTemplatesManager() {
           {selectedId ? (
             <Button
               size="sm"
-              variant="outline"
-              className="text-destructive border-destructive hover:bg-destructive/10"
+              variant="outlineDestructive"
               onClick={() => setDeleteOpen(true)}
             >
               Удалить
@@ -340,7 +339,7 @@ export function MaintenanceReglamentTemplatesManager() {
                     />
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="outlineDestructive"
                       onClick={() => {
                         setDraft((d) => {
                           const next = d.checklist_items.filter(
@@ -363,7 +362,7 @@ export function MaintenanceReglamentTemplatesManager() {
 
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="outlineSky"
                   onClick={() =>
                     setDraft((d) => ({
                       ...d,
@@ -430,7 +429,7 @@ export function MaintenanceReglamentTemplatesManager() {
                     />
                     <Button
                       size="sm"
-                      variant="outline"
+                      variant="outlineDestructive"
                       onClick={() => {
                         setDraft((d) => ({
                           ...d,
@@ -448,7 +447,7 @@ export function MaintenanceReglamentTemplatesManager() {
 
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="outlineSky"
                   onClick={() =>
                     setDraft((d) => ({
                       ...d,

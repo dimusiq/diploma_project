@@ -5,6 +5,10 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/** Контур в цвете `--primary`: единый стиль для вторичных действий (как «Добавить», отмена, экспорт). Не для удаления — см. `outlineDestructive`. */
+const outlinePrimaryClasses =
+  "border-2 border-primary bg-background !text-primary shadow-sm hover:bg-primary/12 hover:!text-primary focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary/30"
+
 /** База и варианты как в fastapi/full-stack-fastapi-template (shadcn + Tailwind v4). */
 const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 aria-invalid:border-destructive aria-invalid:ring-destructive/20 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:aria-invalid:ring-destructive/40",
@@ -14,8 +18,11 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 dark:hover:bg-destructive/90",
-        outline:
-          "border border-border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        outline: outlinePrimaryClasses,
+        outlineSky: outlinePrimaryClasses,
+        /** Опасное действие (удаление и т.п.) — контур destructive, без заливки */
+        outlineDestructive:
+          "border-destructive bg-background !text-destructive shadow-xs hover:bg-destructive/10 hover:!text-destructive focus-visible:border-destructive focus-visible:ring-[3px] focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:

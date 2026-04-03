@@ -290,7 +290,7 @@ export function PerformedMaintenanceList() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
+        <Button variant="outlineSky" size="sm" onClick={() => setCreateOpen(true)}>
           <span className="inline-flex items-center gap-2">
             <FaPlus />
             Создать заказ

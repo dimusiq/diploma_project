@@ -648,8 +648,7 @@ export function MaintenanceScheduleEditor() {
                           {canEdit && (
                             <Button
                               size="icon-xs"
-                              variant="ghost"
-                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              variant="outlineDestructive"
                               onClick={() => handleDeleteChain(c.id)}
                               title="Удалить"
                               aria-label="Удалить последовательность"
@@ -790,7 +789,7 @@ export function MaintenanceScheduleEditor() {
                       </Select>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="outlineSky"
                         onClick={addIntervalToChain}
                       >
                         Добавить в цепочку
@@ -832,8 +831,7 @@ export function MaintenanceScheduleEditor() {
                               </Button>
                               <Button
                                 size="icon-xs"
-                                variant="ghost"
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                variant="outlineDestructive"
                                 onClick={() => removeIntervalFromChain(index)}
                                 title="Удалить"
                                 aria-label="Удалить интервал из последовательности"
@@ -986,7 +984,7 @@ export function MaintenanceScheduleEditor() {
                 }
                 className="h-7 w-[180px]"
               />
-              <Button size="sm" onClick={handleAddInterval}>
+              <Button variant="outlineSky" size="sm" onClick={handleAddInterval}>
                 Добавить период
               </Button>
             </div>
@@ -1019,8 +1017,7 @@ export function MaintenanceScheduleEditor() {
                         {canEdit && (
                           <Button
                             size="xs"
-                            variant="ghost"
-                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            variant="outlineDestructive"
                             onClick={() => handleRemoveInterval(value)}
                           >
                             Удалить

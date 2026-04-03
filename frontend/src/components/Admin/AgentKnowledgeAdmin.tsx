@@ -209,8 +209,7 @@ export function AgentKnowledgeAdmin() {
                     </Button>
                     <Button
                       size="xs"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
+                      variant="outlineDestructive"
                       onClick={() => setDeleteId(row.id)}
                     >
                       Удалить

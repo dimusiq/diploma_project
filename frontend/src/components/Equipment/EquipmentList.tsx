@@ -409,7 +409,7 @@ export function EquipmentList() {
           >
             Импорт Excel
           </Button>
-          <Button variant="solid" size="sm" onClick={handleAdd}>
+          <Button variant="outlineSky" size="sm" onClick={handleAdd}>
             <FaPlus />
             Добавить
           </Button>
@@ -428,7 +428,7 @@ export function EquipmentList() {
             Складская техника: бренды задаются в разделе «Администрирование» →
             Бренды.
           </p>
-          <Button variant="solid" size="sm" onClick={handleAdd}>
+          <Button variant="outlineSky" size="sm" onClick={handleAdd}>
             Добавить технику
           </Button>
         </div>
@@ -607,7 +607,7 @@ export function EquipmentList() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
                         <DropdownMenuItem
-                          variant="destructive"
+                          variant="outlineDestructive"
                           onSelect={() => handleDeleteClick(item)}
                         >
                           Удалить

@@ -214,7 +214,7 @@ export function CreateWorkOrderDialog({
             </Button>
             <Button
               type="submit"
-              variant="solid"
+              variant="outlineSky"
               size="sm"
               loading={createMutation.isPending}
               disabled={createMutation.isPending}

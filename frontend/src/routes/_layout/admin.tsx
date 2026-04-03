@@ -434,7 +434,7 @@ function AddCategory() {
         </SelectContent>
       </Select>
       <Button
-        variant="solid"
+        variant="outlineSky"
         size="sm"
         onClick={() => create.mutate()}
         disabled={!name.trim()}
@@ -591,8 +591,7 @@ function CategoriesList() {
                     <EditCategory category={c} categories={categories} />
                     <Button
                       size="xs"
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      variant="outlineDestructive"
                       onClick={() =>
                         setDeleteConfirm({ id: c.id, name: c.name })
                       }
@@ -645,7 +644,7 @@ function AddBrand() {
         className="max-w-xs"
       />
       <Button
-        variant="solid"
+        variant="outlineSky"
         size="sm"
         onClick={() => create.mutate()}
         disabled={!name.trim()}
@@ -763,8 +762,7 @@ function BrandsList() {
                     <EditBrand brand={b} />
                     <Button
                       size="xs"
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      variant="outlineDestructive"
                       onClick={() =>
                         setDeleteConfirm({ id: b.id, name: b.name })
                       }
@@ -817,7 +815,7 @@ function AddZone() {
         className="max-w-xs"
       />
       <Button
-        variant="solid"
+        variant="outlineSky"
         size="sm"
         onClick={() => create.mutate()}
         disabled={!name.trim()}
@@ -1065,8 +1063,7 @@ function ZonesList() {
                     <EditZone zone={z} />
                     <Button
                       size="xs"
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      variant="outlineDestructive"
                       onClick={() =>
                         setDeleteConfirm({ id: z.id, name: z.name })
                       }
