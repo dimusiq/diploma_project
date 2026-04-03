@@ -7,7 +7,6 @@ import {
   FiMenu,
   FiMoreHorizontal,
   FiPlus,
-  FiSend,
   FiShare2,
   FiTrash2,
 } from "react-icons/fi"
@@ -26,10 +25,10 @@ import {
   PromptInputFileInput,
   PromptInputFileTrigger,
   PromptInputFooter,
+  PromptInputFooterBar,
   PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
-  PromptInputToolbar,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input.tsx"
 import { Button } from "@/components/ui/button.tsx"
@@ -549,7 +548,6 @@ function AssistantPage() {
           <div className="shrink-0 border-t border-border bg-background px-3 pb-4 pt-3 md:px-5">
             <div className="mx-auto w-full" style={{ maxWidth: CHAT_COLUMN_MAX }}>
               <PromptInput
-                className="shadow-md"
                 globalDrop
                 onExternalFiles={(files) =>
                   setAttachmentFiles((prev) => [...prev, ...files])
@@ -560,7 +558,7 @@ function AssistantPage() {
                 }}
               >
                 {attachmentFiles.length > 0 ? (
-                  <PromptInputHeader className="rounded-none border-x-0 border-t-0">
+                  <PromptInputHeader>
                     <PromptInputAttachments
                       files={attachmentFiles}
                       onRemove={(i) =>
@@ -569,14 +567,14 @@ function AssistantPage() {
                     />
                   </PromptInputHeader>
                 ) : null}
-                <PromptInputBody className="relative pb-10 md:pb-9">
+                <PromptInputBody>
                   <PromptInputTextarea
                     ref={composerRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder={
                       messages.length === 0
-                        ? "Сообщение Nebardak…"
+                        ? "Чем могу помочь?"
                         : "Сообщение для ассистента склада…"
                     }
                     rows={2}
@@ -587,7 +585,9 @@ function AssistantPage() {
                       }
                     }}
                   />
-                  <PromptInputToolbar>
+                </PromptInputBody>
+                <PromptInputFooter>
+                  <PromptInputFooterBar>
                     <PromptInputTools>
                       <PromptInputFileInput
                         onChange={(e) => {
@@ -604,9 +604,13 @@ function AssistantPage() {
                       <PromptInputFileTrigger />
                       <Button
                         type="button"
-                        size="xs"
-                        className="h-7 rounded-full px-2.5 font-medium"
-                        variant={!deepStudy ? "default" : "outline"}
+                        size="sm"
+                        variant="ghost"
+                        className={cn(
+                          "h-8 shrink-0 rounded-md px-2.5 text-sm font-normal text-zinc-600 dark:text-zinc-400",
+                          !deepStudy &&
+                            "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100",
+                        )}
                         disabled={historyLocked}
                         onClick={() => setDeepStudy(false)}
                         title="Обычный ответ без расширенной сводки"
@@ -615,9 +619,13 @@ function AssistantPage() {
                       </Button>
                       <Button
                         type="button"
-                        size="xs"
-                        className="h-7 gap-1 rounded-full px-2.5 font-medium"
-                        variant={deepStudy ? "default" : "outline"}
+                        size="sm"
+                        variant="ghost"
+                        className={cn(
+                          "h-8 gap-1.5 rounded-md px-2.5 text-sm font-normal text-zinc-600 dark:text-zinc-400",
+                          deepStudy &&
+                            "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100",
+                        )}
                         disabled={historyLocked}
                         onClick={() => setDeepStudy(true)}
                         title="Публичная сводка reasoning («как сформирован ответ»)"
@@ -630,13 +638,9 @@ function AssistantPage() {
                       aria-label="Отправить"
                       disabled={composerDisabled}
                       loading={chatMutation.isPending || isEnsuringChat}
-                    >
-                      <FiSend />
-                    </PromptInputSubmit>
-                  </PromptInputToolbar>
-                </PromptInputBody>
-                <PromptInputFooter className="rounded-none border-x-0 border-b-0 bg-muted/40">
-                  <p className="w-full text-right text-[0.65rem] text-muted-foreground">
+                    />
+                  </PromptInputFooterBar>
+                  <p className="text-[0.65rem] leading-snug text-zinc-500 dark:text-zinc-500">
                     Enter — отправить · Shift+Enter — новая строка · перетащите
                     файлы в область ввода
                   </p>

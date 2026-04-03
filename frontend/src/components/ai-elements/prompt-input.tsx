@@ -1,11 +1,11 @@
 "use client"
 
 /**
- * Составной ввод в духе AI Elements Prompt Input
- * (https://elements.ai-sdk.dev/components/prompt-input): форма, зона вложений, textarea, футер с инструментами.
+ * Стили и разметка в духе AI Elements Prompt Input
+ * https://elements.ai-sdk.dev/components/prompt-input
  */
 
-import { PaperclipIcon, XIcon } from "lucide-react"
+import { CornerDownLeftIcon, PlusIcon, XIcon } from "lucide-react"
 import * as React from "react"
 import {
   createContext,
@@ -44,9 +44,7 @@ type PromptInputProps = Omit<
 > & {
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void
   children: ReactNode
-  /** Принимать файлы перетаскиванием на форму */
   globalDrop?: boolean
-  /** Вызывается при drop файлов (вместе с globalDrop) */
   onExternalFiles?: (files: File[]) => void
 }
 
@@ -102,7 +100,7 @@ export function PromptInput({
     <PromptInputCtx.Provider value={ctx}>
       <form
         className={cn(
-          "flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-md ring-1 ring-border/50",
+          "flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950",
           className,
         )}
         onSubmit={handleSubmit}
@@ -123,7 +121,7 @@ export function PromptInputHeader({
   return (
     <div
       className={cn(
-        "border-b border-border bg-muted/30 px-3 py-2",
+        "border-b border-zinc-200/80 px-4 py-2.5 dark:border-zinc-800",
         className,
       )}
       {...props}
@@ -136,7 +134,7 @@ export function PromptInputBody({
   ...props
 }: React.ComponentProps<"div">) {
   return (
-    <div className={cn("relative min-h-0", className)} {...props} />
+    <div className={cn("min-h-0 px-4 pb-2 pt-4", className)} {...props} />
   )
 }
 
@@ -166,7 +164,9 @@ export const PromptInputTextarea = React.forwardRef<
     (el: HTMLTextAreaElement | null) => {
       innerRef.current = el
       if (typeof forwardedRef === "function") forwardedRef(el)
-      else if (forwardedRef) (forwardedRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el
+      else if (forwardedRef)
+        (forwardedRef as React.MutableRefObject<HTMLTextAreaElement | null>).current =
+          el
     },
     [forwardedRef],
   )
@@ -176,7 +176,7 @@ export const PromptInputTextarea = React.forwardRef<
     if (!el) return
     el.style.height = "auto"
     const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight) || 20
-    const minH = (rows ?? minRows) * lineHeight + 24
+    const minH = (rows ?? minRows) * lineHeight + 16
     const next = Math.min(Math.max(el.scrollHeight, minH), maxHeightPx)
     el.style.height = `${next}px`
   }, [value, maxHeightPx, minRows, rows])
@@ -190,7 +190,7 @@ export const PromptInputTextarea = React.forwardRef<
       value={value}
       onChange={onChange}
       className={cn(
-        "min-h-16 max-h-[220px] resize-none rounded-none border-0 bg-transparent px-4 py-4 pb-14 pr-4 text-sm leading-relaxed shadow-none focus-visible:ring-0 md:pb-12",
+        "min-h-[52px] max-h-[220px] w-full resize-none border-0 bg-transparent p-0 text-sm leading-relaxed text-zinc-900 shadow-none placeholder:text-zinc-500 focus-visible:ring-0 dark:text-zinc-100 dark:placeholder:text-zinc-500",
         className,
       )}
       {...props}
@@ -199,6 +199,7 @@ export const PromptInputTextarea = React.forwardRef<
 })
 PromptInputTextarea.displayName = "PromptInputTextarea"
 
+/** Нижняя полоса: слева инструменты, справа отправка (как в AI Elements). */
 export function PromptInputFooter({
   className,
   ...props
@@ -206,7 +207,23 @@ export function PromptInputFooter({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/40 px-3 py-2",
+        "flex flex-col gap-1.5 border-t border-zinc-200 px-4 pb-3 pt-2.5 dark:border-zinc-800",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+/** Одна строка: `justify-between` — инструменты и кнопка отправки. */
+export function PromptInputFooterBar({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "flex w-full items-center justify-between gap-3",
         className,
       )}
       {...props}
@@ -221,7 +238,7 @@ export function PromptInputTools({
   return (
     <div
       className={cn(
-        "pointer-events-auto flex flex-wrap items-center gap-1.5",
+        "flex min-w-0 flex-1 flex-wrap items-center gap-2 text-zinc-600 dark:text-zinc-400",
         className,
       )}
       {...props}
@@ -229,6 +246,7 @@ export function PromptInputTools({
   )
 }
 
+/** @deprecated Используйте строку инструментов внутри PromptInputFooter. */
 export function PromptInputToolbar({
   className,
   ...props
@@ -236,7 +254,7 @@ export function PromptInputToolbar({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2",
+        "flex w-full items-center justify-between gap-2",
         className,
       )}
       {...props}
@@ -251,7 +269,6 @@ type PromptInputFileInputProps = Omit<
   className?: string
 }
 
-/** Скрытый input[type=file]; открывается с `PromptInputFileTrigger` (label). */
 export function PromptInputFileInput({
   className,
   multiple = true,
@@ -282,12 +299,12 @@ export function PromptInputFileTrigger({
       htmlFor={fileInputId}
       data-slot="prompt-input-file-trigger"
       className={cn(
-        "inline-flex size-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+        "inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100",
         className,
       )}
       {...props}
     >
-      {children ?? <PaperclipIcon className="size-4" aria-hidden />}
+      {children ?? <PlusIcon className="size-4" strokeWidth={2} aria-hidden />}
       <span className="sr-only">Прикрепить файлы</span>
     </label>
   )
@@ -299,7 +316,6 @@ export type PromptInputAttachmentsProps = {
   className?: string
 }
 
-/** Список чипов вложений под хедером или над полем ввода. */
 export function PromptInputAttachments({
   files,
   onRemove,
@@ -318,18 +334,18 @@ export function PromptInputAttachments({
         <span
           key={`${file.name}-${file.size}-${i}`}
           role="listitem"
-          className="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground"
+          className="inline-flex max-w-full items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
         >
           <span className="truncate" title={file.name}>
             {file.name}
           </span>
-          <span className="shrink-0 text-muted-foreground">
+          <span className="shrink-0 text-zinc-500">
             ({Math.round(file.size / 1024)} КБ)
           </span>
           <button
             type="button"
             onClick={() => onRemove(i)}
-            className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="ml-0.5 rounded p-0.5 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
             aria-label={`Удалить ${file.name}`}
           >
             <XIcon className="size-3.5" />
@@ -345,18 +361,23 @@ type PromptInputSubmitProps = React.ComponentProps<typeof Button>
 export function PromptInputSubmit({
   className,
   type = "submit",
+  children,
   ...props
 }: PromptInputSubmitProps) {
   return (
     <Button
       type={type}
       data-slot="prompt-input-submit"
-      size="icon-sm"
       className={cn(
-        "pointer-events-auto shrink-0 rounded-full",
+        "shrink-0 rounded-lg bg-blue-600 p-0 text-white shadow-none hover:bg-blue-700 focus-visible:ring-blue-500/40 dark:bg-blue-600 dark:hover:bg-blue-500",
         className,
       )}
+      size="icon-sm"
       {...props}
-    />
+    >
+      {children ?? (
+        <CornerDownLeftIcon className="size-4" aria-hidden strokeWidth={2.5} />
+      )}
+    </Button>
   )
 }
