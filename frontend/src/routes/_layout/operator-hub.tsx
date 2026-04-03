@@ -1,12 +1,9 @@
-import {
-  Box,
-  Card,
-  Container,
-  Heading,
-  SimpleGrid,
-  Text,
-} from "@chakra-ui/react"
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
+
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card.tsx"
 
 export const Route = createFileRoute("/_layout/operator-hub")({
   component: OperatorHubPage,
@@ -73,45 +70,43 @@ const operatorSurfaces: HubCard[] = [
 
 function OperatorHubPage() {
   return (
-    <Container maxW="6xl" py={6}>
-      <Heading size="lg" mb={2}>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+      <h1 className="font-heading mb-2 text-2xl font-semibold">
         Центр платформы (оператор)
-      </Heading>
-      <Text color="fg.muted" mb={6} fontSize="sm" maxW="3xl">
+      </h1>
+      <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
         Единая точка входа в продуктовые поверхности: мониторинг, twin, карта
         склада, задания, симуляция и ассистент. Realtime twin подключается на
         уровне приложения (SSE/WebSocket).
-      </Text>
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+      </p>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {operatorSurfaces.map((c) => (
-          <Card.Root key={c.to} variant="outline">
-            <Card.Body>
+          <Card key={c.to} className="border-border">
+            <CardContent className="pt-4">
               <RouterLink to={c.to}>
-                <Heading size="sm" color="blue.fg" mb={2}>
+                <h2 className="font-heading mb-2 text-sm font-semibold text-primary">
                   {c.title}
-                </Heading>
+                </h2>
               </RouterLink>
-              <Text fontSize="sm" color="fg.muted">
-                {c.description}
-              </Text>
-            </Card.Body>
-          </Card.Root>
+              <p className="text-sm text-muted-foreground">{c.description}</p>
+            </CardContent>
+          </Card>
         ))}
-      </SimpleGrid>
-      <Box mt={10}>
-        <Heading size="md" mb={3}>
+      </div>
+      <div className="mt-10">
+        <h2 className="font-heading mb-3 text-lg font-semibold">
           Администрирование
-        </Heading>
-        <Text fontSize="sm" color="fg.muted" mb={3}>
+        </h2>
+        <p className="mb-3 text-sm text-muted-foreground">
           Layout, топология, база знаний RAG, политики агента и журналы — в
           разделе «Администрирование» (суперпользователь).
-        </Text>
+        </p>
         <RouterLink to="/admin">
-          <Text fontSize="sm" color="blue.fg" fontWeight="medium">
+          <span className="text-sm font-medium text-primary">
             Открыть админку →
-          </Text>
+          </span>
         </RouterLink>
-      </Box>
-    </Container>
+      </div>
+    </div>
   )
 }

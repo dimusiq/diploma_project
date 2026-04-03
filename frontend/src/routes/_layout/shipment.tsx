@@ -1,14 +1,3 @@
-import {
-  Box,
-  Button,
-  Container,
-  EmptyState,
-  Flex,
-  Heading,
-  Input,
-  Table,
-  VStack,
-} from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import {
   createFileRoute,
@@ -32,7 +21,9 @@ import { ItemSelectionToolbar } from "@/components/Common/ItemSelectionToolbar.t
 import { MassEditItemsDialog } from "@/components/Items/MassEditItemsDialog.tsx"
 import { MoveItemsDialog } from "@/components/Items/MoveItemsDialog.tsx"
 import PendingItems from "@/components/Pending/PendingItems.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   MenuContent,
   MenuItem,
@@ -45,8 +36,17 @@ import {
   PaginationPrevTrigger,
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { useOptimisticItems } from "@/hooks/useOptimisticItems.ts"
+import { cn } from "@/lib/utils.ts"
 
 const shipmentSearchSchema = z.object({
   page: z.number().catch(1),
@@ -113,24 +113,19 @@ function ShipmentTable() {
     })
   }
   const SortHeader = ({ field, label }: { field: SortField; label: string }) => (
-    <Table.ColumnHeader
-      w="sm"
-      cursor="pointer"
+    <TableHead
+      className="w-32 cursor-pointer select-none whitespace-nowrap hover:bg-muted/80 dark:hover:bg-muted/40"
       onClick={() => handleSort(field)}
-      _hover={{ bg: "gray.100" }}
-      _dark={{ _hover: { bg: "gray.800" } }}
-      whiteSpace="nowrap"
-      userSelect="none"
     >
       {label}
       {searchParams.sort_by === field ? (
         searchParams.sort_order === "desc" ? (
-          <Box as={FiChevronDown} display="inline" ml={1} />
+          <FiChevronDown className="ml-1 inline size-4" />
         ) : (
-          <Box as={FiChevronUp} display="inline" ml={1} />
+          <FiChevronUp className="ml-1 inline size-4" />
         )
       ) : null}
-    </Table.ColumnHeader>
+    </TableHead>
   )
 
   const setSearchParams = (updates: Partial<ShipmentSearch>) =>
@@ -237,42 +232,38 @@ function ShipmentTable() {
 
   if (optimisticItems.length === 0) {
     return (
-      <EmptyState.Root>
-        <EmptyState.Content>
-          <EmptyState.Indicator>
-            <FiSearch />
-          </EmptyState.Indicator>
-          <VStack textAlign="center" gap={3}>
-            <EmptyState.Title>
-              {hasActiveFilters
-                ? "Ничего не найдено по заданным фильтрам"
-                : "Нет товаров в отгрузке"}
-            </EmptyState.Title>
-            <EmptyState.Description>
-              {hasActiveFilters
-                ? "Измените условия поиска или сбросьте фильтры."
-                : "Переведите товары из раздела «Склад» в «Отгрузка», чтобы они отобразились здесь."}
-            </EmptyState.Description>
-            {hasActiveFilters ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setSearchParams({ search: "", category_id: "", page: 1 })
-                }
-              >
-                Сбросить фильтры
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <FiSearch className="size-10 text-muted-foreground" aria-hidden />
+        <div className="flex flex-col gap-3">
+          <h3 className="font-heading text-base font-semibold">
+            {hasActiveFilters
+              ? "Ничего не найдено по заданным фильтрам"
+              : "Нет товаров в отгрузке"}
+          </h3>
+          <p className="max-w-md text-sm text-muted-foreground">
+            {hasActiveFilters
+              ? "Измените условия поиска или сбросьте фильтры."
+              : "Переведите товары из раздела «Склад» в «Отгрузка», чтобы они отобразились здесь."}
+          </p>
+          {hasActiveFilters ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setSearchParams({ search: "", category_id: "", page: 1 })
+              }
+            >
+              Сбросить фильтры
+            </Button>
+          ) : (
+            <RouterLink to="/warehouse">
+              <Button size="sm" variant="solid" className="mt-2">
+                Перейти на склад
               </Button>
-            ) : (
-              <RouterLink to="/warehouse">
-                <Button size="sm" variant="solid" mt={2}>
-                  Перейти на склад
-                </Button>
-              </RouterLink>
-            )}
-          </VStack>
-        </EmptyState.Content>
-      </EmptyState.Root>
+            </RouterLink>
+          )}
+        </div>
+      </div>
     )
   }
 
@@ -288,26 +279,19 @@ function ShipmentTable() {
         isPrinting={isPrinting}
         isExporting={isExporting}
       />
-      <Flex gap={3} mb={4} flexWrap="wrap" align="center">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Input
           placeholder="Поиск по названию, описанию, артикулу, штрихкоду..."
           value={search}
           onChange={(e) => setSearchParams({ search: e.target.value, page: 1 })}
-          maxW="xs"
-          size="sm"
+          className="h-8 max-w-xs text-sm"
         />
         <select
           value={category_id}
           onChange={(e) =>
             setSearchParams({ category_id: e.target.value, page: 1 })
           }
-          style={{
-            padding: "6px 10px",
-            borderRadius: "6px",
-            border: "1px solid var(--chakra-colors-border)",
-            minWidth: "160px",
-            fontSize: "14px",
-          }}
+          className="min-w-[160px] rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm"
         >
           <option value="">Все категории</option>
           {categories.map((c) => (
@@ -322,18 +306,18 @@ function ShipmentTable() {
           onClick={handlePrintAllPage}
           disabled={optimisticItems.length === 0}
         >
-          <Flex as="span" gap={2} align="center">
-            <FiPrinter />
+          <span className="inline-flex items-center gap-2">
+            <FiPrinter className="size-4" />
             Печать накладной (вся страница)
-          </Flex>
+          </span>
         </Button>
         <MenuRoot>
           <MenuTrigger asChild>
             <Button size="sm" variant="outline" disabled={isExporting}>
-              <Flex as="span" gap={2} align="center">
-                <Box as={FiDownload} />
+              <span className="inline-flex items-center gap-2">
+                <FiDownload className="size-4" />
                 Выгрузить
-              </Flex>
+              </span>
             </Button>
           </MenuTrigger>
           <MenuContent>
@@ -345,12 +329,12 @@ function ShipmentTable() {
             </MenuItem>
           </MenuContent>
         </MenuRoot>
-      </Flex>
-      <Box overflowX="auto" w="100%">
-        <Table.Root size={{ base: "sm", md: "md" }} minW={{ base: "800px" }}>
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader w="xs">
+      </div>
+      <div className="w-full overflow-x-auto">
+        <Table className="min-w-[800px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-24">
                 <Checkbox
                   checked={
                     isAllSelected
@@ -362,69 +346,70 @@ function ShipmentTable() {
                   onCheckedChange={toggleAll}
                   aria-label="Выбрать все"
                 />
-              </Table.ColumnHeader>
+              </TableHead>
               <SortHeader field="title" label="Название" />
               <SortHeader field="description" label="Описание" />
               <SortHeader field="quantity" label="Кол-во" />
               <SortHeader field="sku" label="Артикул" />
               <SortHeader field="unit" label="Ед." />
-              <Table.ColumnHeader w="sm">Категория</Table.ColumnHeader>
+              <TableHead className="w-32">Категория</TableHead>
               <SortHeader field="created_at" label="Дата" />
-              <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+              <TableHead className="w-32">Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {optimisticItems.map((item) => (
-              <Table.Row
+              <TableRow
                 key={item.id}
-                opacity={isPlaceholderData ? 0.5 : 1}
-                _hover={{ bg: "gray.50" }}
-                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+                className={cn(
+                  "hover:bg-muted/50",
+                  isPlaceholderData && "opacity-50",
+                )}
               >
-                <Table.Cell>
+                <TableCell>
                   <Checkbox
                     checked={selectedIds.has(item.id)}
                     onCheckedChange={() => toggleOne(item.id)}
                     aria-label={`Выбрать ${item.title}`}
                   />
-                </Table.Cell>
-                <Table.Cell>{item.title}</Table.Cell>
-                <Table.Cell>{item.description || "N/A"}</Table.Cell>
-                <Table.Cell>{item.quantity ?? 1}</Table.Cell>
-                <Table.Cell>{item.sku || "—"}</Table.Cell>
-                <Table.Cell>{item.unit || "—"}</Table.Cell>
-                <Table.Cell>
+                </TableCell>
+                <TableCell>{item.title}</TableCell>
+                <TableCell>{item.description || "N/A"}</TableCell>
+                <TableCell>{item.quantity ?? 1}</TableCell>
+                <TableCell>{item.sku || "—"}</TableCell>
+                <TableCell>{item.unit || "—"}</TableCell>
+                <TableCell>
                   {item.category_id
                     ? (categories.find((c) => c.id === item.category_id)
                         ?.name ?? "—")
                     : "—"}
-                </Table.Cell>
-                <Table.Cell whiteSpace="nowrap">
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
                   {item.created_at
                     ? new Date(item.created_at).toLocaleDateString("ru-RU")
                     : "—"}
-                </Table.Cell>
-                <Table.Cell>
+                </TableCell>
+                <TableCell>
                   <ItemActionsMenu item={item} />
-                </Table.Cell>
-              </Table.Row>
+                </TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
-      </Box>
-      <Flex justifyContent="flex-end" mt={4}>
+          </TableBody>
+        </Table>
+      </div>
+      <div className="mt-4 flex justify-end">
         <PaginationRoot
           count={count}
           pageSize={PER_PAGE}
           onPageChange={({ page }) => setSearchParams({ page })}
         >
-          <Flex>
+          <div className="flex">
             <PaginationPrevTrigger />
             <PaginationItems />
             <PaginationNextTrigger />
-          </Flex>
+          </div>
         </PaginationRoot>
-      </Flex>
+      </div>
       <MoveItemsDialog
         open={moveDialogOpen}
         onOpenChange={setMoveDialogOpen}
@@ -447,11 +432,9 @@ function ShipmentTable() {
 
 function Shipment() {
   return (
-    <Container maxW="full">
-      <Heading size="lg" pt={12}>
-        Отгрузка
-      </Heading>
+    <div className="mx-auto w-full max-w-full px-4">
+      <h1 className="font-heading pt-12 text-2xl font-semibold">Отгрузка</h1>
       <ShipmentTable />
-    </Container>
+    </div>
   )
 }

@@ -7,8 +7,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef } from "react"
 
 import { getApiUrl } from "@/lib/apiClient.ts"
-import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 import { getAccessToken } from "@/lib/authStorage.ts"
+import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 import {
   emitTwinStreamMessage,
   setTwinConnectionStatus,
@@ -176,8 +176,6 @@ export function useTwinRealtime(options?: TwinStreamOptions) {
   const queryClient = useQueryClient()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingTagsRef = useRef<Set<InvalidateTag>>(new Set())
-  const channelsDep = options?.channels?.join() ?? "all"
-  const replayDep = options?.replaySeconds ?? 120
 
   useEffect(() => {
     let alive = true
@@ -280,5 +278,5 @@ export function useTwinRealtime(options?: TwinStreamOptions) {
       setTwinConnectionStatus("offline")
       acRef.current?.abort()
     }
-  }, [queryClient, channelsDep, replayDep])
+  }, [queryClient, options])
 }

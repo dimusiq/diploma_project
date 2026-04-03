@@ -11,7 +11,7 @@ export async function signUpNewUser(
   await page.getByPlaceholder("Полное имя").fill(name)
   await page.getByPlaceholder("Email").fill(email)
   await page.getByPlaceholder("Пароль", { exact: true }).fill(password)
-  await page.getByPlaceholder("Подтвердить пароль").fill(password)
+  await page.getByPlaceholder("Подтвердите пароль").fill(password)
   await page.getByRole("button", { name: "Зарегистрироваться" }).click()
   await page.goto("/login")
 }
@@ -24,12 +24,12 @@ export async function logInUser(page: Page, email: string, password: string) {
   await page.getByRole("button", { name: "Войти" }).click()
   await page.waitForURL("/")
   await expect(
-    page.getByText("Добро пажаловать в систему", { exact: true }),
+    page.getByRole("heading", { name: "Панель управления" }),
   ).toBeVisible()
 }
 
 export async function logOutUser(page: Page) {
   await page.getByTestId("user-menu").click()
-  await page.getByRole("menuitem", { name: "Log out" }).click()
+  await page.getByRole("menuitem", { name: "Выйти" }).click()
   await page.goto("/login")
 }

@@ -1,12 +1,3 @@
-import {
-  Button,
-  DialogActionTrigger,
-  DialogTitle,
-  Flex,
-  Input,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { type SubmitHandler, useForm } from "react-hook-form"
@@ -16,15 +7,19 @@ import { CategoriesService, type ItemCreate, ItemsService } from "@/client/index
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { handleError } from "@/utils.ts"
 import {
+  DialogActionTrigger,
   DialogBody,
   DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogRoot,
+  DialogTitle,
   DialogTrigger,
-} from "../ui/dialog.tsx"
+} from "../ui/app-dialog.tsx"
+import { Button } from "../ui/button.tsx"
 import { Field } from "../ui/field.tsx"
+import { Input } from "../ui/input.tsx"
 
 const STORAGE_ROWS = 12
 const STORAGE_LEVELS = 4
@@ -113,8 +108,8 @@ const AddItem = () => {
       onOpenChange={({ open }) => setIsOpen(open)}
     >
       <DialogTrigger asChild>
-        <Button variant="solid" size="sm" value="add-item" my={4}>
-          <FaPlus fontSize="16px" />
+        <Button variant="solid" size="sm" value="add-item" className="my-4">
+          <FaPlus className="size-4" />
           Добавить
         </Button>
       </DialogTrigger>
@@ -124,8 +119,8 @@ const AddItem = () => {
             <DialogTitle>Добавить поступление</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <Text mb={4}>Заполните поля. Название обязательно.</Text>
-            <VStack gap={4}>
+            <p className="mb-4 text-sm">Заполните поля. Название обязательно.</p>
+            <div className="flex flex-col gap-4">
               <Field
                 required
                 invalid={!!errors.title}
@@ -214,12 +209,7 @@ const AddItem = () => {
                   id="category_id"
                   {...register("category_id")}
                   value={watch("category_id") ?? ""}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid #e2e8f0",
-                  }}
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 >
                   <option value="">Выберите категорию</option>
                   {categories.map((c) => (
@@ -242,23 +232,17 @@ const AddItem = () => {
                 />
               </Field>
 
-              <Text fontSize="sm" fontWeight="medium" mt={2}>
+              <p className="mt-2 text-sm font-medium">
                 Ячейка хранения (склад)
-              </Text>
-              <Flex gap={3} flexWrap="wrap">
+              </p>
+              <div className="flex flex-wrap gap-3">
                 <Field label="Ряд (1–12)">
                   <select
                     id="storage_row"
                     {...register("storage_row", {
                       setValueAs: (v) => (v === "" ? null : Number(v)),
                     })}
-                    style={{
-                      width: "100%",
-                      minWidth: "80px",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                    }}
+                    className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                   >
                     <option value="">—</option>
                     {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
@@ -276,13 +260,7 @@ const AddItem = () => {
                     {...register("storage_level", {
                       setValueAs: (v) => (v === "" ? null : Number(v)),
                     })}
-                    style={{
-                      width: "100%",
-                      minWidth: "80px",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                    }}
+                    className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                   >
                     <option value="">—</option>
                     {Array.from(
@@ -301,13 +279,7 @@ const AddItem = () => {
                     {...register("storage_cell_x", {
                       setValueAs: (v) => (v === "" ? null : Number(v)),
                     })}
-                    style={{
-                      width: "100%",
-                      minWidth: "100px",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                    }}
+                    className="min-w-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                   >
                     <option value="">—</option>
                     {Array.from(
@@ -320,7 +292,7 @@ const AddItem = () => {
                     ))}
                   </select>
                 </Field>
-              </Flex>
+              </div>
 
               <Field
                 invalid={!!errors.location}
@@ -334,7 +306,7 @@ const AddItem = () => {
                   type="text"
                 />
               </Field>
-            </VStack>
+            </div>
           </DialogBody>
 
           <DialogFooter gap={2}>

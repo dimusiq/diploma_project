@@ -1,12 +1,55 @@
-import { Drawer as ChakraDrawer, Portal } from "@chakra-ui/react"
-import type * as React from "react"
-import { CloseButton } from "./close-button.tsx"
+"use client"
 
-interface DrawerContentProps extends ChakraDrawer.ContentProps {
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import * as React from "react"
+
+import { CloseButton } from "@/components/ui/close-button.tsx"
+import { cn } from "@/lib/utils.ts"
+
+type DrawerSide = "left" | "right"
+
+const DrawerSideContext = React.createContext<DrawerSide>("right")
+
+export type DrawerRootProps = Omit<
+  DialogPrimitive.Root.Props,
+  "onOpenChange"
+> & {
+  onOpenChange?: (details: { open: boolean }) => void
+  size?: string
+  placement?: "start" | "end"
+}
+
+export function DrawerRoot({
+  onOpenChange,
+  size: _size,
+  placement = "end",
+  children,
+  ...rest
+}: DrawerRootProps) {
+  const side: DrawerSide = placement === "start" ? "left" : "right"
+  return (
+    <DrawerSideContext.Provider value={side}>
+      <DialogPrimitive.Root
+        data-slot="drawer-root"
+        onOpenChange={(open) => onOpenChange?.({ open })}
+        {...rest}
+      >
+        {children}
+      </DialogPrimitive.Root>
+    </DrawerSideContext.Provider>
+  )
+}
+
+/** Оставлен для совместимости: фон рисуется внутри `DrawerContent`. */
+export function DrawerBackdrop(_props: { className?: string }) {
+  return null
+}
+
+interface DrawerContentProps extends Omit<DialogPrimitive.Popup.Props, "ref"> {
   ref?: React.Ref<HTMLDivElement>
   portalled?: boolean
-  portalRef?: React.RefObject<HTMLElement>
-  offset?: ChakraDrawer.ContentProps["padding"]
+  portalRef?: React.RefObject<HTMLElement | null>
+  offset?: string
 }
 
 export function DrawerContent({
@@ -14,43 +57,125 @@ export function DrawerContent({
   children,
   portalled = true,
   portalRef,
-  offset,
+  className,
   ...rest
 }: DrawerContentProps) {
+  const side = React.useContext(DrawerSideContext)
+  const popup = (
+    <>
+      <DialogPrimitive.Backdrop
+        data-slot="drawer-backdrop"
+        className="fixed inset-0 z-50 bg-black/40 duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 supports-backdrop-filter:backdrop-blur-xs"
+      />
+      <DialogPrimitive.Popup
+        ref={ref}
+        data-slot="drawer-content"
+        data-side={side}
+        className={cn(
+          "fixed z-50 flex h-full max-h-full w-full max-w-md flex-col gap-0 bg-popover p-0 text-popover-foreground shadow-lg ring-1 ring-foreground/10 outline-none duration-200 data-open:animate-in data-closed:animate-out",
+          side === "right" &&
+            "top-0 right-0 data-closed:slide-out-to-right data-open:slide-in-from-right",
+          side === "left" &&
+            "top-0 left-0 data-closed:slide-out-to-left data-open:slide-in-from-left",
+          className,
+        )}
+        {...rest}
+      >
+        {children}
+      </DialogPrimitive.Popup>
+    </>
+  )
+
+  if (!portalled) {
+    return popup
+  }
+
   return (
-    <Portal disabled={!portalled} container={portalRef}>
-      <ChakraDrawer.Positioner padding={offset}>
-        <ChakraDrawer.Content ref={ref} {...rest} asChild={false}>
-          {children}
-        </ChakraDrawer.Content>
-      </ChakraDrawer.Positioner>
-    </Portal>
+    <DialogPrimitive.Portal container={portalRef ?? undefined}>
+      {popup}
+    </DialogPrimitive.Portal>
   )
 }
 
-export function DrawerCloseTrigger({
-  ref,
-  ...props
-}: ChakraDrawer.CloseTriggerProps & { ref?: React.Ref<HTMLButtonElement> }) {
+export function DrawerCloseTrigger(props: DialogPrimitive.Close.Props) {
   return (
-    <ChakraDrawer.CloseTrigger
-      position="absolute"
-      top="2"
-      insetEnd="2"
+    <DialogPrimitive.Close
+      data-slot="drawer-close-trigger"
+      render={<CloseButton className="absolute top-2 right-2" />}
       {...props}
-      asChild
     >
-      <CloseButton size="sm" ref={ref} />
-    </ChakraDrawer.CloseTrigger>
+      <span className="sr-only">Закрыть</span>
+    </DialogPrimitive.Close>
   )
 }
 
-export const DrawerTrigger = ChakraDrawer.Trigger
-export const DrawerRoot = ChakraDrawer.Root
-export const DrawerFooter = ChakraDrawer.Footer
-export const DrawerHeader = ChakraDrawer.Header
-export const DrawerBody = ChakraDrawer.Body
-export const DrawerBackdrop = ChakraDrawer.Backdrop
-export const DrawerDescription = ChakraDrawer.Description
-export const DrawerTitle = ChakraDrawer.Title
-export const DrawerActionTrigger = ChakraDrawer.ActionTrigger
+export function DrawerHeader({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="drawer-header"
+      className={cn("flex flex-col gap-1 border-b border-border px-4 py-3 pr-12", className)}
+      {...props}
+    />
+  )
+}
+
+export function DrawerBody({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="drawer-body"
+      className={cn("min-h-0 flex-1 overflow-y-auto px-4 py-3", className)}
+      {...props}
+    />
+  )
+}
+
+export function DrawerFooter({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="drawer-footer"
+      className={cn("mt-auto border-t border-border px-4 py-3", className)}
+      {...props}
+    />
+  )
+}
+
+export function DrawerTitle({
+  className,
+  ...props
+}: DialogPrimitive.Title.Props) {
+  return (
+    <DialogPrimitive.Title
+      data-slot="drawer-title"
+      className={cn(
+        "font-heading text-base font-medium leading-none text-foreground",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+export function DrawerDescription({
+  className,
+  ...props
+}: DialogPrimitive.Description.Props) {
+  return (
+    <DialogPrimitive.Description
+      data-slot="drawer-description"
+      className={cn("text-sm text-muted-foreground", className)}
+      {...props}
+    />
+  )
+}
+
+export const DrawerTrigger = DialogPrimitive.Trigger
+export const DrawerActionTrigger = DialogPrimitive.Close

@@ -1,10 +1,7 @@
-import { Box, Button, HStack, Text } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
-
+import { type WorkOrderDetailPublic, workOrdersApi } from "@/api/workOrders"
 import { UsersService } from "@/client/index.ts"
-import useCustomToast from "@/hooks/useCustomToast.ts"
-import { workOrdersApi, type WorkOrderDetailPublic } from "@/api/workOrders"
 import { MaintenanceCalendar } from "@/components/Equipment/MaintenanceCalendar.tsx"
 import { WorkOrderDetailDrawer } from "@/components/Equipment/WorkOrderDetailDrawer.tsx"
 import {
@@ -14,7 +11,9 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import useCustomToast from "@/hooks/useCustomToast.ts"
 
 type MaintenanceEventDropArgs = {
   payload: {
@@ -102,7 +101,7 @@ export function MaintenanceCalendarPage() {
   })
 
   return (
-    <Box>
+    <div>
       <MaintenanceCalendar
         onMaintenanceEventDrop={(args) => openDropDialog(args)}
       />
@@ -121,18 +120,13 @@ export function MaintenanceCalendarPage() {
             <DialogTitle>Назначение и подтверждение</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <Text fontSize="sm" color="fg.muted" mb={2}>
+            <p className="mb-2 text-sm text-muted-foreground">
               Выберите исполнителя для создаваемой/переносимой заявки.
-            </Text>
+            </p>
             <select
               value={selectedAssigneeId}
               onChange={(e) => setSelectedAssigneeId(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                borderRadius: "6px",
-                border: "1px solid var(--chakra-colors-border)",
-              }}
+              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
             >
               <option value="">— Не назначен —</option>
               {users.map((u) => (
@@ -143,7 +137,7 @@ export function MaintenanceCalendarPage() {
             </select>
           </DialogBody>
           <DialogFooter>
-            <HStack w="full" justify="space-between">
+            <div className="flex w-full items-center justify-between">
               <Button variant="outline" size="sm" onClick={onCancel} disabled={createOrRescheduleMutation.isPending}>
                 Отмена
               </Button>
@@ -156,11 +150,10 @@ export function MaintenanceCalendarPage() {
               >
                 Подтвердить
               </Button>
-            </HStack>
+            </div>
           </DialogFooter>
         </DialogContent>
       </DialogRoot>
-    </Box>
+    </div>
   )
 }
-

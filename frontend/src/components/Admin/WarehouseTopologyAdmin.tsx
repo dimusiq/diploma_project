@@ -1,20 +1,10 @@
 /**
  * Редактор топологии склада (зоны, проходы, буферы, доки) + упрощённый план (вид сверху).
  */
-import {
-  Box,
-  Button,
-  Flex,
-  Heading,
-  Input,
-  Table,
-  Tabs,
-  Text,
-  Textarea,
-} from "@chakra-ui/react"
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useState } from "react"
-
+import { fetchWarehouseLayout } from "@/api/warehouseLayout.ts"
 import {
   type TopologyAisle,
   type TopologyBufferZone,
@@ -23,8 +13,24 @@ import {
   type TopologyStorageZone,
   warehouseTopologyApi,
 } from "@/api/warehouseTopology.ts"
-import { fetchWarehouseLayout } from "@/api/warehouseLayout.ts"
+import { Button } from "@/components/ui/button.tsx"
 import { Field } from "@/components/ui/field.tsx"
+import { Input } from "@/components/ui/input.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 function newId(): string {
@@ -78,7 +84,10 @@ function TopologyPlanSvg({
       height={H}
       viewBox={`0 0 ${W} ${H}`}
       style={{ borderRadius: 8, background: "#f8fafc" }}
+      role="img"
+      aria-label="Схема склада"
     >
+      <title>Схема склада</title>
       <rect
         x={pad}
         y={pad}
@@ -359,37 +368,36 @@ export function WarehouseTopologyAdmin() {
 
   if (layoutErr) {
     return (
-      <Text color="red.500" pt={4}>
+      <p className="pt-4 text-sm text-destructive">
         Нет активного warehouse layout — топология недоступна.
-      </Text>
+      </p>
     )
   }
 
   if (isLoading || !draft) {
-    return <Text pt={4}>Загрузка топологии…</Text>
+    return <p className="pt-4 text-sm">Загрузка топологии…</p>
   }
 
   if (isError) {
     return (
-      <Text color="red.500" pt={4}>
+      <p className="pt-4 text-sm text-destructive">
         {(error as Error)?.message ?? "Ошибка загрузки"}
-      </Text>
+      </p>
     )
   }
 
   return (
-    <Box>
-      <Text fontSize="sm" color="fg.muted" mb={4}>
+    <div>
+      <p className="mb-4 text-sm text-muted-foreground">
         Зоны задают диапазоны{" "}
         <strong>рядов / уровней / ячеек</strong> (нумерация как в карточке товара).
         Проходы — полилиния в координатах 0…1 (x,z через «;»). Доки — точка на
         плане. Сохранение требует право <strong>zones.manage</strong> (как у
         справочника зон).
-      </Text>
-      <Flex gap={2} flexWrap="wrap" mb={4}>
+      </p>
+      <div className="mb-4 flex flex-wrap gap-2">
         <Button
           size="sm"
-          colorPalette="blue"
           loading={putMut.isPending}
           onClick={() => putMut.mutate(draft)}
         >
@@ -423,12 +431,10 @@ export function WarehouseTopologyAdmin() {
         >
           Синхронизировать граф маршрутов
         </Button>
-      </Flex>
+      </div>
 
-      <Box mb={6}>
-        <Heading size="sm" mb={2}>
-          План (схема)
-        </Heading>
+      <div className="mb-6">
+        <h3 className="mb-2 font-heading text-sm font-semibold">План (схема)</h3>
         <TopologyPlanSvg
           rows={Number(rows) || 12}
           cellX={Number(cellX) || 20}
@@ -436,46 +442,46 @@ export function WarehouseTopologyAdmin() {
           aisles={planAisles}
           docks={planDocks}
         />
-      </Box>
+      </div>
 
-      <Tabs.Root defaultValue="zones" variant="subtle">
-        <Tabs.List flexWrap="wrap">
-          <Tabs.Trigger value="zones">Зоны</Tabs.Trigger>
-          <Tabs.Trigger value="aisles">Проходы</Tabs.Trigger>
-          <Tabs.Trigger value="buffers">Буферные зоны</Tabs.Trigger>
-          <Tabs.Trigger value="docks">Доки</Tabs.Trigger>
-        </Tabs.List>
+      <Tabs defaultValue="zones" className="w-full">
+        <TabsList className="mb-4 h-auto w-full flex-wrap justify-start gap-1">
+          <TabsTrigger value="zones">Зоны</TabsTrigger>
+          <TabsTrigger value="aisles">Проходы</TabsTrigger>
+          <TabsTrigger value="buffers">Буферные зоны</TabsTrigger>
+          <TabsTrigger value="docks">Доки</TabsTrigger>
+        </TabsList>
 
-        <Tabs.Content value="zones">
-          <Flex justify="flex-end" mb={2}>
+        <TabsContent value="zones" className="mt-0 outline-none">
+          <div className="mb-2 flex justify-end">
             <Button size="sm" variant="outline" onClick={addZone}>
               Добавить зону
             </Button>
-          </Flex>
-          <Table.Root size="sm" variant="line">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader>Название</Table.ColumnHeader>
-                <Table.ColumnHeader>Тип</Table.ColumnHeader>
-                <Table.ColumnHeader>Ряды</Table.ColumnHeader>
-                <Table.ColumnHeader>Уровни</Table.ColumnHeader>
-                <Table.ColumnHeader>Яч. X</Table.ColumnHeader>
-                <Table.ColumnHeader>Яч. Z</Table.ColumnHeader>
-                <Table.ColumnHeader>Цвет</Table.ColumnHeader>
-                <Table.ColumnHeader />
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Название</TableHead>
+                <TableHead>Тип</TableHead>
+                <TableHead>Ряды</TableHead>
+                <TableHead>Уровни</TableHead>
+                <TableHead>Яч. X</TableHead>
+                <TableHead>Яч. Z</TableHead>
+                <TableHead>Цвет</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {draft.zones.map((z, i) => (
-                <Table.Row key={z.id}>
-                  <Table.Cell>
+                <TableRow key={z.id}>
+                  <TableCell>
                     <Input
-                      size="sm"
+                      className="h-8"
                       value={z.name}
                       onChange={(e) => updateZone(i, { name: e.target.value })}
                     />
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     <select
                       value={z.zone_type}
                       onChange={(e) =>
@@ -494,13 +500,12 @@ export function WarehouseTopologyAdmin() {
                       <option value="shipping">Отгрузка</option>
                       <option value="other">Прочее</option>
                     </select>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Flex gap={1} align="center">
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
                       <Input
                         type="number"
-                        size="sm"
-                        w="14"
+                        className="h-8 w-14"
                         value={z.row_from_1based}
                         onChange={(e) =>
                           updateZone(i, {
@@ -511,8 +516,7 @@ export function WarehouseTopologyAdmin() {
                       <span>—</span>
                       <Input
                         type="number"
-                        size="sm"
-                        w="14"
+                        className="h-8 w-14"
                         value={z.row_to_1based}
                         onChange={(e) =>
                           updateZone(i, {
@@ -520,14 +524,13 @@ export function WarehouseTopologyAdmin() {
                           })
                         }
                       />
-                    </Flex>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Flex gap={1} align="center">
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
                       <Input
                         type="number"
-                        size="sm"
-                        w="12"
+                        className="h-8 w-12"
                         value={z.level_from_1based}
                         onChange={(e) =>
                           updateZone(i, {
@@ -538,8 +541,7 @@ export function WarehouseTopologyAdmin() {
                       <span>—</span>
                       <Input
                         type="number"
-                        size="sm"
-                        w="12"
+                        className="h-8 w-12"
                         value={z.level_to_1based}
                         onChange={(e) =>
                           updateZone(i, {
@@ -547,14 +549,13 @@ export function WarehouseTopologyAdmin() {
                           })
                         }
                       />
-                    </Flex>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Flex gap={1} align="center">
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
                       <Input
                         type="number"
-                        size="sm"
-                        w="12"
+                        className="h-8 w-12"
                         value={z.cell_x_from_1based}
                         onChange={(e) =>
                           updateZone(i, {
@@ -565,8 +566,7 @@ export function WarehouseTopologyAdmin() {
                       <span>—</span>
                       <Input
                         type="number"
-                        size="sm"
-                        w="12"
+                        className="h-8 w-12"
                         value={z.cell_x_to_1based}
                         onChange={(e) =>
                           updateZone(i, {
@@ -574,14 +574,13 @@ export function WarehouseTopologyAdmin() {
                           })
                         }
                       />
-                    </Flex>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Flex gap={1} align="center">
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
                       <Input
                         type="number"
-                        size="sm"
-                        w="12"
+                        className="h-8 w-12"
                         value={z.cell_z_from_1based}
                         onChange={(e) =>
                           updateZone(i, {
@@ -592,8 +591,7 @@ export function WarehouseTopologyAdmin() {
                       <span>—</span>
                       <Input
                         type="number"
-                        size="sm"
-                        w="12"
+                        className="h-8 w-12"
                         value={z.cell_z_to_1based}
                         onChange={(e) =>
                           updateZone(i, {
@@ -601,40 +599,36 @@ export function WarehouseTopologyAdmin() {
                           })
                         }
                       />
-                    </Flex>
-                  </Table.Cell>
-                  <Table.Cell>
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     <Input
-                      size="sm"
-                      w="24"
+                      className="h-8 w-24"
                       value={z.color}
                       onChange={(e) => updateZone(i, { color: e.target.value })}
                     />
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     <Button size="xs" variant="ghost" onClick={() => removeZone(i)}>
                       Удалить
                     </Button>
-                  </Table.Cell>
-                </Table.Row>
+                  </TableCell>
+                </TableRow>
               ))}
-            </Table.Body>
-          </Table.Root>
-        </Tabs.Content>
+            </TableBody>
+          </Table>
+        </TabsContent>
 
-        <Tabs.Content value="aisles">
-          <Flex justify="flex-end" mb={2}>
+        <TabsContent value="aisles" className="mt-0 outline-none">
+          <div className="mb-2 flex justify-end">
             <Button size="sm" variant="outline" onClick={addAisle}>
               Добавить проход
             </Button>
-          </Flex>
+          </div>
           {draft.aisles.map((a, i) => (
-            <Box
+            <div
               key={a.id}
-              borderWidth="1px"
-              borderRadius="md"
-              p={3}
-              mb={3}
+              className="mb-3 rounded-md border border-border p-3"
             >
               <Field label="Название">
                 <Input
@@ -642,7 +636,7 @@ export function WarehouseTopologyAdmin() {
                   onChange={(e) => updateAisle(i, { name: e.target.value })}
                 />
               </Field>
-              <Field label="Тип" mt={2}>
+              <Field label="Тип" className="mt-2">
                 <select
                   value={a.kind}
                   onChange={(e) =>
@@ -655,7 +649,7 @@ export function WarehouseTopologyAdmin() {
                   <option value="feeder">Подъездной</option>
                 </select>
               </Field>
-              <Field label="Ширина, м" mt={2}>
+              <Field label="Ширина, м" className="mt-2">
                 <Input
                   type="number"
                   step={0.1}
@@ -667,12 +661,11 @@ export function WarehouseTopologyAdmin() {
               </Field>
               <Field
                 label="Полилиния (x,z через точку с запятой; координаты 0…1)"
-                mt={2}
+                className="mt-2"
               >
                 <Textarea
                   rows={2}
-                  fontFamily="mono"
-                  fontSize="sm"
+                  className="font-mono text-sm"
                   value={formatPolylineText(a.polyline_norm)}
                   onChange={(e) =>
                     updateAisle(i, {
@@ -681,26 +674,23 @@ export function WarehouseTopologyAdmin() {
                   }
                 />
               </Field>
-              <Button size="xs" variant="ghost" mt={2} onClick={() => removeAisle(i)}>
+              <Button size="xs" variant="ghost" className="mt-2" onClick={() => removeAisle(i)}>
                 Удалить проход
               </Button>
-            </Box>
+            </div>
           ))}
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="buffers">
-          <Flex justify="flex-end" mb={2}>
+        <TabsContent value="buffers" className="mt-0 outline-none">
+          <div className="mb-2 flex justify-end">
             <Button size="sm" variant="outline" onClick={addBuffer}>
               Добавить буфер
             </Button>
-          </Flex>
+          </div>
           {draft.buffer_zones.map((b, i) => (
-            <Box
+            <div
               key={b.id}
-              borderWidth="1px"
-              borderRadius="md"
-              p={3}
-              mb={3}
+              className="mb-3 rounded-md border border-border p-3"
             >
               <Field label="Название">
                 <Input
@@ -708,7 +698,7 @@ export function WarehouseTopologyAdmin() {
                   onChange={(e) => updateBuffer(i, { name: e.target.value })}
                 />
               </Field>
-              <Flex gap={2} mt={2}>
+              <div className="mt-2 flex gap-2">
                 <Field label="Ряд с">
                   <Input
                     type="number"
@@ -737,36 +727,33 @@ export function WarehouseTopologyAdmin() {
                     }
                   />
                 </Field>
-              </Flex>
-              <Field label="Заметки" mt={2}>
+              </div>
+              <Field label="Заметки" className="mt-2">
                 <Textarea
                   rows={2}
                   value={b.notes}
                   onChange={(e) => updateBuffer(i, { notes: e.target.value })}
                 />
               </Field>
-              <Button size="xs" variant="ghost" mt={2} onClick={() => removeBuffer(i)}>
+              <Button size="xs" variant="ghost" className="mt-2" onClick={() => removeBuffer(i)}>
                 Удалить
               </Button>
-            </Box>
+            </div>
           ))}
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="docks">
-          <Flex justify="flex-end" mb={2}>
+        <TabsContent value="docks" className="mt-0 outline-none">
+          <div className="mb-2 flex justify-end">
             <Button size="sm" variant="outline" onClick={addDock}>
               Добавить док
             </Button>
-          </Flex>
+          </div>
           {draft.docks.map((d, i) => (
-            <Box
+            <div
               key={d.id}
-              borderWidth="1px"
-              borderRadius="md"
-              p={3}
-              mb={3}
+              className="mb-3 rounded-md border border-border p-3"
             >
-              <Flex gap={2} flexWrap="wrap">
+              <div className="flex flex-wrap gap-2">
                 <Field label="Название">
                   <Input
                     value={d.name}
@@ -794,8 +781,8 @@ export function WarehouseTopologyAdmin() {
                     <option value="cross">Кросс</option>
                   </select>
                 </Field>
-              </Flex>
-              <Flex gap={2} mt={2} flexWrap="wrap">
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
                 <Field label="x (0…1)">
                   <Input
                     type="number"
@@ -834,14 +821,14 @@ export function WarehouseTopologyAdmin() {
                     }
                   />
                 </Field>
-              </Flex>
-              <Button size="xs" variant="ghost" mt={2} onClick={() => removeDock(i)}>
+              </div>
+              <Button size="xs" variant="ghost" className="mt-2" onClick={() => removeDock(i)}>
                 Удалить док
               </Button>
-            </Box>
+            </div>
           ))}
-        </Tabs.Content>
-      </Tabs.Root>
-    </Box>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

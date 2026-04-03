@@ -1,20 +1,21 @@
-import type { ButtonProps as ChakraButtonProps } from "@chakra-ui/react"
-import { IconButton as ChakraIconButton } from "@chakra-ui/react"
-import type * as React from "react"
 import { LuX } from "react-icons/lu"
+import type { ButtonProps } from "@/components/ui/button.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { cn } from "@/lib/utils.ts"
 
-export interface CloseButtonProps extends ChakraButtonProps {
-  ref?: React.Ref<HTMLButtonElement>
-}
+export type CloseButtonProps = ButtonProps
 
-export function CloseButton({
-  ref,
-  children,
-  ...props
-}: CloseButtonProps) {
+export function CloseButton({ className, children, ...props }: CloseButtonProps) {
   return (
-    <ChakraIconButton variant="ghost" aria-label="Close" ref={ref} {...props}>
-      {children ?? <LuX />}
-    </ChakraIconButton>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Закрыть"
+      className={cn(className)}
+      {...props}
+    >
+      {children ?? <LuX className="size-4" />}
+    </Button>
   )
 }

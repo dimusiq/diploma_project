@@ -1,8 +1,15 @@
-import { Box, Table, Text } from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { FiClock } from "react-icons/fi"
 import { type ItemPublic, ItemsService } from "@/client/index.ts"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -10,7 +17,7 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "../ui/dialog.tsx"
+} from "../ui/app-dialog.tsx"
 import { MenuItem } from "../ui/menu.tsx"
 
 const FIELD_LABELS: Record<string, string> = {
@@ -69,35 +76,41 @@ export default function ItemHistoryDialog({
           <DialogTitle>История изменений: {item.title}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          {isLoading && <Text>Загрузка…</Text>}
+          {isLoading && <p className="text-sm">Загрузка…</p>}
           {!isLoading && rows.length === 0 && (
-            <Text color="gray.500">Изменений пока нет.</Text>
+            <p className="text-sm text-muted-foreground">Изменений пока нет.</p>
           )}
           {!isLoading && rows.length > 0 && (
-            <Table.Root size="sm">
-              <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeader>Когда</Table.ColumnHeader>
-                  <Table.ColumnHeader>Поле</Table.ColumnHeader>
-                  <Table.ColumnHeader>Было</Table.ColumnHeader>
-                  <Table.ColumnHeader>Стало</Table.ColumnHeader>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Когда</TableHead>
+                  <TableHead>Поле</TableHead>
+                  <TableHead>Было</TableHead>
+                  <TableHead>Стало</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((h) => (
-                  <Table.Row key={h.id}>
-                    <Table.Cell>{formatDate(h.changed_at)}</Table.Cell>
-                    <Table.Cell>{label(h.field_name)}</Table.Cell>
-                    <Table.Cell title={h.old_value} maxW="120px" truncate>
+                  <TableRow key={h.id}>
+                    <TableCell>{formatDate(h.changed_at)}</TableCell>
+                    <TableCell>{label(h.field_name)}</TableCell>
+                    <TableCell
+                      className="max-w-[120px] truncate"
+                      title={h.old_value}
+                    >
                       {h.old_value || "—"}
-                    </Table.Cell>
-                    <Table.Cell title={h.new_value} maxW="120px" truncate>
+                    </TableCell>
+                    <TableCell
+                      className="max-w-[120px] truncate"
+                      title={h.new_value}
+                    >
                       {h.new_value || "—"}
-                    </Table.Cell>
-                  </Table.Row>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </Table.Body>
-            </Table.Root>
+              </TableBody>
+            </Table>
           )}
         </DialogBody>
         <DialogCloseTrigger />
@@ -116,7 +129,7 @@ export function ItemHistoryDialogMenuItem({
 }) {
   return (
     <MenuItem value="history" onClick={onOpen}>
-      <Box as={FiClock} mr="2" />
+      <FiClock className="mr-2 inline size-4 shrink-0" />
       История
     </MenuItem>
   )

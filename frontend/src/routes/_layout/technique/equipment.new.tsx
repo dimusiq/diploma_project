@@ -1,4 +1,3 @@
-import { Container, Heading } from "@chakra-ui/react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 
 import { EquipmentFormDialog } from "@/components/Equipment/EquipmentFormDialog.tsx"
@@ -17,16 +16,16 @@ function EquipmentNewPage() {
   }
 
   return (
-    <Container maxW="full">
-      <Heading size="md" mb={6}>
+    <div className="mx-auto w-full max-w-full px-4">
+      <h1 className="font-heading mb-6 text-lg font-semibold">
         Добавить технику
-      </Heading>
+      </h1>
       <EquipmentFormDialog
         open
         onOpenChange={handleClose}
         editItem={null}
         asPage
       />
-    </Container>
+    </div>
   )
 }

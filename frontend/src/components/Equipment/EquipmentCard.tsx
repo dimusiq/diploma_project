@@ -1,24 +1,30 @@
 /**
  * Карточка техники — центр эксплуатации: вкладки Паспорт / ТО / Ремонты / Документы / История + QR-код.
  */
-import {
-  Box,
-  Button,
-  Flex,
-  Heading,
-  Table,
-  Tabs,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
+
 import { useQuery } from "@tanstack/react-query"
-import { useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
-import { equipmentApi } from "@/api/equipment.ts"
+import { useState } from "react"
 import { auditApi } from "@/api/audit.ts"
 import type { EquipmentPublic } from "@/api/equipment.ts"
+import { equipmentApi } from "@/api/equipment.ts"
 import { EquipmentFormDialog } from "@/components/Equipment/EquipmentFormDialog.tsx"
 import { EquipmentRecordMaintenanceDialog } from "@/components/Equipment/EquipmentRecordMaintenanceDialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs.tsx"
 
 const TAB_KEYS = ["passport", "maintenance", "repairs", "documents", "history"] as const
 type TabKey = (typeof TAB_KEYS)[number]
@@ -63,103 +69,93 @@ export function EquipmentCard({
 
   if (isLoading) {
     return (
-      <Box>
-        <Text color="fg.muted">Загрузка...</Text>
-      </Box>
+      <div>
+        <p className="text-sm text-muted-foreground">Загрузка...</p>
+      </div>
     )
   }
   if (error || !equipment) {
     return (
-      <Box>
-        <Text color="red">Техника не найдена</Text>
-        <Button size="sm" variant="outline" mt={2} onClick={onBack}>
+      <div>
+        <p className="text-destructive">Техника не найдена</p>
+        <Button size="sm" variant="outline" className="mt-2" onClick={onBack}>
           Назад
         </Button>
-      </Box>
+      </div>
     )
   }
 
   return (
-    <Box>
-      <Flex
-        gap={4}
-        mb={6}
-        flexWrap="wrap"
-        align="flex-start"
-        justify="space-between"
-      >
-        <Flex gap={3} align="center" flexWrap="wrap">
+    <div>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
           <Button size="sm" variant="ghost" onClick={onBack}>
             ← Назад
           </Button>
-          <Heading size="lg">
+          <h2 className="font-heading text-xl font-semibold tracking-tight md:text-2xl">
             {equipment.brand_name} {equipment.model}
-          </Heading>
+          </h2>
           {equipment.garage_number && (
-            <Text fontSize="sm" color="fg.muted">
+            <p className="text-sm text-muted-foreground">
               Гар. № {equipment.garage_number}
-            </Text>
+            </p>
           )}
-        </Flex>
+        </div>
         {cardUrl && (
-          <Flex
-            align="center"
-            gap={2}
-            p={2}
-            bg="bg.subtle"
-            borderRadius="md"
+          <div
+            className="flex items-center gap-2 rounded-md bg-muted/50 p-2"
             title="Отсканируйте для открытия карточки на другом устройстве"
           >
             <QRCodeSVG value={cardUrl} size={80} level="M" />
-            <Text fontSize="xs" color="fg.muted" maxW="120px">
+            <p className="max-w-[120px] text-xs text-muted-foreground">
               QR-код карточки
-            </Text>
-          </Flex>
+            </p>
+          </div>
         )}
-      </Flex>
+      </div>
 
-      <Tabs.Root
+      <Tabs
         value={tab}
-        onValueChange={(e) => setTab(e.value as TabKey)}
-        variant="subtle"
+        onValueChange={(v) => setTab(v as TabKey)}
+        className="w-full"
       >
-        <Tabs.List mb={4}>
+        <TabsList className="mb-4 h-auto w-full flex-wrap justify-start gap-1 bg-muted/60">
           {TAB_KEYS.map((key) => (
-            <Tabs.Trigger key={key} value={key}>
+            <TabsTrigger key={key} value={key}>
               {TAB_LABELS[key]}
-            </Tabs.Trigger>
+            </TabsTrigger>
           ))}
-        </Tabs.List>
+        </TabsList>
 
-        <Tabs.Content value="passport">
+        <TabsContent value="passport" className="mt-0 outline-none">
           <EquipmentFormDialog
             open={true}
             onOpenChange={(open) => !open && onBack()}
             editItem={equipment}
             asPage
           />
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="maintenance">
+        <TabsContent value="maintenance" className="mt-0 outline-none">
           <MaintenanceTab equipment={equipment} onRecordOpen={() => setRecordMaintenanceOpen(true)} />
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="repairs">
-          <Box p={4} bg="bg.subtle" borderRadius="md">
-            <Text color="fg.muted">
+        <TabsContent value="repairs" className="mt-0 outline-none">
+          <div className="rounded-md bg-muted/40 p-4">
+            <p className="text-sm text-muted-foreground">
               Раздел «Ремонты» в разработке. Пока учёт ремонтов ведётся через вкладку «ТО» и журнал обслуживания.
-            </Text>
-          </Box>
-        </Tabs.Content>
+            </p>
+          </div>
+        </TabsContent>
 
-        <Tabs.Content value="documents">
+        <TabsContent value="documents" className="mt-0 outline-none">
           <DocumentsTab equipment={equipment} />
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="history">
+        <TabsContent value="history" className="mt-0 outline-none">
           <HistoryTab equipmentId={equipmentId} />
-        </Tabs.Content>
-      </Tabs.Root>
+        </TabsContent>
+      </Tabs>
 
       <EquipmentRecordMaintenanceDialog
         equipment={equipment}
@@ -167,7 +163,7 @@ export function EquipmentCard({
         onOpenChange={setRecordMaintenanceOpen}
         onSuccess={() => {}}
       />
-    </Box>
+    </div>
   )
 }
 
@@ -185,47 +181,47 @@ function MaintenanceTab({
   const records = data?.data ?? []
 
   return (
-    <Box>
-      <Flex justify="flex-end" mb={3}>
+    <div>
+      <div className="mb-3 flex justify-end">
         <Button size="sm" variant="outline" onClick={onRecordOpen}>
           Записать проведённое ТО
         </Button>
-      </Flex>
-      {isLoading && <Text color="fg.muted">Загрузка…</Text>}
+      </div>
+      {isLoading && <p className="text-sm text-muted-foreground">Загрузка…</p>}
       {!isLoading && records.length === 0 && (
-        <Text color="fg.muted">
+        <p className="text-sm text-muted-foreground">
           Проведённых ТО по этой единице техники пока нет.
-        </Text>
+        </p>
       )}
       {!isLoading && records.length > 0 && (
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Дата</Table.ColumnHeader>
-              <Table.ColumnHeader>Интервал (м/ч)</Table.ColumnHeader>
-              <Table.ColumnHeader>Моточасы на момент ТО</Table.ColumnHeader>
-              <Table.ColumnHeader>Комментарий</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Дата</TableHead>
+              <TableHead>Интервал (м/ч)</TableHead>
+              <TableHead>Моточасы на момент ТО</TableHead>
+              <TableHead>Комментарий</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {records.map((r) => (
-              <Table.Row key={r.id}>
-                <Table.Cell>
+              <TableRow key={r.id}>
+                <TableCell>
                   {new Date(r.performed_at).toLocaleDateString("ru-RU")}
-                </Table.Cell>
-                <Table.Cell>{r.interval_hours}</Table.Cell>
-                <Table.Cell>
+                </TableCell>
+                <TableCell>{r.interval_hours}</TableCell>
+                <TableCell>
                   {r.engine_hours_at_service != null
                     ? r.engine_hours_at_service
                     : "—"}
-                </Table.Cell>
-                <Table.Cell>{r.comment ?? "—"}</Table.Cell>
-              </Table.Row>
+                </TableCell>
+                <TableCell>{r.comment ?? "—"}</TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
+          </TableBody>
+        </Table>
       )}
-    </Box>
+    </div>
   )
 }
 
@@ -235,47 +231,41 @@ function DocumentsTab({ equipment }: { equipment: EquipmentPublic }) {
 
   if (attachments.length === 0 && !hasInstructions) {
     return (
-      <Box p={4} bg="bg.subtle" borderRadius="md">
-        <Text color="fg.muted">
+      <div className="rounded-md bg-muted/40 p-4">
+        <p className="text-sm text-muted-foreground">
           Документы и ссылки можно добавить в паспорте техники (поле «Фото / документация» и «Инструкции»).
-        </Text>
-      </Box>
+        </p>
+      </div>
     )
   }
 
   return (
-    <VStack align="stretch" gap={4}>
+    <div className="flex flex-col gap-4">
       {attachments.length > 0 && (
-        <Box>
-          <Text fontWeight="medium" mb={2}>
-            Ссылки на фото / документацию
-          </Text>
-          <VStack align="stretch" gap={1}>
+        <div>
+          <p className="mb-2 font-medium">Ссылки на фото / документацию</p>
+          <div className="flex flex-col gap-1">
             {attachments.map((url, i) => (
               <a
                 key={i}
                 href={url.startsWith("http") ? url : `https://${url}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ color: "var(--chakra-colors-blue-500)", fontSize: "14px" }}
+                className="text-sm text-primary underline-offset-4 hover:underline"
               >
                 {url}
               </a>
             ))}
-          </VStack>
-        </Box>
+          </div>
+        </div>
       )}
       {hasInstructions && (
-        <Box>
-          <Text fontWeight="medium" mb={2}>
-            Инструкции по эксплуатации
-          </Text>
-          <Text whiteSpace="pre-wrap" fontSize="sm">
-            {equipment.instructions}
-          </Text>
-        </Box>
+        <div>
+          <p className="mb-2 font-medium">Инструкции по эксплуатации</p>
+          <p className="whitespace-pre-wrap text-sm">{equipment.instructions}</p>
+        </div>
       )}
-    </VStack>
+    </div>
   )
 }
 
@@ -292,47 +282,47 @@ function HistoryTab({ equipmentId }: { equipmentId: string }) {
 
   const rows = data?.data ?? []
 
-  if (isLoading) return <Text color="fg.muted">Загрузка…</Text>
-  if (isError) return <Text color="fg.muted">Не удалось загрузить историю.</Text>
+  if (isLoading) return <p className="text-sm text-muted-foreground">Загрузка…</p>
+  if (isError) return <p className="text-sm text-muted-foreground">Не удалось загрузить историю.</p>
   if (rows.length === 0) {
     return (
-      <Box p={4} bg="bg.subtle" borderRadius="md">
-        <Text color="fg.muted">
+      <div className="rounded-md bg-muted/40 p-4">
+        <p className="text-sm text-muted-foreground">
           Записей об изменениях по этой технике пока нет.
-        </Text>
-      </Box>
+        </p>
+      </div>
     )
   }
 
   return (
-    <Table.Root size="sm">
-      <Table.Header>
-        <Table.Row>
-          <Table.ColumnHeader>Дата и время</Table.ColumnHeader>
-          <Table.ColumnHeader>Действие</Table.ColumnHeader>
-          <Table.ColumnHeader>Пользователь</Table.ColumnHeader>
-          <Table.ColumnHeader>Детали</Table.ColumnHeader>
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Дата и время</TableHead>
+          <TableHead>Действие</TableHead>
+          <TableHead>Пользователь</TableHead>
+          <TableHead>Детали</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((r) => (
-          <Table.Row key={r.id}>
-            <Table.Cell whiteSpace="nowrap" fontSize="xs">
+          <TableRow key={r.id}>
+            <TableCell className="whitespace-nowrap text-xs">
               {r.created_at
                 ? new Date(r.created_at).toLocaleString("ru-RU", {
                     dateStyle: "short",
                     timeStyle: "short",
                   })
                 : "—"}
-            </Table.Cell>
-            <Table.Cell>{r.action}</Table.Cell>
-            <Table.Cell>{r.user_email ?? "—"}</Table.Cell>
-            <Table.Cell maxW="200px" truncate title={r.details ?? undefined}>
+            </TableCell>
+            <TableCell>{r.action}</TableCell>
+            <TableCell>{r.user_email ?? "—"}</TableCell>
+            <TableCell className="max-w-[200px] truncate" title={r.details ?? undefined}>
               {r.details ?? "—"}
-            </Table.Cell>
-          </Table.Row>
+            </TableCell>
+          </TableRow>
         ))}
-      </Table.Body>
-    </Table.Root>
+      </TableBody>
+    </Table>
   )
 }

@@ -1,18 +1,19 @@
 "use client"
 
-import { ChakraProvider } from "@chakra-ui/react"
+import { ThemeProvider } from "next-themes"
 import type { PropsWithChildren } from "react"
-import { system } from "../../theme.tsx"
-import { ColorModeProvider } from "./color-mode.tsx"
-import { Toaster } from "./toaster.tsx"
+import { Toaster } from "@/components/ui/sonner.tsx"
 
+/** Корневой провайдер без Chakra: тема (next-themes) + Sonner. */
 export function CustomProvider(props: PropsWithChildren) {
   return (
-    <ChakraProvider value={system}>
-      <ColorModeProvider defaultTheme="light">
-        {props.children}
-      </ColorModeProvider>
-      <Toaster />
-    </ChakraProvider>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="light"
+      disableTransitionOnChange
+    >
+      {props.children}
+      <Toaster position="top-end" richColors closeButton />
+    </ThemeProvider>
   )
 }

@@ -1,4 +1,3 @@
-import { Container, Flex, Image, Input, Text } from "@chakra-ui/react"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   createFileRoute,
@@ -6,17 +5,16 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router"
-import { useActionState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { FiLock, FiUser } from "react-icons/fi"
 import type { UserRegister } from "@/client/index.ts"
 import { UsersService } from "@/client/index.ts"
 import { Button } from "@/components/ui/button.tsx"
-import { Field } from "@/components/ui/field.tsx"
-import { InputGroup } from "@/components/ui/input-group.tsx"
-import { PasswordInput } from "@/components/ui/password-input.tsx"
+import { InputWithIcon } from "@/components/ui/input-with-icon.tsx"
+import { Label } from "@/components/ui/label.tsx"
+import { PasswordField } from "@/components/ui/password-field.tsx"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
 import { getApiErrorMessage } from "@/utils.ts"
-import Logo from "/images/nebardak-logo.svg"
 
 const EMAIL_PATTERN = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i
 
@@ -74,11 +72,10 @@ async function signupAction(
 function SignUp() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [state, formAction, isPending] = useActionState(signupAction, {
+  const [state, setState] = useState<SignupState>({
     error: null,
     success: false,
-  } as SignupState)
-
+  })
   useEffect(() => {
     if (state.success) {
       queryClient.invalidateQueries({ queryKey: ["users"] })
@@ -87,92 +84,91 @@ function SignUp() {
   }, [state.success, queryClient, navigate])
 
   return (
-    <Flex flexDir={{ base: "column", md: "row" }} justify="center" h="100vh">
-      <Container
-        h="100vh"
-        maxW="sm"
-        alignItems="stretch"
-        justifyContent="center"
-        gap={4}
-        centerContent
+    <div className="flex min-h-screen flex-col items-center justify-center px-4 md:flex-row md:justify-center">
+      <form
+        noValidate
+        className="flex w-full max-w-sm flex-col gap-4"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          const fd = new FormData(e.currentTarget)
+          const password = String(fd.get("password") ?? "")
+          if (password.length > 0 && password.length < 8) {
+            setState({
+              error: "Пароль должен содержать не менее 8 символов",
+              success: false,
+            })
+            return
+          }
+          const next = await signupAction(
+            { error: null, success: false },
+            fd,
+          )
+          setState(next)
+        }}
       >
-        <form
-          action={formAction}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "stretch",
-            gap: "1rem",
-            width: "100%",
-          }}
-        >
-        <Image
-          src={Logo}
+        <img
+          src="/images/nebardak-logo.svg"
           alt="Nebardak"
-          height="auto"
-          maxW="2xs"
-          alignSelf="center"
-          mb={4}
+          className="mx-auto mb-4 h-auto w-full max-w-[12rem]"
         />
-        {state.error && (
-          <Text fontSize="sm" color="red.500" role="alert">
+        {state.error ? (
+          <p className="text-sm text-destructive" role="alert">
             {state.error}
-          </Text>
-        )}
-        <Field>
-          <InputGroup w="100%" startElement={<FiUser />}>
-            <Input
-              id="full_name"
-              name="full_name"
-              placeholder="Полное имя"
-              type="text"
-              required
-              minLength={3}
-              autoComplete="name"
-            />
-          </InputGroup>
-        </Field>
-        <Field>
-          <InputGroup w="100%" startElement={<FiUser />}>
-            <Input
-              id="email"
-              name="email"
-              placeholder="Email"
-              type="email"
-              required
-              autoComplete="email"
-            />
-          </InputGroup>
-        </Field>
-        <PasswordInput
-          name="password"
-          type="password"
-          startElement={<FiLock />}
-          placeholder="Пароль"
-          required
-          minLength={8}
-          errors={{}}
-        />
-        <PasswordInput
-          name="confirm_password"
-          type="confirm_password"
-          startElement={<FiLock />}
-          placeholder="Подтвердите пароль"
-          required
-          errors={{}}
-        />
-        <Button variant="solid" size="sm" type="submit" loading={isPending}>
+          </p>
+        ) : null}
+        <div className="space-y-2">
+          <Label htmlFor="full_name">Полное имя</Label>
+          <InputWithIcon
+            id="full_name"
+            name="full_name"
+            placeholder="Полное имя"
+            type="text"
+            autoComplete="name"
+            startElement={<FiUser />}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <InputWithIcon
+            id="email"
+            name="email"
+            placeholder="Email"
+            type="email"
+            autoComplete="email"
+            startElement={<FiUser />}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Пароль</Label>
+          <PasswordField
+            id="password"
+            name="password"
+            placeholder="Пароль"
+            autoComplete="off"
+            startElement={<FiLock />}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="confirm_password">Подтвердите пароль</Label>
+          <PasswordField
+            id="confirm_password"
+            name="confirm_password"
+            placeholder="Подтвердите пароль"
+            autoComplete="off"
+            startElement={<FiLock />}
+          />
+        </div>
+        <Button variant="solid" size="sm" type="submit" className="w-full">
           Зарегистрироваться
         </Button>
-        <Text>
+        <p className="text-sm text-muted-foreground">
           Уже есть аккаунт?{" "}
           <RouterLink to="/login" className="main-link">
             Войти
           </RouterLink>
-        </Text>
-        </form>
-      </Container>
-    </Flex>
+        </p>
+      </form>
+    </div>
   )
 }
 

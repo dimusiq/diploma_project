@@ -1,14 +1,3 @@
-import {
-  Box,
-  Button,
-  Container,
-  EmptyState,
-  Flex,
-  Heading,
-  Input,
-  Table,
-  VStack,
-} from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useCallback, useState } from "react"
@@ -30,7 +19,9 @@ import EditItem from "@/components/Items/EditItem.tsx"
 import { MassEditItemsDialog } from "@/components/Items/MassEditItemsDialog.tsx"
 import { MoveItemsDialog } from "@/components/Items/MoveItemsDialog.tsx"
 import PendingItems from "@/components/Pending/PendingItems.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   MenuContent,
   MenuItem,
@@ -43,8 +34,17 @@ import {
   PaginationPrevTrigger,
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { useOptimisticItems } from "@/hooks/useOptimisticItems.ts"
+import { cn } from "@/lib/utils.ts"
 
 const itemsSearchSchema = z.object({
   page: z.number().catch(1),
@@ -135,24 +135,19 @@ function ItemsTable() {
   }
 
   const SortHeader = ({ field, label }: { field: SortField; label: string }) => (
-    <Table.ColumnHeader
-      w="sm"
-      cursor="pointer"
+    <TableHead
+      className="w-32 cursor-pointer select-none whitespace-nowrap hover:bg-muted/80 dark:hover:bg-muted/40"
       onClick={() => handleSort(field)}
-      _hover={{ bg: "gray.100" }}
-      _dark={{ _hover: { bg: "gray.800" } }}
-      whiteSpace="nowrap"
-      userSelect="none"
     >
       {label}
       {searchParams.sort_by === field ? (
         searchParams.sort_order === "desc" ? (
-          <Box as={FiChevronDown} display="inline" ml={1} />
+          <FiChevronDown className="ml-1 inline size-4" />
         ) : (
-          <Box as={FiChevronUp} display="inline" ml={1} />
+          <FiChevronUp className="ml-1 inline size-4" />
         )
       ) : null}
-    </Table.ColumnHeader>
+    </TableHead>
   )
 
   const items = data?.data.slice(0, PER_PAGE) ?? []
@@ -240,18 +235,16 @@ function ItemsTable() {
 
   if (isError) {
     return (
-      <Container>
-        <EmptyState.Root>
-          <EmptyState.Content>
-            <VStack gap={3}>
-              <EmptyState.Title>Не удалось загрузить список</EmptyState.Title>
-              <Button size="sm" variant="outline" onClick={() => refetch()}>
-                Повторить
-              </Button>
-            </VStack>
-          </EmptyState.Content>
-        </EmptyState.Root>
-      </Container>
+      <div className="mx-auto w-full max-w-7xl px-4">
+        <div className="flex flex-col items-center gap-3 py-8">
+          <h3 className="font-heading text-base font-semibold">
+            Не удалось загрузить список
+          </h3>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>
+            Повторить
+          </Button>
+        </div>
+      </div>
     )
   }
 
@@ -268,42 +261,38 @@ function ItemsTable() {
 
   if (optimisticItems.length === 0) {
     return (
-      <EmptyState.Root>
-        <EmptyState.Content>
-          <EmptyState.Indicator>
-            <FiSearch />
-          </EmptyState.Indicator>
-          <VStack textAlign="center" gap={3}>
-            <EmptyState.Title>
-              {hasActiveFilters
-                ? "Ничего не найдено по заданным фильтрам"
-                : "Нет добавленных слотов"}
-            </EmptyState.Title>
-            <EmptyState.Description>
-              {hasActiveFilters
-                ? "Измените условия поиска или сбросьте фильтры."
-                : "Добавьте слоты, чтобы они отображались здесь."}
-            </EmptyState.Description>
-            {hasActiveFilters && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setSearchParams({
-                    search: "",
-                    category_id: "",
-                    created_at_from: "",
-                    created_at_to: "",
-                    page: 1,
-                  })
-                }
-              >
-                Сбросить фильтры
-              </Button>
-            )}
-          </VStack>
-        </EmptyState.Content>
-      </EmptyState.Root>
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <FiSearch className="size-10 text-muted-foreground" aria-hidden />
+        <div className="flex flex-col gap-3">
+          <h3 className="font-heading text-base font-semibold">
+            {hasActiveFilters
+              ? "Ничего не найдено по заданным фильтрам"
+              : "Нет добавленных слотов"}
+          </h3>
+          <p className="max-w-md text-sm text-muted-foreground">
+            {hasActiveFilters
+              ? "Измените условия поиска или сбросьте фильтры."
+              : "Добавьте слоты, чтобы они отображались здесь."}
+          </p>
+          {hasActiveFilters && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                setSearchParams({
+                  search: "",
+                  category_id: "",
+                  created_at_from: "",
+                  created_at_to: "",
+                  page: 1,
+                })
+              }
+            >
+              Сбросить фильтры
+            </Button>
+          )}
+        </div>
+      </div>
     )
   }
 
@@ -319,26 +308,19 @@ function ItemsTable() {
         isPrinting={isPrinting}
         isExporting={isExporting}
       />
-      <Flex gap={3} mb={4} flexWrap="wrap" align="center">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Input
           placeholder="Поиск по названию, описанию, артикулу, штрихкоду..."
           value={searchParams.search}
           onChange={(e) => setSearchParams({ search: e.target.value, page: 1 })}
-          maxW="xs"
-          size="sm"
+          className="h-8 max-w-xs text-sm"
         />
         <select
           value={searchParams.category_id}
           onChange={(e) =>
             setSearchParams({ category_id: e.target.value, page: 1 })
           }
-          style={{
-            padding: "6px 10px",
-            borderRadius: "6px",
-            border: "1px solid var(--chakra-colors-border)",
-            minWidth: "160px",
-            fontSize: "14px",
-          }}
+          className="min-w-[160px] rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm"
         >
           <option value="">Все категории</option>
           {categories.map((c) => (
@@ -349,8 +331,7 @@ function ItemsTable() {
         </select>
         <Input
           type="date"
-          size="sm"
-          maxW="40"
+          className="h-8 max-w-[10rem] text-sm"
           value={searchParams.created_at_from}
           onChange={(e) =>
             setSearchParams({ created_at_from: e.target.value, page: 1 })
@@ -359,8 +340,7 @@ function ItemsTable() {
         />
         <Input
           type="date"
-          size="sm"
-          maxW="40"
+          className="h-8 max-w-[10rem] text-sm"
           value={searchParams.created_at_to}
           onChange={(e) =>
             setSearchParams({ created_at_to: e.target.value, page: 1 })
@@ -370,10 +350,10 @@ function ItemsTable() {
         <MenuRoot>
           <MenuTrigger asChild>
             <Button size="sm" variant="outline" disabled={isExporting}>
-              <Flex as="span" gap={2} align="center">
-                <Box as={FiDownload} />
+              <span className="inline-flex items-center gap-2">
+                <FiDownload className="size-4" />
                 Выгрузить
-              </Flex>
+              </span>
             </Button>
           </MenuTrigger>
           <MenuContent>
@@ -385,106 +365,101 @@ function ItemsTable() {
             </MenuItem>
           </MenuContent>
         </MenuRoot>
-      </Flex>
-      <Box w="100%">
-        <Box
-          fontSize="xs"
-          color="gray.500"
-          mb={2}
-          display={{ base: "block", md: "none" }}
-        >
+      </div>
+      <div className="w-full">
+        <p className="mb-2 text-xs text-muted-foreground md:hidden">
           Свайпните влево для просмотра всех колонок
-        </Box>
-        <Box overflowX="auto" w="100%">
-          <Table.Root size={{ base: "sm", md: "md" }} minW={{ base: "800px" }}>
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader w="xs">
-                <Checkbox
-                  checked={
-                    isAllSelected
-                      ? true
-                      : isSomeSelected
-                        ? "indeterminate"
-                        : false
-                  }
-                  onCheckedChange={toggleAll}
-                  aria-label="Выбрать все"
-                />
-              </Table.ColumnHeader>
-              <SortHeader field="title" label="Название" />
-              <SortHeader field="description" label="Описание" />
-              <SortHeader field="quantity" label="Кол-во" />
-              <SortHeader field="sku" label="Артикул" />
-              <SortHeader field="unit" label="Ед." />
-              <Table.ColumnHeader w="sm">Категория</Table.ColumnHeader>
-              <SortHeader field="created_at" label="Дата" />
-              <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {optimisticItems.map((item) => (
-              <Table.Row
-                key={item.id}
-                opacity={isPlaceholderData ? 0.5 : 1}
-                _hover={{ bg: "gray.50" }}
-                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
-              >
-                <Table.Cell>
+        </p>
+        <div className="w-full overflow-x-auto">
+          <Table className="min-w-[800px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-24">
                   <Checkbox
-                    checked={selectedIds.has(item.id)}
-                    onCheckedChange={() => toggleOne(item.id)}
-                    aria-label={`Выбрать ${item.title}`}
+                    checked={
+                      isAllSelected
+                        ? true
+                        : isSomeSelected
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={toggleAll}
+                    aria-label="Выбрать все"
                   />
-                </Table.Cell>
-                <Table.Cell truncate maxW="sm">
-                  {item.title}
-                </Table.Cell>
-                <Table.Cell
-                  color={!item.description ? "gray" : "inherit"}
-                  truncate
-                  maxW="30%"
+                </TableHead>
+                <SortHeader field="title" label="Название" />
+                <SortHeader field="description" label="Описание" />
+                <SortHeader field="quantity" label="Кол-во" />
+                <SortHeader field="sku" label="Артикул" />
+                <SortHeader field="unit" label="Ед." />
+                <TableHead className="w-32">Категория</TableHead>
+                <SortHeader field="created_at" label="Дата" />
+                <TableHead className="w-32">Действия</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {optimisticItems.map((item) => (
+                <TableRow
+                  key={item.id}
+                  className={cn(
+                    "hover:bg-muted/50",
+                    isPlaceholderData && "opacity-50",
+                  )}
                 >
-                  {item.description || "N/A"}
-                </Table.Cell>
-                <Table.Cell>{item.quantity ?? 1}</Table.Cell>
-                <Table.Cell truncate maxW="sm">
-                  {item.sku || "—"}
-                </Table.Cell>
-                <Table.Cell>{item.unit || "—"}</Table.Cell>
-                <Table.Cell truncate maxW="sm">
-                  {item.category_id
-                    ? (categories.find((c) => c.id === item.category_id)
-                        ?.name ?? "—")
-                    : "—"}
-                </Table.Cell>
-                <Table.Cell whiteSpace="nowrap">
-                  {item.created_at
-                    ? new Date(item.created_at).toLocaleDateString("ru-RU")
-                    : "—"}
-                </Table.Cell>
-                <Table.Cell>
-                  <ItemActionsMenu item={item} />
-                </Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-          </Table.Root>
-        </Box>
-      </Box>
-      <Flex justifyContent="flex-end" mt={4}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedIds.has(item.id)}
+                      onCheckedChange={() => toggleOne(item.id)}
+                      aria-label={`Выбрать ${item.title}`}
+                    />
+                  </TableCell>
+                  <TableCell className="max-w-sm truncate">{item.title}</TableCell>
+                  <TableCell
+                    className={cn(
+                      "max-w-[30%] truncate",
+                      !item.description && "text-muted-foreground",
+                    )}
+                  >
+                    {item.description || "N/A"}
+                  </TableCell>
+                  <TableCell>{item.quantity ?? 1}</TableCell>
+                  <TableCell className="max-w-sm truncate">
+                    {item.sku || "—"}
+                  </TableCell>
+                  <TableCell>{item.unit || "—"}</TableCell>
+                  <TableCell className="max-w-sm truncate">
+                    {item.category_id
+                      ? (categories.find((c) => c.id === item.category_id)
+                          ?.name ?? "—")
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {item.created_at
+                      ? new Date(item.created_at).toLocaleDateString("ru-RU")
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    <ItemActionsMenu item={item} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+      <div className="mt-4 flex justify-end">
         <PaginationRoot
           count={count}
           pageSize={PER_PAGE}
           onPageChange={({ page }) => setSearchParams({ page })}
         >
-          <Flex>
+          <div className="flex">
             <PaginationPrevTrigger />
             <PaginationItems />
             <PaginationNextTrigger />
-          </Flex>
+          </div>
         </PaginationRoot>
-      </Flex>
+      </div>
       <MoveItemsDialog
         open={moveDialogOpen}
         onOpenChange={setMoveDialogOpen}
@@ -523,10 +498,8 @@ function Items() {
   }, [navigate])
 
   return (
-    <Container maxW="full">
-      <Heading size="lg" pt={12}>
-        Поступления
-      </Heading>
+    <div className="mx-auto w-full max-w-full px-4">
+      <h1 className="font-heading pt-12 text-2xl font-semibold">Поступления</h1>
       <AddItem />
       <ItemsTable />
       {openItem && (
@@ -538,6 +511,6 @@ function Items() {
           }}
         />
       )}
-    </Container>
+    </div>
   )
 }

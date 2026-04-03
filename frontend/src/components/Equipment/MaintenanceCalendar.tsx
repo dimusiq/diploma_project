@@ -1,20 +1,10 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Grid,
-  Heading,
-  HStack,
-  Stack,
-  Text,
-} from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
-
-import { workOrdersApi, type WorkOrderPublic } from "@/api/workOrders"
+import { Fragment, useMemo, useState } from "react"
 import type { MaintenanceCalendarEventPublic } from "@/api/maintenanceCalendar"
 import { maintenanceCalendarApi } from "@/api/maintenanceCalendar"
+import { type WorkOrderPublic, workOrdersApi } from "@/api/workOrders"
+import { Button } from "@/components/ui/button.tsx"
+import { cn } from "@/lib/utils.ts"
 
 type ViewMode = "day" | "week" | "month"
 
@@ -22,6 +12,13 @@ type MaintenanceEventDragPayload = {
   kind: "maintenance_event"
   equipment_id: string
   interval_hours: number | null
+}
+
+const statusBadgeClass: Record<string, string> = {
+  overdue: "border-destructive/40 bg-destructive/10 text-destructive",
+  due_soon: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100",
+  ok: "border-green-300 bg-green-50 text-green-900 dark:border-green-700 dark:bg-green-950/40 dark:text-green-100",
+  gray: "border-border bg-muted text-foreground",
 }
 
 export function MaintenanceCalendar({
@@ -110,7 +107,7 @@ export function MaintenanceCalendar({
       hours: h,
       headerLabel: cursor.toLocaleDateString("ru-RU", { month: "long", year: "numeric" }),
     }
-  }, [cursor, timeEndHour, timeStartHour, viewMode])
+  }, [cursor, viewMode])
 
   const rangeFromISO = rangeStart.toISOString()
   const rangeToISO = rangeEnd.toISOString()
@@ -159,23 +156,19 @@ export function MaintenanceCalendar({
         : ""
 
     return (
-      <Box
+      <div
         key={order.id}
-        bg="whiteAlpha.200"
-        borderWidth="1px"
-        borderColor="blackAlpha.200"
-        borderRadius="md"
-        p={1}
+        className="rounded-md border border-border/80 bg-card/80 p-1"
       >
-        <Text fontSize="xs" fontWeight="medium" truncate>
+        <p className="truncate text-xs font-medium">
           {order.title}
-        </Text>
+        </p>
         {timeLabel ? (
-          <Text fontSize="10px" color="fg.muted">
+          <p className="text-[10px] text-muted-foreground">
             {timeLabel}
-          </Text>
+          </p>
         ) : null}
-      </Box>
+      </div>
     )
   }
 
@@ -187,7 +180,7 @@ export function MaintenanceCalendar({
   const canDrag = !maintenanceEventsLoading && maintenanceEvents.length > 0
 
   const handleDrop = (
-    e: any,
+    e: React.DragEvent,
     slotStart: Date,
     target_work_order_id?: string | null,
   ) => {
@@ -216,42 +209,34 @@ export function MaintenanceCalendar({
   }
 
   return (
-    <Flex gap={4} align="flex-start">
-      <Box w="320px" flexShrink={0}>
-        <Stack gap={3}>
-          <Heading size="sm">События ТО</Heading>
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="w-full shrink-0 lg:w-[320px]">
+        <div className="flex flex-col gap-3">
+          <h3 className="font-heading text-sm font-semibold">События ТО</h3>
 
-          {maintenanceEventsLoading ? <Text>Загрузка…</Text> : null}
+          {maintenanceEventsLoading ? <p>Загрузка…</p> : null}
           {!maintenanceEventsLoading && maintenanceEvents.length === 0 ? (
-            <Text color="fg.muted">Нет событий для планирования.</Text>
+            <p className="text-muted-foreground">Нет событий для планирования.</p>
           ) : null}
 
-          <Stack gap={2} maxH="70vh" overflow="auto" pr={1}>
+          <div className="flex max-h-[70vh] flex-col gap-2 overflow-auto pr-1">
             {maintenanceEvents.map((ev) => {
               const palette = statusPalette[ev.status] ?? "gray"
+              const badgeCls = statusBadgeClass[ev.status] ?? statusBadgeClass.gray
               return (
                 <Button
                   key={ev.id}
                   type="button"
                   variant="outline"
                   size="sm"
-                  colorPalette={palette}
-                  w="full"
-                  h="auto"
-                  minH="unset"
-                  py={2}
-                  px={2}
-                  gap={1}
-                  fontWeight="normal"
-                  whiteSpace="normal"
-                  textAlign="left"
-                  justifyContent="flex-start"
-                  display="flex"
-                  flexDirection="column"
-                  alignItems="stretch"
+                  className={cn(
+                    "h-auto min-h-0 w-full flex-col items-stretch gap-1 whitespace-normal px-2 py-2 text-left font-normal",
+                    palette === "red" && "border-destructive/40",
+                    palette === "yellow" && "border-amber-300",
+                    palette === "green" && "border-green-300",
+                  )}
                   draggable={canDrag}
-                  cursor={canDrag ? "grab" : "default"}
-                  _active={{ cursor: canDrag ? "grabbing" : undefined }}
+                  style={{ cursor: canDrag ? "grab" : "default" }}
                   onDragStart={(e) => {
                     if (!canDrag) return
                     const payload: MaintenanceEventDragPayload = {
@@ -263,43 +248,43 @@ export function MaintenanceCalendar({
                     e.dataTransfer.effectAllowed = "copy"
                   }}
                 >
-                  <HStack justify="space-between" w="full">
-                    <Badge size="sm" variant="subtle" colorPalette={palette}>
+                  <div className="flex w-full justify-between">
+                    <span className={cn("rounded-md border px-2 py-0.5 text-xs", badgeCls)}>
                       {ev.status === "overdue"
                         ? "Просрочено"
                         : ev.status === "due_soon"
                           ? "Скоро"
                           : "Норма"}
-                    </Badge>
-                  </HStack>
-                  <Text fontSize="sm" fontWeight="semibold" truncate w="full">
+                    </span>
+                  </div>
+                  <span className="w-full truncate text-sm font-semibold">
                     {ev.equipment_name ?? ev.equipment_id}
-                  </Text>
-                  <Text fontSize="xs" color="fg.muted" w="full">
+                  </span>
+                  <span className="w-full text-xs text-muted-foreground">
                     Интервал: {ev.interval_hours} м/ч
-                  </Text>
+                  </span>
                 </Button>
               )
             })}
-          </Stack>
-        </Stack>
-      </Box>
+          </div>
+        </div>
+      </div>
 
-      <Box flex={1} minW={0}>
-        <Flex justify="space-between" align="center" mb={3}>
-          <HStack gap={2}>
-            <Button size="sm" variant={viewMode === "day" ? "solid" : "outline"} onClick={() => setViewMode("day")}>
+      <div className="min-w-0 flex-1">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant={viewMode === "day" ? "default" : "outline"} onClick={() => setViewMode("day")}>
               День
             </Button>
-            <Button size="sm" variant={viewMode === "week" ? "solid" : "outline"} onClick={() => setViewMode("week")}>
+            <Button size="sm" variant={viewMode === "week" ? "default" : "outline"} onClick={() => setViewMode("week")}>
               Неделя
             </Button>
-            <Button size="sm" variant={viewMode === "month" ? "solid" : "outline"} onClick={() => setViewMode("month")}>
+            <Button size="sm" variant={viewMode === "month" ? "default" : "outline"} onClick={() => setViewMode("month")}>
               Месяц
             </Button>
-          </HStack>
+          </div>
 
-          <HStack gap={2}>
+          <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -311,7 +296,7 @@ export function MaintenanceCalendar({
             >
               {"<"}
             </Button>
-            <Text fontWeight="medium">{headerLabel}</Text>
+            <span className="font-medium">{headerLabel}</span>
             <Button
               size="sm"
               variant="outline"
@@ -323,31 +308,35 @@ export function MaintenanceCalendar({
             >
               {">"}
             </Button>
-          </HStack>
-        </Flex>
+          </div>
+        </div>
 
-        {workOrdersLoading ? <Text>Загрузка…</Text> : null}
+        {workOrdersLoading ? <p>Загрузка…</p> : null}
 
         {!workOrdersLoading ? (
-          <>
-            {viewMode === "day" || viewMode === "week" ? (
-              <Grid templateColumns={`120px repeat(${days.length}, 1fr)`} gap={2}>
-                <Box />
+          viewMode === "day" || viewMode === "week" ? (
+              <div
+                className="grid gap-2"
+                style={{
+                  gridTemplateColumns: `120px repeat(${days.length}, minmax(0, 1fr))`,
+                }}
+              >
+                <div />
                 {days.map((d) => (
-                  <Box key={d.toISOString()} textAlign="center">
-                    <Text fontSize="sm" fontWeight="medium">
+                  <div key={d.toISOString()} className="text-center">
+                    <p className="text-sm font-medium">
                       {d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" })}
-                    </Text>
-                  </Box>
+                    </p>
+                  </div>
                 ))}
 
                 {hours.map((h) => (
-                  <>
-                    <Box>
-                      <Text fontSize="xs" color="fg.muted" textAlign="right" pr={1}>
+                  <Fragment key={h}>
+                    <div>
+                      <p className="pr-1 text-right text-xs text-muted-foreground">
                         {String(h).padStart(2, "0")}:00
-                      </Text>
-                    </Box>
+                      </p>
+                    </div>
                     {days.map((day) => {
                       const slotStart = new Date(
                         day.getFullYear(),
@@ -365,41 +354,37 @@ export function MaintenanceCalendar({
                       })
 
                       return (
-                        <Box
+                        <div
                           key={`${day.toISOString()}-${h}`}
-                          minH="44px"
-                          borderWidth="1px"
-                          borderColor="blackAlpha.100"
-                          borderRadius="md"
-                          bg="whiteAlpha.50"
+                          className="min-h-[44px] rounded-md border border-border/60 bg-muted/30"
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={(e) => handleDrop(e, slotStart)}
                         >
-                          <Stack gap={1} p={1}>
+                          <div className="flex flex-col gap-1 p-1">
                             {inCell.map((o) => (
-                              <Box
+                              <div
                                 key={o.id}
                                 onDragOver={(ev) => ev.preventDefault()}
                                 onDrop={(ev) => handleDrop(ev, slotStart, o.id)}
                               >
                                 {renderWorkOrderPill(o)}
-                              </Box>
+                              </div>
                             ))}
-                          </Stack>
-                        </Box>
+                          </div>
+                        </div>
                       )
                     })}
-                  </>
+                  </Fragment>
                 ))}
-              </Grid>
+              </div>
             ) : (
-              <Grid templateColumns="repeat(7, 1fr)" gap={2}>
+              <div className="grid grid-cols-7 gap-2">
                 {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((d) => (
-                  <Box key={d} textAlign="center">
-                    <Text fontSize="xs" color="fg.muted" fontWeight="medium">
+                  <div key={d} className="text-center">
+                    <p className="text-xs font-medium text-muted-foreground">
                       {d}
-                    </Text>
-                  </Box>
+                    </p>
+                  </div>
                 ))}
                 {days.map((day) => {
                   const startAtMonth = cursor.getMonth()
@@ -410,14 +395,12 @@ export function MaintenanceCalendar({
                     return sameDay(s, day)
                   })
                   return (
-                    <Box
+                    <div
                       key={day.toISOString()}
-                      minH="110px"
-                      borderWidth="1px"
-                      borderColor="blackAlpha.100"
-                      borderRadius="md"
-                      bg={isInMonth ? "whiteAlpha.60" : "whiteAlpha.30"}
-                      p={2}
+                      className={cn(
+                        "min-h-[110px] rounded-md border border-border/60 p-2",
+                        isInMonth ? "bg-card" : "bg-muted/40",
+                      )}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => {
                         const slotStart = new Date(
@@ -431,12 +414,12 @@ export function MaintenanceCalendar({
                         handleDrop(e, slotStart)
                       }}
                     >
-                      <Text fontSize="sm" fontWeight="medium" opacity={isInMonth ? 1 : 0.6}>
+                      <p className={cn("text-sm font-medium", !isInMonth && "opacity-60")}>
                         {day.getDate()}
-                      </Text>
-                          <Stack gap={1} mt={2}>
+                      </p>
+                      <div className="mt-2 flex flex-col gap-1">
                         {dayEvents.slice(0, 3).map((o) => (
-                          <Box
+                          <div
                             key={o.id}
                             onDragOver={(ev) => ev.preventDefault()}
                             onDrop={(ev) => {
@@ -452,23 +435,21 @@ export function MaintenanceCalendar({
                             }}
                           >
                             {renderWorkOrderPill(o)}
-                          </Box>
+                          </div>
                         ))}
                         {dayEvents.length > 3 ? (
-                          <Text fontSize="xs" color="fg.muted">
+                          <p className="text-xs text-muted-foreground">
                             +{dayEvents.length - 3}
-                          </Text>
+                          </p>
                         ) : null}
-                      </Stack>
-                    </Box>
+                      </div>
+                    </div>
                   )
                 })}
-              </Grid>
-            )}
-          </>
+              </div>
+            )
         ) : null}
-      </Box>
-    </Flex>
+      </div>
+    </div>
   )
 }
-

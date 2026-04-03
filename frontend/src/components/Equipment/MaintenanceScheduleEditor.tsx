@@ -1,18 +1,6 @@
 /**
  * Расписание ТО — сервисные периоды и последовательность ТО (графики + техника).
  */
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Grid,
-  Heading,
-  Input,
-  Table,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -20,19 +8,30 @@ import { FiTrash2 } from "react-icons/fi"
 
 import { EQUIPMENT_TYPE_LABELS, equipmentApi } from "@/api/equipment.ts"
 import {
-  maintenanceScheduleApi,
   apiChainToLegacyFormat,
   type MaintenanceChainCreateBody,
   type MaintenanceChainUpdateBody,
+  maintenanceScheduleApi,
 } from "@/api/maintenanceSchedule.ts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   MenuContent,
   MenuItem,
   MenuRoot,
   MenuTrigger,
 } from "@/components/ui/menu.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
+import { cn } from "@/lib/utils.ts"
 import {
   CHAIN_COLOR_OPTIONS,
   DEFAULT_REMIND_BEFORE_HOURS,
@@ -41,6 +40,40 @@ import {
   getMaintenanceChains,
   type MaintenanceChain,
 } from "@/utils/maintenanceChains.ts"
+
+const CHAIN_TAG_BADGE_CLASS: Record<string, string> = {
+  blue: "border-blue-200 bg-blue-100 text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100",
+  purple:
+    "border-purple-200 bg-purple-100 text-purple-900 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-100",
+  orange:
+    "border-orange-200 bg-orange-100 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100",
+  cyan: "border-cyan-200 bg-cyan-100 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100",
+  teal: "border-teal-200 bg-teal-100 text-teal-900 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-100",
+  pink: "border-pink-200 bg-pink-100 text-pink-900 dark:border-pink-800 dark:bg-pink-950/40 dark:text-pink-100",
+  violet:
+    "border-violet-200 bg-violet-100 text-violet-900 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100",
+  indigo:
+    "border-indigo-200 bg-indigo-100 text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-100",
+}
+
+const CHAIN_SWATCH_BG: Record<string, string> = {
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
+  orange: "bg-orange-500",
+  cyan: "bg-cyan-500",
+  teal: "bg-teal-500",
+  pink: "bg-pink-500",
+  violet: "bg-violet-500",
+  indigo: "bg-indigo-500",
+}
+
+function chainTagBadgeClass(tag: string): string {
+  return CHAIN_TAG_BADGE_CLASS[tag] ?? CHAIN_TAG_BADGE_CLASS.blue
+}
+
+function chainSwatchBg(tag: string): string {
+  return CHAIN_SWATCH_BG[tag] ?? CHAIN_SWATCH_BG.blue
+}
 
 const STORAGE_KEY_IMPORT_DONE = "maintenance_schedule_import_done"
 
@@ -162,9 +195,9 @@ export function MaintenanceScheduleEditor() {
       })
       .catch(() => {})
   }, [
-    permissionsData?.can_edit,
-    chainsData?.data?.length,
-    queryClient,
+    permissionsData?.can_edit, 
+    chainsData?.data?.length, 
+    queryClient, chainsData
   ])
 
   const setIntervals = (next: number[] | ((prev: number[]) => number[])) => {
@@ -481,17 +514,17 @@ export function MaintenanceScheduleEditor() {
   }
 
   return (
-    <Box>
-      <Flex gap={3} mb={4} flexWrap="wrap" align="center">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Link to="/technique" search={{ section: "maintenance" }}>
           <Button size="sm" variant="outline">
             Перейти к графику ТО
           </Button>
         </Link>
-        <Flex gap={2} align="center">
-          <Text as="span" fontSize="sm" color="fg.muted">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
             Разделы:
-          </Text>
+          </span>
           <a href="#sequence-to">
             <Button size="xs" variant="ghost">
               Последовательность ТО
@@ -502,156 +535,128 @@ export function MaintenanceScheduleEditor() {
               Сервисные периоды
             </Button>
           </a>
-        </Flex>
-      </Flex>
-      <VStack align="stretch" gap={8}>
+        </div>
+      </div>
+      <div className="flex flex-col gap-8">
         {/* Последовательность ТО — выше на странице */}
-        <Box id="sequence-to">
-          <Heading size="sm" mb={2}>
+        <div id="sequence-to">
+          <h3 className="font-heading mb-2 text-sm font-semibold">
             Последовательность ТО
-          </Heading>
-          <Text fontSize="sm" color="fg.muted" mb={4}>
+          </h3>
+          <p className="mb-4 text-sm text-muted-foreground">
             Создайте последовательности из графика (интервала) и назначьте
             технику. Одна последовательность — один интервал и список техники.
-          </Text>
+          </p>
 
           {canEdit && (
-            <Button variant="solid" size="sm" mb={4} onClick={startNewChain}>
+            <Button className="mb-4" size="sm" onClick={startNewChain}>
               Создать последовательность ТО
             </Button>
           )}
           {!canEdit && (
-            <Text fontSize="sm" color="fg.muted" mb={4}>
+            <p className="mb-4 text-sm text-muted-foreground">
               Только просмотр. Редактирование расписания недоступно.
-            </Text>
+            </p>
           )}
           {chains.length === 0 ? (
-            <Box
-              mb={4}
-              p={4}
-              borderRadius="md"
-              borderWidth="1px"
-              borderStyle="dashed"
-              borderColor="border"
-              textAlign="center"
-            >
-              <Text fontSize="sm" color="fg.muted" mb={2}>
+            <div className="mb-4 rounded-md border border-dashed border-border p-4 text-center">
+              <p className="mb-2 text-sm text-muted-foreground">
                 Нет последовательностей.
-              </Text>
-              <Text fontSize="sm" color="fg.muted" mb={3}>
+              </p>
+              <p className="mb-3 text-sm text-muted-foreground">
                 Создайте первую последовательность, выберите интервалы и
                 назначьте технику.
-              </Text>
-            </Box>
+              </p>
+            </div>
           ) : (
-            <Table.Root size="sm" mb={4}>
-              <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeader>Название</Table.ColumnHeader>
-                  <Table.ColumnHeader>Интервалы (м/ч)</Table.ColumnHeader>
-                  <Table.ColumnHeader>Напоминание за (м/ч)</Table.ColumnHeader>
-                  <Table.ColumnHeader>Техника</Table.ColumnHeader>
-                  <Table.ColumnHeader textAlign="right">
-                    Действия
-                  </Table.ColumnHeader>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {chains.map((c) => (
-                  <Table.Row
-                    key={c.id}
-                    cursor="pointer"
-                    _hover={{ bg: "gray.subtle" }}
-                    _active={{ bg: "gray.muted" }}
-                    bg={editingChainId === c.id ? "blue.subtle" : undefined}
-                    onClick={() => handleRowClick(c)}
-                  >
-                    <Table.Cell>
-                      <Flex gap={2} align="center">
-                        <Badge
-                          size="sm"
-                          colorPalette={
-                            CHAIN_COLOR_OPTIONS.some(
-                              (o) => o.value === c.colorTag,
-                            )
-                              ? (c.colorTag as
-                                  | "blue"
-                                  | "purple"
-                                  | "orange"
-                                  | "cyan"
-                                  | "teal"
-                                  | "pink"
-                                  | "violet"
-                                  | "indigo")
-                              : "blue"
-                          }
-                          title="Цветовое обозначение цепочки"
+            <div className="mb-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Название</TableHead>
+                    <TableHead>Интервалы (м/ч)</TableHead>
+                    <TableHead>Напоминание за (м/ч)</TableHead>
+                    <TableHead>Техника</TableHead>
+                    <TableHead className="text-right">
+                      Действия
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {chains.map((c) => {
+                    const tag = CHAIN_COLOR_OPTIONS.some((o) => o.value === c.colorTag)
+                      ? c.colorTag
+                      : "blue"
+                    return (
+                      <TableRow
+                        key={c.id}
+                        className={cn(
+                          "cursor-pointer",
+                          editingChainId === c.id && "bg-primary/10",
+                        )}
+                        onClick={() => handleRowClick(c)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "inline-block h-3 w-4 shrink-0 rounded-sm border border-border",
+                                chainSwatchBg(tag),
+                              )}
+                              title="Цветовое обозначение цепочки"
+                              aria-hidden
+                            />
+                            <span className="font-medium">{c.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {c.intervalHours.length > 0
+                              ? c.intervalHours.join(" → ")
+                              : "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {c.remindBeforeHours ?? DEFAULT_REMIND_BEFORE_HOURS}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">{c.equipmentIds.length} ед.</span>
+                        </TableCell>
+                        <TableCell
+                          className="text-right"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {" "}
-                        </Badge>
-                        <Text fontWeight="medium">{c.name}</Text>
-                      </Flex>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">
-                        {c.intervalHours.length > 0
-                          ? c.intervalHours.join(" → ")
-                          : "—"}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">
-                        {c.remindBeforeHours ?? DEFAULT_REMIND_BEFORE_HOURS}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Text fontSize="sm">{c.equipmentIds.length} ед.</Text>
-                    </Table.Cell>
-                    <Table.Cell
-                      textAlign="right"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {canEdit && (
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          colorPalette="red"
-                          onClick={() => handleDeleteChain(c.id)}
-                          title="Удалить"
-                          aria-label="Удалить последовательность"
-                          px={1.5}
-                        >
-                          <FiTrash2 />
-                        </Button>
-                      )}
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table.Root>
+                          {canEdit && (
+                            <Button
+                              size="icon-xs"
+                              variant="ghost"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={() => handleDeleteChain(c.id)}
+                              title="Удалить"
+                              aria-label="Удалить последовательность"
+                            >
+                              <FiTrash2 />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
 
           {editingChainId != null && (
-            <Box
-              p={4}
-              borderRadius="md"
-              borderWidth="1px"
-              borderColor="border"
-              bg="bg.subtle"
-              w="100%"
-            >
-              <Flex
-                justify="space-between"
-                align="center"
-                mb={4}
-                flexWrap="wrap"
-                gap={2}
-              >
-                <Heading size="xs">
+            <div className="w-full rounded-md border border-border bg-muted/40 p-4">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <h4 className="font-heading text-xs font-semibold">
                   {editingChainId === "new"
                     ? "Новая последовательность ТО"
                     : `Редактирование: ${chainName || "—"}`}
-                </Heading>
+                </h4>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -660,61 +665,46 @@ export function MaintenanceScheduleEditor() {
                 >
                   Закрыть
                 </Button>
-              </Flex>
-              <VStack align="stretch" gap={4}>
-                <Flex gap={2} align="center" flexWrap="wrap">
-                  <Text fontWeight="medium" fontSize="sm" w="100px">
+              </div>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="w-[100px] text-sm font-medium">
                     Название:
-                  </Text>
+                  </span>
                   <Input
-                    size="sm"
+                    className="min-w-[200px] flex-1"
                     placeholder="Например: ТО каждые 500 м/ч"
                     value={chainName}
                     maxLength={40}
                     onChange={(e) => setChainName(e.target.value.slice(0, 40))}
-                    flex="1"
-                    minW="200px"
                     disabled={!canEdit}
                   />
-                </Flex>
-                <Flex gap={2} align="center" flexWrap="wrap">
-                  <Text fontWeight="medium" fontSize="sm" w="100px">
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="w-[100px] text-sm font-medium">
                     Цветовое обозначение последовательности ТО:
-                  </Text>
+                  </span>
                   <MenuRoot>
                     <MenuTrigger asChild>
                       <Button
                         size="sm"
                         variant="outline"
-                        cursor="pointer"
-                        px={3}
-                        py={1.5}
-                        minW="140px"
-                        justifyContent="flex-start"
-                        gap={2}
+                        className="min-w-[140px] justify-start gap-2 px-3 py-1.5"
                         disabled={!canEdit}
                       >
-                        <Badge
-                          size="md"
-                          colorPalette={
-                            chainColorTag as
-                              | "blue"
-                              | "purple"
-                              | "orange"
-                              | "cyan"
-                              | "teal"
-                              | "pink"
-                              | "violet"
-                              | "indigo"
-                          }
+                        <span
+                          className={cn(
+                            "rounded-md border px-2 py-0.5 text-xs",
+                            chainTagBadgeClass(chainColorTag),
+                          )}
                         >
                           {CHAIN_COLOR_OPTIONS.find(
                             (o) => o.value === chainColorTag,
                           )?.label ?? chainColorTag}
-                        </Badge>
-                        <Text as="span" fontSize="sm" color="fg.muted">
+                        </span>
+                        <span className="text-sm text-muted-foreground">
                           ▼
-                        </Text>
+                        </span>
                       </Button>
                     </MenuTrigger>
                     <MenuContent>
@@ -724,38 +714,29 @@ export function MaintenanceScheduleEditor() {
                           value={opt.value}
                           onClick={() => setChainColorTag(opt.value)}
                         >
-                          <Badge
-                            size="md"
-                            colorPalette={
-                              opt.value as
-                                | "blue"
-                                | "purple"
-                                | "orange"
-                                | "cyan"
-                                | "teal"
-                                | "pink"
-                                | "violet"
-                                | "indigo"
-                            }
+                          <span
+                            className={cn(
+                              "rounded-md border px-2 py-0.5 text-xs",
+                              chainTagBadgeClass(opt.value),
+                            )}
                           >
                             {opt.label}
-                          </Badge>
+                          </span>
                         </MenuItem>
                       ))}
                     </MenuContent>
                   </MenuRoot>
-                </Flex>
-                <Flex gap={2} align="center" flexWrap="wrap">
-                  <Text fontWeight="medium" fontSize="sm" w="100px">
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="w-[100px] text-sm font-medium">
                     Напоминание в графике ТО:
-                  </Text>
-                  <Text fontSize="sm">за</Text>
+                  </span>
+                  <span className="text-sm">за</span>
                   <Input
                     type="number"
                     min={0}
                     step={10}
-                    w="90px"
-                    size="sm"
+                    className="h-7 w-[90px]"
                     value={chainRemindBeforeHours}
                     onChange={(e) => {
                       const n = parseInt(e.target.value, 10)
@@ -764,32 +745,26 @@ export function MaintenanceScheduleEditor() {
                     }}
                     disabled={!canEdit}
                   />
-                  <Text fontSize="sm" color="fg.muted">
+                  <span className="text-sm text-muted-foreground">
                     моточасов до ТО (статус «Скоро»)
-                  </Text>
-                </Flex>
-                <Box>
-                  <Text fontWeight="medium" fontSize="sm" mb={2}>
+                  </span>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-medium">
                     Последовательность интервалов (м/ч):
-                  </Text>
-                  <Text fontSize="xs" color="fg.muted" mb={2}>
+                  </p>
+                  <p className="mb-2 text-xs text-muted-foreground">
                     Порядок можно менять кнопками ↑ ↓. Первый интервал
                     используется для расчёта «следующее ТО» в графике.
-                  </Text>
+                  </p>
                   {canEdit && (
-                    <Flex gap={2} align="center" flexWrap="wrap" mb={2}>
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
                       <select
                         value={addIntervalValue}
                         onChange={(e) =>
                           setAddIntervalValue(Number(e.target.value))
                         }
-                        style={{
-                          padding: "6px 10px",
-                          borderRadius: "6px",
-                          border: "1px solid var(--chakra-colors-border)",
-                          fontSize: "14px",
-                          minWidth: "120px",
-                        }}
+                        className="min-w-[120px] rounded-md border border-border px-2.5 py-1.5 text-sm"
                       >
                         {intervals.map((val) => (
                           <option key={val} value={val}>
@@ -804,20 +779,20 @@ export function MaintenanceScheduleEditor() {
                       >
                         Добавить в цепочку
                       </Button>
-                    </Flex>
+                    </div>
                   )}
                   {chainIntervals.length === 0 ? (
-                    <Text fontSize="sm" color="fg.muted">
+                    <p className="text-sm text-muted-foreground">
                       Нет интервалов. Выберите интервал выше и нажмите «Добавить
                       в цепочку».
-                    </Text>
+                    </p>
                   ) : (
-                    <VStack align="stretch" gap={1}>
+                    <div className="flex flex-col gap-1">
                       {chainIntervals.map((val, index) => (
-                        <Flex key={`${val}-${index}`} gap={2} align="center">
-                          <Badge size="md" colorPalette="blue">
+                        <div key={`${val}-${index}`} className="flex items-center gap-2">
+                          <span className="rounded-md border border-blue-300 bg-blue-50 px-2 py-0.5 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
                             {val} м/ч
-                          </Badge>
+                          </span>
                           {canEdit && (
                             <>
                               <Button
@@ -837,28 +812,27 @@ export function MaintenanceScheduleEditor() {
                                 ↓
                               </Button>
                               <Button
-                                size="xs"
+                                size="icon-xs"
                                 variant="ghost"
-                                colorPalette="red"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 onClick={() => removeIntervalFromChain(index)}
                                 title="Удалить"
                                 aria-label="Удалить интервал из последовательности"
-                                px={1.5}
                               >
                                 <FiTrash2 />
                               </Button>
                             </>
                           )}
-                        </Flex>
+                        </div>
                       ))}
-                    </VStack>
+                    </div>
                   )}
-                </Box>
-                <Box>
-                  <Flex align="center" gap={2} mb={2} flexWrap="wrap">
-                    <Text fontWeight="medium" fontSize="sm">
+                </div>
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">
                       Техника в последовательности:
-                    </Text>
+                    </span>
                     {canEdit && (
                       <Button
                         size="xs"
@@ -873,44 +847,30 @@ export function MaintenanceScheduleEditor() {
                           : "Выбрать всю"}
                       </Button>
                     )}
-                  </Flex>
+                  </div>
                   <Input
-                    size="sm"
+                    className="mb-2 max-w-[320px]"
                     placeholder="Поиск по названию, модели, серийному номеру..."
                     value={equipmentSearch}
                     onChange={(e) => setEquipmentSearch(e.target.value)}
-                    mb={2}
-                    maxW="320px"
                   />
-                  <Text fontSize="xs" color="fg.muted" mb={2}>
+                  <p className="mb-2 text-xs text-muted-foreground">
                     Техника может входить только в одну последовательность ТО.
                     Занятая в другой последовательности техника недоступна для
                     выбора.
-                  </Text>
-                  <Box
-                    maxH="400px"
-                    overflowY="auto"
-                    borderWidth="1px"
-                    borderColor="border"
-                    borderRadius="md"
-                    p={2}
-                    bg="bg"
-                  >
+                  </p>
+                  <div className="max-h-[400px] overflow-y-auto rounded-md border border-border bg-background p-2">
                     {equipmentList.length === 0 ? (
-                      <Text fontSize="sm" color="fg.muted">
+                      <p className="text-sm text-muted-foreground">
                         Нет техники. Добавьте технику в разделе «Список
                         техники».
-                      </Text>
+                      </p>
                     ) : filteredEquipmentList.length === 0 ? (
-                      <Text fontSize="sm" color="fg.muted">
+                      <p className="text-sm text-muted-foreground">
                         Ничего не найдено по запросу. Измените поиск.
-                      </Text>
+                      </p>
                     ) : (
-                      <Grid
-                        templateColumns="repeat(3, 1fr)"
-                        gap={2}
-                        alignContent="start"
-                      >
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {filteredEquipmentList.map((eq) => {
                           const inOtherChain = equipmentIdsInOtherChains.has(
                             eq.id,
@@ -933,79 +893,70 @@ export function MaintenanceScheduleEditor() {
                                 !inOtherChain && canEdit && toggleEquipment(eq.id)
                               }
                             >
-                              <Text
-                                fontSize="sm"
-                                opacity={inOtherChain ? 0.7 : 1}
+                              <span
+                                className={cn(
+                                  "text-sm",
+                                  inOtherChain && "opacity-70",
+                                )}
                               >
                                 {eq.brand_name} {eq.model}
                                 {eq.garage_number && (
-                                  <Text
-                                    as="span"
-                                    display="block"
-                                    fontSize="xs"
-                                    color="fg.muted"
-                                  >
+                                  <span className="block text-xs text-muted-foreground">
                                     Гаражный номер: {eq.garage_number}
-                                  </Text>
+                                  </span>
                                 )}
                                 {eq.serial_number && (
-                                  <Text as="span" color="fg.muted" ml={2}>
+                                  <span className="ml-2 text-muted-foreground">
                                     ({eq.serial_number})
-                                  </Text>
+                                  </span>
                                 )}
                                 {" · "}
                                 {EQUIPMENT_TYPE_LABELS[eq.equipment_type] ??
                                   eq.equipment_type}
                                 {otherChainName && (
-                                  <Text
-                                    as="span"
-                                    fontSize="xs"
-                                    color="fg.muted"
-                                    display="block"
-                                    mt={0.5}
-                                  >
+                                  <span className="mt-0.5 block text-xs text-muted-foreground">
                                     в цепочке «{otherChainName}»
-                                  </Text>
+                                  </span>
                                 )}
-                              </Text>
+                              </span>
                             </Checkbox>
                           )
                         })}
-                      </Grid>
+                      </div>
                     )}
-                  </Box>
-                </Box>
+                  </div>
+                </div>
                 {error && (
-                  <Text fontSize="sm" color="red">
+                  <p className="text-sm text-destructive">
                     {error}
-                  </Text>
+                  </p>
                 )}
-                <Flex gap={2}>
+                <div className="flex gap-2">
                   {canEdit && (
-                    <Button variant="solid" size="sm" onClick={handleSaveChain}>
+                    <Button size="sm" onClick={handleSaveChain}>
                       Сохранить
                     </Button>
                   )}
                   <Button size="sm" variant="outline" onClick={cancelChainForm}>
                     {canEdit ? "Отмена" : "Закрыть"}
                   </Button>
-                </Flex>
-              </VStack>
-            </Box>
+                </div>
+              </div>
+            </div>
           )}
-        </Box>
+        </div>
 
         {/* Сервисные периоды */}
-        <Box id="service-periods">
-          <Heading size="sm" mb={2}>
+        <div id="service-periods">
+          <h3 className="font-heading mb-2 text-sm font-semibold">
             Сервисные периоды (м/ч)
-          </Heading>
-          <Text fontSize="sm" color="fg.muted" mb={4}>
+          </h3>
+          <p className="mb-4 text-sm text-muted-foreground">
             Отметки в моточасах для ТО (500, 1000, 1500 и т.д.). Первый период
             используется в «График ТО» по умолчанию.
-          </Text>
+          </p>
           {canEdit && (
-            <Flex gap={2} align="center" flexWrap="wrap" mb={2}>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
               <Input
                 type="number"
                 min={1}
@@ -1016,60 +967,61 @@ export function MaintenanceScheduleEditor() {
                 onKeyDown={(e) =>
                   e.key === "Enter" && (e.preventDefault(), handleAddInterval())
                 }
-                size="sm"
-                w="180px"
+                className="h-7 w-[180px]"
               />
-              <Button variant="solid" size="sm" onClick={handleAddInterval}>
+              <Button size="sm" onClick={handleAddInterval}>
                 Добавить период
               </Button>
-            </Flex>
+            </div>
           )}
           {error && !editingChainId && (
-            <Text fontSize="sm" color="red" mb={2}>
+            <p className="mb-2 text-sm text-destructive">
               {error}
-            </Text>
+            </p>
           )}
           {intervals.length === 0 ? (
-            <Text fontSize="sm" color="fg.muted">
+            <p className="text-sm text-muted-foreground">
               Нет периодов. Добавьте первый (например 500).
-            </Text>
+            </p>
           ) : (
-            <Table.Root size="sm" w="auto">
-              <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeader>Период (м/ч)</Table.ColumnHeader>
-                  <Table.ColumnHeader textAlign="right">
-                    Действие
-                  </Table.ColumnHeader>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {intervals.map((value) => (
-                  <Table.Row key={value}>
-                    <Table.Cell>
-                      <Badge size="md" colorPalette="blue">
-                        {value}
-                      </Badge>
-                    </Table.Cell>
-                    <Table.Cell textAlign="right">
-                      {canEdit && (
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          colorPalette="red"
-                          onClick={() => handleRemoveInterval(value)}
-                        >
-                          Удалить
-                        </Button>
-                      )}
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table.Root>
+            <div className="w-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Период (м/ч)</TableHead>
+                    <TableHead className="text-right">
+                      Действие
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {intervals.map((value) => (
+                    <TableRow key={value}>
+                      <TableCell>
+                        <span className="rounded-md border border-blue-300 bg-blue-50 px-2 py-0.5 text-xs text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100">
+                          {value}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {canEdit && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => handleRemoveInterval(value)}
+                          >
+                            Удалить
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
-        </Box>
-      </VStack>
+        </div>
+      </div>
       <ConfirmDialog
         open={deleteChainId != null}
         onOpenChange={(open) => !open && setDeleteChainId(null)}
@@ -1096,6 +1048,6 @@ export function MaintenanceScheduleEditor() {
         cancelLabel="Отмена"
         onConfirm={handleUnsavedConfirm}
       />
-    </Box>
+    </div>
   )
 }

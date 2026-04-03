@@ -1,12 +1,16 @@
-import { Field as ChakraField } from "@chakra-ui/react"
 import type * as React from "react"
 
-export interface FieldProps extends Omit<ChakraField.RootProps, "label"> {
-  ref?: React.Ref<HTMLDivElement>
+import { Label } from "@/components/ui/label.tsx"
+import { cn } from "@/lib/utils.ts"
+
+export interface FieldProps extends React.ComponentProps<"div"> {
   label?: React.ReactNode
   helperText?: React.ReactNode
   errorText?: React.ReactNode
   optionalText?: React.ReactNode
+  required?: boolean
+  invalid?: boolean
+  disabled?: boolean
 }
 
 export function Field({
@@ -16,23 +20,47 @@ export function Field({
   helperText,
   errorText,
   optionalText,
+  required,
+  invalid,
+  disabled,
+  className,
   ...rest
-}: FieldProps) {
+}: FieldProps & { ref?: React.Ref<HTMLDivElement> }) {
   return (
-    <ChakraField.Root ref={ref} {...rest}>
-      {label && (
-        <ChakraField.Label>
-          {label}
-          <ChakraField.RequiredIndicator fallback={optionalText} />
-        </ChakraField.Label>
+    <div
+      ref={ref}
+      data-invalid={invalid ? "" : undefined}
+      data-disabled={disabled ? "" : undefined}
+      className={cn(
+        "group/field flex w-full flex-col gap-2",
+        disabled && "pointer-events-none opacity-60",
+        className,
+      )}
+      {...rest}
+    >
+      {label != null && label !== false && (
+        <Label className="flex w-full flex-wrap items-baseline gap-x-1.5 gap-y-0">
+          <span>{label}</span>
+          {required ? (
+            <span className="text-destructive" aria-hidden>
+              *
+            </span>
+          ) : optionalText ? (
+            <span className="text-muted-foreground font-normal text-xs">
+              {optionalText}
+            </span>
+          ) : null}
+        </Label>
       )}
       {children}
-      {helperText && (
-        <ChakraField.HelperText>{helperText}</ChakraField.HelperText>
-      )}
-      {errorText && (
-        <ChakraField.ErrorText>{errorText}</ChakraField.ErrorText>
-      )}
-    </ChakraField.Root>
+      {helperText ? (
+        <p className="text-muted-foreground text-xs">{helperText}</p>
+      ) : null}
+      {errorText ? (
+        <p className="text-destructive text-xs" role="alert">
+          {errorText}
+        </p>
+      ) : null}
+    </div>
   )
 }

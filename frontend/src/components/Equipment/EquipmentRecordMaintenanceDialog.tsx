@@ -1,14 +1,6 @@
 /**
  * Диалог «Записать проведённое ТО» для одной единицы техники.
  */
-import {
-  Box,
-  Button,
-  Input,
-  Text,
-  Textarea,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import {
@@ -16,8 +8,7 @@ import {
   equipmentApi,
   type MaintenanceRecordCreate,
 } from "@/api/equipment.ts"
-import { maintenanceScheduleApi } from "@/api/maintenanceSchedule.ts"
-import { apiChainToLegacyFormat } from "@/api/maintenanceSchedule.ts"
+import { apiChainToLegacyFormat, maintenanceScheduleApi } from "@/api/maintenanceSchedule.ts"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -26,7 +17,10 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Input } from "@/components/ui/input.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { getIntervalHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
@@ -119,35 +113,29 @@ export function EquipmentRecordMaintenanceDialog({
             </DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <VStack gap={3} align="stretch">
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Дата проведения ТО
-                </Text>
+                </p>
                 <Input
                   type="date"
                   value={performedAt}
                   onChange={(e) => setPerformedAt(e.target.value)}
                   required
-                  size="sm"
+                  className="h-7"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Интервал ТО (м/ч)
-                </Text>
+                </p>
                 <select
                   value={intervalHours}
                   onChange={(e) =>
                     setIntervalHours(parseInt(e.target.value, 10) || 500)
                   }
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--chakra-colors-border)",
-                    minWidth: "120px",
-                    fontSize: "14px",
-                  }}
+                  className="min-w-[120px] rounded-md border border-border px-3 py-2 text-sm"
                 >
                   {(chainIntervals.length ? chainIntervals : [500, 1000, 1500]).map(
                     (h) => (
@@ -157,33 +145,33 @@ export function EquipmentRecordMaintenanceDialog({
                     ),
                   )}
                 </select>
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Моточасы на момент ТО (необязательно)
-                </Text>
+                </p>
                 <Input
                   type="number"
                   min={0}
                   value={engineHoursAtService}
                   onChange={(e) => setEngineHoursAtService(e.target.value)}
                   placeholder="—"
-                  size="sm"
+                  className="h-7"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Комментарий (необязательно)
-                </Text>
+                </p>
                 <Textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="—"
-                  size="sm"
                   rows={2}
+                  className="min-h-[4rem] text-sm"
                 />
-              </Box>
-            </VStack>
+              </div>
+            </div>
           </DialogBody>
           <DialogFooter>
             <Button
@@ -195,7 +183,6 @@ export function EquipmentRecordMaintenanceDialog({
               Отмена
             </Button>
             <Button
-              variant="solid"
               type="submit"
               size="sm"
               loading={createMutation.isPending}

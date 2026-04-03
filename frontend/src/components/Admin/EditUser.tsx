@@ -1,13 +1,3 @@
-import {
-  Button,
-  DialogActionTrigger,
-  DialogRoot,
-  DialogTrigger,
-  Flex,
-  Input,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
@@ -21,16 +11,21 @@ import {
 } from "@/client/index.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { emailPattern, handleError } from "@/utils.ts"
-import { Checkbox } from "../ui/checkbox.tsx"
 import {
+  DialogActionTrigger,
   DialogBody,
   DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogRoot,
   DialogTitle,
-} from "../ui/dialog.tsx"
+  DialogTrigger,
+} from "../ui/app-dialog.tsx"
+import { Button } from "../ui/button.tsx"
+import { Checkbox } from "../ui/checkbox.tsx"
 import { Field } from "../ui/field.tsx"
+import { Input } from "../ui/input.tsx"
 
 interface EditUserProps {
   user: UserPublic
@@ -123,8 +118,8 @@ const EditUser = ({ user }: EditUserProps) => {
             <DialogTitle>Изменить пользователя</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <Text mb={4}>Обновить данные пользователя</Text>
-            <VStack gap={4}>
+            <p className="mb-4 text-sm">Обновить данные пользователя</p>
+            <div className="flex flex-col gap-4">
               <Field
                 required
                 invalid={!!errors.email}
@@ -163,7 +158,7 @@ const EditUser = ({ user }: EditUserProps) => {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "6px",
-                    border: "1px solid var(--chakra-colors-border)",
+                    border: "1px solid var(--border)",
                   }}
                 >
                   <option value={ROLE_EMPTY}>— не выбрана —</option>
@@ -208,17 +203,20 @@ const EditUser = ({ user }: EditUserProps) => {
                   type="password"
                 />
               </Field>
-            </VStack>
+            </div>
 
-            <Flex mt={4} direction="column" gap={4}>
+            <div className="mt-4 flex flex-col gap-4">
               <Controller
                 control={control}
                 name="is_superuser"
                 render={({ field }) => (
-                  <Field disabled={field.disabled} colorPalette="cyan">
+                  <Field
+                    disabled={field.disabled}
+                    className="text-cyan-700 dark:text-cyan-400"
+                  >
                     <Checkbox
                       checked={field.value}
-                      onCheckedChange={({ checked }) => field.onChange(checked)}
+                      onCheckedChange={(c) => field.onChange(c)}
                     >
                       Суперпользователь?
                     </Checkbox>
@@ -229,17 +227,20 @@ const EditUser = ({ user }: EditUserProps) => {
                 control={control}
                 name="is_active"
                 render={({ field }) => (
-                  <Field disabled={field.disabled} colorPalette="cyan">
+                  <Field
+                    disabled={field.disabled}
+                    className="text-cyan-700 dark:text-cyan-400"
+                  >
                     <Checkbox
                       checked={field.value}
-                      onCheckedChange={({ checked }) => field.onChange(checked)}
+                      onCheckedChange={(c) => field.onChange(c)}
                     >
                       Активный?
                     </Checkbox>
                   </Field>
                 )}
               />
-            </Flex>
+            </div>
           </DialogBody>
 
           <DialogFooter gap={2}>

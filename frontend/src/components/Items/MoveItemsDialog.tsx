@@ -1,4 +1,3 @@
-import { Button, ButtonGroup, Field, Text } from "@chakra-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { startTransition, useEffect, useMemo, useState } from "react"
 import { ItemsService } from "@/client/index.ts"
@@ -11,7 +10,9 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Field } from "@/components/ui/field.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
   getAllowedNextStatuses,
@@ -107,22 +108,15 @@ export function MoveItemsDialog({
           <DialogTitle>Переместить товары</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <Text fontSize="sm" color="fg.muted" mb={3}>
+          <p className="mb-3 text-sm text-muted-foreground">
             Выбрано товаров: {selectedIds.length}. Укажите целевой статус.
-          </Text>
+          </p>
           {hasAllowedTargets ? (
-            <Field.Root>
-              <Field.Label>Статус</Field.Label>
+            <Field label="Статус">
               <select
                 value={targetStatus}
                 onChange={(e) => setTargetStatus(e.target.value)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--chakra-colors-border)",
-                  minWidth: "180px",
-                  fontSize: "14px",
-                }}
+                className="min-w-[180px] rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               >
                 {allowedStatuses.map((value) => (
                   <option key={value} value={value}>
@@ -131,21 +125,21 @@ export function MoveItemsDialog({
                 ))}
               </select>
               {targetStatus === "warehouse" && (
-                <Text fontSize="xs" color="fg.muted" mt={2}>
+                <p className="mt-2 text-xs text-muted-foreground">
                   У каждого товара должна быть указана ячейка хранения (ряд,
                   уровень, позиция) в карточке товара.
-                </Text>
+                </p>
               )}
-            </Field.Root>
+            </Field>
           ) : (
-            <Text fontSize="sm" color="fg.muted">
+            <p className="text-sm text-muted-foreground">
               Для выбранных товаров нет допустимых переходов (возможно, все уже
               отгружены).
-            </Text>
+            </p>
           )}
         </DialogBody>
         <DialogFooter>
-          <ButtonGroup>
+          <div className="flex flex-wrap gap-2">
             <DialogActionTrigger asChild>
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 Отмена
@@ -160,7 +154,7 @@ export function MoveItemsDialog({
             >
               Переместить
             </Button>
-          </ButtonGroup>
+          </div>
         </DialogFooter>
       </DialogContent>
     </DialogRoot>

@@ -1,25 +1,24 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Container,
-  Flex,
-  Heading,
-  NativeSelect,
-  Table,
-  Text,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import {
-  type WarehouseTask,
   fetchWarehouseTasks,
   patchWarehouseTask,
+  type WarehouseTask,
 } from "@/api/warehouseTasks.ts"
 import { ApiError } from "@/client/index.ts"
+import { Button } from "@/components/ui/button.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import { cn } from "@/lib/utils.ts"
 
 export const Route = createFileRoute("/_layout/warehouse-tasks")({
   component: WarehouseTasksPage,
@@ -66,62 +65,67 @@ function WarehouseTasksPage() {
   })
 
   return (
-    <Container maxW="6xl" py={{ base: 6, md: 10 }} px={{ base: 2, md: 4 }}>
-      <Heading size="lg" mb={2}>
+    <div className="mx-auto w-full max-w-6xl px-2 py-6 md:px-4 md:py-10">
+      <h1 className="font-heading mb-2 text-2xl font-semibold">
         Складские задания
-      </Heading>
-      <Text color="fg.muted" fontSize="sm" mb={6}>
+      </h1>
+      <p className="mb-6 text-sm text-muted-foreground">
         Назначение и смена статуса (нужны права warehouse.tasks.*).
-      </Text>
+      </p>
 
-      <Flex mb={4} gap={3} align="center" flexWrap="wrap">
-        <NativeSelect.Root width={{ base: "full", sm: "220px" }}>
-          <NativeSelect.Field
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value || "all"} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </NativeSelect.Field>
-        </NativeSelect.Root>
-      </Flex>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-full min-w-[220px] rounded-md border border-input bg-transparent px-3 py-2 text-sm sm:w-auto"
+        >
+          {STATUS_OPTIONS.map((o) => (
+            <option key={o.value || "all"} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {listQ.isPending ? (
-        <Skeleton h="240px" />
+        <Skeleton className="h-[240px]" />
       ) : listQ.isError ? (
-        <Text color="red.fg">
+        <p className="text-destructive">
           {listQ.error instanceof ApiError
             ? listQ.error.message
             : "Не удалось загрузить задания"}
-        </Text>
+        </p>
       ) : (
-        <Box overflowX="auto">
-          <Table.Root size="sm" variant="line">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader>Тип</Table.ColumnHeader>
-                <Table.ColumnHeader>Статус</Table.ColumnHeader>
-                <Table.ColumnHeader>Приоритет</Table.ColumnHeader>
-                <Table.ColumnHeader>Обновлено</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="right">Действия</Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Тип</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead>Приоритет</TableHead>
+                <TableHead>Обновлено</TableHead>
+                <TableHead className="text-right">Действия</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {(listQ.data?.data ?? []).map((t: WarehouseTask) => (
-                <Table.Row key={t.id}>
-                  <Table.Cell>{t.task_type}</Table.Cell>
-                  <Table.Cell>
-                    <Badge size="sm">{t.status}</Badge>
-                  </Table.Cell>
-                  <Table.Cell>{t.priority}</Table.Cell>
-                  <Table.Cell fontSize="xs">
+                <TableRow key={t.id}>
+                  <TableCell>{t.task_type}</TableCell>
+                  <TableCell>
+                    <span
+                      className={cn(
+                        "inline-flex rounded-md border border-border px-2 py-0.5 text-xs font-medium",
+                      )}
+                    >
+                      {t.status}
+                    </span>
+                  </TableCell>
+                  <TableCell>{t.priority}</TableCell>
+                  <TableCell className="text-xs">
                     {new Date(t.updated_at).toLocaleString()}
-                  </Table.Cell>
-                  <Table.Cell textAlign="right">
-                    <Flex gap={1} justify="flex-end" flexWrap="wrap">
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex flex-wrap justify-end gap-1">
                       <Button
                         size="xs"
                         variant="outline"
@@ -135,8 +139,8 @@ function WarehouseTasksPage() {
                       </Button>
                       <Button
                         size="xs"
-                        colorPalette="green"
                         variant="outline"
+                        className="border-green-600 text-green-700 hover:bg-green-50 dark:border-green-500 dark:text-green-400"
                         loading={patchMut.isPending}
                         disabled={t.status === "completed"}
                         onClick={() =>
@@ -145,19 +149,19 @@ function WarehouseTasksPage() {
                       >
                         Готово
                       </Button>
-                    </Flex>
-                  </Table.Cell>
-                </Table.Row>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))}
-            </Table.Body>
-          </Table.Root>
+            </TableBody>
+          </Table>
           {listQ.data?.data.length === 0 ? (
-            <Text mt={4} color="fg.muted" fontSize="sm">
+            <p className="mt-4 text-sm text-muted-foreground">
               Нет заданий для выбранного фильтра.
-            </Text>
+            </p>
           ) : null}
-        </Box>
+        </div>
       )}
-    </Container>
+    </div>
   )
 }

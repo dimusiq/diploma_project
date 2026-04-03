@@ -2,24 +2,10 @@
  * График ТО — таблица с производными данными по моточасам.
  * Типичный UI: таблица, статусы с цветовой индикацией, фильтры, сводка.
  */
-import {
-  Badge,
-  Box,
-  Button,
-  ButtonGroup,
-  Flex,
-  Input,
-  Table,
-  Tag,
-  Text,
-  Textarea,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FiChevronDown, FiChevronUp, FiDownload } from "react-icons/fi"
-
 import type { MaintenanceRecordCreate } from "@/api/equipment"
 import {
   EQUIPMENT_TYPE_LABELS,
@@ -41,16 +27,9 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
-import {
-  PopoverBody,
-  PopoverCloseTrigger,
-  PopoverContent,
-  PopoverFooter,
-  PopoverHeader,
-  PopoverRoot,
-  PopoverTitle,
-} from "@/components/ui/popover.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   MenuContent,
   MenuItem,
@@ -63,7 +42,26 @@ import {
   PaginationPrevTrigger,
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
+import {
+  PopoverBody,
+  PopoverCloseTrigger,
+  PopoverContent,
+  PopoverFooter,
+  PopoverHeader,
+  PopoverRoot,
+  PopoverTitle,
+} from "@/components/ui/popover.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast"
+import { cn } from "@/lib/utils.ts"
 import { getRemindBeforeHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
 type ScheduleStatus = "in_repair" | "overdue" | "due_soon" | "ok"
@@ -127,11 +125,32 @@ const STATUS_LABELS: Record<ScheduleStatus, string> = {
   ok: "Норма",
 }
 
-const STATUS_COLOR: Record<ScheduleStatus, string> = {
-  in_repair: "yellow",
-  overdue: "red",
-  due_soon: "yellow",
-  ok: "green",
+/** Классы для бейджа статуса в строке графика ТО */
+const STATUS_BADGE_CLASS: Record<ScheduleStatus, string> = {
+  in_repair:
+    "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100",
+  overdue: "border-destructive/40 bg-destructive/10 text-destructive",
+  due_soon:
+    "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100",
+  ok: "border-green-300 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-950/30 dark:text-green-100",
+}
+
+function chainTagClass(colorTag: string): string {
+  const map: Record<string, string> = {
+    blue: "border-blue-200 bg-blue-100 text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100",
+    purple:
+      "border-purple-200 bg-purple-100 text-purple-900 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-100",
+    orange:
+      "border-orange-200 bg-orange-100 text-orange-900 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-100",
+    cyan: "border-cyan-200 bg-cyan-100 text-cyan-900 dark:border-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-100",
+    teal: "border-teal-200 bg-teal-100 text-teal-900 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-100",
+    pink: "border-pink-200 bg-pink-100 text-pink-900 dark:border-pink-800 dark:bg-pink-950/40 dark:text-pink-100",
+    violet:
+      "border-violet-200 bg-violet-100 text-violet-900 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-100",
+    indigo:
+      "border-indigo-200 bg-indigo-100 text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-100",
+  }
+  return map[colorTag] ?? "border-border bg-muted text-foreground"
 }
 
 type ScheduleSortField =
@@ -187,26 +206,23 @@ function ScheduleSortableHeader({
 }) {
   const isActive = currentSort === sortKey
   return (
-    <Table.ColumnHeader
-      cursor="pointer"
-      userSelect="none"
+    <TableHead
+      className="cursor-pointer whitespace-nowrap select-none hover:bg-muted/60"
       onClick={() => onSort(sortKey)}
-      _hover={{ bg: "gray.subtle" }}
-      whiteSpace="nowrap"
     >
-      <Flex align="center" gap={1}>
-        <Text>{label}</Text>
+      <div className="flex items-center gap-1">
+        <span>{label}</span>
         {isActive ? (
           currentOrder === "asc" ? (
-            <Box as={FiChevronUp} boxSize={4} aria-hidden />
+            <FiChevronUp className="size-4" aria-hidden />
           ) : (
-            <Box as={FiChevronDown} boxSize={4} aria-hidden />
+            <FiChevronDown className="size-4" aria-hidden />
           )
         ) : (
-          <Box as={FiChevronUp} boxSize={4} opacity={0.3} aria-hidden />
+          <FiChevronUp className="size-4 opacity-30" aria-hidden />
         )}
-      </Flex>
-    </Table.ColumnHeader>
+      </div>
+    </TableHead>
   )
 }
 
@@ -224,47 +240,47 @@ function EquipmentMaintenanceRecordsList({
   const records = data?.data ?? []
 
   return (
-    <Box>
-      <Flex justify="flex-end" mb={3}>
+    <div>
+      <div className="mb-3 flex justify-end">
         <Button size="sm" variant="outline" onClick={onOpenCard}>
           Перейти в карточку техники
         </Button>
-      </Flex>
-      {isLoading && <Text color="fg.muted">Загрузка…</Text>}
+      </div>
+      {isLoading && <p className="text-muted-foreground">Загрузка…</p>}
       {!isLoading && records.length === 0 && (
-        <Text color="fg.muted">
+        <p className="text-muted-foreground">
           Проведённых ТО по этой единице техники пока нет.
-        </Text>
+        </p>
       )}
       {!isLoading && records.length > 0 && (
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Дата</Table.ColumnHeader>
-              <Table.ColumnHeader>Интервал (м/ч)</Table.ColumnHeader>
-              <Table.ColumnHeader>Моточасы на момент ТО</Table.ColumnHeader>
-              <Table.ColumnHeader>Комментарий</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Дата</TableHead>
+              <TableHead>Интервал (м/ч)</TableHead>
+              <TableHead>Моточасы на момент ТО</TableHead>
+              <TableHead className="whitespace-normal">Комментарий</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {records.map((r) => (
-              <Table.Row key={r.id}>
-                <Table.Cell>
+              <TableRow key={r.id}>
+                <TableCell>
                   {new Date(r.performed_at).toLocaleDateString("ru-RU")}
-                </Table.Cell>
-                <Table.Cell>{r.interval_hours}</Table.Cell>
-                <Table.Cell>
+                </TableCell>
+                <TableCell>{r.interval_hours}</TableCell>
+                <TableCell>
                   {r.engine_hours_at_service != null
                     ? r.engine_hours_at_service
                     : "—"}
-                </Table.Cell>
-                <Table.Cell>{r.comment ?? "—"}</Table.Cell>
-              </Table.Row>
+                </TableCell>
+                <TableCell className="whitespace-normal">{r.comment ?? "—"}</TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
+          </TableBody>
+        </Table>
       )}
-    </Box>
+    </div>
   )
 }
 
@@ -348,23 +364,23 @@ function RecordMaintenanceDialog({
             </PopoverTitle>
           </PopoverHeader>
           <PopoverBody>
-            <VStack gap={3} align="stretch">
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Дата проведения ТО
-                </Text>
+                </p>
                 <Input
                   type="date"
                   value={performedAt}
                   onChange={(e) => setPerformedAt(e.target.value)}
                   required
-                  size="sm"
+                  className="h-7"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Интервал ТО (м/ч)
-                </Text>
+                </p>
                 <Input
                   type="number"
                   min={1}
@@ -372,53 +388,54 @@ function RecordMaintenanceDialog({
                   onChange={(e) =>
                     setIntervalHours(parseInt(e.target.value, 10) || 500)
                   }
-                  size="sm"
+                  className="h-7"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Моточасы на момент ТО (необязательно)
-                </Text>
+                </p>
                 <Input
                   type="number"
                   min={0}
                   value={engineHoursAtService}
                   onChange={(e) => setEngineHoursAtService(e.target.value)}
                   placeholder="—"
-                  size="sm"
+                  className="h-7"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Комментарий (необязательно)
-                </Text>
+                </p>
                 <Textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="—"
-                  size="sm"
                   rows={2}
+                  className="min-h-16 text-sm"
                 />
-              </Box>
-            </VStack>
+              </div>
+            </div>
           </PopoverBody>
           <PopoverFooter>
-            <ButtonGroup size="sm" ml="auto">
+            <div className="ml-auto flex gap-2">
               <Button
                 type="button"
+                size="sm"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
               >
                 Отмена
               </Button>
               <Button
-                variant="solid"
+                size="sm"
                 type="submit"
                 loading={createMutation.isPending}
               >
                 Записать
               </Button>
-            </ButtonGroup>
+            </div>
           </PopoverFooter>
           <PopoverCloseTrigger />
         </form>
@@ -766,31 +783,32 @@ export function MaintenanceScheduleTable() {
   }
 
   if (isLoading) {
-    return <Text color="fg.muted">Загрузка...</Text>
+    return <p className="text-muted-foreground">Загрузка...</p>
   }
 
   return (
-    <Box>
-      <Flex gap={3} mb={4} flexWrap="wrap" align="center">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <Link to="/technique" search={{ section: "maintenance-schedule" }}>
           <Button size="sm" variant="outline">
             Перейти к расписанию ТО
           </Button>
         </Link>
-      </Flex>
-      <Flex gap={4} mb={4} flexWrap="wrap" align="center">
-        <Flex gap={2} flexWrap="wrap">
-          <Badge colorPalette="red" px={2} py={1}>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive">
             Просрочено: {summary.overdue}
-          </Badge>
-          <Badge colorPalette="yellow" px={2} py={1}>
+          </span>
+          <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
             В ремонте: {summary.inRepair}
-          </Badge>
-          <Badge colorPalette="yellow" px={2} py={1}>
+          </span>
+          <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
             Скоро: {summary.dueSoon}
-          </Badge>
-        </Flex>
-        <MenuRoot id="maintenance-schedule-export-menu">
+          </span>
+        </div>
+        <div id="maintenance-schedule-export-menu" className="contents">
+          <MenuRoot>
           <MenuTrigger asChild>
             <Button
               size="sm"
@@ -798,10 +816,10 @@ export function MaintenanceScheduleTable() {
               disabled={isExporting}
               aria-label="Выгрузить отчёт"
             >
-              <Flex as="span" gap={2} align="center">
-                <Box as={FiDownload} />
+              <span className="inline-flex items-center gap-2">
+                <FiDownload className="size-4" />
                 Выгрузить
-              </Flex>
+              </span>
             </Button>
           </MenuTrigger>
           <MenuContent>
@@ -812,22 +830,18 @@ export function MaintenanceScheduleTable() {
               Excel
             </MenuItem>
           </MenuContent>
-        </MenuRoot>
-        <Flex gap={2} align="center" flex="1" flexWrap="wrap">
-          <Text fontSize="sm" color="fg.muted">
+          </MenuRoot>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">
             Статус:
-          </Text>
+          </span>
           <select
             value={statusFilter}
             onChange={(e) =>
               setStatusFilter((e.target.value || "") as ScheduleStatus | "")
             }
-            style={{
-              padding: "6px 10px",
-              borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
-              fontSize: "14px",
-            }}
+            className="rounded-md border border-border px-2.5 py-1.5 text-sm"
           >
             <option value="">Все</option>
             <option value="in_repair">В ремонте</option>
@@ -835,18 +849,13 @@ export function MaintenanceScheduleTable() {
             <option value="due_soon">Скоро</option>
             <option value="ok">Норма</option>
           </select>
-          <Text fontSize="sm" color="fg.muted" ml={2}>
+          <span className="ml-2 text-sm text-muted-foreground">
             Тип:
-          </Text>
+          </span>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            style={{
-              padding: "6px 10px",
-              borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
-              fontSize: "14px",
-            }}
+            className="rounded-md border border-border px-2.5 py-1.5 text-sm"
           >
             <option value="">Все типы</option>
             {Object.entries(EQUIPMENT_TYPE_LABELS).map(([value, label]) => (
@@ -855,19 +864,13 @@ export function MaintenanceScheduleTable() {
               </option>
             ))}
           </select>
-          <Text fontSize="sm" color="fg.muted" ml={2}>
+          <span className="ml-2 text-sm text-muted-foreground">
             Последовательность ТО:
-          </Text>
+          </span>
           <select
             value={chainFilter}
             onChange={(e) => setChainFilter(e.target.value)}
-            style={{
-              padding: "6px 10px",
-              borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
-              fontSize: "14px",
-              minWidth: "160px",
-            }}
+            className="min-w-[160px] rounded-md border border-border px-2.5 py-1.5 text-sm"
           >
             <option value="">Все</option>
             {chains.map((c) => (
@@ -876,35 +879,26 @@ export function MaintenanceScheduleTable() {
               </option>
             ))}
           </select>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              marginLeft: "8px",
-              fontSize: "14px",
-              cursor: "pointer",
-            }}
-          >
+          <label className="ml-2 flex cursor-pointer items-center gap-1.5 text-sm">
             <input
               type="checkbox"
               checked={sortByChain}
               onChange={(e) => setSortByChain(e.target.checked)}
               aria-label="Сортировать по последовательности ТО"
             />
-            <span style={{ color: "var(--chakra-colors-fg-muted)" }}>
+            <span className="text-muted-foreground">
               Сортировать по последовательности
             </span>
           </label>
-        </Flex>
-      </Flex>
+        </div>
+      </div>
 
-      <Text fontSize="sm" color="fg.muted" mb={2}>
+      <p className="mb-2 text-sm text-muted-foreground">
         Следующее ТО рассчитывается по моточасам (интервал из «Календарь ТО»:{" "}
         {intervalHours} м/ч). Статус «Скоро» настраивается в последовательности
         ТО (за N м/ч до ТО). Клик по строке — список проведённых ТО по этой
         технике.
-      </Text>
+      </p>
 
       <DialogRoot
         open={selectedEquipment != null}
@@ -949,12 +943,12 @@ export function MaintenanceScheduleTable() {
       />
 
       {filteredRows.length === 0 ? (
-        <Text color="fg.muted">Нет техники по выбранным фильтрам.</Text>
+        <p className="text-muted-foreground">Нет техники по выбранным фильтрам.</p>
       ) : (
-        <Box>
-          <Table.Root size="sm">
-            <Table.Header>
-              <Table.Row>
+        <div>
+          <Table>
+            <TableHeader>
+              <TableRow>
                 <ScheduleSortableHeader
                   label="Техника"
                   sortKey="equipment"
@@ -1018,9 +1012,9 @@ export function MaintenanceScheduleTable() {
                   currentOrder={scheduleSortOrder}
                   onSort={handleScheduleSort}
                 />
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {pageItems.map(
                 ({
                   equipment,
@@ -1037,33 +1031,31 @@ export function MaintenanceScheduleTable() {
                       ? nextServiceAtHours - engineHours
                       : null
                   return (
-                    <Table.Row
+                    <TableRow
                       key={equipment.id}
-                      cursor="pointer"
-                      _hover={{ bg: "gray.subtle" }}
-                      _active={{ bg: "gray.muted" }}
+                      className="cursor-pointer"
                       onClick={() => setSelectedEquipment(equipment)}
                     >
-                      <Table.Cell>
-                        <Text fontWeight="medium">
+                      <TableCell>
+                        <span className="font-medium">
                           {equipment.brand_name} {equipment.model}
-                        </Text>
-                        <Text fontSize="xs" color="fg.muted">
+                        </span>
+                        <p className="text-xs text-muted-foreground">
                           {EQUIPMENT_TYPE_LABELS[equipment.equipment_type] ??
                             equipment.equipment_type}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Text fontSize="sm">
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
                           {equipment.serial_number || "—"}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Text fontSize="sm">
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
                           {equipment.garage_number || "—"}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell>
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         {primaryChainName ? (
                           (() => {
                             const chain = chains.find(
@@ -1071,56 +1063,62 @@ export function MaintenanceScheduleTable() {
                             )
                             const colorPalette = chain?.colorTag ?? "gray"
                             return (
-                              <Tag.Root
-                                size="sm"
-                                colorPalette={colorPalette}
-                                variant="subtle"
+                              <span
+                                className={cn(
+                                  "rounded-md border px-2 py-0.5 text-xs",
+                                  chainTagClass(colorPalette),
+                                )}
                               >
-                                <Tag.Label>{primaryChainName}</Tag.Label>
-                              </Tag.Root>
+                                {primaryChainName}
+                              </span>
                             )
                           })()
                         ) : (
-                          <Text fontSize="sm" color="fg.muted">
+                          <span className="text-sm text-muted-foreground">
                             —
-                          </Text>
+                          </span>
                         )}
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Text fontSize="sm">
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
                           {lastMaintenanceAtHours != null
                             ? lastMaintenanceAtHours
                             : "—"}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Text fontSize="sm">
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
                           {engineHours != null ? engineHours : "—"}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Text fontSize="sm">
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
                           {nextServiceAtHours != null
                             ? nextServiceAtHours
                             : "—"}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell>
-                        <Text fontSize="sm">
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm">
                           {remaining != null
                             ? remaining
                             : status === "overdue"
                               ? "0"
                               : "—"}
-                        </Text>
-                      </Table.Cell>
-                      <Table.Cell onClick={(e) => e.stopPropagation()}>
-                        <MenuRoot id={`schedule-status-menu-${equipment.id}`}>
+                        </span>
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div
+                          id={`schedule-status-menu-${equipment.id}`}
+                          className="contents"
+                        >
+                          <MenuRoot>
                           <MenuTrigger asChild>
-                            <Box
-                              as="span"
-                              display="inline-block"
-                              ref={(el: HTMLElement | null) => {
+                            <button
+                              type="button"
+                              className="inline-block cursor-pointer border-0 bg-transparent p-0"
+                              aria-label="Действия по статусу ТО"
+                              ref={(el: HTMLButtonElement | null) => {
                                 if (el)
                                   scheduleStatusAnchorRefs.current.set(
                                     equipment.id,
@@ -1132,16 +1130,15 @@ export function MaintenanceScheduleTable() {
                                   )
                               }}
                             >
-                              <Badge
-                                size="sm"
-                                colorPalette={STATUS_COLOR[status]}
-                                cursor="pointer"
-                                _hover={{ opacity: 0.9 }}
-                                aria-label="Действия по статусу ТО"
+                              <span
+                                className={cn(
+                                  "rounded-md border px-2 py-0.5 text-xs hover:opacity-90",
+                                  STATUS_BADGE_CLASS[status],
+                                )}
                               >
                                 {STATUS_LABELS[status]}
-                              </Badge>
-                            </Box>
+                              </span>
+                            </button>
                           </MenuTrigger>
                           <MenuContent>
                             <MenuItem
@@ -1177,47 +1174,44 @@ export function MaintenanceScheduleTable() {
                               Записать проведённое ТО
                             </MenuItem>
                           </MenuContent>
-                        </MenuRoot>
-                      </Table.Cell>
-                    </Table.Row>
+                          </MenuRoot>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )
                 },
               )}
-            </Table.Body>
-          </Table.Root>
-          <Flex
-            mt={4}
-            align="center"
-            justify="space-between"
-            flexWrap="wrap"
-            gap={3}
+            </TableBody>
+          </Table>
+          <div
+            className="mt-4 flex flex-wrap items-center justify-between gap-3"
           >
-            <Text fontSize="sm" color="fg.muted">
+            <p className="text-sm text-muted-foreground">
               {`Строки ${rangeStart}–${rangeEnd} из ${filteredCount}${
                 filteredCount !== totalRows
                   ? ` (всего в графике: ${totalRows})`
                   : ""
               }`}
-            </Text>
+            </p>
             {totalPages > 1 ? (
-              <Flex justifyContent="flex-end" flexShrink={0}>
+              <div className="flex shrink-0 justify-end">
                 <PaginationRoot
                   count={filteredCount}
                   pageSize={PER_PAGE}
                   page={page}
                   onPageChange={(e) => setPage(e.page)}
                 >
-                  <Flex>
+                  <div className="flex">
                     <PaginationPrevTrigger />
                     <PaginationItems />
                     <PaginationNextTrigger />
-                  </Flex>
+                  </div>
                 </PaginationRoot>
-              </Flex>
+              </div>
             ) : null}
-          </Flex>
-        </Box>
+          </div>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }

@@ -1,4 +1,3 @@
-import { Box, Button, ButtonGroup, Text, VStack } from "@chakra-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import type { ChangeEventHandler } from "react"
 import { useEffect, useRef, useState } from "react"
@@ -19,7 +18,8 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { handleError } from "@/utils.ts"
 
@@ -106,27 +106,22 @@ export function EquipmentImportDialog({
           <DialogTitle>Импорт техники из Excel</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <VStack align="stretch" gap={3}>
-            <Text fontSize="sm" color="fg.muted">
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
               Первый лист файла: первая строка — заголовки. Обязательные
               столбцы: <strong>тип техники</strong>, <strong>бренд</strong> (как
               в справочнике или UUID), <strong>модель</strong>. Формат файла:{" "}
               <strong>.xlsx</strong> (Excel 2007 и новее).
-            </Text>
-            <Text fontSize="xs" color="fg.muted">
+            </p>
+            <p className="text-xs text-muted-foreground">
               Тип: код ({typeHint}) или русское название. Опционально: VIN,
               серийный номер, гаражный номер, дата ввода, моточасы, состояние,
               зона и др. — см. подписи в форме добавления техники.
-            </Text>
+            </p>
             <Button
               variant="ghost"
               size="sm"
-              alignSelf="flex-start"
-              px={0}
-              h="auto"
-              minH="auto"
-              fontWeight="normal"
-              textDecoration="underline"
+              className="h-auto min-h-0 self-start px-0 font-normal underline"
               loading={templateLoading}
               onClick={() => void handleDownloadTemplate()}
             >
@@ -136,7 +131,7 @@ export function EquipmentImportDialog({
               ref={inputRef}
               type="file"
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              style={{ display: "none" }}
+              className="hidden"
               onChange={handleFile}
             />
             <Button
@@ -145,39 +140,33 @@ export function EquipmentImportDialog({
               onClick={handlePick}
               loading={mutation.isPending}
             >
-              <Box as={FiUpload} mr={2} />
+              <FiUpload className="mr-2 size-4" />
               Выбрать файл…
             </Button>
             {lastResult && lastResult.errors.length > 0 ? (
-              <Box
-                maxH="200px"
-                overflowY="auto"
-                borderWidth="1px"
-                borderRadius="md"
-                p={2}
-                fontSize="xs"
-                bg="bg.subtle"
+              <div
+                className="max-h-[200px] overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-xs"
               >
-                <Text fontWeight="medium" mb={1}>
+                <p className="mb-1 font-medium">
                   Ошибки по строкам (номер строки в файле):
-                </Text>
+                </p>
                 {lastResult.errors.map((e) => (
-                  <Text key={`${e.row}-${e.message}`} color="fg.muted">
+                  <p key={`${e.row}-${e.message}`} className="text-muted-foreground">
                     Стр. {e.row}: {e.message}
-                  </Text>
+                  </p>
                 ))}
-              </Box>
+              </div>
             ) : null}
-          </VStack>
+          </div>
         </DialogBody>
         <DialogFooter>
-          <ButtonGroup>
+          <div className="flex flex-wrap gap-2">
             <DialogActionTrigger asChild>
               <Button variant="outline" size="sm">
                 Закрыть
               </Button>
             </DialogActionTrigger>
-          </ButtonGroup>
+          </div>
         </DialogFooter>
       </DialogContent>
     </DialogRoot>

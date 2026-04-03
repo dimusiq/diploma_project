@@ -1,11 +1,3 @@
-import {
-  Box,
-  Button,
-  ButtonGroup,
-  Flex,
-  IconButton,
-  Text,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
@@ -21,7 +13,8 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import { Field } from "@/components/ui/field.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
@@ -187,13 +180,15 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
     <>
       <MenuRoot>
         <MenuTrigger asChild>
-          <IconButton
+          <Button
+            type="button"
             variant="ghost"
-            color="inherit"
+            size="icon-sm"
+            className="text-inherit"
             aria-label="Действия с товаром"
           >
             <BsThreeDotsVertical />
-          </IconButton>
+          </Button>
         </MenuTrigger>
         <MenuContent>
           {allowedNext.map((status) => (
@@ -206,7 +201,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
             </MenuItem>
           ))}
           <MenuItem value="print-label" onClick={handlePrintLabel}>
-            <Box as={FiPrinter} mr="2" />
+            <FiPrinter className="mr-2 inline size-4 shrink-0" />
             Печать этикетки
           </MenuItem>
           {warehouse3dSearch && (
@@ -216,7 +211,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
                 navigate({ to: "/warehouse-3d", search: warehouse3dSearch })
               }
             >
-              <Box as={FiBox} mr="2" />
+              <FiBox className="mr-2 inline size-4 shrink-0" />
               Показать на складе 3D
             </MenuItem>
           )}
@@ -233,7 +228,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
             }}
             disabled={duplicateItem.isPending}
           >
-            <Box as={FiCopy} mr="2" />
+            <FiCopy className="mr-2 inline size-4 shrink-0" />
             Дублировать
           </MenuItem>
           <ItemHistoryDialogMenuItem
@@ -255,13 +250,17 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
             <DialogTitle>Переместить товар</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <Text>
+            <p className="text-sm">
               Переместить «{item.title}» в раздел «{targetLabel}»?
-            </Text>
+            </p>
           </DialogBody>
           <DialogFooter>
-            <ButtonGroup>
-              <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmOpen(false)}
+              >
                 Отмена
               </Button>
               <Button
@@ -273,7 +272,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
               >
                 Переместить
               </Button>
-            </ButtonGroup>
+            </div>
           </DialogFooter>
         </DialogContent>
       </DialogRoot>
@@ -288,10 +287,10 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
             <DialogTitle>Дублировать товар</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <Text fontSize="sm" color="fg.muted" mb={3}>
+            <p className="mb-3 text-sm text-muted-foreground">
               Выберите ячейку на складе для дубликата «{item.title}».
-            </Text>
-            <Flex gap={3} flexWrap="wrap">
+            </p>
+            <div className="flex flex-wrap gap-3">
               <Field label="Ряд (1–12)">
                 <select
                   value={duplicateCell.storage_row}
@@ -301,13 +300,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
                       storage_row: Number(e.target.value),
                     }))
                   }
-                  style={{
-                    width: "100%",
-                    minWidth: "80px",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--chakra-colors-border)",
-                  }}
+                  className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 >
                   {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
                     (n) => (
@@ -327,13 +320,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
                       storage_level: Number(e.target.value),
                     }))
                   }
-                  style={{
-                    width: "100%",
-                    minWidth: "80px",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--chakra-colors-border)",
-                  }}
+                  className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 >
                   {Array.from({ length: STORAGE_LEVELS }, (_, i) => i + 1).map(
                     (n) => (
@@ -353,13 +340,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
                       storage_cell_x: Number(e.target.value),
                     }))
                   }
-                  style={{
-                    width: "100%",
-                    minWidth: "100px",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--chakra-colors-border)",
-                  }}
+                  className="min-w-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 >
                   {Array.from(
                     { length: STORAGE_CELLS_LENGTH },
@@ -371,15 +352,15 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
                   ))}
                 </select>
               </Field>
-            </Flex>
+            </div>
             {isCellOccupied && (
-              <Text fontSize="sm" color="red.500" mt={2} fontWeight="medium">
+              <p className="mt-2 text-sm font-medium text-destructive">
                 Ячейка занята. Выберите другую ячейку.
-              </Text>
+              </p>
             )}
           </DialogBody>
           <DialogFooter>
-            <ButtonGroup>
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -396,7 +377,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
               >
                 Создать дубликат
               </Button>
-            </ButtonGroup>
+            </div>
           </DialogFooter>
         </DialogContent>
       </DialogRoot>

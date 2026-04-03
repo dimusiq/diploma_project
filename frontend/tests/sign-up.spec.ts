@@ -15,10 +15,10 @@ const fillForm = async (
   password: string,
   confirm_password: string,
 ) => {
-  await page.getByPlaceholder("Full Name").fill(full_name)
+  await page.getByPlaceholder("Полное имя").fill(full_name)
   await page.getByPlaceholder("Email").fill(email)
-  await page.getByPlaceholder("Password", { exact: true }).fill(password)
-  await page.getByPlaceholder("Confirm Password").fill(confirm_password)
+  await page.getByPlaceholder("Пароль", { exact: true }).fill(password)
+  await page.getByPlaceholder("Подтвердите пароль").fill(confirm_password)
 }
 
 const verifyInput = async (
@@ -35,22 +35,24 @@ const verifyInput = async (
 test("Inputs are visible, empty and editable", async ({ page }) => {
   await page.goto("/signup")
 
-  await verifyInput(page, "Full Name")
+  await verifyInput(page, "Полное имя")
   await verifyInput(page, "Email")
-  await verifyInput(page, "Password", { exact: true })
-  await verifyInput(page, "Confirm Password")
+  await verifyInput(page, "Пароль", { exact: true })
+  await verifyInput(page, "Подтвердите пароль")
 })
 
 test("Sign Up button is visible", async ({ page }) => {
   await page.goto("/signup")
 
-  await expect(page.getByRole("button", { name: "Sign Up" })).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Зарегистрироваться" }),
+  ).toBeVisible()
 })
 
 test("Log In link is visible", async ({ page }) => {
   await page.goto("/signup")
 
-  await expect(page.getByRole("link", { name: "Log In" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Войти" })).toBeVisible()
 })
 
 test("Sign up with valid name, email, and password", async ({ page }) => {
@@ -60,7 +62,7 @@ test("Sign up with valid name, email, and password", async ({ page }) => {
 
   await page.goto("/signup")
   await fillForm(page, full_name, email, password, password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 })
 
 test("Sign up with invalid email", async ({ page }) => {
@@ -69,13 +71,13 @@ test("Sign up with invalid email", async ({ page }) => {
   await fillForm(
     page,
     "Playwright Test",
-    "invalid-email",
+    "invalid@email",
     "changethis",
     "changethis",
   )
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 
-  await expect(page.getByText("Invalid email address")).toBeVisible()
+  await expect(page.getByText("Некорректный email")).toBeVisible()
 })
 
 test("Sign up with existing email", async ({ page }) => {
@@ -87,17 +89,19 @@ test("Sign up with existing email", async ({ page }) => {
   await page.goto("/signup")
 
   await fillForm(page, fullName, email, password, password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 
   // Sign up again with the same email
   await page.goto("/signup")
 
   await fillForm(page, fullName, email, password, password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 
-  await page
-    .getByText("The user with this email already exists in the system")
-    .click()
+  await expect(
+    page.getByText("The user with this email already exists in the system", {
+      exact: true,
+    }),
+  ).toBeVisible()
 })
 
 test("Sign up with weak password", async ({ page }) => {
@@ -108,10 +112,10 @@ test("Sign up with weak password", async ({ page }) => {
   await page.goto("/signup")
 
   await fillForm(page, fullName, email, password, password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 
   await expect(
-    page.getByText("Password must be at least 8 characters"),
+    page.getByText("Пароль должен содержать не менее 8 символов"),
   ).toBeVisible()
 })
 
@@ -124,9 +128,9 @@ test("Sign up with mismatched passwords", async ({ page }) => {
   await page.goto("/signup")
 
   await fillForm(page, fullName, email, password, password2)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 
-  await expect(page.getByText("Passwords do not match")).toBeVisible()
+  await expect(page.getByText("Пароль не совпадает")).toBeVisible()
 })
 
 test("Sign up with missing full name", async ({ page }) => {
@@ -137,9 +141,11 @@ test("Sign up with missing full name", async ({ page }) => {
   await page.goto("/signup")
 
   await fillForm(page, fullName, email, password, password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 
-  await expect(page.getByText("Full Name is required")).toBeVisible()
+  await expect(
+    page.getByText("Полное имя обязательно (не менее 3 символов)"),
+  ).toBeVisible()
 })
 
 test("Sign up with missing email", async ({ page }) => {
@@ -150,20 +156,22 @@ test("Sign up with missing email", async ({ page }) => {
   await page.goto("/signup")
 
   await fillForm(page, fullName, email, password, password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 
-  await expect(page.getByText("Email is required")).toBeVisible()
+  await expect(page.getByText("Email обязателен")).toBeVisible()
 })
 
 test("Sign up with missing password", async ({ page }) => {
-  const fullName = ""
+  const fullName = "Test User"
   const email = randomEmail()
   const password = ""
 
   await page.goto("/signup")
 
   await fillForm(page, fullName, email, password, password)
-  await page.getByRole("button", { name: "Sign Up" }).click()
+  await page.getByRole("button", { name: "Зарегистрироваться" }).click()
 
-  await expect(page.getByText("Password is required")).toBeVisible()
+  await expect(
+    page.getByText("Пароль должен содержать не менее 8 символов"),
+  ).toBeVisible()
 })

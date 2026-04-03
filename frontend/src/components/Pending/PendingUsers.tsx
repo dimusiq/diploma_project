@@ -1,39 +1,46 @@
-import { Table } from "@chakra-ui/react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import { SkeletonText } from "../ui/skeleton.tsx"
 
 const PendingUsers = () => (
-  <Table.Root size={{ base: "sm", md: "md" }}>
-    <Table.Header>
-      <Table.Row>
-        <Table.ColumnHeader w="sm">Полное имя</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Email</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Role</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Статус</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
-      </Table.Row>
-    </Table.Header>
-    <Table.Body>
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead className="w-32">Полное имя</TableHead>
+        <TableHead className="w-32">Email</TableHead>
+        <TableHead className="w-32">Role</TableHead>
+        <TableHead className="w-32">Статус</TableHead>
+        <TableHead className="w-32">Действия</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
       {[...Array(5)].map((_, index) => (
-        <Table.Row key={index}>
-          <Table.Cell>
+        <TableRow key={index}>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-        </Table.Row>
+          </TableCell>
+        </TableRow>
       ))}
-    </Table.Body>
-  </Table.Root>
+    </TableBody>
+  </Table>
 )
 
 export default PendingUsers

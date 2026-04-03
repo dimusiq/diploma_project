@@ -5,20 +5,20 @@ import { Html, Line, Text } from "@react-three/drei"
 import { useMemo } from "react"
 import { Vector3 } from "three"
 import type { EquipmentPublic } from "@/api/equipment.ts"
-import type { TopologyDocument, TopologyStorageZone } from "@/api/warehouseTopology.ts"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
+import type { TopologyDocument, TopologyStorageZone } from "@/api/warehouseTopology.ts"
+import {
+  normXZToWorldFloor,
+  routeNodeToWorldFloor,
+} from "@/components/warehouse3d/twin3dCoordinates.ts"
+import type { WarehouseEquipmentKind } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
+import { WarehouseEquipmentMesh } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
 import {
   CELL_SIZE,
   LEVEL_HEIGHT,
   useWarehouseGeometry,
   type WarehouseGeometry,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
-import {
-  normXZToWorldFloor,
-  routeNodeToWorldFloor,
-} from "@/components/warehouse3d/twin3dCoordinates.ts"
-import { WarehouseEquipmentMesh } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
-import type { WarehouseEquipmentKind } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
 
 function zoneAabb(
   geom: WarehouseGeometry,

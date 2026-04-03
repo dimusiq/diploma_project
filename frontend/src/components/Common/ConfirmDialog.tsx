@@ -1,11 +1,9 @@
-import { Button, ButtonGroup, Text } from "@chakra-ui/react"
+import { Button } from "@/components/ui/button.tsx"
 import {
-  DialogActionTrigger,
-  DialogBody,
+  Dialog,
   DialogContent,
-  DialogFooter,
+  DialogDescription,
   DialogHeader,
-  DialogRoot,
   DialogTitle,
 } from "@/components/ui/dialog.tsx"
 
@@ -18,7 +16,7 @@ export interface ConfirmDialogProps {
   cancelLabel?: string
   onConfirm: () => void
   isLoading?: boolean
-  /** "danger" для удаления (красная кнопка), иначе обычная */
+  /** "danger" для удаления, иначе основная кнопка */
   variant?: "danger" | "default"
 }
 
@@ -33,44 +31,34 @@ export function ConfirmDialog({
   isLoading = false,
   variant = "default",
 }: ConfirmDialogProps) {
-  const handleConfirm = () => {
-    onConfirm()
-  }
-
   return (
-    <DialogRoot
-      open={open}
-      onOpenChange={(e) => onOpenChange(e.open)}
-      size={{ base: "xs", md: "sm" }}
-      placement="center"
-      role="alertdialog"
-    >
-      <DialogContent>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md" showCloseButton>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <DialogBody>
-          <Text color="fg.muted">{description}</Text>
-        </DialogBody>
-        <DialogFooter>
-          <ButtonGroup>
-            <DialogActionTrigger asChild>
-              <Button variant="outline" size="sm" disabled={isLoading}>
-                {cancelLabel}
-              </Button>
-            </DialogActionTrigger>
-            <Button
-              variant="solid"
-              size="sm"
-              colorPalette={variant === "danger" ? "red" : "blue"}
-              onClick={handleConfirm}
-              loading={isLoading}
-            >
-              {confirmLabel}
-            </Button>
-          </ButtonGroup>
-        </DialogFooter>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            disabled={isLoading}
+            onClick={() => onOpenChange(false)}
+          >
+            {cancelLabel}
+          </Button>
+          <Button
+            variant={variant === "danger" ? "destructive" : "default"}
+            size="sm"
+            type="button"
+            loading={isLoading}
+            onClick={() => onConfirm()}
+          >
+            {confirmLabel}
+          </Button>
+        </div>
       </DialogContent>
-    </DialogRoot>
+    </Dialog>
   )
 }

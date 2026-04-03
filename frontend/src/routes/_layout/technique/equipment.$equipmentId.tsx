@@ -1,4 +1,3 @@
-import { Container } from "@chakra-ui/react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { z } from "zod"
 
@@ -27,12 +26,12 @@ function EquipmentEditPage() {
   }
 
   return (
-    <Container maxW="full">
+    <div className="mx-auto w-full max-w-full px-4">
       <EquipmentCard
         equipmentId={equipmentId}
         initialTab={tab ?? "passport"}
         onBack={handleBack}
       />
-    </Container>
+    </div>
   )
 }

@@ -6,8 +6,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef } from "react"
 
 import { getApiUrl } from "@/lib/apiClient.ts"
-import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 import { getAccessToken } from "@/lib/authStorage.ts"
+import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 
 const RECONNECT_MS = 5_000
 

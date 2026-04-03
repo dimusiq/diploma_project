@@ -1,16 +1,3 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Card,
-  Container,
-  Flex,
-  Heading,
-  Input,
-  SimpleGrid,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
@@ -24,10 +11,14 @@ import {
   YAxis,
 } from "recharts"
 import { fetchTwinSummary, postTwinWhatIf } from "@/api/warehouseTwin.ts"
+import { Button } from "@/components/ui/button.tsx"
+import { Card, CardContent } from "@/components/ui/card.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { useTwinLivePanelState } from "@/hooks/useTwinLivePanelState.ts"
 import type { TwinConnectionStatus } from "@/lib/twinRealtimeBus.ts"
+import { cn } from "@/lib/utils.ts"
 
 export const Route = createFileRoute("/_layout/warehouse-twin")({
   component: WarehouseTwinPage,
@@ -66,56 +57,50 @@ function WarehouseTwinPage() {
     })) ?? []
 
   return (
-    <Container maxW="6xl" py={{ base: 6, md: 10 }}>
-      <Heading size="lg" mb={2}>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 md:py-10">
+      <h1 className="font-heading mb-2 text-2xl font-semibold tracking-tight">
         Аналитика цифрового двойника
-      </Heading>
-      <Text color="fg.muted" fontSize="sm" mb={8}>
+      </h1>
+      <p className="mb-8 text-sm text-muted-foreground">
         Сводка по вашим правам на товары и ячейки. События домена за 7 дней —
         только при праве просмотра аудита. Уведомления по порогам (ряд, занятость)
         подтягиваются при открытии центра уведомлений (
         <code>TWIN_NOTIFICATION_*</code> в настройках API).
-      </Text>
+      </p>
 
       <TwinLiveFeedPanel />
 
-      <Card.Root mb={8} variant="subtle">
-        <Card.Body>
-          <Heading size="sm" mb={2}>
+      <Card className="mb-8 bg-muted/20 ring-foreground/15">
+        <CardContent className="pt-6">
+          <h2 className="font-heading mb-2 text-sm font-semibold">
             Что если (упрощённая модель)
-          </Heading>
-          <Text fontSize="sm" color="fg.muted" mb={3}>
+          </h2>
+          <p className="mb-3 text-sm text-muted-foreground">
             Добавить условные единицы товара в ряд (1 единица ≈ 1 ячейка). Занятость
             не превышает ёмкость layout.
-          </Text>
-          <Flex gap={2} align="flex-end" flexWrap="wrap">
-            <Box>
-              <Text fontSize="xs" mb={1}>
-                Ряд
-              </Text>
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <p className="mb-1 text-xs">Ряд</p>
               <Input
                 type="number"
                 min={1}
                 max={64}
-                size="sm"
-                w="100px"
+                className="h-7 w-[100px] text-sm"
                 value={simRow}
                 onChange={(e) => setSimRow(e.target.value)}
               />
-            </Box>
-            <Box>
-              <Text fontSize="xs" mb={1}>
-                Добавить позиций
-              </Text>
+            </div>
+            <div>
+              <p className="mb-1 text-xs">Добавить позиций</p>
               <Input
                 type="number"
                 min={0}
-                size="sm"
-                w="120px"
+                className="h-7 w-[120px] text-sm"
                 value={simAdd}
                 onChange={(e) => setSimAdd(e.target.value)}
               />
-            </Box>
+            </div>
             <Button
               size="sm"
               loading={whatIfMut.isPending}
@@ -123,14 +108,14 @@ function WarehouseTwinPage() {
             >
               Симулировать
             </Button>
-          </Flex>
+          </div>
           {whatIfResult ? (
-            <Box mt={4} fontSize="sm">
-              <Text>
+            <div className="mt-4 text-sm">
+              <p>
                 Занято ячеек: {whatIfResult.baseline_occupied_slots} →{" "}
                 {whatIfResult.projected_occupied_slots}
-              </Text>
-              <Text>
+              </p>
+              <p>
                 Заполнение:{" "}
                 {whatIfResult.baseline_utilization_ratio != null
                   ? `${Math.round(whatIfResult.baseline_utilization_ratio * 100)}%`
@@ -139,83 +124,80 @@ function WarehouseTwinPage() {
                 {whatIfResult.projected_utilization_ratio != null
                   ? `${Math.round(whatIfResult.projected_utilization_ratio * 100)}%`
                   : "—"}
-              </Text>
-            </Box>
+              </p>
+            </div>
           ) : null}
-        </Card.Body>
-      </Card.Root>
+        </CardContent>
+      </Card>
 
       {isPending ? (
-        <Skeleton h="320px" borderRadius="md" />
+        <Skeleton className="h-80 rounded-md" />
       ) : isError ? (
-        <Text color="red.500">Не удалось загрузить данные</Text>
+        <p className="text-sm text-destructive">Не удалось загрузить данные</p>
       ) : data ? (
         <>
-          <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap={4} mb={8}>
-            <Card.Root>
-              <Card.Body>
-                <Text fontSize="sm" color="fg.muted">
-                  Товаров на складе
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold">
-                  {data.warehouse_items_total}
-                </Text>
-              </Card.Body>
-            </Card.Root>
-            <Card.Root>
-              <Card.Body>
-                <Text fontSize="sm" color="fg.muted">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Товаров на складе</p>
+                <p className="text-2xl font-bold">{data.warehouse_items_total}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">
                   Истекает за 30 дней
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold">
+                </p>
+                <p className="text-2xl font-bold">
                   {data.items_expiring_within_30_days}
-                </Text>
-              </Card.Body>
-            </Card.Root>
-            <Card.Root>
-              <Card.Body>
-                <Text fontSize="sm" color="fg.muted">
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">
                   Занято ячеек (проекция)
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold">
+                </p>
+                <p className="text-2xl font-bold">
                   {data.occupied_slots}
                   {data.layout_capacity_cells != null
                     ? ` / ${data.layout_capacity_cells}`
                     : ""}
-                </Text>
-              </Card.Body>
-            </Card.Root>
-            <Card.Root>
-              <Card.Body>
-                <Text fontSize="sm" color="fg.muted">
-                  Заполнение ёмкости
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold">
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground">Заполнение ёмкости</p>
+                <p className="text-2xl font-bold">
                   {data.slot_utilization_ratio != null
                     ? `${Math.round(data.slot_utilization_ratio * 100)}%`
                     : "—"}
-                </Text>
-              </Card.Body>
-            </Card.Root>
-          </SimpleGrid>
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
           {Object.keys(data.domain_events_by_type).length > 0 ? (
-            <Box mb={8}>
-              <Heading size="md" mb={3}>
+            <div className="mb-8">
+              <h2 className="font-heading mb-3 text-lg font-semibold">
                 Доменные события (7 дней)
-              </Heading>
+              </h2>
               <FlexWrapEvents ev={data.domain_events_by_type} />
-            </Box>
+            </div>
           ) : null}
 
           {chartData.length > 0 ? (
-            <Box>
-              <Heading size="md" mb={3}>
+            <div>
+              <h2 className="font-heading mb-3 text-lg font-semibold">
                 Товары на складе по рядам
-              </Heading>
-              <Box h="320px" w="100%">
+              </h2>
+              <div className="h-80 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <BarChart
+                    data={chartData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                     <XAxis dataKey="row" tick={{ fontSize: 11 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
@@ -223,126 +205,141 @@ function WarehouseTwinPage() {
                     <Bar
                       dataKey="count"
                       name="Товаров"
-                      fill="var(--chakra-colors-blue-500)"
+                      fill="var(--color-primary)"
                       radius={[4, 4, 0, 0]}
                     />
                   </BarChart>
                 </ResponsiveContainer>
-              </Box>
-            </Box>
+              </div>
+            </div>
           ) : (
-            <Text fontSize="sm" color="fg.muted">
+            <p className="text-sm text-muted-foreground">
               Нет размещённых товаров по рядам в пределах вашего доступа.
-            </Text>
+            </p>
           )}
         </>
       ) : null}
-    </Container>
+    </div>
   )
 }
 
-function statusBadgeProps(status: TwinConnectionStatus): {
+function statusBadgeClass(status: TwinConnectionStatus): {
   label: string
-  colorPalette: "green" | "yellow" | "red" | "gray"
+  className: string
 } {
   switch (status) {
     case "live":
-      return { label: "SSE: поток активен", colorPalette: "green" }
+      return {
+        label: "SSE: поток активен",
+        className:
+          "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300",
+      }
     case "connecting":
-      return { label: "SSE: подключение…", colorPalette: "yellow" }
+      return {
+        label: "SSE: подключение…",
+        className:
+          "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-200",
+      }
     case "no_token":
-      return { label: "Нет токена", colorPalette: "gray" }
+      return {
+        label: "Нет токена",
+        className: "border-border bg-muted text-muted-foreground",
+      }
     case "offline":
-      return { label: "SSE: нет соединения", colorPalette: "red" }
+      return {
+        label: "SSE: нет соединения",
+        className:
+          "border-destructive/40 bg-destructive/10 text-destructive",
+      }
     default:
-      return { label: "SSE: ожидание", colorPalette: "gray" }
+      return {
+        label: "SSE: ожидание",
+        className: "border-border bg-muted text-muted-foreground",
+      }
   }
 }
 
 function TwinLiveFeedPanel() {
   const { status, messages } = useTwinLivePanelState()
-  const sb = statusBadgeProps(status)
+  const sb = statusBadgeClass(status)
 
   return (
-    <Card.Root mb={8} variant="outline">
-      <Card.Body>
-        <Flex align="center" justify="space-between" flexWrap="wrap" gap={3} mb={3}>
-          <Heading size="sm">Near real-time twin</Heading>
-          <Badge size="sm" variant="subtle" colorPalette={sb.colorPalette}>
+    <Card className="mb-8 ring-foreground/15">
+      <CardContent className="pt-6">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-heading text-sm font-semibold">
+            Near real-time twin
+          </h2>
+          <span
+            className={cn(
+              "rounded-md border px-2 py-0.5 text-xs font-medium",
+              sb.className,
+            )}
+          >
             {sb.label}
-          </Badge>
-        </Flex>
-        <Text fontSize="sm" color="fg.muted" mb={3}>
+          </span>
+        </div>
+        <p className="mb-3 text-sm text-muted-foreground">
           Поток событий с сервера: <code>GET /api/v1/twin/stream</code> (все каналы,
           replay). Карточки и графики ниже обновляются через React Query при событиях
           (занятость, телеметрия, интеграции → <code>telemetry</code> и др.). Тот же
           контракт доступен по WebSocket <code>/api/v1/twin/ws</code>.
-        </Text>
+        </p>
         {messages.length === 0 ? (
-          <Text fontSize="sm" color="fg.muted">
+          <p className="text-sm text-muted-foreground">
             Пока нет событий с каналами (или идёт replay только служебных сообщений).
-          </Text>
+          </p>
         ) : (
-          <VStack
-            as="ul"
-            align="stretch"
-            gap={2}
-            maxH="220px"
-            overflowY="auto"
-            fontSize="xs"
-            fontFamily="mono"
-            borderWidth="1px"
-            borderRadius="md"
-            p={2}
-            listStyleType="none"
+          <ul
+            className="max-h-[220px] list-none space-y-2 overflow-y-auto rounded-md border border-border p-2 font-mono text-xs"
+            style={{
+              scrollbarGutter: "stable",
+            }}
           >
             {messages
               .slice()
               .reverse()
               .map((m, i) => (
-                <Box as="li" key={`${m.ts ?? ""}-${m.type ?? ""}-${i}`} pb={2} borderBottomWidth="1px">
-                  <Text as="span" color="fg.muted">
-                    {m.ts ?? "—"}
-                  </Text>{" "}
-                  <Text as="span" fontWeight="semibold">
-                    {m.channel}
-                  </Text>
+                <li
+                  key={`${m.ts ?? ""}-${m.type ?? ""}-${i}`}
+                  className="border-b border-border pb-2 last:border-0 last:pb-0"
+                >
+                  <span className="text-muted-foreground">{m.ts ?? "—"}</span>{" "}
+                  <span className="font-semibold">{m.channel}</span>
                   {m.type ? (
                     <>
                       {" "}
-                      <Text as="span">{m.type}</Text>
+                      <span>{m.type}</span>
                     </>
                   ) : null}
                   {m.payload && Object.keys(m.payload).length > 0 ? (
-                    <Text color="fg.muted" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis">
+                    <p className="truncate text-muted-foreground">
                       {JSON.stringify(m.payload).slice(0, 140)}
                       {JSON.stringify(m.payload).length > 140 ? "…" : ""}
-                    </Text>
+                    </p>
                   ) : null}
-                </Box>
+                </li>
               ))}
-          </VStack>
+          </ul>
         )}
-      </Card.Body>
-    </Card.Root>
+      </CardContent>
+    </Card>
   )
 }
 
 function FlexWrapEvents({ ev }: { ev: Record<string, number> }) {
   return (
-    <Box display="flex" flexWrap="wrap" gap={2}>
+    <div className="flex flex-wrap gap-2">
       {Object.entries(ev)
         .sort((a, b) => b[1] - a[1])
         .map(([k, v]) => (
-          <Card.Root key={k} size="sm" variant="subtle">
-            <Card.Body py={2} px={3}>
-              <Text fontSize="xs" fontWeight="semibold">
-                {k}
-              </Text>
-              <Text fontSize="lg">{v}</Text>
-            </Card.Body>
-          </Card.Root>
+          <Card key={k} size="sm" className="bg-muted/30 ring-foreground/5">
+            <CardContent className="px-3 py-2 pt-4">
+              <p className="text-xs font-semibold">{k}</p>
+              <p className="text-lg">{v}</p>
+            </CardContent>
+          </Card>
         ))}
-    </Box>
+    </div>
   )
 }

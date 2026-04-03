@@ -1,12 +1,3 @@
-import {
-  Button,
-  ButtonGroup,
-  DialogActionTrigger,
-  Flex,
-  Input,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { type SubmitHandler, useForm } from "react-hook-form"
@@ -22,6 +13,7 @@ import {
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { handleError } from "@/utils.ts"
 import {
+  DialogActionTrigger,
   DialogBody,
   DialogCloseTrigger,
   DialogContent,
@@ -30,8 +22,10 @@ import {
   DialogRoot,
   DialogTitle,
   DialogTrigger,
-} from "../ui/dialog.tsx"
+} from "../ui/app-dialog.tsx"
+import { Button } from "../ui/button.tsx"
 import { Field } from "../ui/field.tsx"
+import { Input } from "../ui/input.tsx"
 
 const STORAGE_ROWS = 12
 const STORAGE_LEVELS = 4
@@ -148,7 +142,7 @@ const EditItem = ({
       {!isControlled && (
         <DialogTrigger asChild>
           <Button variant="ghost" size="sm">
-            <FaExchangeAlt fontSize="16px" />
+            <FaExchangeAlt className="size-4" />
             Изменить поступление
           </Button>
         </DialogTrigger>
@@ -159,8 +153,8 @@ const EditItem = ({
             <DialogTitle>Изменить поступление</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <Text mb={4}>Обновите поля ниже.</Text>
-            <VStack gap={4}>
+            <p className="mb-4 text-sm">Обновите поля ниже.</p>
+            <div className="flex flex-col gap-4">
               <Field
                 required
                 invalid={!!errors.title}
@@ -242,12 +236,7 @@ const EditItem = ({
                   id="category_id"
                   {...register("category_id")}
                   value={watch("category_id") ?? ""}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid #e2e8f0",
-                  }}
+                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                 >
                   <option value="">Выберите категорию</option>
                   {categories.map((c) => (
@@ -268,23 +257,17 @@ const EditItem = ({
                   type="date"
                 />
               </Field>
-              <Text fontSize="sm" fontWeight="medium" mt={2}>
+              <p className="mt-2 text-sm font-medium">
                 Ячейка хранения (склад)
-              </Text>
-              <Flex gap={3} flexWrap="wrap">
+              </p>
+              <div className="flex flex-wrap gap-3">
                 <Field label="Ряд (1–12)">
                   <select
                     id="storage_row"
                     {...register("storage_row", {
                       setValueAs: (v) => (v === "" ? null : Number(v)),
                     })}
-                    style={{
-                      width: "100%",
-                      minWidth: "80px",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                    }}
+                    className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                   >
                     <option value="">—</option>
                     {Array.from({ length: STORAGE_ROWS }, (_, i) => i + 1).map(
@@ -302,13 +285,7 @@ const EditItem = ({
                     {...register("storage_level", {
                       setValueAs: (v) => (v === "" ? null : Number(v)),
                     })}
-                    style={{
-                      width: "100%",
-                      minWidth: "80px",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                    }}
+                    className="min-w-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                   >
                     <option value="">—</option>
                     {Array.from(
@@ -327,13 +304,7 @@ const EditItem = ({
                     {...register("storage_cell_x", {
                       setValueAs: (v) => (v === "" ? null : Number(v)),
                     })}
-                    style={{
-                      width: "100%",
-                      minWidth: "100px",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid #e2e8f0",
-                    }}
+                    className="min-w-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                   >
                     <option value="">—</option>
                     {Array.from(
@@ -346,7 +317,7 @@ const EditItem = ({
                     ))}
                   </select>
                 </Field>
-              </Flex>
+              </div>
               <Field
                 invalid={!!errors.location}
                 errorText={errors.location?.message}
@@ -359,10 +330,10 @@ const EditItem = ({
                   type="text"
                 />
               </Field>
-            </VStack>
+            </div>
           </DialogBody>
           <DialogFooter gap={2}>
-            <ButtonGroup>
+            <div className="flex flex-wrap gap-2">
               <DialogActionTrigger asChild>
                 <Button variant="outline" size="sm" disabled={isSubmitting}>
                   Отменить
@@ -371,7 +342,7 @@ const EditItem = ({
               <Button variant="solid" size="sm" type="submit" loading={isSubmitting}>
                 Сохранить
               </Button>
-            </ButtonGroup>
+            </div>
           </DialogFooter>
         </form>
         <DialogCloseTrigger />

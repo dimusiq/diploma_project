@@ -1,19 +1,3 @@
-import {
-  Button,
-  DialogActionTrigger,
-  DialogBody,
-  DialogCloseTrigger,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogRoot,
-  DialogTitle,
-  Flex,
-  Input,
-  Text,
-  Textarea,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { type SubmitHandler, useForm } from "react-hook-form"
@@ -28,6 +12,17 @@ import {
 import { zonesApi } from "@/api/zones.ts"
 import type { ApiError } from "@/client/core/ApiError.ts"
 import {
+  DialogActionTrigger,
+  DialogBody,
+  DialogCloseTrigger,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogRoot,
+  DialogTitle,
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import {
   DrawerBackdrop,
   DrawerBody,
   DrawerCloseTrigger,
@@ -38,6 +33,8 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer.tsx"
 import { Field } from "@/components/ui/field.tsx"
+import { Input } from "@/components/ui/input.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { handleError } from "@/utils.ts"
 
@@ -211,17 +208,17 @@ export function EquipmentFormDialog({
 
   const formContent = (
     <>
-      <Text mb={4}>
+      <p className="mb-4 text-sm">
         Складская техника: тип, бренд (из справочника), VIN, модель, моточасы,
         место.
-      </Text>
+      </p>
       {brands.length === 0 && (
-        <Text fontSize="sm" color="fg.muted" mb={2}>
+        <p className="mb-2 text-sm text-muted-foreground">
           Нет брендов. Добавьте их в разделе «Администрирование» → Бренды
           техники.
-        </Text>
+        </p>
       )}
-      <VStack gap={4}>
+      <div className="flex flex-col gap-4">
         <Field
           required
           invalid={!!errors.equipment_type}
@@ -235,7 +232,7 @@ export function EquipmentFormDialog({
               width: "100%",
               padding: "8px 12px",
               borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
+              border: "1px solid var(--border)",
             }}
           >
             {EQUIPMENT_TYPE_OPTIONS.map((o) => (
@@ -258,7 +255,7 @@ export function EquipmentFormDialog({
               width: "100%",
               padding: "8px 12px",
               borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
+              border: "1px solid var(--border)",
             }}
           >
             <option value="">— Выберите бренд —</option>
@@ -342,7 +339,7 @@ export function EquipmentFormDialog({
               width: "100%",
               padding: "8px 12px",
               borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
+              border: "1px solid var(--border)",
             }}
           >
             {STATUS_OPTIONS.map((o) => (
@@ -361,7 +358,7 @@ export function EquipmentFormDialog({
                 width: "100%",
                 padding: "8px 12px",
                 borderRadius: "6px",
-                border: "1px solid var(--chakra-colors-border)",
+                border: "1px solid var(--border)",
               }}
             >
               <option value="">— Не указана —</option>
@@ -400,16 +397,16 @@ export function EquipmentFormDialog({
             rows={3}
           />
         </Field>
-      </VStack>
+      </div>
     </>
   )
 
   if (asPage) {
     return (
       <form onSubmit={handleSubmit(onSubmit)}>
-        <VStack align="stretch" gap={6} maxW="xl">
+        <div className="flex max-w-xl flex-col gap-6">
           {formContent}
-          <Flex gap={3} pt={2}>
+          <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
               size="sm"
@@ -422,8 +419,8 @@ export function EquipmentFormDialog({
             <Button variant="solid" size="sm" type="submit" disabled={loading} loading={loading}>
               {isEdit ? "Сохранить" : "Добавить"}
             </Button>
-          </Flex>
-        </VStack>
+          </div>
+        </div>
       </form>
     )
   }
@@ -447,8 +444,8 @@ export function EquipmentFormDialog({
                   : "Добавить технику"}
               </DrawerTitle>
             </DrawerHeader>
-            <DrawerBody overflowY="auto">{formContent}</DrawerBody>
-            <DrawerFooter gap={2} borderTopWidth="1px">
+            <DrawerBody className="overflow-y-auto">{formContent}</DrawerBody>
+            <DrawerFooter className="flex flex-row flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"

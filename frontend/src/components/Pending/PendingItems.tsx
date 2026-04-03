@@ -1,55 +1,62 @@
-import { Table } from "@chakra-ui/react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import { SkeletonText } from "../ui/skeleton.tsx"
 
 const PendingItems = () => (
-  <Table.Root size={{ base: "sm", md: "md" }}>
-    <Table.Header>
-      <Table.Row>
-        <Table.ColumnHeader w="xs" />
-        <Table.ColumnHeader w="sm">ID</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Название</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Описание</Table.ColumnHeader>
-        <Table.ColumnHeader w="xs">Кол-во</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Артикул</Table.ColumnHeader>
-        <Table.ColumnHeader w="xs">Ед.</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Категория</Table.ColumnHeader>
-        <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
-      </Table.Row>
-    </Table.Header>
-    <Table.Body>
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead className="w-20" />
+        <TableHead className="w-32">ID</TableHead>
+        <TableHead className="w-32">Название</TableHead>
+        <TableHead className="w-32">Описание</TableHead>
+        <TableHead className="w-20">Кол-во</TableHead>
+        <TableHead className="w-32">Артикул</TableHead>
+        <TableHead className="w-20">Ед.</TableHead>
+        <TableHead className="w-32">Категория</TableHead>
+        <TableHead className="w-32">Действия</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
       {[...Array(5)].map((_, index) => (
-        <Table.Row key={index}>
-          <Table.Cell>
-            <SkeletonText noOfLines={1} w={4} />
-          </Table.Cell>
-          <Table.Cell>
+        <TableRow key={index}>
+          <TableCell>
+            <SkeletonText noOfLines={1} w={16} />
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-          <Table.Cell>
+          </TableCell>
+          <TableCell>
             <SkeletonText noOfLines={1} />
-          </Table.Cell>
-        </Table.Row>
+          </TableCell>
+        </TableRow>
       ))}
-    </Table.Body>
-  </Table.Root>
+    </TableBody>
+  </Table>
 )
 
 export default PendingItems

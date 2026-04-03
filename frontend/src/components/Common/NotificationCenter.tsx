@@ -1,15 +1,6 @@
 /**
  * Центр уведомлений: иконка-колокольчик, бейдж непрочитанных, выпадающая панель.
  */
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  IconButton,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { FaExclamationTriangle } from "react-icons/fa"
 import { FiBell, FiCheck, FiClock, FiInfo, FiPackage } from "react-icons/fi"
@@ -19,8 +10,14 @@ import {
   notificationsApi,
   SEVERITY_LABELS,
 } from "@/api/notifications.ts"
-import { MenuContent, MenuRoot, MenuTrigger } from "@/components/ui/menu.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx"
 import { useNotificationSse } from "@/hooks/useNotificationSse.ts"
+import { cn } from "@/lib/utils"
 
 const SEVERITY_ICON = {
   critical: FaExclamationTriangle,
@@ -28,10 +25,10 @@ const SEVERITY_ICON = {
   info: FiInfo,
 } as const
 
-const SEVERITY_COLOR = {
-  critical: "red",
-  warning: "orange",
-  info: "blue",
+const SEVERITY_BADGE = {
+  critical: "bg-destructive text-destructive-foreground",
+  warning: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  info: "bg-primary/15 text-primary",
 } as const
 
 function NotificationItem({
@@ -45,73 +42,73 @@ function NotificationItem({
     item.severity in SEVERITY_ICON ? item.severity : "info"
   ) as keyof typeof SEVERITY_ICON
   const Icon = SEVERITY_ICON[severity]
-  const colorPalette = SEVERITY_COLOR[severity]
+  const badgeClass = SEVERITY_BADGE[severity]
 
   return (
-    <Box
-      p={3}
-      borderRadius="md"
-      bg={item.is_read ? "transparent" : "gray.50"}
-      _dark={{ bg: item.is_read ? "transparent" : "whiteAlpha.50" }}
-      borderBottomWidth="1px"
-      borderColor="border"
-      _last={{ borderBottomWidth: 0 }}
+    <div
+      className={cn(
+        "border-b border-border p-3 last:border-b-0",
+        !item.is_read && "bg-muted/50",
+      )}
     >
-      <Flex gap={2} align="flex-start" justify="space-between">
-        <Flex gap={2} flex={1} minW={0}>
-          <Box color={`${colorPalette}.500`} mt={0.5} flexShrink={0}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 gap-2">
+          <div
+            className={cn(
+              "mt-0.5 shrink-0",
+              severity === "critical" && "text-destructive",
+              severity === "warning" && "text-orange-500",
+              severity === "info" && "text-primary",
+            )}
+          >
             <Icon size={18} />
-          </Box>
-          <Box minW={0} flex={1}>
-            <Text fontWeight="medium" fontSize="sm">
-              {item.title}
-            </Text>
-            {item.body && (
-              <Text fontSize="xs" color="fg.muted" mt={0.5}>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">{item.title}</p>
+            {item.body ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {item.body}
-              </Text>
+              </p>
+            ) : null}
+            {item.source ? (
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                {item.source === "Склад" ? (
+                  <FiPackage
+                    size={14}
+                    className="text-orange-500"
+                    title="Склад"
+                  />
+                ) : null}
+                <span>Источник: {item.source}</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <span
+            className={cn(
+              "rounded px-1.5 py-0.5 text-[10px] font-medium uppercase",
+              badgeClass,
             )}
-            {item.source && (
-              <Flex
-                alignItems="center"
-                gap={1.5}
-                mt={1}
-                fontSize="xs"
-                color="fg.muted"
-              >
-                {item.source === "Склад" && (
-                  <Box color="orange.500" title="Склад">
-                    <FiPackage size={14} />
-                  </Box>
-                )}
-                <Text>Источник: {item.source}</Text>
-              </Flex>
-            )}
-          </Box>
-        </Flex>
-        <Flex align="center" gap={1} flexShrink={0}>
-          <Badge
-            size="sm"
-            colorPalette={colorPalette}
-            variant="solid"
-            fontSize="2xs"
           >
             {SEVERITY_LABELS[severity as keyof typeof SEVERITY_LABELS] ??
               item.severity}
-          </Badge>
-          {!item.is_read && (
-            <IconButton
-              size="xs"
+          </span>
+          {!item.is_read ? (
+            <Button
+              type="button"
               variant="ghost"
+              size="icon-xs"
+              className="size-7"
               aria-label="Отметить прочитанным"
               onClick={() => onMarkRead(item.id)}
             >
-              <FiCheck />
-            </IconButton>
-          )}
-        </Flex>
-      </Flex>
-    </Box>
+              <FiCheck className="size-4" />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -159,71 +156,47 @@ export function NotificationCenter() {
     },
   })
 
-  const handleMenuOpenChange = (details: { open: boolean }) => {
-    if (details.open) {
-      ensureMutation.mutate()
-    }
-  }
-
   return (
-    <MenuRoot onOpenChange={handleMenuOpenChange}>
-      <MenuTrigger asChild>
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) ensureMutation.mutate()
+      }}
+    >
+      <DropdownMenuTrigger>
         <Button
           variant="ghost"
           size="sm"
-          position="relative"
+          className="relative rounded-md hover:bg-white/10"
           aria-label="Уведомления"
-          cursor="pointer"
-          borderRadius="md"
-          _hover={{ bg: "whiteAlpha.300" }}
-          _active={{ bg: "whiteAlpha.400" }}
         >
-          <Box as={FiBell} boxSize="5" />
-          {unreadCount > 0 && (
-            <Badge
-              position="absolute"
-              top="-2px"
-              right="-2px"
-              size="sm"
-              colorPalette="red"
-              variant="solid"
-              borderRadius="full"
-              minW="18px"
-              h="18px"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              fontSize="2xs"
-            >
+          <FiBell className="size-5" />
+          {unreadCount > 0 ? (
+            <span className="absolute -top-0.5 -right-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
               {unreadCount > 99 ? "99+" : unreadCount}
-            </Badge>
-          )}
+            </span>
+          ) : null}
         </Button>
-      </MenuTrigger>
-      <MenuContent width="400px" maxWidth="95vw" p={0}>
-        <Box p={4} pb={2}>
-          <Text fontWeight="bold" fontSize="md">
-            Центр уведомлений
-          </Text>
-          <Text fontSize="sm" color="fg.muted" mt={1}>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-[400px] max-w-[95vw] p-0"
+        sideOffset={8}
+      >
+        <div className="border-b border-border p-4 pb-2">
+          <p className="text-base font-bold">Центр уведомлений</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             Сюда выводятся важные события по технике, складу и доступам.
-          </Text>
-        </Box>
-        <Box maxH="360px" overflowY="auto">
+          </p>
+        </div>
+        <div className="max-h-[360px] overflow-y-auto">
           {isLoading ? (
-            <Box p={4}>
-              <Text fontSize="sm" color="fg.muted">
-                Загрузка…
-              </Text>
-            </Box>
+            <div className="p-4 text-sm text-muted-foreground">Загрузка…</div>
           ) : notifications.length === 0 ? (
-            <Box p={4}>
-              <Text fontSize="sm" color="fg.muted">
-                Нет уведомлений
-              </Text>
-            </Box>
+            <div className="p-4 text-sm text-muted-foreground">
+              Нет уведомлений
+            </div>
           ) : (
-            <VStack align="stretch" gap={0}>
+            <div className="flex flex-col">
               {notifications.map((item) => (
                 <NotificationItem
                   key={item.id}
@@ -231,42 +204,36 @@ export function NotificationCenter() {
                   onMarkRead={(id) => markReadMutation.mutate(id)}
                 />
               ))}
-            </VStack>
+            </div>
           )}
-        </Box>
+        </div>
         {(notifications.length > 0 || unreadCount > 0) && (
-          <Box
-            p={2}
-            borderTopWidth="1px"
-            borderColor="border"
-            display="flex"
-            flexDirection="column"
-            gap={1}
-          >
-            {unreadCount > 0 && (
+          <div className="flex flex-col gap-1 border-t border-border p-2">
+            {unreadCount > 0 ? (
               <Button
-                size="sm"
+                type="button"
                 variant="ghost"
-                width="100%"
-                onClick={() => markAllReadMutation.mutate()}
+                size="sm"
+                className="w-full justify-center"
                 loading={markAllReadMutation.isPending}
+                onClick={() => markAllReadMutation.mutate()}
               >
                 Отметить все прочитанными
               </Button>
-            )}
+            ) : null}
             <Button
-              size="sm"
+              type="button"
               variant="ghost"
-              width="100%"
-              colorPalette="red"
-              onClick={() => clearAllMutation.mutate()}
+              size="sm"
+              className="w-full justify-center text-destructive hover:bg-destructive/10 hover:text-destructive"
               loading={clearAllMutation.isPending}
+              onClick={() => clearAllMutation.mutate()}
             >
               Очистить уведомления
             </Button>
-          </Box>
+          </div>
         )}
-      </MenuContent>
-    </MenuRoot>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

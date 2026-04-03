@@ -1,16 +1,3 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Container,
-  Flex,
-  Heading,
-  IconButton,
-  Image,
-  Input,
-  Text,
-  Textarea,
-} from "@chakra-ui/react"
 import { createFileRoute, isRedirect, redirect } from "@tanstack/react-router"
 import { useCallback, useEffect } from "react"
 import {
@@ -25,9 +12,8 @@ import {
   FiTrash2,
 } from "react-icons/fi"
 import { fetchAgentPermissions } from "@/api/agent.ts"
-import { getErrorHttpStatus } from "@/lib/apiClient.ts"
+import { Button } from "@/components/ui/button.tsx"
 import {
-  DrawerBackdrop,
   DrawerBody,
   DrawerCloseTrigger,
   DrawerContent,
@@ -35,23 +21,23 @@ import {
   DrawerRoot,
   DrawerTitle,
 } from "@/components/ui/drawer.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   MenuContent,
   MenuItem,
   MenuRoot,
   MenuTrigger,
 } from "@/components/ui/menu.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import {
   CHAT_COLUMN_MAX,
-  DS_AVATAR,
-  DS_CARET,
-  DS_MSG_IN,
-  DS_THINKING,
   NEBARDAK_LOGO_SRC,
   SIDEBAR_W,
   useAssistantSession,
 } from "@/contexts/AssistantSessionContext.tsx"
 import { sanitizeAssistantChatContent } from "@/lib/agentReplySanitize.ts"
+import { getErrorHttpStatus } from "@/lib/apiClient.ts"
+import { cn } from "@/lib/utils.ts"
 
 export const Route = createFileRoute("/_layout/assistant")({
   beforeLoad: async ({ context }) => {
@@ -117,92 +103,46 @@ function AssistantPage() {
     const el = scrollRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [messages, chatMutation.isPending, streamingMessageId, scrollRef])
+  }, [scrollRef])
 
   const historyList = (
-    <Flex direction="column" h="full" minH={0} gap={3}>
+    <div className="flex h-full min-h-0 flex-col gap-3">
       <Button
-        w="full"
+        type="button"
+        className="h-[38px] w-full gap-2 rounded-full border-0 bg-zinc-700 font-medium text-zinc-50 hover:bg-zinc-600 hover:text-white active:bg-zinc-600"
         size="sm"
-        h="38px"
         variant="outline"
-        justifyContent="center"
-        gap={2}
-        borderRadius="full"
-        fontWeight="medium"
-        borderWidth="0"
-        bg="gray.700"
-        color="gray.50"
-        _hover={{ bg: "gray.600", color: "white" }}
-        _active={{ bg: "gray.600" }}
-        onClick={newChat}
         disabled={historyLocked}
+        onClick={newChat}
       >
-        <Flex
-          align="center"
-          justify="center"
-          w="22px"
-          h="22px"
-          borderRadius="full"
-          bg="whiteAlpha.200"
-          flexShrink={0}
-        >
+        <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full bg-white/20">
           <FiPlus size={14} strokeWidth={2.5} />
-        </Flex>
+        </span>
         Новый чат
       </Button>
       <Input
-        w="full"
-        size="sm"
-        h="36px"
-        bg="gray.800"
-        borderWidth="1px"
-        borderColor="whiteAlpha.200"
-        color="gray.100"
-        _placeholder={{ color: "gray.500" }}
+        className="h-9 rounded-lg border border-white/20 bg-zinc-800 text-zinc-100 placeholder:text-zinc-500 focus-visible:border-blue-400 focus-visible:ring-blue-400/30"
         placeholder="Поиск по названию…"
         value={chatSearchQuery}
         onChange={(e) => setChatSearchQuery(e.target.value)}
-        borderRadius="lg"
-        _focus={{
-          borderColor: "blue.400",
-          boxShadow: "0 0 0 1px var(--chakra-colors-blue-400)",
-        }}
       />
-      <Box
-        flex="1"
-        minH={0}
-        overflowY="auto"
-        css={{
-          scrollbarGutter: "stable",
-          scrollbarWidth: "thin",
-          scrollbarColor: "rgba(255,255,255,0.15) transparent",
-          "&::-webkit-scrollbar": { width: "6px" },
-          "&::-webkit-scrollbar-thumb": {
-            background: "rgba(255,255,255,0.12)",
-            borderRadius: "999px",
-          },
-          "&::-webkit-scrollbar-track": { background: "transparent" },
-        }}
+      <div
+        className="min-h-0 flex-1 overflow-y-auto [scrollbar-color:rgba(255,255,255,0.15)_transparent] [scrollbar-width:thin]"
+        style={{ scrollbarGutter: "stable" }}
       >
         {filteredChats.length === 0 && sortedChats.length > 0 ? (
-          <Text fontSize="xs" color="gray.500" py={2} px={1}>
-            Ничего не найдено
-          </Text>
+          <p className="px-1 py-2 text-xs text-zinc-500">Ничего не найдено</p>
         ) : null}
         {groupedChats.map((group, gi) => (
-          <Box key={`${group.label}-${gi}`}>
-            <Text
-              fontSize="xs"
-              fontWeight="semibold"
-              color="gray.500"
-              px={1.5}
-              pt={gi === 0 ? 0 : 3}
-              pb={1.5}
-              userSelect="none"
+          <div key={`${group.label}-${gi}`}>
+            <p
+              className={cn(
+                "select-none px-1.5 pb-1.5 text-xs font-semibold text-zinc-500",
+                gi === 0 ? "pt-0" : "pt-3",
+              )}
             >
               {group.label}
-            </Text>
+            </p>
             {group.chats.map((c) => {
               const active = c.id === activeChatId
               const showMenuBtn =
@@ -210,40 +150,31 @@ function AssistantPage() {
                 sidebarHoveredChatId === c.id ||
                 chatMenuOpenId === c.id
               return (
-                <Flex
+                <div
                   key={c.id}
-                  align="center"
-                  gap={0}
-                  mb={0.5}
-                  borderRadius="md"
-                  px={1}
-                  py={0.5}
-                  bg={active ? "gray.800" : "transparent"}
-                  _hover={{ bg: "gray.800" }}
+                  className={cn(
+                    "mb-0.5 flex items-center gap-0 rounded-md px-1 py-0.5 transition-colors",
+                    active ? "bg-zinc-800" : "bg-transparent hover:bg-zinc-800",
+                  )}
                   onMouseEnter={() => setSidebarHoveredChatId(c.id)}
                   onMouseLeave={() => setSidebarHoveredChatId(null)}
-                  transition="background 0.12s ease"
                 >
                   <Button
-                    flex="1"
-                    minW={0}
+                    type="button"
                     variant="ghost"
                     size="sm"
-                    h="auto"
-                    minH="36px"
-                    py={1.5}
-                    px={2}
-                    fontWeight="normal"
-                    justifyContent="flex-start"
-                    borderRadius="md"
-                    onClick={() => selectChat(c.id)}
+                    className={cn(
+                      "h-auto min-h-9 min-w-0 flex-1 justify-start rounded-md px-2 py-1.5 font-normal text-zinc-100 hover:bg-transparent",
+                    )}
                     disabled={historyLocked}
-                    color="gray.100"
-                    _hover={{ bg: "transparent" }}
+                    onClick={() => selectChat(c.id)}
                   >
-                    <Text fontSize="sm" truncate textAlign="left" title={c.title}>
+                    <span
+                      className="truncate text-left text-sm"
+                      title={c.title}
+                    >
                       {c.title}
-                    </Text>
+                    </span>
                   </Button>
                   <MenuRoot
                     onOpenChange={(details) =>
@@ -251,68 +182,53 @@ function AssistantPage() {
                     }
                   >
                     <MenuTrigger asChild>
-                      <IconButton
-                        aria-label="Действия с чатом"
-                        size="xs"
+                      <Button
+                        type="button"
                         variant="ghost"
-                        flexShrink={0}
-                        borderRadius="full"
-                        color="gray.400"
-                        _hover={{ bg: "whiteAlpha.200", color: "gray.100" }}
+                        size="icon-xs"
+                        aria-label="Действия с чатом"
+                        className={cn(
+                          "shrink-0 rounded-full text-zinc-400 hover:bg-white/20 hover:text-zinc-100 md:opacity-0",
+                          showMenuBtn && "opacity-100",
+                          "md:transition-opacity md:duration-150",
+                          "max-md:opacity-100",
+                        )}
                         disabled={historyLocked}
-                        opacity={{ base: 1, md: showMenuBtn ? 1 : 0 }}
-                        transition="opacity 0.12s ease"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <FiMoreHorizontal size={18} />
-                      </IconButton>
+                      </Button>
                     </MenuTrigger>
                     <MenuContent
-                      minW="11rem"
-                      bg="gray.800"
-                      color="gray.100"
-                      borderWidth="1px"
-                      borderColor="whiteAlpha.300"
-                      boxShadow="lg"
+                      className="min-w-[11rem] border border-white/30 bg-zinc-800 text-zinc-100 shadow-lg"
                     >
                       <MenuItem
                         value="rename"
-                        gap={2}
-                        py={2}
+                        className="gap-2 py-2 opacity-45"
                         disabled
-                        opacity={0.45}
-                        cursor="not-allowed"
                       >
                         <FiEdit2 size={16} />
                         Переименовать
                       </MenuItem>
                       <MenuItem
                         value="pin"
-                        gap={2}
-                        py={2}
+                        className="gap-2 py-2 opacity-45"
                         disabled
-                        opacity={0.45}
-                        cursor="not-allowed"
                       >
                         <FiAnchor size={16} />
                         Закрепить
                       </MenuItem>
                       <MenuItem
                         value="share"
-                        gap={2}
-                        py={2}
+                        className="gap-2 py-2 opacity-45"
                         disabled
-                        opacity={0.45}
-                        cursor="not-allowed"
                       >
                         <FiShare2 size={16} />
                         Поделиться
                       </MenuItem>
                       <MenuItem
                         value="delete"
-                        gap={2}
-                        py={2}
-                        colorPalette="red"
+                        className="gap-2 py-2 text-destructive data-highlighted:text-destructive"
                         onClick={() => deleteChatMutation.mutate(c.id)}
                       >
                         <FiTrash2 size={16} />
@@ -320,144 +236,82 @@ function AssistantPage() {
                       </MenuItem>
                     </MenuContent>
                   </MenuRoot>
-                </Flex>
+                </div>
               )
             })}
-          </Box>
+          </div>
         ))}
-      </Box>
-    </Flex>
+      </div>
+    </div>
   )
 
   if (chatsQuery.isError) {
     return (
-      <Container maxW="100%" px={{ base: 2, md: 4 }} py={{ base: 4, md: 6 }}>
-        <Text color="red.fg" fontSize="sm">
+      <div className="w-full max-w-full px-2 py-4 md:px-4 md:py-6">
+        <p className="text-sm text-destructive">
           Не удалось загрузить историю чатов. Обновите страницу.
-        </Text>
-      </Container>
+        </p>
+      </div>
     )
   }
 
   if (bootLoading) {
     return (
-      <Container maxW="100%" px={{ base: 2, md: 4 }} py={{ base: 4, md: 6 }}>
-        <Flex
-          align="center"
-          justify="center"
-          minH="200px"
-          h={{ base: "calc(100dvh - 10.5rem)", md: "calc(100dvh - 9rem)" }}
-        >
-          <Text color="fg.muted" fontSize="sm">
-            Загрузка чатов…
-          </Text>
-        </Flex>
-      </Container>
+      <div className="w-full max-w-full px-2 py-4 md:px-4 md:py-6">
+        <div className="flex h-[calc(100dvh-10.5rem)] min-h-[200px] items-center justify-center md:h-[calc(100dvh-9rem)]">
+          <p className="text-sm text-muted-foreground">Загрузка чатов…</p>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Box w="full" maxW="100%" px={{ base: 0, md: 0 }} py={0}>
-      <Flex
-        direction="row"
-        w="full"
-        mx="auto"
-        maxW="100%"
-        h={{ base: "calc(100dvh - 10.5rem)", md: "calc(100dvh - 9rem)" }}
-        minH="380px"
-        maxH={{ base: "calc(100dvh - 8rem)", md: "calc(100dvh - 7rem)" }}
-        align="stretch"
-        gap={{ base: 0, md: 2 }}
-      >
-        <Box
-          display={{ base: "none", md: "flex" }}
-          flexDirection="column"
-          flexShrink={0}
-          w={SIDEBAR_W}
-          minW={0}
-          minH={0}
-          p={3}
-          bg="gray.900"
-          color="gray.100"
-          borderWidth="1px"
-          borderColor="whiteAlpha.200"
-          borderRadius="xl"
+    <div className="w-full max-w-full px-0 py-0">
+      <div className="mx-auto flex h-[calc(100dvh-10.5rem)] min-h-[380px] max-h-[calc(100dvh-8rem)] w-full max-w-full items-stretch gap-0 md:h-[calc(100dvh-9rem)] md:max-h-[calc(100dvh-7rem)] md:gap-2">
+        <div
+          className="hidden flex-col rounded-xl border border-white/20 bg-zinc-900 p-3 text-zinc-100 md:flex"
+          style={{ width: SIDEBAR_W, flexShrink: 0, minWidth: 0, minHeight: 0 }}
         >
-          <Heading
-            size="sm"
-            fontWeight="semibold"
-            letterSpacing="-0.03em"
-            lineHeight="short"
-            color="gray.50"
-          >
+          <h2 className="text-sm font-semibold leading-tight tracking-tight text-zinc-50">
             Nebardak
-          </Heading>
-          <Text fontSize="2xs" color="gray.500" mb={3} lineHeight="short">
+          </h2>
+          <p className="mb-3 text-[0.65rem] leading-tight text-zinc-500">
             Ассистент склада
-          </Text>
+          </p>
           {historyList}
-        </Box>
+        </div>
 
-        <Flex
-          direction="column"
-          flex="1"
-          minW={0}
-          minH={0}
-          bg="bg.subtle"
-          borderWidth={{ base: 0, md: "1px" }}
-          borderColor="border.muted"
-          borderRadius={{ base: "none", md: "xl" }}
-          overflow="hidden"
-        >
-          <Flex
-            flexShrink={0}
-            align="center"
-            gap={2}
-            px={{ base: 3, md: 5 }}
-            py={2.5}
-            borderBottomWidth={
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-none border-0 bg-muted/30 md:rounded-xl md:border md:border-border">
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-2 bg-muted/30 px-3 py-2.5 md:px-5",
               messages.length === 0 &&
-              !chatMutation.isPending &&
-              !streamingMessageId &&
-              !isEnsuringChat
-                ? "0"
-                : "1px"
-            }
-            borderColor="border.muted"
-            bg="bg.subtle"
+                !chatMutation.isPending &&
+                !streamingMessageId &&
+                !isEnsuringChat
+                ? "border-b-0"
+                : "border-b border-border",
+            )}
           >
-            <IconButton
-              display={{ base: "inline-flex", md: "none" }}
-              aria-label="История чатов"
+            <Button
+              type="button"
               variant="ghost"
-              size="sm"
-              flexShrink={0}
-              borderRadius="lg"
+              size="icon-sm"
+              aria-label="История чатов"
+              className="shrink-0 rounded-lg md:hidden"
               onClick={() => setHistoryDrawerOpen(true)}
             >
               <FiMenu />
-            </IconButton>
-            <Heading
-              size="sm"
-              fontWeight="semibold"
-              letterSpacing="-0.02em"
-              flex="1"
-              truncate
-            >
+            </Button>
+            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
               {messages.length > 0 ? "Чат" : "Новый диалог"}
-            </Heading>
-          </Flex>
+            </h2>
+          </div>
 
-          <Box
+          <div
             ref={scrollRef}
-            flex="1"
-            minH={0}
-            w="full"
-            overflowY="auto"
-            bg="bg.subtle"
-            display="flex"
-            flexDirection="column"
-            css={{
+            className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto bg-muted/30"
+            style={{
               scrollbarGutter: "stable",
               scrollBehavior: "smooth",
             }}
@@ -466,366 +320,192 @@ function AssistantPage() {
             !chatMutation.isPending &&
             !streamingMessageId &&
             !isEnsuringChat ? (
-              <Flex
-                flex="1"
-                align="center"
-                justify="center"
-                flexDirection="column"
-                px={4}
-                py={{ base: 6, md: 10 }}
-                minH={0}
-                css={DS_MSG_IN}
-              >
-                <Box maxW={CHAT_COLUMN_MAX} w="full">
-                  <Flex
-                    align="center"
-                    justify="center"
-                    gap={{ base: 3, md: 4 }}
-                    mb={5}
-                    flexWrap="wrap"
-                    rowGap={3}
-                  >
-                    <Image
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4 py-6 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-1 md:py-10">
+                <div className="w-full" style={{ maxWidth: CHAT_COLUMN_MAX }}>
+                  <div className="mb-5 flex flex-wrap items-center justify-center gap-3 max-sm:gap-3 md:gap-4">
+                    <img
                       src={NEBARDAK_LOGO_SRC}
                       alt="Nebardak"
-                      h={{ base: "34px", md: "40px" }}
-                      w="auto"
-                      maxW="120px"
-                      objectFit="contain"
-                      flexShrink={0}
+                      className="h-[34px] w-auto max-w-[120px] shrink-0 object-contain md:h-10"
                       draggable={false}
                     />
-                    <Heading
-                      as="h1"
-                      size="xl"
-                      fontWeight="semibold"
-                      letterSpacing="-0.04em"
-                      color="fg"
-                      lineHeight="shorter"
-                      textAlign={{ base: "center", sm: "left" }}
-                    >
+                    <h1 className="text-center text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-left">
                       Чем могу помочь?
-                    </Heading>
-                  </Flex>
-                  <Text
-                    color="fg.muted"
-                    fontSize="sm"
-                    lineHeight="tall"
-                    mb={2}
-                    textAlign="center"
-                    maxW="32rem"
-                    mx="auto"
-                  >
+                    </h1>
+                  </div>
+                  <p className="mx-auto mb-2 max-w-[32rem] text-center text-sm leading-relaxed text-muted-foreground">
                     {!activeChatId
                       ? sortedChats.length > 0
                         ? "Новый пустой диалог. Предыдущий чат в списке слева; напишите ниже, чтобы продолжить."
                         : "Задайте вопрос по складу — диалог появится в истории после первой отправки."
                       : "Например: «Сколько позиций на складе?», «Какие ряды в layout?»"}
-                  </Text>
-                  <Text
-                    fontSize="xs"
-                    color="fg.muted"
-                    opacity={0.9}
-                    textAlign="center"
-                    maxW="32rem"
-                    mx="auto"
-                  >
+                  </p>
+                  <p className="mx-auto max-w-[32rem] text-center text-xs text-muted-foreground/90">
                     Ответ на сервере с учётом прав и данных склада. Веб-поиск не
                     используется.
-                  </Text>
-                </Box>
-              </Flex>
+                  </p>
+                </div>
+              </div>
             ) : (
-              <Flex direction="column" w="full">
+              <div className="flex w-full flex-col">
                 {messages.map((m) =>
                   m.role === "user" ? (
-                    <Box
+                    <div
                       key={m.id}
-                      w="full"
-                      py={{ base: 4, md: 5 }}
-                      px={{ base: 4, md: 8 }}
-                      bg="transparent"
-                      css={DS_MSG_IN}
+                      className="w-full bg-transparent px-4 py-4 motion-safe:animate-in motion-safe:fade-in md:px-8 md:py-5"
                     >
-                      <Flex
-                        maxW={CHAT_COLUMN_MAX}
-                        mx="auto"
-                        w="full"
-                        justify="flex-end"
+                      <div
+                        className="mx-auto flex w-full justify-end"
+                        style={{ maxWidth: CHAT_COLUMN_MAX }}
                       >
-                        <Box
-                          bg="bg"
-                          color="fg"
-                          px={4}
-                          py={3}
-                          borderRadius="2xl"
-                          borderWidth="1px"
-                          borderColor="border.muted"
-                          maxW="min(85%, 36rem)"
-                          fontSize="sm"
-                          lineHeight="1.75"
-                          whiteSpace="pre-wrap"
-                          boxShadow="sm"
-                          transition="box-shadow 0.2s ease, border-color 0.2s ease"
+                        <div
+                          className="max-w-[min(85%,36rem)] rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap text-card-foreground shadow-sm transition-[box-shadow,border-color] duration-200"
                         >
                           {m.content}
-                        </Box>
-                      </Flex>
-                    </Box>
+                        </div>
+                      </div>
+                    </div>
                   ) : (
-                    <Box
+                    <div
                       key={m.id}
-                      w="full"
-                      py={{ base: 4, md: 5 }}
-                      px={{ base: 4, md: 8 }}
-                      bg="transparent"
-                      css={DS_MSG_IN}
+                      className="w-full bg-transparent px-4 py-4 motion-safe:animate-in motion-safe:fade-in md:px-8 md:py-5"
                     >
-                      <Flex
-                        maxW={CHAT_COLUMN_MAX}
-                        mx="auto"
-                        w="full"
-                        gap={3}
-                        align="flex-start"
+                      <div
+                        className="mx-auto flex w-full items-start gap-3"
+                        style={{ maxWidth: CHAT_COLUMN_MAX }}
                       >
-                        <Flex
-                          flexShrink={0}
-                          w="28px"
-                          h="28px"
-                          borderRadius="md"
-                          bg="blue.subtle"
-                          color="fg"
-                          align="center"
-                          justify="center"
-                          fontSize="10px"
-                          fontWeight="bold"
-                          mt={0.5}
-                          css={DS_AVATAR}
-                        >
+                        <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-[10px] font-bold text-foreground motion-safe:animate-in motion-safe:fade-in">
                           AI
-                        </Flex>
-                        <Box flex="1" minW={0}>
-                          <Flex
-                            gap={2}
-                            align="center"
-                            flexWrap="wrap"
-                            mb={2}
-                            rowGap={1}
-                          >
-                            <Text
-                              fontSize="xs"
-                              fontWeight="semibold"
-                              color="fg.muted"
-                            >
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-2 gap-y-1">
+                            <span className="text-xs font-semibold text-muted-foreground">
                               Ассистент
-                            </Text>
-                            <Badge
-                              size="sm"
-                              colorPalette={m.llmAvailable ? "green" : "gray"}
+                            </span>
+                            <span
+                              className={cn(
+                                "rounded-md border px-2 py-0.5 text-xs",
+                                m.llmAvailable
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+                                  : "border-border bg-muted text-muted-foreground",
+                              )}
                             >
                               {m.llmAvailable
                                 ? `LLM${m.model ? `: ${m.model}` : ""}`
                                 : "без LLM"}
-                            </Badge>
-                          </Flex>
+                            </span>
+                          </div>
                           {streamingMessageId === m.id ? (
-                            <Text
-                              fontSize="xs"
-                              color="fg.muted"
-                              mb={2}
-                              letterSpacing="0.02em"
-                              css={DS_THINKING}
-                            >
+                            <p className="mb-2 text-xs tracking-wide text-muted-foreground motion-safe:animate-pulse">
                               Изучаем информацию
-                            </Text>
+                            </p>
                           ) : null}
-                          <Text
-                            fontSize="sm"
-                            lineHeight="tall"
-                            whiteSpace="pre-wrap"
-                            color="fg"
-                          >
+                          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                             {sanitizeAssistantChatContent(m.content)}
                             {streamingMessageId === m.id ? (
-                              <Text
-                                as="span"
-                                display="inline-block"
-                                color="fg.muted"
-                                ml="0.5"
-                                verticalAlign="text-bottom"
-                                css={DS_CARET}
-                              >
+                              <span className="ml-0.5 inline-block align-text-bottom text-muted-foreground motion-safe:animate-pulse">
                                 ▍
-                              </Text>
+                              </span>
                             ) : null}
-                          </Text>
+                          </p>
                           {m.publicReasoning && streamingMessageId !== m.id ? (
-                            <Box
-                              as="details"
-                              mt={3}
-                              fontSize="xs"
-                              color="fg.muted"
-                              css={{
-                                "& summary": {
-                                  cursor: "pointer",
-                                  listStyle: "none",
-                                },
-                                "& summary::-webkit-details-marker": {
-                                  display: "none",
-                                },
-                              }}
-                            >
-                              <Box
-                                as="summary"
-                                fontWeight="semibold"
-                                color="fg"
-                                userSelect="none"
-                              >
+                            <details className="mt-3 text-xs text-muted-foreground [&_summary::-webkit-details-marker]:hidden [&_summary]:cursor-pointer [&_summary]:list-none">
+                              <summary className="select-none font-semibold text-foreground">
                                 Как сформирован ответ
-                              </Box>
-                              <Box
-                                mt={2}
-                                pl={2}
-                                borderLeftWidth="3px"
-                                borderColor="border.muted"
-                              >
-                                <Text mb={1}>
-                                  <Text as="span" fontWeight="medium">
-                                    Кратко:{" "}
-                                  </Text>
+                              </summary>
+                              <div className="mt-2 border-l-[3px] border-border pl-2">
+                                <p className="mb-1">
+                                  <span className="font-medium">Кратко: </span>
                                   {m.publicReasoning.brief_explanation}
-                                </Text>
+                                </p>
                                 {m.publicReasoning.tools_used.length > 0 ? (
-                                  <Text mb={1}>
+                                  <p className="mb-1">
                                     Инструменты:{" "}
                                     {m.publicReasoning.tools_used
                                       .map((t) => t.name || "?")
                                       .join(", ")}
-                                  </Text>
+                                  </p>
                                 ) : null}
-                                <Text mb={1}>
+                                <p className="mb-1">
                                   Источники данных:{" "}
                                   {m.publicReasoning.data_sources.join(", ")}
-                                </Text>
-                                <Text>
-                                  <Text as="span" fontWeight="medium">
-                                    Итог:{" "}
-                                  </Text>
+                                </p>
+                                <p>
+                                  <span className="font-medium">Итог: </span>
                                   {m.publicReasoning.recommendation}
-                                </Text>
+                                </p>
                                 {m.publicReasoning.next_steps &&
                                 m.publicReasoning.next_steps !== "—" ? (
-                                  <Text mt={1}>
-                                    <Text as="span" fontWeight="medium">
+                                  <p className="mt-1">
+                                    <span className="font-medium">
                                       Следующие шаги:{" "}
-                                    </Text>
+                                    </span>
                                     {m.publicReasoning.next_steps}
-                                  </Text>
+                                  </p>
                                 ) : null}
                                 {m.publicReasoning.confidence ? (
-                                  <Text mt={1}>
-                                    <Text as="span" fontWeight="medium">
+                                  <p className="mt-1">
+                                    <span className="font-medium">
                                       Уверенность:{" "}
-                                    </Text>
+                                    </span>
                                     {m.publicReasoning.confidence}
-                                  </Text>
+                                  </p>
                                 ) : null}
                                 {m.publicReasoning.kpi_effect ? (
-                                  <Text mt={1}>
-                                    <Text as="span" fontWeight="medium">
+                                  <p className="mt-1">
+                                    <span className="font-medium">
                                       Эффект / KPI:{" "}
-                                    </Text>
+                                    </span>
                                     {m.publicReasoning.kpi_effect}
-                                  </Text>
+                                  </p>
                                 ) : null}
                                 {m.publicReasoning.operational_cycle &&
                                 Object.keys(m.publicReasoning.operational_cycle)
                                   .length > 0 ? (
-                                  <Box mt={2} fontSize="10px" opacity={0.85}>
-                                    <Text fontWeight="medium" mb={0.5}>
+                                  <div className="mt-2 text-[10px] opacity-85">
+                                    <p className="mb-0.5 font-medium">
                                       Цикл агента
-                                    </Text>
+                                    </p>
                                     {Object.entries(
                                       m.publicReasoning.operational_cycle,
                                     ).map(([k, v]) => (
-                                      <Text key={k}>
+                                      <p key={k}>
                                         {k}: {v}
-                                      </Text>
+                                      </p>
                                     ))}
-                                  </Box>
+                                  </div>
                                 ) : null}
-                              </Box>
-                            </Box>
+                              </div>
+                            </details>
                           ) : null}
-                        </Box>
-                      </Flex>
-                    </Box>
+                        </div>
+                      </div>
+                    </div>
                   ),
                 )}
                 {chatMutation.isPending ? (
-                  <Box
-                    w="full"
-                    py={{ base: 4, md: 5 }}
-                    px={{ base: 4, md: 8 }}
-                    bg="transparent"
-                    css={DS_MSG_IN}
-                  >
-                    <Flex
-                      maxW={CHAT_COLUMN_MAX}
-                      mx="auto"
-                      w="full"
-                      gap={3}
-                      align="center"
+                  <div className="w-full bg-transparent px-4 py-4 motion-safe:animate-in md:px-8 md:py-5">
+                    <div
+                      className="mx-auto flex w-full items-center gap-3"
+                      style={{ maxWidth: CHAT_COLUMN_MAX }}
                     >
-                      <Flex
-                        flexShrink={0}
-                        w="28px"
-                        h="28px"
-                        borderRadius="md"
-                        bg="blue.subtle"
-                        color="fg"
-                        align="center"
-                        justify="center"
-                        fontSize="10px"
-                        fontWeight="bold"
-                        css={DS_AVATAR}
-                      >
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary/15 text-[10px] font-bold text-foreground">
                         AI
-                      </Flex>
-                      <Text
-                        fontSize="sm"
-                        color="fg.muted"
-                        letterSpacing="0.02em"
-                        css={DS_THINKING}
-                      >
+                      </div>
+                      <p className="text-sm tracking-wide text-muted-foreground motion-safe:animate-pulse">
                         Изучаем информацию
-                      </Text>
-                    </Flex>
-                  </Box>
+                      </p>
+                    </div>
+                  </div>
                 ) : null}
-              </Flex>
+              </div>
             )}
-          </Box>
+          </div>
 
-          <Box
-            flexShrink={0}
-            px={{ base: 3, md: 5 }}
-            pb={4}
-            pt={3}
-            borderTopWidth="1px"
-            borderColor="border.muted"
-            bg="bg.subtle"
-          >
-            <Box maxW={CHAT_COLUMN_MAX} mx="auto" w="full">
-              <Box
-                borderWidth="1px"
-                borderColor="border.muted"
-                borderRadius="2xl"
-                overflow="hidden"
-                bg="bg"
-                boxShadow="sm"
-              >
-                <Box position="relative" pb={{ base: 10, md: 9 }}>
+          <div className="shrink-0 border-t border-border bg-muted/30 px-3 pb-4 pt-3 md:px-5">
+            <div className="mx-auto w-full" style={{ maxWidth: CHAT_COLUMN_MAX }}>
+              <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+                <div className="relative pb-10 md:pb-9">
                   <Textarea
                     ref={composerRef}
                     value={input}
@@ -835,23 +515,8 @@ function AssistantPage() {
                         ? "Сообщение Nebardak…"
                         : "Сообщение для ассистента склада…"
                     }
-                    autoresize
-                    minH="64px"
-                    maxH="220px"
-                    w="full"
-                    resize="none"
                     rows={2}
-                    fontSize="sm"
-                    lineHeight="tall"
-                    py={4}
-                    pl={4}
-                    pr={4}
-                    pb={{ base: 14, md: 12 }}
-                    border="none"
-                    borderRadius="none"
-                    bg="transparent"
-                    _focus={{ outline: "none", boxShadow: "none" }}
-                    _focusVisible={{ outline: "none", boxShadow: "none" }}
+                    className="min-h-16 max-h-[220px] resize-none rounded-none border-0 bg-transparent px-4 py-4 pb-14 pr-4 text-sm leading-relaxed shadow-none focus-visible:ring-0 md:pb-12"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault()
@@ -859,32 +524,13 @@ function AssistantPage() {
                       }
                     }}
                   />
-                  <Flex
-                    position="absolute"
-                    left={3}
-                    right={3}
-                    bottom={3}
-                    align="center"
-                    justify="space-between"
-                    gap={2}
-                    pointerEvents="none"
-                  >
-                    <Flex
-                      align="center"
-                      gap={1.5}
-                      flexWrap="wrap"
-                      pointerEvents="auto"
-                    >
+                  <div className="pointer-events-none absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+                    <div className="pointer-events-auto flex flex-wrap items-center gap-1.5">
                       <Button
                         type="button"
                         size="xs"
-                        h="28px"
-                        px={2.5}
-                        borderRadius="full"
-                        variant={!deepStudy ? "solid" : "outline"}
-                        colorPalette={!deepStudy ? "blue" : "gray"}
-                        fontWeight="medium"
-                        gap={1}
+                        className="h-7 rounded-full px-2.5 font-medium"
+                        variant={!deepStudy ? "default" : "outline"}
                         disabled={historyLocked}
                         onClick={() => setDeepStudy(false)}
                         title="Обычный ответ без расширенной сводки"
@@ -894,13 +540,8 @@ function AssistantPage() {
                       <Button
                         type="button"
                         size="xs"
-                        h="28px"
-                        px={2.5}
-                        borderRadius="full"
-                        variant={deepStudy ? "solid" : "outline"}
-                        colorPalette={deepStudy ? "blue" : "gray"}
-                        fontWeight="medium"
-                        gap={1}
+                        className="h-7 gap-1 rounded-full px-2.5 font-medium"
+                        variant={deepStudy ? "default" : "outline"}
                         disabled={historyLocked}
                         onClick={() => setDeepStudy(true)}
                         title="Публичная сводка reasoning («как сформирован ответ»)"
@@ -908,62 +549,51 @@ function AssistantPage() {
                         <FiCpu size={14} />
                         Глубокое изучение
                       </Button>
-                    </Flex>
-                    <IconButton
+                    </div>
+                    <Button
+                      type="button"
+                      size="icon-sm"
                       aria-label="Отправить"
-                      size="sm"
-                      borderRadius="full"
-                      colorPalette="blue"
-                      flexShrink={0}
-                      pointerEvents="auto"
+                      className="pointer-events-auto shrink-0 rounded-full"
                       disabled={composerDisabled}
                       loading={chatMutation.isPending || isEnsuringChat}
                       onClick={submitChat}
                     >
                       <FiSend />
-                    </IconButton>
-                  </Flex>
-                </Box>
-                <Flex
-                  borderTopWidth="1px"
-                  borderColor="border.muted"
-                  px={3}
-                  py={2}
-                  align="center"
-                  justify="flex-end"
-                  bg="bg.subtle"
-                >
-                  <Text fontSize="2xs" color="fg.muted">
-                    Enter — отправить · Shift+Enter — новая строка 
-                  </Text>
-                </Flex>
-              </Box>
-            </Box>
-          </Box>
-        </Flex>
-      </Flex>
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end border-t border-border bg-muted/30 px-3 py-2">
+                  <p className="text-[0.65rem] text-muted-foreground">
+                    Enter — отправить · Shift+Enter — новая строка
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <DrawerRoot
         placement="start"
         open={historyDrawerOpen}
         onOpenChange={(e) => setHistoryDrawerOpen(e.open)}
         size="xs"
       >
-        <DrawerBackdrop />
-        <DrawerContent bg="gray.900" color="gray.100" borderColor="whiteAlpha.200">
+        <DrawerContent className="border border-white/20 bg-zinc-950 text-zinc-100">
           <DrawerCloseTrigger />
-          <DrawerHeader borderBottomWidth="0" pb={0}>
-            <DrawerTitle fontWeight="semibold" letterSpacing="-0.02em" color="gray.50">
+          <DrawerHeader className="border-b-0 pb-0">
+            <DrawerTitle className="font-semibold tracking-tight text-zinc-50">
               Nebardak
             </DrawerTitle>
-            <Text fontSize="2xs" color="gray.500" fontWeight="normal" mt={0.5}>
+            <p className="mt-0.5 text-[0.65rem] font-normal text-zinc-500">
               История чатов
-            </Text>
+            </p>
           </DrawerHeader>
-          <DrawerBody pb={6} pt={2} overflowY="auto">
+          <DrawerBody className="overflow-y-auto pt-2 pb-6">
             {historyList}
           </DrawerBody>
         </DrawerContent>
       </DrawerRoot>
-    </Box>
+    </div>
   )
 }

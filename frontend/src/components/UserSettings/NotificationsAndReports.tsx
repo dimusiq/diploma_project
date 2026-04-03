@@ -1,13 +1,20 @@
-import { Box, Container, Heading, HStack, Table, Text } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
-  communicationPreferencesApi,
   type CommunicationPreferenceKind,
+  communicationPreferencesApi,
 } from "@/api/communicationPreferences.ts"
+import { Checkbox } from "@/components/ui/checkbox.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { handleError } from "@/utils.ts"
-import { Checkbox } from "../ui/checkbox.tsx"
 
 type PrefRow = {
   kind: CommunicationPreferenceKind
@@ -23,7 +30,8 @@ const ROWS: PrefRow[] = [
     kind: "notification",
     key: "overdue_maintenance",
     title: "Просроченное ТО",
-    description: "Критичное уведомление, когда техника просрочила порог обслуживания.",
+    description:
+      "Критичное уведомление, когда техника просрочила порог обслуживания.",
     defaultInApp: true,
     defaultEmail: false,
   },
@@ -98,13 +106,15 @@ export default function NotificationsAndReports() {
       await queryClient.invalidateQueries({
         queryKey: ["communication-preferences"],
       })
-      // Обновим бейдж/список уведомлений, если пользователь отключал типы
       await queryClient.invalidateQueries({ queryKey: ["notifications"] })
     },
     onError: handleError,
   })
 
-  const setValue = (row: PrefRow, next: { inApp?: boolean; email?: boolean }) => {
+  const setValue = (
+    row: PrefRow,
+    next: { inApp?: boolean; email?: boolean },
+  ) => {
     const cur = buildEffectiveValue(overrides, row)
     upsert.mutate({
       kind: row.kind,
@@ -115,72 +125,64 @@ export default function NotificationsAndReports() {
   }
 
   return (
-    <Container maxW="full">
-      <Heading size="sm" py={4}>
-        Уведомления и отчёты
-      </Heading>
+    <div className="w-full max-w-full">
+      <h2 className="py-4 text-lg font-medium">Уведомления и отчёты</h2>
 
-      <Text color="fg.muted" fontSize="sm" mb={4}>
-        Выберите, какие события показывать в центре уведомлений и какие отчёты получать по email.
-      </Text>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Выберите, какие события показывать в центре уведомлений и какие отчёты
+        получать по email.
+      </p>
 
-      <Box
-        borderWidth="1px"
-        borderColor="border"
-        borderRadius="md"
-        overflow="hidden"
-        maxW="6xl"
-      >
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Тип</Table.ColumnHeader>
-              <Table.ColumnHeader textAlign="center">В приложении</Table.ColumnHeader>
-              <Table.ColumnHeader textAlign="center">Email</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+      <div className="max-w-6xl overflow-hidden rounded-lg border border-border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Тип</TableHead>
+              <TableHead className="text-center">В приложении</TableHead>
+              <TableHead className="text-center">Email</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {ROWS.map((row) => {
               const v = buildEffectiveValue(overrides, row)
               return (
-                <Table.Row key={`${row.kind}:${row.key}`}>
-                  <Table.Cell>
-                    <Text fontWeight="medium">{row.title}</Text>
-                    {row.description && (
-                      <Text fontSize="xs" color="fg.muted" mt={1}>
+                <TableRow key={`${row.kind}:${row.key}`}>
+                  <TableCell>
+                    <p className="font-medium">{row.title}</p>
+                    {row.description ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
                         {row.description}
-                      </Text>
-                    )}
-                  </Table.Cell>
-                  <Table.Cell textAlign="center">
-                    <HStack justify="center">
+                      </p>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center">
                       <Checkbox
                         checked={v.inApp}
                         disabled={isLoading || upsert.isPending}
-                        onCheckedChange={({ checked }) =>
-                          setValue(row, { inApp: Boolean(checked) })
+                        onCheckedChange={(c) =>
+                          setValue(row, { inApp: Boolean(c) })
                         }
                       />
-                    </HStack>
-                  </Table.Cell>
-                  <Table.Cell textAlign="center">
-                    <HStack justify="center">
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex justify-center">
                       <Checkbox
                         checked={v.email}
                         disabled={isLoading || upsert.isPending}
-                        onCheckedChange={({ checked }) =>
-                          setValue(row, { email: Boolean(checked) })
+                        onCheckedChange={(c) =>
+                          setValue(row, { email: Boolean(c) })
                         }
                       />
-                    </HStack>
-                  </Table.Cell>
-                </Table.Row>
+                    </div>
+                  </TableCell>
+                </TableRow>
               )
             })}
-          </Table.Body>
-        </Table.Root>
-      </Box>
-    </Container>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   )
 }
-

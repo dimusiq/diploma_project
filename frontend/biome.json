@@ -17,6 +17,18 @@
       "!**/playwright-report"
     ]
   },
+  "overrides": [
+    {
+      "includes": ["**/src/components/ui/label.tsx"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noLabelWithoutControl": "off"
+          }
+        }
+      }
+    }
+  ],
   "linter": {
     "enabled": true,
     "domains": {
@@ -38,6 +50,11 @@
       "a11y": {
         "noStaticElementInteractions": "off"
       }
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
     }
   },
   "formatter": {

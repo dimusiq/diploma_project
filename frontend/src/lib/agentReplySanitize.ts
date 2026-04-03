@@ -7,9 +7,8 @@ const ANSWER_BLOCK_RE = /<answer\s*>\s*([\s\S]*?)\s*<\/answer\s*>/gi
 function extractAnswerInnerOrFull(text: string): string {
   let last: string | null = null
   ANSWER_BLOCK_RE.lastIndex = 0
-  let m: RegExpExecArray | null
-  while ((m = ANSWER_BLOCK_RE.exec(text)) !== null) {
-    const inner = m[1].trim()
+  for (const m of text.matchAll(ANSWER_BLOCK_RE)) {
+    const inner = m[1]?.trim()
     if (inner) last = inner
   }
   if (last) return last
@@ -19,8 +18,7 @@ function extractAnswerInnerOrFull(text: string): string {
     const before = text.slice(0, endIdx)
     const openRe = /<answer\s*>/gi
     let start = -1
-    let om: RegExpExecArray | null
-    while ((om = openRe.exec(before)) !== null) {
+    for (const om of before.matchAll(openRe)) {
       start = om.index + om[0].length
     }
     if (start >= 0) {

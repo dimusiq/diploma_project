@@ -1,4 +1,3 @@
-import { Button, ButtonGroup, Field, Text } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { equipmentApi } from "@/api/equipment.ts"
@@ -12,7 +11,9 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Field } from "@/components/ui/field.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 interface MassAssignZoneDialogProps {
@@ -80,21 +81,14 @@ export function MassAssignZoneDialog({
           <DialogTitle>Назначить зону выбранной технике</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <Text fontSize="sm" color="fg.muted" mb={3}>
+          <p className="mb-3 text-sm text-muted-foreground">
             Выбрано единиц техники: {selectedIds.length}. Укажите зону склада.
-          </Text>
-          <Field.Root>
-            <Field.Label>Зона</Field.Label>
+          </p>
+          <Field label="Зона">
             <select
               value={zoneId}
               onChange={(e) => setZoneId(e.target.value)}
-              style={{
-                padding: "8px 12px",
-                borderRadius: "6px",
-                border: "1px solid var(--chakra-colors-border)",
-                minWidth: "200px",
-                fontSize: "14px",
-              }}
+              className="min-w-[200px] rounded-md border border-input bg-transparent px-3 py-2 text-sm"
             >
               <option value="">— Не назначена —</option>
               {zones.map((z) => (
@@ -103,10 +97,10 @@ export function MassAssignZoneDialog({
                 </option>
               ))}
             </select>
-          </Field.Root>
+          </Field>
         </DialogBody>
         <DialogFooter>
-          <ButtonGroup>
+          <div className="flex flex-wrap gap-2">
             <DialogActionTrigger asChild>
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                 Отмена
@@ -120,7 +114,7 @@ export function MassAssignZoneDialog({
             >
               Назначить
             </Button>
-          </ButtonGroup>
+          </div>
         </DialogFooter>
       </DialogContent>
     </DialogRoot>

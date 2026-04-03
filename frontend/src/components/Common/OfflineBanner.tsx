@@ -1,4 +1,3 @@
-import { Box, Text } from "@chakra-ui/react"
 import { useEffect, useState } from "react"
 
 export function OfflineBanner() {
@@ -20,17 +19,11 @@ export function OfflineBanner() {
   if (online) return null
 
   return (
-    <Box
-      bg="orange.500"
-      color="white"
-      py={2}
-      px={4}
-      textAlign="center"
-      fontSize="sm"
-      role="status"
+    <output
+      className="block bg-orange-500 px-4 py-2 text-center text-sm text-white"
       aria-live="polite"
     >
-      <Text fontWeight="medium">Нет соединения с интернетом</Text>
-    </Box>
+      <p className="font-medium">Нет соединения с интернетом</p>
+    </output>
   )
 }

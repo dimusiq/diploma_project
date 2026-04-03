@@ -1,10 +1,9 @@
-import { Box, Container, Text } from "@chakra-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 
 import { EquipmentList } from "@/components/Equipment/EquipmentList.tsx"
-import { MaintenanceScheduleTable } from "@/components/Equipment/MaintenanceScheduleTable.tsx"
 import { MaintenanceCalendarPage } from "@/components/Equipment/MaintenanceCalendarPage.tsx"
+import { MaintenanceScheduleTable } from "@/components/Equipment/MaintenanceScheduleTable.tsx"
 import { MaintenanceSettingsPage } from "@/components/Equipment/MaintenanceSettingsPage.tsx"
 import { ParkHealthAnalytics } from "@/components/Equipment/ParkHealthAnalytics.tsx"
 import { SparePartsList } from "@/components/Equipment/SparePartsList.tsx"
@@ -43,18 +42,18 @@ function TechniqueIndexPage() {
   const current = SECTION_LABELS[section]
 
   return (
-    <Container maxW="full">
-      <Text fontSize="md" color="fg.muted" mb={4}>
+    <div className="mx-auto w-full max-w-full px-4">
+      <p className="mb-4 text-sm text-muted-foreground">
         {current.title}
-      </Text>
+      </p>
       {section === "assets" ? (
         <EquipmentList />
       ) : section === "maintenance" ? (
         <MaintenanceScheduleTable />
       ) : section === "maintenance-schedule" ? (
-        <Box>
+        <div>
           <MaintenanceCalendarPage />
-        </Box>
+        </div>
       ) : section === "maintenance-settings" ? (
         <MaintenanceSettingsPage />
       ) : section === "work-orders" ? (
@@ -64,10 +63,10 @@ function TechniqueIndexPage() {
       ) : section === "spare-parts" ? (
         <SparePartsList />
       ) : (
-        <Text color="fg.muted">
+        <p className="text-muted-foreground">
           Раздел в разработке. Здесь будет реализован функционал подраздела.
-        </Text>
+        </p>
       )}
-    </Container>
+    </div>
   )
 }

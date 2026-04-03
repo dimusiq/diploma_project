@@ -1,13 +1,3 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Input,
-  Table,
-  Text,
-  Textarea,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { agentKnowledgeApi } from "@/api/agentKnowledge.ts"
@@ -20,8 +10,20 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Input } from "@/components/ui/input.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import { cn } from "@/lib/utils.ts"
 
 const QK = ["agent-knowledge-chunks"] as const
 
@@ -115,14 +117,14 @@ export function AgentKnowledgeAdmin() {
   const editingRow = data?.data.find((r) => r.id === editId)
 
   return (
-    <Box>
-      <Text fontSize="sm" color="fg.muted" mb={4}>
+    <div>
+      <p className="mb-4 text-sm text-muted-foreground">
         Справочные тексты для RAG ассистента. Эмбеддинги — через OpenAI-совместимый
         API (например vLLM: <code>VLLM_EMBED_MODEL</code> /{" "}
         <code>LLM_EMBED_MODEL</code>, размерность 768 по умолчанию). Требуется
         Postgres с расширением pgvector.
-      </Text>
-      <Flex gap={2} mb={4} flexWrap="wrap">
+      </p>
+      <div className="mb-4 flex flex-wrap gap-2">
         <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true) }}>
           Новый фрагмент
         </Button>
@@ -134,36 +136,43 @@ export function AgentKnowledgeAdmin() {
         >
           Переиндексировать все
         </Button>
-      </Flex>
+      </div>
 
       {isPending ? (
-        <Text fontSize="sm">Загрузка…</Text>
+        <p className="text-sm">Загрузка…</p>
       ) : (
-        <Table.Root size="sm" variant="line">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Заголовок</Table.ColumnHeader>
-              <Table.ColumnHeader>Источник</Table.ColumnHeader>
-              <Table.ColumnHeader>Эмбеддинг</Table.ColumnHeader>
-              <Table.ColumnHeader textAlign="right">Действия</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Заголовок</TableHead>
+              <TableHead>Источник</TableHead>
+              <TableHead>Эмбеддинг</TableHead>
+              <TableHead className="text-right">Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data?.data.map((row) => (
-              <Table.Row key={row.id}>
-                <Table.Cell maxW="200px">
-                  <Text fontWeight="medium" truncate title={row.title}>
+              <TableRow key={row.id}>
+                <TableCell className="max-w-[200px]">
+                  <p className="truncate font-medium" title={row.title}>
                     {row.title}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>{row.source}</Table.Cell>
-                <Table.Cell>
-                  <Badge colorPalette={row.embedding_ready ? "green" : "gray"}>
+                  </p>
+                </TableCell>
+                <TableCell>{row.source}</TableCell>
+                <TableCell>
+                  <span
+                    className={cn(
+                      "rounded-md border px-2 py-0.5 text-xs",
+                      row.embedding_ready
+                        ? "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400"
+                        : "border-border text-muted-foreground",
+                    )}
+                  >
                     {row.embedding_ready ? "да" : "нет"}
-                  </Badge>
-                </Table.Cell>
-                <Table.Cell textAlign="right">
-                  <Flex gap={1} justify="flex-end" flexWrap="wrap">
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex flex-wrap justify-end gap-1">
                     <Button
                       size="xs"
                       variant="ghost"
@@ -182,17 +191,17 @@ export function AgentKnowledgeAdmin() {
                     <Button
                       size="xs"
                       variant="ghost"
-                      colorPalette="red"
+                      className="text-destructive hover:text-destructive"
                       onClick={() => setDeleteId(row.id)}
                     >
                       Удалить
                     </Button>
-                  </Flex>
-                </Table.Cell>
-              </Table.Row>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
+          </TableBody>
+        </Table>
       )}
 
       <DialogRoot
@@ -206,39 +215,32 @@ export function AgentKnowledgeAdmin() {
             <DialogCloseTrigger />
           </DialogHeader>
           <DialogBody>
-            <Flex direction="column" gap={3}>
-              <Box>
-                <Text fontSize="sm" mb={1}>
-                  Заголовок
-                </Text>
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="mb-1 text-sm">Заголовок</p>
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  size="sm"
+                  className="h-8"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1}>
-                  Источник
-                </Text>
+              </div>
+              <div>
+                <p className="mb-1 text-sm">Источник</p>
                 <Input
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
-                  size="sm"
+                  className="h-8"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1}>
-                  Текст
-                </Text>
+              </div>
+              <div>
+                <p className="mb-1 text-sm">Текст</p>
                 <Textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   rows={8}
-                  size="sm"
                 />
-              </Box>
-            </Flex>
+              </div>
+            </div>
           </DialogBody>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
@@ -272,39 +274,32 @@ export function AgentKnowledgeAdmin() {
           </DialogHeader>
           <DialogBody>
             {editingRow ? (
-              <Flex direction="column" gap={3}>
-                <Box>
-                  <Text fontSize="sm" mb={1}>
-                    Заголовок
-                  </Text>
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="mb-1 text-sm">Заголовок</p>
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    size="sm"
+                    className="h-8"
                   />
-                </Box>
-                <Box>
-                  <Text fontSize="sm" mb={1}>
-                    Источник
-                  </Text>
+                </div>
+                <div>
+                  <p className="mb-1 text-sm">Источник</p>
                   <Input
                     value={source}
                     onChange={(e) => setSource(e.target.value)}
-                    size="sm"
+                    className="h-8"
                   />
-                </Box>
-                <Box>
-                  <Text fontSize="sm" mb={1}>
-                    Текст
-                  </Text>
+                </div>
+                <div>
+                  <p className="mb-1 text-sm">Текст</p>
                   <Textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     rows={8}
-                    size="sm"
                   />
-                </Box>
-              </Flex>
+                </div>
+              </div>
             ) : null}
           </DialogBody>
           <DialogFooter>
@@ -336,6 +331,6 @@ export function AgentKnowledgeAdmin() {
           if (deleteId) delMut.mutate(deleteId)
         }}
       />
-    </Box>
+    </div>
   )
 }

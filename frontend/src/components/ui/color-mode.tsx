@@ -1,11 +1,13 @@
 "use client"
 
-import type { IconButtonProps, SpanProps } from "@chakra-ui/react"
-import { ClientOnly, IconButton, Skeleton, Span } from "@chakra-ui/react"
 import type { ThemeProviderProps } from "next-themes"
 import { ThemeProvider, useTheme } from "next-themes"
 import type * as React from "react"
+import { useEffect, useState } from "react"
 import { LuMoon, LuSun } from "react-icons/lu"
+
+import { Button } from "@/components/ui/button.tsx"
+import { cn } from "@/lib/utils"
 
 export interface ColorModeProviderProps extends ThemeProviderProps {}
 
@@ -29,7 +31,7 @@ export function useColorMode(): UseColorModeReturn {
     setTheme(resolvedTheme === "dark" ? "light" : "dark")
   }
   return {
-    colorMode: resolvedTheme as ColorMode,
+    colorMode: (resolvedTheme as ColorMode) ?? "light",
     setColorMode: setTheme,
     toggleColorMode,
   }
@@ -45,61 +47,63 @@ export function ColorModeIcon() {
   return colorMode === "dark" ? <LuMoon /> : <LuSun />
 }
 
-interface ColorModeButtonProps extends Omit<IconButtonProps, "aria-label"> {
-  ref?: React.Ref<HTMLButtonElement>
+function ClientOnly({
+  children,
+  fallback,
+}: {
+  children: React.ReactNode
+  fallback: React.ReactNode
+}) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  if (!mounted) return fallback
+  return children
 }
 
 export function ColorModeButton({
+  className,
   ref,
   ...props
-}: ColorModeButtonProps) {
+}: React.ComponentProps<typeof Button> & {
+  ref?: React.Ref<HTMLButtonElement>
+}) {
   const { toggleColorMode } = useColorMode()
   return (
-    <ClientOnly fallback={<Skeleton boxSize="8" />}>
-      <IconButton
-        onClick={toggleColorMode}
-        variant="ghost"
-        aria-label="Toggle color mode"
-        size="sm"
+    <ClientOnly
+      fallback={
+        <div
+          className="size-8 shrink-0 animate-pulse rounded-md bg-muted"
+          aria-hidden
+        />
+      }
+    >
+      <Button
         ref={ref}
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className={cn(className)}
+        aria-label="Переключить тему"
+        onClick={toggleColorMode}
         {...props}
-        css={{
-          _icon: {
-            width: "5",
-            height: "5",
-          },
-        }}
       >
         <ColorModeIcon />
-      </IconButton>
+      </Button>
     </ClientOnly>
   )
 }
 
-export function LightMode({ ref, ...props }: SpanProps & { ref?: React.Ref<HTMLSpanElement> }) {
-  return (
-    <Span
-      color="fg"
-      display="contents"
-      className="chakra-theme light"
-      colorPalette="gray"
-      colorScheme="light"
-      ref={ref}
-      {...props}
-    />
-  )
+/** Опциональные обёртки для сегментов с принудительной темой (редко нужны). */
+export function LightMode({
+  className,
+  ...props
+}: React.ComponentProps<"span">) {
+  return <span className={cn(className)} {...props} />
 }
 
-export function DarkMode({ ref, ...props }: SpanProps & { ref?: React.Ref<HTMLSpanElement> }) {
-  return (
-    <Span
-      color="fg"
-      display="contents"
-      className="chakra-theme dark"
-      colorPalette="gray"
-      colorScheme="dark"
-      ref={ref}
-      {...props}
-    />
-  )
+export function DarkMode({
+  className,
+  ...props
+}: React.ComponentProps<"span">) {
+  return <span className={cn(className)} {...props} />
 }

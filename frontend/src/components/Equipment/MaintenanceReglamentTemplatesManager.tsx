@@ -1,24 +1,16 @@
-import {
-  Box,
-  Button,
-  Flex,
-  HStack,
-  Input,
-  Stack,
-  Text,
-} from "@chakra-ui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
-
-import useCustomToast from "@/hooks/useCustomToast.ts"
-import { maintenanceTemplatesApi } from "@/api/maintenanceTemplates"
+import { EQUIPMENT_TYPE_IDS, EQUIPMENT_TYPE_LABELS } from "@/api/equipment"
 import type {
   MaintenanceReglamentTemplateCreateBody,
   MaintenanceReglamentTemplateDetailPublic,
 } from "@/api/maintenanceTemplates"
-import { sparePartsApi, type SparePartPublic } from "@/api/spareParts"
-import { EQUIPMENT_TYPE_IDS, EQUIPMENT_TYPE_LABELS } from "@/api/equipment"
+import { maintenanceTemplatesApi } from "@/api/maintenanceTemplates"
+import { type SparePartPublic, sparePartsApi } from "@/api/spareParts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Input } from "@/components/ui/input.tsx"
+import useCustomToast from "@/hooks/useCustomToast.ts"
 
 type ChecklistItemDraft = {
   id?: string
@@ -174,10 +166,10 @@ export function MaintenanceReglamentTemplatesManager() {
   }
 
   return (
-    <Box mt={10}>
-      <Flex justify="space-between" align="center" mb={3} wrap="wrap" gap={2}>
-        <Text fontWeight="bold">Шаблоны регламентов</Text>
-        <HStack gap={2}>
+    <div className="mt-10">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="font-bold">Шаблоны регламентов</p>
+        <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -188,21 +180,21 @@ export function MaintenanceReglamentTemplatesManager() {
           >
             Новый шаблон
           </Button>
-          <Button size="sm" onClick={handleSave} loading={isSaving}>
+          <Button size="sm" variant="default" onClick={handleSave} loading={isSaving}>
             Сохранить
           </Button>
           {selectedId ? (
             <Button
               size="sm"
               variant="outline"
-              colorPalette="red"
+              className="text-destructive border-destructive hover:bg-destructive/10"
               onClick={() => setDeleteOpen(true)}
             >
               Удалить
             </Button>
           ) : null}
-        </HStack>
-      </Flex>
+        </div>
+      </div>
 
       <ConfirmDialog
         open={deleteOpen}
@@ -215,58 +207,53 @@ export function MaintenanceReglamentTemplatesManager() {
         isLoading={isSaving}
       />
 
-      <Flex gap={6} align="flex-start" wrap="wrap">
-        <Box w="320px" flexShrink={0}>
-          <Text fontSize="sm" color="fg.muted" mb={2}>
+      <div className="flex flex-wrap items-start gap-6">
+        <div className="w-[320px] shrink-0">
+          <p className="mb-2 text-sm text-muted-foreground">
             Шаблоны ({templatesCount})
-          </Text>
-          {templatesLoading ? <Text>Загрузка…</Text> : null}
+          </p>
+          {templatesLoading ? <p>Загрузка…</p> : null}
           {!templatesLoading && templates.length === 0 ? (
-            <Text color="fg.muted">Пока нет шаблонов.</Text>
+            <p className="text-muted-foreground">Пока нет шаблонов.</p>
           ) : null}
-          <Stack gap={2}>
+          <div className="flex flex-col gap-2">
             {templates.map((t) => (
               <Button
                 key={t.id}
-                variant={t.id === selectedId ? "solid" : "outline"}
+                variant={t.id === selectedId ? "default" : "outline"}
                 size="sm"
+                className="h-auto justify-start py-2"
                 onClick={() => setSelectedId(t.id)}
-                justifyContent="flex-start"
               >
-                <Box textAlign="left">
-                  <Text fontSize="sm" fontWeight="medium">
+                <div className="text-left">
+                  <p className="text-sm font-medium">
                     {EQUIPMENT_TYPE_LABELS[t.equipment_type] ?? t.equipment_type}
-                  </Text>
-                  <Text fontSize="xs" color="fg.muted">
+                  </p>
+                  <p className="text-xs text-muted-foreground">
                     Интервал: {t.interval_hours == null ? "общий" : `${t.interval_hours} м/ч`}
-                  </Text>
-                </Box>
+                  </p>
+                </div>
               </Button>
             ))}
-          </Stack>
-        </Box>
+          </div>
+        </div>
 
-        <Box flex={1} minW={320}>
-          <Text fontSize="sm" color="fg.muted" mb={2}>
+        <div className="min-w-[320px] flex-1">
+          <p className="mb-2 text-sm text-muted-foreground">
             Форма шаблона
-          </Text>
+          </p>
 
-          <Stack gap={3}>
-            <Box>
-              <Text fontSize="sm" mb={1}>
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="mb-1 text-sm">
                 Тип техники
-              </Text>
+              </p>
               <select
                 value={draft.equipment_type}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, equipment_type: e.target.value }))
                 }
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--chakra-colors-border)",
-                }}
+                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               >
                 {EQUIPMENT_TYPE_IDS.map((id) => (
                   <option key={id} value={id}>
@@ -274,23 +261,23 @@ export function MaintenanceReglamentTemplatesManager() {
                   </option>
                 ))}
               </select>
-            </Box>
+            </div>
 
-            <Box>
-              <Text fontSize="sm" mb={1}>
+            <div>
+              <p className="mb-1 text-sm">
                 Интервал ТО (м/ч)
-              </Text>
-              <HStack gap={2}>
+              </p>
+              <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  variant={draft.interval_hours == null ? "solid" : "outline"}
+                  variant={draft.interval_hours == null ? "default" : "outline"}
                   onClick={() => setDraft((d) => ({ ...d, interval_hours: null }))}
                 >
                   Общий
                 </Button>
                 <Input
                   type="number"
-                  size="sm"
+                  className="h-8 max-w-[140px] text-sm"
                   value={draft.interval_hours ?? ""}
                   onChange={(e) => {
                     const v = e.target.value.trim()
@@ -302,19 +289,19 @@ export function MaintenanceReglamentTemplatesManager() {
                   disabled={draft.interval_hours == null}
                   min={1}
                 />
-              </HStack>
-            </Box>
+              </div>
+            </div>
 
-            <Box>
-              <Text fontSize="sm" mb={1}>
+            <div>
+              <p className="mb-1 text-sm">
                 Чек-лист
-              </Text>
-              <Stack gap={2}>
+              </p>
+              <div className="flex flex-col gap-2">
                 {draft.checklist_items.map((c, idx) => (
-                  <HStack key={`${idx}-${c.id ?? "new"}`} gap={2}>
+                  <div key={`${idx}-${c.id ?? "new"}`} className="flex flex-wrap gap-2">
                     <Input
                       value={c.title}
-                      size="sm"
+                      className="h-8 min-w-0 flex-1 text-sm"
                       placeholder="Название пункта"
                       onChange={(e) => {
                         const value = e.target.value
@@ -338,7 +325,7 @@ export function MaintenanceReglamentTemplatesManager() {
                     >
                       Удалить
                     </Button>
-                  </HStack>
+                  </div>
                 ))}
 
                 <Button
@@ -356,16 +343,16 @@ export function MaintenanceReglamentTemplatesManager() {
                 >
                   Добавить пункт
                 </Button>
-              </Stack>
-            </Box>
+              </div>
+            </div>
 
-            <Box>
-              <Text fontSize="sm" mb={1}>
+            <div>
+              <p className="mb-1 text-sm">
                 Требуемые запчасти
-              </Text>
-              <Stack gap={2}>
+              </p>
+              <div className="flex flex-col gap-2">
                 {draft.spare_part_requirements.map((r, idx) => (
-                  <HStack key={`${idx}-${r.id ?? "new"}`} gap={2}>
+                  <div key={`${idx}-${r.id ?? "new"}`} className="flex flex-wrap gap-2">
                     <select
                       value={r.spare_part_id}
                       onChange={(e) => {
@@ -376,12 +363,7 @@ export function MaintenanceReglamentTemplatesManager() {
                           return { ...d, spare_part_requirements: next }
                         })
                       }}
-                      style={{
-                        flex: 1,
-                        padding: "6px 10px",
-                        borderRadius: "6px",
-                        border: "1px solid var(--chakra-colors-border)",
-                      }}
+                      className="min-w-0 flex-1 rounded-md border border-input bg-transparent px-2.5 py-1.5 text-sm"
                     >
                       <option value="">—</option>
                       {sparePartsOptions.map((p) => (
@@ -394,7 +376,7 @@ export function MaintenanceReglamentTemplatesManager() {
                     <Input
                       type="number"
                       min={1}
-                      size="sm"
+                      className="h-8 w-24 text-sm"
                       value={r.quantity}
                       onChange={(e) => {
                         const v = e.target.value.trim()
@@ -422,7 +404,7 @@ export function MaintenanceReglamentTemplatesManager() {
                     >
                       Удалить
                     </Button>
-                  </HStack>
+                  </div>
                 ))}
 
                 <Button
@@ -440,12 +422,12 @@ export function MaintenanceReglamentTemplatesManager() {
                 >
                   Добавить запчасть
                 </Button>
-              </Stack>
-            </Box>
-          </Stack>
-        </Box>
-      </Flex>
-    </Box>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 

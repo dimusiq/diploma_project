@@ -1,15 +1,7 @@
-import {
-  Box,
-  Button,
-  Container,
-  Flex,
-  Heading,
-  Link,
-  Text,
-} from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 import {
+  type ChangeEvent,
   lazy,
   Suspense,
   useCallback,
@@ -17,7 +9,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
 } from "react"
 import { FiChevronRight, FiMaximize2, FiRotateCcw } from "react-icons/fi"
 import { z } from "zod"
@@ -30,12 +21,18 @@ import { fetchWarehouseRouteGraph } from "@/api/warehouseRouteGraph.ts"
 import { warehouseTopologyApi } from "@/api/warehouseTopology.ts"
 import type { ItemPublic } from "@/client/index.ts"
 import { ItemsService } from "@/client/index.ts"
-import { Skeleton } from "@/components/ui/skeleton.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
+import { Skeleton } from "@/components/ui/skeleton.tsx"
 import {
-  buildWarehouseGeometry,
-  DEFAULT_WAREHOUSE_LAYOUT_SPEC,
-} from "@/components/warehouse3d/warehouseGeometry.tsx"
+  blockedCellKeysFromTopology,
+  type CellStripe,
+  type HeatMetric,
+  heatMapForMetric,
+  replenishmentNeedByCellKey,
+  slaRiskByCellKey,
+  stripeByCellKey,
+} from "@/components/warehouse3d/twin3dDerived.ts"
 import type {
   CellInfo,
   CellItemInfo,
@@ -45,14 +42,10 @@ import type {
   WarehouseTwinEnrichment,
 } from "@/components/warehouse3d/WarehouseScene.tsx"
 import {
-  blockedCellKeysFromTopology,
-  heatMapForMetric,
-  replenishmentNeedByCellKey,
-  slaRiskByCellKey,
-  stripeByCellKey,
-  type CellStripe,
-  type HeatMetric,
-} from "@/components/warehouse3d/twin3dDerived.ts"
+  buildWarehouseGeometry,
+  DEFAULT_WAREHOUSE_LAYOUT_SPEC,
+} from "@/components/warehouse3d/warehouseGeometry.tsx"
+import { cn } from "@/lib/utils.ts"
 
 const WarehouseScene = lazy(() =>
   import("@/components/warehouse3d/WarehouseScene.tsx").then((m) => ({
@@ -309,10 +302,10 @@ function Warehouse3DPage() {
   const geom = useMemo(
     () => buildWarehouseGeometry(layoutSpecResolved),
     [
-      layoutSpecResolved.rows,
-      layoutSpecResolved.levels,
-      layoutSpecResolved.cellX,
-      layoutSpecResolved.cellZ,
+      layoutSpecResolved.rows, 
+      layoutSpecResolved.levels, 
+      layoutSpecResolved.cellX, 
+      layoutSpecResolved.cellZ, layoutSpecResolved
     ],
   )
 
@@ -492,28 +485,20 @@ function Warehouse3DPage() {
   }, [selectedItem])
 
   return (
-    <Container maxW="full" py={4}>
-      <Flex gap={2} align="center" fontSize="sm" color="gray.600" mb={3}>
-        <RouterLink to="/warehouse">
-          <Link as="span" color="ui.main" fontWeight="medium">
-            Склад
-          </Link>
+    <div className="mx-auto w-full max-w-full py-4">
+      <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+        <RouterLink to="/warehouse" className="font-medium text-primary hover:underline">
+          Склад
         </RouterLink>
-        <Box as={FiChevronRight} fontSize="xs" aria-hidden />
-        <Text>Цифровой двойник</Text>
-      </Flex>
-      <Flex
-        justify="space-between"
-        align="flex-start"
-        wrap="wrap"
-        gap={4}
-        mb={3}
-      >
-        <Box>
-          <Heading size="lg" mb={2}>
+        <FiChevronRight className="size-3 shrink-0" aria-hidden />
+        <span>Цифровой двойник</span>
+      </div>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-2 font-heading text-2xl font-semibold tracking-tight">
             3D модель склада
-          </Heading>
-          <Text fontSize="sm" color="gray.600">
+          </h1>
+          <p className="text-sm text-muted-foreground">
             Ячейки заполняются только при добавлении товара с выбранной ячейкой.
             Клик по ячейке — всплывающее окно. Красное мигание — срок годности
             истекает в течение {EXPIRING_DAYS} дн. Симуляция движения техники и
@@ -524,72 +509,64 @@ function Warehouse3DPage() {
                 Layout v{layoutApi.version} ({layoutApi.code}).
               </>
             )}
-          </Text>
-        </Box>
-      </Flex>
+          </p>
+        </div>
+      </div>
 
-      <Flex gap={4} mb={3} flexWrap="wrap" align="center" fontSize="sm">
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#9ca3af" />
-          <Text>Пусто</Text>
-        </Flex>
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#3b82f6" />
-          <Text>Занято</Text>
-        </Flex>
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#dc2626" />
-          <Text>Срок истекает</Text>
-        </Flex>
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#7f1d1d" />
-          <Text>Просрочено</Text>
-        </Flex>
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#fbbf24" />
-          <Text>Выбрано</Text>
-        </Flex>
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#ea580c" />
-          <Text>Маршрут</Text>
-        </Flex>
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#a855f7" />
-          <Text>Блок / буфер (ряд)</Text>
-        </Flex>
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#f59e0b" />
-          <Text>Резерв (отгрузка)</Text>
-        </Flex>
-        <Flex align="center" gap={2}>
-          <Box w="3" h="3" borderRadius="sm" bg="#7c3aed" />
-          <Text>Карантин / приёмка</Text>
-        </Flex>
-      </Flex>
+      <div className="mb-3 flex flex-wrap items-center gap-4 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#9ca3af]" />
+          <span>Пусто</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#3b82f6]" />
+          <span>Занято</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#dc2626]" />
+          <span>Срок истекает</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#7f1d1d]" />
+          <span>Просрочено</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#fbbf24]" />
+          <span>Выбрано</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#ea580c]" />
+          <span>Маршрут</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#a855f7]" />
+          <span>Блок / буфер (ряд)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#f59e0b]" />
+          <span>Резерв (отгрузка)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm bg-[#7c3aed]" />
+          <span>Карантин / приёмка</span>
+        </div>
+      </div>
 
-      <Box
-        borderWidth="1px"
-        borderColor="gray.200"
-        borderRadius="lg"
-        p={4}
-        mb={3}
-        bg="white"
-        _dark={{ bg: "gray.900", borderColor: "whiteAlpha.200" }}
-      >
-        <Text fontWeight="semibold" fontSize="sm" mb={2}>
+      <div className="mb-3 rounded-lg border border-border bg-card p-4">
+        <p className="mb-2 text-sm font-semibold">
           Digital twin: зоны, маршруты, heatmap
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={3}>
+        </p>
+        <p className="mb-3 text-xs text-muted-foreground">
           Зоны и проходы — из топологии склада. Граф — из{" "}
           <code>GET /warehouse/route-graph</code> (нужна синхронизация графа).
           Heatmap считается в браузере. Слайдер времени — локальные снимки
           списка товаров (~12 с).
-        </Text>
-        <Flex flexWrap="wrap" gap={{ base: 3, md: 4 }} align="flex-end">
-          <Box minW="200px">
-            <Text fontSize="xs" color="gray.600" mb={1} fontWeight="medium">
+        </p>
+        <div className="flex flex-wrap items-end gap-3 md:gap-4">
+          <div className="min-w-[200px]">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
               Режим наложения
-            </Text>
+            </p>
             <select
               value={overlayMode}
               onChange={(e: ChangeEvent<HTMLSelectElement>) =>
@@ -615,12 +592,12 @@ function Warehouse3DPage() {
                 Техника + граф + проходы
               </option>
             </select>
-          </Box>
+          </div>
           {overlayMode === "workload" && (
-            <Box minW="180px">
-              <Text fontSize="xs" color="gray.600" mb={1} fontWeight="medium">
+            <div className="min-w-[180px]">
+              <p className="mb-1 text-xs font-medium text-muted-foreground">
                 Метрика heatmap
-              </Text>
+              </p>
               <select
                 value={heatMetric}
                 onChange={(e: ChangeEvent<HTMLSelectElement>) =>
@@ -639,12 +616,12 @@ function Warehouse3DPage() {
                 <option value="pick_density">Остаток в ячейке</option>
                 <option value="sla_risk">Риск по сроку годности</option>
               </select>
-            </Box>
+            </div>
           )}
-          <Box flex="1" minW="220px">
-            <Text fontSize="xs" color="gray.600" mb={1} fontWeight="medium">
+          <div className="min-w-[220px] flex-1">
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
               Снимок данных (время)
-            </Text>
+            </p>
             <input
               type="range"
               min={-1}
@@ -656,40 +633,29 @@ function Warehouse3DPage() {
               aria-label="Снимок состояния товаров"
               style={{ width: "100%", maxWidth: 360 }}
             />
-            <Text fontSize="xs" color="gray.500" mt={1}>
+            <p className="mt-1 text-xs text-muted-foreground">
               {historyIdx < 0 || snapshots.length === 0
                 ? "Текущие данные с сервера"
                 : `Снимок: ${new Date(snapshots[historyIdx]!.at).toLocaleString("ru-RU")}`}
-            </Text>
-          </Box>
-        </Flex>
-      </Box>
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <Box
-        borderWidth="1px"
-        borderColor="gray.200"
-        borderRadius="lg"
-        p={4}
-        mb={3}
-        bg="white"
-        minH="108px"
-        _dark={{ bg: "gray.900", borderColor: "whiteAlpha.200" }}
-      >
-        <Text fontWeight="semibold" fontSize="sm" mb={3}>
-          Симуляция и маршрут
-        </Text>
-        <Flex flexWrap="wrap" gap={{ base: 3, md: 4 }} align="flex-start">
-          <Flex direction="column" gap={2} minW="200px">
+      <div className="mb-3 min-h-[108px] rounded-lg border border-border bg-card p-4">
+        <p className="mb-3 text-sm font-semibold">Симуляция и маршрут</p>
+        <div className="flex flex-wrap items-start gap-3 md:gap-4">
+          <div className="flex min-w-[200px] flex-col gap-2">
             <Checkbox
               checked={liveData}
-              onCheckedChange={(d) => setLiveData(d.checked === true)}
+              onCheckedChange={(c) => setLiveData(c)}
             >
               Доп. опрос списка (~2,5 с) — помимо SSE по всему приложению
             </Checkbox>
             <Checkbox
               checked={interactionMode === "route"}
-              onCheckedChange={(d) => {
-                const on = d.checked === true
+              onCheckedChange={(c) => {
+                const on = c
                 setInteractionMode(on ? "route" : "view")
                 if (on) setSelectedCell(null)
               }}
@@ -697,20 +663,18 @@ function Warehouse3DPage() {
               Прокладка маршрута (клик по ячейкам по порядку)
             </Checkbox>
             {interactionMode === "route" && (
-              <Text fontSize="xs" color="gray.500">
+              <p className="text-xs text-muted-foreground">
                 Попап ячейки в этом режиме отключён; точки — оранжевая линия на
                 полу.
-              </Text>
+              </p>
             )}
-            <Text fontSize="xs" color="gray.500">
+            <p className="text-xs text-muted-foreground">
               В обычном режиме: <strong>Shift+клик</strong> по ячейке добавляет
               точку маршрута.
-            </Text>
-          </Flex>
-          <Flex direction="column" gap={2} minW="180px">
-            <Text fontSize="xs" color="gray.600" fontWeight="medium">
-              Техника
-            </Text>
+            </p>
+          </div>
+          <div className="flex min-w-[180px] flex-col gap-2">
+            <p className="text-xs font-medium text-muted-foreground">Техника</p>
             <select
               value={equipmentKind}
               onChange={(e: ChangeEvent<HTMLSelectElement>) =>
@@ -729,19 +693,17 @@ function Warehouse3DPage() {
             </select>
             <Checkbox
               checked={simulationShowCargo}
-              onCheckedChange={(d) =>
-                setSimulationShowCargo(d.checked === true)
-              }
+              onCheckedChange={(c) => setSimulationShowCargo(c)}
               disabled={equipmentKind !== "forklift"}
             >
               Показать груз на вилах (погрузчик)
             </Checkbox>
-          </Flex>
-          <Flex direction="column" gap={2} flex="1" minW="200px">
-            <Text fontSize="xs" color="gray.600" fontWeight="medium">
+          </div>
+          <div className="flex min-w-[200px] flex-1 flex-col gap-2">
+            <p className="text-xs font-medium text-muted-foreground">
               Скорость симуляции
-            </Text>
-            <Flex align="center" gap={2}>
+            </p>
+            <div className="flex items-center gap-2">
               <input
                 type="range"
                 min={0.4}
@@ -754,22 +716,22 @@ function Warehouse3DPage() {
                 style={{ flex: 1, maxWidth: 200 }}
                 aria-label="Скорость симуляции"
               />
-              <Text fontSize="xs" w="8" color="gray.600">
+              <span className="w-8 text-xs text-muted-foreground">
                 {simulationSpeed.toFixed(2)}×
-              </Text>
-            </Flex>
-            <Text fontSize="xs" color="gray.500">
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
               Точек маршрута: {routeWaypoints.length}
-            </Text>
+            </p>
             {routeWaypoints.length < 2 && !simulationActive && (
-              <Text fontSize="xs" color="orange.700" maxW="lg">
+              <p className="max-w-lg text-xs text-orange-700 dark:text-orange-400">
                 Кнопка «Запустить» станет доступна после{" "}
                 <strong>двух точек</strong>: «Пример маршрута», дважды «В
                 маршрут» (сначала выберите ячейку кликом), режим прокладки или
                 Shift+клик по ячейкам.
-              </Text>
+              </p>
             )}
-            <Flex flexWrap="wrap" gap={2}>
+            <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -789,7 +751,6 @@ function Warehouse3DPage() {
               <Button
                 size="sm"
                 variant="solid"
-                colorPalette="blue"
                 onClick={startSimulation}
                 disabled={routeWaypoints.length < 2 || simulationActive}
               >
@@ -819,45 +780,30 @@ function Warehouse3DPage() {
               >
                 Сбросить маршрут
               </Button>
-            </Flex>
-          </Flex>
-        </Flex>
-      </Box>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <Box
-        position="relative"
-        w="100%"
+      <div
         ref={canvasContainerRef}
-        {...(isFullscreen && {
-          w: "100vw",
-          h: "100vh",
-          minH: "100vh",
-          bg: "gray.100",
-        })}
+        className={cn(
+          "relative w-full",
+          isFullscreen && "min-h-screen h-screen w-screen bg-muted",
+        )}
       >
-        <Box
-          w="100%"
-          h={isFullscreen ? "100%" : "calc(100vh - 200px)"}
-          minH={isFullscreen ? 0 : "480px"}
-          borderRadius={isFullscreen ? 0 : "lg"}
-          overflow="hidden"
-          bg="gray.100"
+        <div
+          className={cn(
+            "w-full overflow-hidden bg-muted",
+            isFullscreen ? "h-full min-h-0" : "min-h-[480px] h-[calc(100vh-200px)] rounded-lg",
+          )}
         >
           <Suspense
             fallback={
-              <Flex
-                w="100%"
-                h="100%"
-                align="center"
-                justify="center"
-                direction="column"
-                gap={3}
-              >
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3">
                 <Skeleton w="100%" h="100%" minH="200px" borderRadius="lg" />
-                <Text fontSize="sm" color="gray.500">
-                  Загрузка 3D…
-                </Text>
-              </Flex>
+                <p className="text-sm text-muted-foreground">Загрузка 3D…</p>
+              </div>
             }
           >
             <WarehouseScene
@@ -883,8 +829,8 @@ function Warehouse3DPage() {
               twinEnrichment={twinEnrichment}
             />
           </Suspense>
-        </Box>
-        <Flex position="absolute" top={2} right={2} gap={2}>
+        </div>
+        <div className="absolute right-2 top-2 flex gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -892,7 +838,7 @@ function Warehouse3DPage() {
             title="Полноэкранный режим"
             aria-label="Полноэкранный режим"
           >
-            <Box as={FiMaximize2} />
+            <FiMaximize2 className="size-4" />
           </Button>
           <Button
             size="sm"
@@ -901,20 +847,20 @@ function Warehouse3DPage() {
             title="Вернуть вид по умолчанию"
             aria-label="Сбросить камеру"
           >
-            <Flex as="span" gap={2} align="center">
-              <Box as={FiRotateCcw} />
+            <span className="inline-flex items-center gap-2">
+              <FiRotateCcw className="size-4" />
               Сбросить камеру
-            </Flex>
+            </span>
           </Button>
-        </Flex>
-      </Box>
+        </div>
+      </div>
 
-      <Text fontSize="xs" color="gray.500" mt={2}>
+      <p className="mt-2 text-xs text-muted-foreground">
         Вращение: ЛКМ · Zoom: колёсико · Панорама: ПКМ или Shift+ЛКМ · Клик по
         ячейке — информация (режим просмотра); Shift+клик — точка маршрута ·
         Escape — закрыть окно · Живое обновление подтягивает занятость ячеек с
         сервера без перезагрузки страницы
-      </Text>
-    </Container>
+      </p>
+    </div>
   )
 }

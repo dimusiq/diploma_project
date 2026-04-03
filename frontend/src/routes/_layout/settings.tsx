@@ -1,4 +1,3 @@
-import { Container, Heading, Tabs } from "@chakra-ui/react"
 import { createFileRoute } from "@tanstack/react-router"
 
 import Appearance from "@/components/UserSettings/Appearance.tsx"
@@ -6,6 +5,12 @@ import ChangePassword from "@/components/UserSettings/ChangePassword.tsx"
 import DeleteAccount from "@/components/UserSettings/DeleteAccount.tsx"
 import NotificationsAndReports from "@/components/UserSettings/NotificationsAndReports.tsx"
 import UserInformation from "@/components/UserSettings/UserInformation.tsx"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 
 const tabsConfig = [
@@ -31,25 +36,32 @@ function UserSettings() {
     : tabsConfig.filter((tab) => tab.value !== "danger-zone")
 
   return (
-    <Container maxW="full">
-      <Heading size="lg" textAlign={{ base: "center", md: "left" }} py={12}>
+    <div className="w-full max-w-full px-4 py-6 md:px-6">
+      <h1 className="py-6 text-center text-2xl font-semibold tracking-tight md:text-left">
         Настройки пользователя
-      </Heading>
+      </h1>
 
-      <Tabs.Root defaultValue="my-profile" variant="subtle">
-        <Tabs.List>
+      <Tabs defaultValue="my-profile" className="w-full">
+        <TabsList
+          variant="line"
+          className="mb-6 h-auto w-full flex-wrap justify-start gap-1"
+        >
           {finalTabs.map((tab) => (
-            <Tabs.Trigger key={tab.value} value={tab.value}>
+            <TabsTrigger key={tab.value} value={tab.value}>
               {tab.title}
-            </Tabs.Trigger>
+            </TabsTrigger>
           ))}
-        </Tabs.List>
+        </TabsList>
         {finalTabs.map((tab) => (
-          <Tabs.Content key={tab.value} value={tab.value}>
+          <TabsContent
+            key={tab.value}
+            value={tab.value}
+            className="mt-0 outline-none"
+          >
             <tab.component />
-          </Tabs.Content>
+          </TabsContent>
         ))}
-      </Tabs.Root>
-    </Container>
+      </Tabs>
+    </div>
   )
 }

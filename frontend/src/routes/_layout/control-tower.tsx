@@ -1,24 +1,22 @@
-import {
-  Button,
-  Card,
-  Container,
-  Heading,
-  SimpleGrid,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { fetchFeatureFlags } from "@/api/integrations.ts"
 import { fetchKpiSnapshot } from "@/api/warehouseSimulation.ts"
 import { DashboardService } from "@/client/index.ts"
+import { buttonVariants } from "@/components/ui/button.tsx"
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
+import { cn } from "@/lib/utils.ts"
 
 export const Route = createFileRoute("/_layout/control-tower")({
   component: ControlTowerPage,
 })
 
 function ControlTowerPage() {
+  const navigate = useNavigate()
   const flagsQ = useQuery({
     queryKey: ["feature-flags"],
     queryFn: fetchFeatureFlags,
@@ -36,26 +34,30 @@ function ControlTowerPage() {
 
   if (flagsQ.isPending) {
     return (
-      <Container maxW="6xl" py={8}>
-        <Skeleton h="200px" />
-      </Container>
+      <div className="mx-auto max-w-6xl py-8">
+        <Skeleton className="h-[200px]" />
+      </div>
     )
   }
 
   if (flagsQ.isError || flagsQ.data?.["control_tower.enabled"] !== true) {
     return (
-      <Container maxW="6xl" py={8}>
-        <Heading size="lg" mb={4}>
+      <div className="mx-auto max-w-6xl py-8">
+        <h1 className="font-heading mb-4 text-2xl font-semibold">
           Control Tower
-        </Heading>
-        <Text color="fg.muted">
+        </h1>
+        <p className="text-muted-foreground">
           Экран отключён feature flag <code>control_tower.enabled</code> или
           недоступен. Обратитесь к администратору.
-        </Text>
-        <Button asChild mt={4} variant="outline">
-          <RouterLink to="/">На главную</RouterLink>
-        </Button>
-      </Container>
+        </p>
+        <button
+          type="button"
+          className={cn(buttonVariants({ variant: "outline" }), "mt-4")}
+          onClick={() => void navigate({ to: "/" })}
+        >
+          На главную
+        </button>
+      </div>
     )
   }
 
@@ -63,90 +65,90 @@ function ControlTowerPage() {
   const kpi = kpiQ.data
 
   return (
-    <Container maxW="6xl" py={{ base: 6, md: 10 }} px={{ base: 2, md: 4 }}>
-      <Heading size="lg" mb={2}>
-        Control Tower
-      </Heading>
-      <Text color="fg.muted" fontSize="sm" mb={8}>
+    <div className="mx-auto w-full max-w-6xl px-2 py-6 md:px-4 md:py-10">
+      <h1 className="font-heading mb-2 text-2xl font-semibold">Control Tower</h1>
+      <p className="mb-8 text-sm text-muted-foreground">
         Сводка KPI, ссылка на live-поток двойника и быстрый доступ к заданиям и
         симуляциям.
-      </Text>
+      </p>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} gap={4} mb={8}>
-        <Card.Root>
-          <Card.Body>
-            <Text fontWeight="semibold" mb={2}>
-              Операции (дашборд)
-            </Text>
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="pt-4">
+            <p className="mb-2 font-semibold">Операции (дашборд)</p>
             {dashQ.isPending ? (
-              <Skeleton h="60px" />
+              <Skeleton className="h-[60px]" />
             ) : dashQ.isError ? (
-              <Text fontSize="sm" color="fg.muted">
-                Нет данных
-              </Text>
+              <p className="text-sm text-muted-foreground">Нет данных</p>
             ) : (
-              <VStack align="stretch" gap={1} fontSize="sm">
-                <Text>
+              <div className="flex flex-col gap-1 text-sm">
+                <p>
                   Всего позиций:{" "}
                   {typeof stats?.total_items === "number"
                     ? stats.total_items
                     : "—"}
-                </Text>
-                <Text>
+                </p>
+                <p>
                   Пользователей:{" "}
                   {typeof stats?.total_users === "number"
                     ? stats.total_users
                     : "—"}
-                </Text>
-              </VStack>
+                </p>
+              </div>
             )}
-          </Card.Body>
-        </Card.Root>
-        <Card.Root>
-          <Card.Body>
-            <Text fontWeight="semibold" mb={2}>
-              Двойник / склад
-            </Text>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="mb-2 font-semibold">Двойник / склад</p>
             {kpiQ.isPending ? (
-              <Skeleton h="60px" />
+              <Skeleton className="h-[60px]" />
             ) : kpiQ.isError ? (
-              <Text fontSize="sm" color="fg.muted">
-                KPI недоступны
-              </Text>
+              <p className="text-sm text-muted-foreground">KPI недоступны</p>
             ) : (
-              <VStack align="stretch" gap={1} fontSize="sm">
-                <Text>
+              <div className="flex flex-col gap-1 text-sm">
+                <p>
                   Точность остатков (proxy):{" "}
                   {kpi?.stock_accuracy_proxy != null
                     ? `${(kpi.stock_accuracy_proxy * 100).toFixed(1)}%`
                     : "—"}
-                </Text>
-                <Text>Просрочка 30д: {kpi?.near_expiry_items_30d ?? "—"}</Text>
-              </VStack>
+                </p>
+                <p>Просрочка 30д: {kpi?.near_expiry_items_30d ?? "—"}</p>
+              </div>
             )}
-          </Card.Body>
-        </Card.Root>
-        <Card.Root>
-          <Card.Body>
-            <Text fontWeight="semibold" mb={2}>
-              Live и очереди
-            </Text>
-            <VStack align="stretch" gap={2}>
-              <Text fontSize="sm" color="fg.muted">
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="mb-2 font-semibold">Live и очереди</p>
+            <div className="flex flex-col gap-2">
+              <p className="text-sm text-muted-foreground">
                 Live-поток: эндпоинт <code>/api/v1/warehouse/live/stream</code>{" "}
                 (тот же канал, что <code>/api/v1/twin/stream</code>), с токеном
                 авторизации.
-              </Text>
-              <Button asChild size="sm" variant="outline">
-                <RouterLink to="/warehouse-twin">Аналитика двойника</RouterLink>
-              </Button>
-              <Button asChild size="sm" variant="outline">
-                <RouterLink to="/warehouse-tasks">Складские задания</RouterLink>
-              </Button>
-            </VStack>
-          </Card.Body>
-        </Card.Root>
-      </SimpleGrid>
-    </Container>
+              </p>
+              <Link
+                to="/warehouse-twin"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "inline-flex w-fit",
+                )}
+              >
+                Аналитика двойника
+              </Link>
+              <Link
+                to="/warehouse-tasks"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "inline-flex w-fit",
+                )}
+              >
+                Складские задания
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   )
 }

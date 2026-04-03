@@ -2,15 +2,6 @@
  * Панель здоровья парка: KPI-плитки и графики для вкладки Аналитика.
  * Просрочено ТО, Скоро ТО, На обслуживании, % доступности, средний простой из-за ремонтов.
  */
-import {
-  Box,
-  Card,
-  Flex,
-  Grid,
-  Heading,
-  SimpleGrid,
-  Text,
-} from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 import {
@@ -20,10 +11,6 @@ import {
   FiSettings,
   FiTrendingUp,
 } from "react-icons/fi"
-import {
-  pieHoverActiveShape,
-  pieHoverInactiveStyle,
-} from "@/components/Charts/pieHoverShapes.tsx"
 import {
   Bar,
   BarChart,
@@ -43,6 +30,11 @@ import {
   maintenanceScheduleApi,
 } from "@/api/maintenanceSchedule.ts"
 import { workOrdersApi } from "@/api/workOrders.ts"
+import {
+  pieHoverActiveShape,
+  pieHoverInactiveStyle,
+} from "@/components/Charts/pieHoverShapes.tsx"
+import { Card, CardContent } from "@/components/ui/card.tsx"
 import { getRemindBeforeHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
 type ScheduleStatus = "overdue" | "due_soon" | "ok"
@@ -193,146 +185,111 @@ export function ParkHealthAnalytics() {
 
   if (equipmentLoading) {
     return (
-      <Text color="fg.muted">Загрузка панели здоровья парка…</Text>
+      <p className="text-muted-foreground">Загрузка панели здоровья парка…</p>
     )
   }
 
   return (
-    <Box>
-      <Heading size="md" mb={2}>
+    <div>
+      <h2 className="font-heading mb-2 text-lg font-semibold md:text-xl">
         Здоровье парка техники
-      </Heading>
-      <Text fontSize="sm" color="fg.muted" mb={6}>
+      </h2>
+      <p className="mb-6 text-sm text-muted-foreground">
         Ключевые показатели и распределение по статусам
-      </Text>
+      </p>
 
       {/* KPI-плитки */}
-      <SimpleGrid columns={{ base: 1, sm: 2, lg: 5 }} gap={4} mb={8}>
-        <Card.Root
-          bg="red.50"
-          borderWidth="1px"
-          borderColor="red.200"
-          _dark={{ bg: "red.900/20", borderColor: "red.800" }}
-        >
-          <Card.Body>
-            <Flex align="center" gap={3}>
-              <Box color="red.500" fontSize="2xl">
-                <FiAlertCircle />
-              </Box>
-              <Box>
-                <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                  Просрочено ТО
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold" color="red.600" _dark={{ color: "red.400" }}>
-                  {kpis.overdue}
-                </Text>
-              </Box>
-            </Flex>
-          </Card.Body>
-        </Card.Root>
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20">
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="text-2xl text-red-500">
+              <FiAlertCircle />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Просрочено ТО
+              </p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                {kpis.overdue}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-        <Card.Root
-          bg="orange.50"
-          borderWidth="1px"
-          borderColor="orange.200"
-          _dark={{ bg: "orange.900/20", borderColor: "orange.800" }}
-        >
-          <Card.Body>
-            <Flex align="center" gap={3}>
-              <Box color="orange.500" fontSize="2xl">
-                <FiClock />
-              </Box>
-              <Box>
-                <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                  Скоро ТО
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold" color="orange.600" _dark={{ color: "orange.400" }}>
-                  {kpis.dueSoon}
-                </Text>
-              </Box>
-            </Flex>
-          </Card.Body>
-        </Card.Root>
+        <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="text-2xl text-orange-500">
+              <FiClock />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Скоро ТО
+              </p>
+              <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                {kpis.dueSoon}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-        <Card.Root
-          bg="blue.50"
-          borderWidth="1px"
-          borderColor="blue.200"
-          _dark={{ bg: "blue.900/20", borderColor: "blue.800" }}
-        >
-          <Card.Body>
-            <Flex align="center" gap={3}>
-              <Box color="blue.500" fontSize="2xl">
-                <FiSettings />
-              </Box>
-              <Box>
-                <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                  На обслуживании
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold" color="blue.600" _dark={{ color: "blue.400" }}>
-                  {kpis.underMaintenance}
-                </Text>
-              </Box>
-            </Flex>
-          </Card.Body>
-        </Card.Root>
+        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20">
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="text-2xl text-blue-500">
+              <FiSettings />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                На обслуживании
+              </p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {kpis.underMaintenance}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-        <Card.Root
-          bg="green.50"
-          borderWidth="1px"
-          borderColor="green.200"
-          _dark={{ bg: "green.900/20", borderColor: "green.800" }}
-        >
-          <Card.Body>
-            <Flex align="center" gap={3}>
-              <Box color="green.500" fontSize="2xl">
-                <FiTrendingUp />
-              </Box>
-              <Box>
-                <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                  Доступность
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold" color="green.600" _dark={{ color: "green.400" }}>
-                  {kpis.availabilityPct}%
-                </Text>
-              </Box>
-            </Flex>
-          </Card.Body>
-        </Card.Root>
+        <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20">
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="text-2xl text-green-500">
+              <FiTrendingUp />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Доступность
+              </p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {kpis.availabilityPct}%
+              </p>
+            </div>
+          </CardContent>
+        </Card>
 
-        <Card.Root
-          bg="gray.50"
-          _dark={{ bg: "gray.800" }}
-          borderWidth="1px"
-          borderColor="border"
-        >
-          <Card.Body>
-            <Flex align="center" gap={3}>
-              <Box color="gray.500" fontSize="2xl">
-                <FiPackage />
-              </Box>
-              <Box>
-                <Text fontSize="sm" color="fg.muted" fontWeight="medium">
-                  Ср. простой (дней)
-                </Text>
-                <Text fontSize="2xl" fontWeight="bold" color="fg">
-                  {kpis.avgDowntimeDays != null ? kpis.avgDowntimeDays : "—"}
-                </Text>
-              </Box>
-            </Flex>
-          </Card.Body>
-        </Card.Root>
-      </SimpleGrid>
+        <Card className="border-border bg-muted/40">
+          <CardContent className="flex items-center gap-3 pt-4">
+            <div className="text-2xl text-muted-foreground">
+              <FiPackage />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Ср. простой (дней)
+              </p>
+              <p className="text-2xl font-bold text-foreground">
+                {kpis.avgDowntimeDays != null ? kpis.avgDowntimeDays : "—"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Графики */}
-      <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap={6}>
-        <Card.Root>
-          <Card.Body>
-            <Heading size="sm" mb={4}>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardContent className="pt-4">
+            <h3 className="font-heading mb-4 text-sm font-semibold">
               График ТО: просрочено / скоро / норма
-            </Heading>
+            </h3>
             {maintenanceChartData.length > 0 ? (
-              <Box height="280px">
+              <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -358,22 +315,22 @@ export function ParkHealthAnalytics() {
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
-              </Box>
+              </div>
             ) : (
-              <Text color="fg.muted" fontSize="sm">
+              <p className="text-sm text-muted-foreground">
                 Нет техники в расписании ТО для отображения
-              </Text>
+              </p>
             )}
-          </Card.Body>
-        </Card.Root>
+          </CardContent>
+        </Card>
 
-        <Card.Root>
-          <Card.Body>
-            <Heading size="sm" mb={4}>
+        <Card>
+          <CardContent className="pt-4">
+            <h3 className="font-heading mb-4 text-sm font-semibold">
               Статус техники: в эксплуатации / на обслуживании
-            </Heading>
+            </h3>
             {equipmentStatusChartData.length > 0 ? (
-              <Box height="280px">
+              <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -399,15 +356,15 @@ export function ParkHealthAnalytics() {
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
-              </Box>
+              </div>
             ) : (
-              <Text color="fg.muted" fontSize="sm">
+              <p className="text-sm text-muted-foreground">
                 Нет данных о технике
-              </Text>
+              </p>
             )}
-          </Card.Body>
-        </Card.Root>
-      </Grid>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Дополнительный бар-чарт: сравнение показателей */}
       {(() => {
@@ -418,12 +375,12 @@ export function ParkHealthAnalytics() {
           { label: "Доступно", count: Math.max(0, kpis.total - kpis.underMaintenance), fill: "#38a169" },
         ]
         return (
-          <Card.Root mt={6}>
-            <Card.Body>
-              <Heading size="sm" mb={4}>
+          <Card className="mt-6">
+            <CardContent className="pt-4">
+              <h3 className="font-heading mb-4 text-sm font-semibold">
                 Сводка по парку
-              </Heading>
-              <Box height="240px">
+              </h3>
+              <div className="h-[240px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={barData}
@@ -455,11 +412,11 @@ export function ParkHealthAnalytics() {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </Box>
-            </Card.Body>
-          </Card.Root>
+              </div>
+            </CardContent>
+          </Card>
         )
       })()}
-    </Box>
+    </div>
   )
 }

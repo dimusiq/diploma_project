@@ -1,19 +1,15 @@
-import { Button, ButtonGroup, Text } from "@chakra-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 
 import { type ApiError, UsersService } from "@/client/index.ts"
+import { Button } from "@/components/ui/button.tsx"
 import {
-  DialogActionTrigger,
-  DialogBody,
-  DialogCloseTrigger,
+  Dialog,
   DialogContent,
-  DialogFooter,
+  DialogDescription,
   DialogHeader,
-  DialogRoot,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog.tsx"
 import useAuth from "@/hooks/useAuth.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
@@ -49,55 +45,52 @@ const DeleteConfirmation = () => {
   }
 
   return (
-    <DialogRoot
-      size={{ base: "xs", md: "md" }}
-      role="alertdialog"
-      placement="center"
-      open={isOpen}
-      onOpenChange={({ open }) => setIsOpen(open)}
-    >
-      <DialogTrigger asChild>
-        <Button variant="solid" size="sm" colorPalette="red" mt={4}>
-          Delete
-        </Button>
-      </DialogTrigger>
+    <>
+      <Button
+        variant="destructive"
+        size="sm"
+        className="mt-4"
+        type="button"
+        onClick={() => setIsOpen(true)}
+      >
+        Delete
+      </Button>
 
-      <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <DialogCloseTrigger />
-          <DialogHeader>
-            <DialogTitle>Confirmation Required</DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            <Text mb={4}>
-              All your account data will be{" "}
-              <strong>permanently deleted.</strong> If you are sure, please
-              click <strong>"Confirm"</strong> to proceed. This action cannot be
-              undone.
-            </Text>
-          </DialogBody>
-
-          <DialogFooter gap={2}>
-            <ButtonGroup>
-              <DialogActionTrigger asChild>
-                <Button variant="outline" size="sm" disabled={isSubmitting}>
-                  Cancel
-                </Button>
-              </DialogActionTrigger>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-md" showCloseButton>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <DialogHeader>
+              <DialogTitle>Confirmation Required</DialogTitle>
+              <DialogDescription>
+                All your account data will be{" "}
+                <strong>permanently deleted.</strong> If you are sure, please
+                click <strong>&quot;Confirm&quot;</strong> to proceed. This
+                action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
-                variant="solid"
+                variant="outline"
                 size="sm"
-                colorPalette="red"
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setIsOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
                 type="submit"
                 loading={isSubmitting}
               >
                 Delete
               </Button>
-            </ButtonGroup>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </DialogRoot>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

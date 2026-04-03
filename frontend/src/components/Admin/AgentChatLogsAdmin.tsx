@@ -1,5 +1,12 @@
-import { Box, Table, Text } from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import { request } from "@/lib/apiClient.ts"
 
 interface LogRow {
@@ -24,53 +31,53 @@ export function AgentChatLogsAdmin() {
   })
 
   return (
-    <Box>
-      <Text fontSize="sm" color="fg.muted" mb={4}>
+    <div>
+      <p className="mb-4 text-sm text-muted-foreground">
         Последние обращения к ассистенту (все пользователи). Полные тексты не
         хранятся — только превью до 500 символов.
-      </Text>
+      </p>
       {isPending ? (
-        <Text fontSize="sm">Загрузка…</Text>
+        <p className="text-sm">Загрузка…</p>
       ) : (
-        <Table.Root size="sm" variant="line">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Время</Table.ColumnHeader>
-              <Table.ColumnHeader>User id</Table.ColumnHeader>
-              <Table.ColumnHeader>Вопрос</Table.ColumnHeader>
-              <Table.ColumnHeader>Ответ</Table.ColumnHeader>
-              <Table.ColumnHeader>LLM</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Время</TableHead>
+              <TableHead>User id</TableHead>
+              <TableHead>Вопрос</TableHead>
+              <TableHead>Ответ</TableHead>
+              <TableHead>LLM</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {data?.data.map((row) => (
-              <Table.Row key={row.id}>
-                <Table.Cell whiteSpace="nowrap" fontSize="xs">
+              <TableRow key={row.id}>
+                <TableCell className="whitespace-nowrap text-xs">
                   {new Date(row.created_at).toLocaleString("ru-RU")}
-                </Table.Cell>
-                <Table.Cell fontSize="xs" maxW="100px">
-                  <Text truncate title={row.user_id}>
+                </TableCell>
+                <TableCell className="max-w-[100px] text-xs">
+                  <span className="truncate" title={row.user_id}>
                     {row.user_id.slice(0, 8)}…
-                  </Text>
-                </Table.Cell>
-                <Table.Cell maxW="240px" fontSize="xs">
-                  <Text truncate title={row.message_preview}>
+                  </span>
+                </TableCell>
+                <TableCell className="max-w-[240px] text-xs">
+                  <span className="truncate" title={row.message_preview}>
                     {row.message_preview}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell maxW="240px" fontSize="xs">
-                  <Text truncate title={row.reply_preview}>
+                  </span>
+                </TableCell>
+                <TableCell className="max-w-[240px] text-xs">
+                  <span className="truncate" title={row.reply_preview}>
                     {row.reply_preview}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell fontSize="xs">
+                  </span>
+                </TableCell>
+                <TableCell className="text-xs">
                   {row.llm_available ? row.model ?? "да" : "нет"}
-                </Table.Cell>
-              </Table.Row>
+                </TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
+          </TableBody>
+        </Table>
       )}
-    </Box>
+    </div>
   )
 }

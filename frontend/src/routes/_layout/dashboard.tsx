@@ -1,15 +1,3 @@
-import {
-  Box,
-  Button,
-  Card,
-  Container,
-  Flex,
-  Heading,
-  Link,
-  SimpleGrid,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import {
   createFileRoute,
@@ -26,10 +14,6 @@ import {
   FiTruck,
   FiUsers,
 } from "react-icons/fi"
-import {
-  pieHoverActiveShape,
-  pieHoverInactiveStyle,
-} from "@/components/Charts/pieHoverShapes.tsx"
 import {
   Bar,
   BarChart,
@@ -48,14 +32,20 @@ import {
 import { getDashboardTrends } from "@/api/dashboard.ts"
 import { downloadItemsExport } from "@/api/exportItems.ts"
 import { DashboardService } from "@/client/index.ts"
+import {
+  pieHoverActiveShape,
+  pieHoverInactiveStyle,
+} from "@/components/Charts/pieHoverShapes.tsx"
 import { DashboardStatCard } from "@/components/Dashboard/DashboardStatCard.tsx"
-import { Skeleton } from "@/components/ui/skeleton.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Card, CardContent } from "@/components/ui/card.tsx"
 import {
   MenuContent,
   MenuItem,
   MenuRoot,
   MenuTrigger,
 } from "@/components/ui/menu.tsx"
+import { Skeleton } from "@/components/ui/skeleton.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 interface LatestIncomingItem {
@@ -137,42 +127,42 @@ export function Dashboard() {
 
   if (isLoading) {
     return (
-      <Container maxW="full">
-        <Heading size="lg" pt={12} pb={6}>
+      <div className="mx-auto w-full max-w-full px-4">
+        <h1 className="pb-6 pt-12 font-heading text-2xl font-semibold tracking-tight">
           Панель управления
-        </Heading>
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+        </h1>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card.Root key={i}>
-              <Card.Body>
+            <Card key={i}>
+              <CardContent>
                 <Skeleton height="4" mb={2} />
                 <Skeleton height="10" width="60%" mb={2} />
                 <Skeleton height="3" width="80%" />
-              </Card.Body>
-            </Card.Root>
+              </CardContent>
+            </Card>
           ))}
-        </SimpleGrid>
-      </Container>
+        </div>
+      </div>
     )
   }
 
   if (isError || !stats) {
     return (
-      <Container maxW="full">
-        <Heading size="lg" pt={12} pb={4}>
+      <div className="mx-auto w-full max-w-full px-4">
+        <h1 className="pb-4 pt-12 font-heading text-2xl font-semibold tracking-tight">
           Панель управления
-        </Heading>
-        <Card.Root>
-          <Card.Body>
-            <Text color="gray.600" mb={4}>
+        </h1>
+        <Card>
+          <CardContent>
+            <p className="mb-4 text-sm text-muted-foreground">
               Не удалось загрузить данные
-            </Text>
+            </p>
             <Button onClick={() => refetch()} variant="outline" size="sm">
               Повторить
             </Button>
-          </Card.Body>
-        </Card.Root>
-      </Container>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -223,23 +213,18 @@ export function Dashboard() {
     : []
 
   return (
-    <Container maxW="full">
-      <Flex
-        justify="space-between"
-        align="center"
-        pt={12}
-        pb={6}
-        flexWrap="wrap"
-        gap={3}
-      >
-        <Heading size="lg">Панель управления</Heading>
+    <div className="mx-auto w-full max-w-full px-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-6 pt-12">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">
+          Панель управления
+        </h1>
         <MenuRoot>
           <MenuTrigger asChild>
             <Button size="sm" variant="outline" disabled={isExporting}>
-              <Flex as="span" gap={2} align="center">
-                <Box as={FiDownload} />
+              <span className="inline-flex items-center gap-2">
+                <FiDownload className="size-4" />
                 {isExporting ? "Выгрузка…" : "Выгрузить (CSV/Excel)"}
-              </Flex>
+              </span>
             </Button>
           </MenuTrigger>
           <MenuContent>
@@ -251,9 +236,9 @@ export function Dashboard() {
             </MenuItem>
           </MenuContent>
         </MenuRoot>
-      </Flex>
+      </div>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6}>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         <DashboardStatCard
           label="Всего товаров"
           value={stats.total_items}
@@ -296,193 +281,130 @@ export function Dashboard() {
           valueColor="muted"
           icon={<FiCheckCircle />}
         />
-      </SimpleGrid>
+      </div>
 
       {/* Краткие ссылки */}
-      <SimpleGrid columns={{ base: 1, sm: 3 }} gap={4} mt={6}>
-        <RouterLink to="/items" style={{ textDecoration: "none" }}>
-          <Card.Root
-            cursor="pointer"
-            color="fg"
-            _hover={{ bg: "gray.subtle" }}
-            transition="background 0.2s"
-          >
-            <Card.Body
-              display="flex"
-              flexDirection="row"
-              alignItems="center"
-              gap={3}
-            >
-              <Box color="blue.500">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <RouterLink to="/items" className="block no-underline">
+          <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+            <CardContent className="flex flex-row items-center gap-3">
+              <span className="text-blue-500">
                 <FiArrowDownRight size={24} />
-              </Box>
-              <VStack align="start" gap={0}>
-                <Text fontWeight="semibold" color="fg">
-                  Поступления
-                </Text>
-                <Text fontSize="sm" color="fg.muted">
-                  Новые товары
-                </Text>
-              </VStack>
-            </Card.Body>
-          </Card.Root>
+              </span>
+              <div className="flex flex-col gap-0">
+                <span className="font-semibold text-foreground">Поступления</span>
+                <span className="text-sm text-muted-foreground">Новые товары</span>
+              </div>
+            </CardContent>
+          </Card>
         </RouterLink>
-        <RouterLink to="/warehouse" style={{ textDecoration: "none" }}>
-          <Card.Root
-            cursor="pointer"
-            color="fg"
-            _hover={{ bg: "gray.subtle" }}
-            transition="background 0.2s"
-          >
-            <Card.Body
-              display="flex"
-              flexDirection="row"
-              alignItems="center"
-              gap={3}
-            >
-              <Box color="green.500">
+        <RouterLink to="/warehouse" className="block no-underline">
+          <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+            <CardContent className="flex flex-row items-center gap-3">
+              <span className="text-green-600 dark:text-green-500">
                 <FiBox size={24} />
-              </Box>
-              <VStack align="start" gap={0}>
-                <Text fontWeight="semibold" color="fg">
-                  Склад
-                </Text>
-                <Text fontSize="sm" color="fg.muted">
-                  На складе
-                </Text>
-              </VStack>
-            </Card.Body>
-          </Card.Root>
+              </span>
+              <div className="flex flex-col gap-0">
+                <span className="font-semibold text-foreground">Склад</span>
+                <span className="text-sm text-muted-foreground">На складе</span>
+              </div>
+            </CardContent>
+          </Card>
         </RouterLink>
-        <RouterLink to="/shipment" style={{ textDecoration: "none" }}>
-          <Card.Root
-            cursor="pointer"
-            color="fg"
-            _hover={{ bg: "gray.subtle" }}
-            transition="background 0.2s"
-          >
-            <Card.Body
-              display="flex"
-              flexDirection="row"
-              alignItems="center"
-              gap={3}
-            >
-              <Box color="orange.500">
+        <RouterLink to="/shipment" className="block no-underline">
+          <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+            <CardContent className="flex flex-row items-center gap-3">
+              <span className="text-orange-500">
                 <FiTruck size={24} />
-              </Box>
-              <VStack align="start" gap={0}>
-                <Text fontWeight="semibold" color="fg">
-                  Отгрузка
-                </Text>
-                <Text fontSize="sm" color="fg.muted">
-                  В отгрузке
-                </Text>
-              </VStack>
-            </Card.Body>
-          </Card.Root>
+              </span>
+              <div className="flex flex-col gap-0">
+                <span className="font-semibold text-foreground">Отгрузка</span>
+                <span className="text-sm text-muted-foreground">В отгрузке</span>
+              </div>
+            </CardContent>
+          </Card>
         </RouterLink>
-        <RouterLink to="/shipped" style={{ textDecoration: "none" }}>
-          <Card.Root
-            cursor="pointer"
-            color="fg"
-            _hover={{ bg: "gray.subtle" }}
-            transition="background 0.2s"
-          >
-            <Card.Body
-              display="flex"
-              flexDirection="row"
-              alignItems="center"
-              gap={3}
-            >
-              <Box color="green.500">
+        <RouterLink to="/shipped" className="block no-underline">
+          <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+            <CardContent className="flex flex-row items-center gap-3">
+              <span className="text-green-600 dark:text-green-500">
                 <FiCheckCircle size={24} />
-              </Box>
-              <VStack align="start" gap={0}>
-                <Text fontWeight="semibold" color="fg">
-                  Отгружено
-                </Text>
-                <Text fontSize="sm" color="fg.muted">
-                  Архив
-                </Text>
-              </VStack>
-            </Card.Body>
-          </Card.Root>
+              </span>
+              <div className="flex flex-col gap-0">
+                <span className="font-semibold text-foreground">Отгружено</span>
+                <span className="text-sm text-muted-foreground">Архив</span>
+              </div>
+            </CardContent>
+          </Card>
         </RouterLink>
-      </SimpleGrid>
+      </div>
 
       {/* Последние поступления и В отгрузке */}
-      <SimpleGrid columns={{ base: 1, md: 2 }} gap={6} mt={6}>
-        <Card.Root>
-          <Card.Body>
-            <Heading size="sm" mb={3}>
+      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Card>
+          <CardContent>
+            <h3 className="mb-3 font-heading text-sm font-semibold">
               Последние поступления
-            </Heading>
+            </h3>
             {stats.latest_incoming && stats.latest_incoming.length > 0 ? (
-              <VStack align="stretch" gap={2}>
+              <div className="flex flex-col gap-2">
                 {stats.latest_incoming.map((item) => (
-                  <Box
+                  <div
                     key={item.id}
-                    py={2}
-                    borderBottomWidth="1px"
-                    borderColor="gray.100"
-                    _last={{ borderBottomWidth: 0 }}
+                    className="border-b border-border py-2 last:border-b-0"
                   >
-                    <Text fontWeight="medium" lineClamp={1}>
-                      {item.title}
-                    </Text>
-                    <Text fontSize="xs" color="gray.500">
+                    <p className="line-clamp-1 font-medium">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
                       {item.created_at
                         ? new Date(item.created_at).toLocaleString("ru-RU")
                         : ""}
-                    </Text>
-                  </Box>
+                    </p>
+                  </div>
                 ))}
-                <Box mt={2}>
-                  <RouterLink to="/items">
-                    <Link fontSize="sm" color="blue.500">
-                      Все поступления →
-                    </Link>
+                <div className="mt-2">
+                  <RouterLink
+                    to="/items"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Все поступления →
                   </RouterLink>
-                </Box>
-              </VStack>
+                </div>
+              </div>
             ) : (
-              <Text color="gray.500" fontSize="sm">
-                Нет поступлений
-              </Text>
+              <p className="text-sm text-muted-foreground">Нет поступлений</p>
             )}
-          </Card.Body>
-        </Card.Root>
+          </CardContent>
+        </Card>
 
-        <Card.Root>
-          <Card.Body>
-            <Heading size="sm" mb={3}>
-              В отгрузке
-            </Heading>
-            <Text fontSize="2xl" fontWeight="bold" color="orange.500">
+        <Card>
+          <CardContent>
+            <h3 className="mb-3 font-heading text-sm font-semibold">В отгрузке</h3>
+            <p className="text-2xl font-bold text-orange-500">
               {stats.status_distribution?.shipment ?? 0}
-            </Text>
-            <Text fontSize="sm" color="gray.600" mb={3}>
+            </p>
+            <p className="mb-3 text-sm text-muted-foreground">
               товаров в отгрузке
-            </Text>
-            <RouterLink to="/shipment">
-              <Link fontSize="sm" color="blue.500">
-                К отгрузке →
-              </Link>
+            </p>
+            <RouterLink
+              to="/shipment"
+              className="text-sm text-primary hover:underline"
+            >
+              К отгрузке →
             </RouterLink>
-          </Card.Body>
-        </Card.Root>
-      </SimpleGrid>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Visual Graphics Section */}
-      <SimpleGrid columns={{ base: 1, lg: 2 }} gap={6} mt={8}>
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Status Distribution Pie Chart */}
-        <Card.Root>
-          <Card.Body>
-            <Heading size="md" mb={4}>
+        <Card>
+          <CardContent>
+            <h3 className="mb-4 font-heading text-base font-semibold">
               Распределение по статусам
-            </Heading>
+            </h3>
             {statusData.length > 0 ? (
-              <Box height="300px">
+              <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -509,21 +431,21 @@ export function Dashboard() {
                     <Tooltip cursor={false} />
                   </PieChart>
                 </ResponsiveContainer>
-              </Box>
+              </div>
             ) : (
-              <Text>Нет данных о статусах</Text>
+              <p className="text-sm text-muted-foreground">Нет данных о статусах</p>
             )}
-          </Card.Body>
-        </Card.Root>
+          </CardContent>
+        </Card>
 
         {/* Top Owners Bar Chart */}
-        <Card.Root>
-          <Card.Body>
-            <Heading size="md" mb={4}>
+        <Card>
+          <CardContent>
+            <h3 className="mb-4 font-heading text-base font-semibold">
               Топ владельцев по количеству товаров
-            </Heading>
+            </h3>
             {topOwnersData.length > 0 ? (
-              <Box height="300px">
+              <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={topOwnersData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -549,19 +471,19 @@ export function Dashboard() {
                     />
                   </BarChart>
                 </ResponsiveContainer>
-              </Box>
+              </div>
             ) : (
-              <Text>Нет данных о владельцах</Text>
+              <p className="text-sm text-muted-foreground">Нет данных о владельцах</p>
             )}
-          </Card.Body>
-        </Card.Root>
-      </SimpleGrid>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Тренды: поступления и отгрузки по дням */}
-      <Card.Root mt={8}>
-        <Card.Body>
-          <Flex justify="space-between" align="center" flexWrap="wrap" gap={3} mb={4}>
-            <Heading size="md">Тренды за период</Heading>
+      <Card className="mt-8">
+        <CardContent>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-heading text-base font-semibold">Тренды за период</h3>
             <MenuRoot>
               <MenuTrigger asChild>
                 <Button size="sm" variant="outline">
@@ -580,14 +502,12 @@ export function Dashboard() {
                 ))}
               </MenuContent>
             </MenuRoot>
-          </Flex>
-          <Box height="300px">
+          </div>
+          <div className="h-[300px]">
             {trendsLoading ? (
-              <Flex h="100%" align="center" justify="center">
-                <Text color="gray.500" fontSize="sm">
-                  Загрузка...
-                </Text>
-              </Flex>
+              <div className="flex h-full items-center justify-center">
+                <p className="text-sm text-muted-foreground">Загрузка...</p>
+              </div>
             ) : trendsChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart
@@ -638,47 +558,45 @@ export function Dashboard() {
                 </ComposedChart>
               </ResponsiveContainer>
             ) : (
-              <Flex h="100%" align="center" justify="center">
-                <Text color="gray.500" fontSize="sm">
+              <div className="flex h-full items-center justify-center">
+                <p className="text-sm text-muted-foreground">
                   Нет данных за выбранный период
-                </Text>
-              </Flex>
+                </p>
+              </div>
             )}
-          </Box>
-        </Card.Body>
-      </Card.Root>
+          </div>
+        </CardContent>
+      </Card>
 
-      <Box mt={8}>
-        <Heading size="md" mb={4}>
+      <div className="mt-8">
+        <h3 className="mb-4 font-heading text-base font-semibold">
           Активные пользователи
-        </Heading>
-        <Card.Root>
-          <Card.Body>
+        </h3>
+        <Card>
+          <CardContent>
             {stats.top_owners && stats.top_owners.length > 0 ? (
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={4}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {stats.top_owners.map((owner, index) => (
-                  <Box
+                  <div
                     key={owner.owner_email}
-                    p={3}
-                    borderWidth={1}
-                    borderRadius="md"
+                    className="rounded-md border border-border p-3"
                   >
-                    <Text fontWeight="bold">#{index + 1}</Text>
-                    <Text fontSize="sm" color="gray.600">
+                    <p className="font-bold">#{index + 1}</p>
+                    <p className="text-sm text-muted-foreground">
                       {owner.owner_email}
-                    </Text>
-                    <Text fontSize="lg" fontWeight="semibold">
+                    </p>
+                    <p className="text-lg font-semibold">
                       {owner.item_count} товаров
-                    </Text>
-                  </Box>
+                    </p>
+                  </div>
                 ))}
-              </SimpleGrid>
+              </div>
             ) : (
-              <Text>Нет данных о владельцах</Text>
+              <p className="text-sm text-muted-foreground">Нет данных о владельцах</p>
             )}
-          </Card.Body>
-        </Card.Root>
-      </Box>
-    </Container>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   )
 }

@@ -1,31 +1,40 @@
-import { Container, Heading, Stack } from "@chakra-ui/react"
 import { useTheme } from "next-themes"
 
-import { Radio, RadioGroup } from "@/components/ui/radio.tsx"
+import { Label } from "@/components/ui/label.tsx"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group.tsx"
 
 const Appearance = () => {
   const { theme, setTheme } = useTheme()
 
   return (
-    <Container maxW="full">
-      <Heading size="sm" py={4}>
-        Выбор темы
-      </Heading>
+    <div className="w-full max-w-full space-y-4">
+      <h2 className="py-4 text-lg font-medium">Выбор темы</h2>
 
       <RadioGroup
-        onValueChange={(e) => {
-          if (e.value != null) setTheme(e.value)
-        }}
-        value={theme}
-        colorPalette="cyan"
+        value={theme ?? "system"}
+        onValueChange={(v) => setTheme(String(v))}
+        className="grid gap-3"
       >
-        <Stack>
-          <Radio value="system">Системная</Radio>
-          <Radio value="light">Светлая тема</Radio>
-          <Radio value="dark">Темная тема</Radio>
-        </Stack>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="system" id="theme-system" />
+          <Label htmlFor="theme-system" className="font-normal">
+            Системная
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="light" id="theme-light" />
+          <Label htmlFor="theme-light" className="font-normal">
+            Светлая тема
+          </Label>
+        </div>
+        <div className="flex items-center gap-2">
+          <RadioGroupItem value="dark" id="theme-dark" />
+          <Label htmlFor="theme-dark" className="font-normal">
+            Темная тема
+          </Label>
+        </div>
       </RadioGroup>
-    </Container>
+    </div>
   )
 }
 export default Appearance

@@ -1,30 +1,10 @@
-import { Link, LinkProps } from "@chakra-ui/react"
-
-const skipLinkStyles: LinkProps = {
-  position: "absolute",
-  top: 2,
-  left: 2,
-  zIndex: 9999,
-  p: 3,
-  bg: "bg",
-  color: "fg",
-  borderRadius: "md",
-  fontWeight: "bold",
-  boxShadow: "md",
-  outline: "2px solid transparent",
-  outlineOffset: "2px",
-  _focus: {
-    outlineColor: "blue.500",
-    transform: "translateY(0)",
-  },
-  transform: "translateY(-200%)",
-  transition: "transform 0.2s",
-}
-
 export function SkipLink() {
   return (
-    <Link href="#main-content" {...skipLinkStyles}>
+    <a
+      href="#main-content"
+      className="fixed top-2 left-2 z-[9999] -translate-y-[200%] rounded-md bg-background p-3 font-bold text-foreground shadow-md transition-transform focus:translate-y-0 focus:outline-2 focus:outline-offset-2 focus:outline-ring"
+    >
       Перейти к основному содержимому
-    </Link>
+    </a>
   )
 }

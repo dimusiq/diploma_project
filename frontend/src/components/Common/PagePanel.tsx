@@ -1,40 +1,56 @@
-import { Card, type CardRootProps } from "@chakra-ui/react"
 import type { ReactNode } from "react"
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card.tsx"
+import { cn } from "@/lib/utils"
 
 export type PagePanelProps = {
   title?: string
   description?: string
   headerExtra?: ReactNode
   children: ReactNode
-} & Omit<CardRootProps, "children">
+  className?: string
+  /** Отступы в шкале как у Chakra spacing (например 4 → 1rem) */
+  mt?: number
+  mb?: number
+}
 
 export function PagePanel({
   title,
   description,
   headerExtra,
   children,
-  variant = "outline",
-  size = "md",
-  mb = 6,
-  ...cardProps
+  className,
+  mt,
+  mb,
 }: PagePanelProps) {
   const hasHeader = Boolean(title || description || headerExtra)
   return (
-    <Card.Root variant={variant} size={size} mb={mb} {...cardProps}>
+    <Card
+      className={cn(
+        mb === undefined && "mb-6",
+        mt != null && `mt-${mt}`,
+        mb != null && `mb-${mb}`,
+        className,
+      )}
+    >
       {hasHeader ? (
-        <Card.Header gap={3}>
-          {(title || description) && (
-            <>
-              {title ? <Card.Title>{title}</Card.Title> : null}
-              {description ? (
-                <Card.Description>{description}</Card.Description>
-              ) : null}
-            </>
-          )}
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 border-b pb-4">
+          <div className="min-w-0 space-y-1">
+            {title ? <CardTitle>{title}</CardTitle> : null}
+            {description ? (
+              <CardDescription>{description}</CardDescription>
+            ) : null}
+          </div>
           {headerExtra}
-        </Card.Header>
+        </CardHeader>
       ) : null}
-      <Card.Body>{children}</Card.Body>
-    </Card.Root>
+      <CardContent>{children}</CardContent>
+    </Card>
   )
 }

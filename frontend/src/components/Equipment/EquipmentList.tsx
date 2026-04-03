@@ -1,18 +1,8 @@
-import {
-  Box,
-  Button,
-  EmptyState,
-  Flex,
-  Input,
-  Table,
-  Text,
-} from "@chakra-ui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
 import { FaPlus } from "react-icons/fa"
 import { FiChevronDown, FiChevronUp, FiSearch } from "react-icons/fi"
-
 import {
   EQUIPMENT_TYPE_LABELS,
   type EquipmentPublic,
@@ -25,7 +15,9 @@ import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import { EquipmentImportDialog } from "@/components/Equipment/EquipmentImportDialog.tsx"
 import { MassAssignZoneDialog } from "@/components/Equipment/MassAssignZoneDialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   MenuContent,
   MenuItem,
@@ -38,7 +30,16 @@ import {
   PaginationPrevTrigger,
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import { cn } from "@/lib/utils.ts"
 import { handleError } from "@/utils.ts"
 
 const STATUS_LABELS: Record<string, string> = {
@@ -66,26 +67,23 @@ function SortableHeader({
 }) {
   const isActive = currentSort === sortKey
   return (
-    <Table.ColumnHeader
-      cursor="pointer"
-      userSelect="none"
+    <TableHead
+      className="cursor-pointer select-none whitespace-nowrap hover:bg-muted/50"
       onClick={() => onSort(sortKey)}
-      _hover={{ bg: "gray.subtle" }}
-      whiteSpace="nowrap"
     >
-      <Flex align="center" gap={1}>
-        <Text>{label}</Text>
+      <span className="inline-flex items-center gap-1">
+        {label}
         {isActive ? (
           currentOrder === "asc" ? (
-            <Box as={FiChevronUp} boxSize={4} aria-hidden />
+            <FiChevronUp className="size-4" aria-hidden />
           ) : (
-            <Box as={FiChevronDown} boxSize={4} aria-hidden />
+            <FiChevronDown className="size-4" aria-hidden />
           )
         ) : (
-          <Box as={FiChevronUp} boxSize={4} opacity={0.3} aria-hidden />
+          <FiChevronUp className="size-4 opacity-30" aria-hidden />
         )}
-      </Flex>
-    </Table.ColumnHeader>
+      </span>
+    </TableHead>
   )
 }
 
@@ -317,23 +315,22 @@ export function EquipmentList() {
     pageItems.length > 0 && pageItems.every((i) => selectedIds.has(i.id))
   const isSomeSelected = pageItems.some((i) => selectedIds.has(i.id))
 
+  const selectStyle = {
+    padding: "6px 12px",
+    borderRadius: "6px",
+    border: "1px solid var(--border)",
+    fontSize: "14px",
+  } as const
+
   return (
-    <Box>
-      <Flex
-        gap={3}
-        mb={4}
-        p={3}
-        bg="bg.subtle"
-        borderRadius="md"
-        align="center"
-        flexWrap="wrap"
-        minH="52px"
-        visibility={selectedIds.size > 0 ? "visible" : "hidden"}
-        pointerEvents={selectedIds.size > 0 ? "auto" : "none"}
+    <div>
+      <div
+        className={cn(
+          "mb-4 flex min-h-[52px] flex-wrap items-center gap-3 rounded-md bg-muted/50 p-3",
+          selectedIds.size === 0 && "invisible pointer-events-none",
+        )}
       >
-        <Text fontSize="sm" fontWeight="medium">
-          Выбрано: {selectedIds.size}
-        </Text>
+        <p className="text-sm font-medium">Выбрано: {selectedIds.size}</p>
         <Button
           size="sm"
           variant="outline"
@@ -348,35 +345,24 @@ export function EquipmentList() {
         >
           Снять выделение
         </Button>
-      </Flex>
-      <Flex
-        direction={{ base: "column", md: "row" }}
-        gap={4}
-        mb={4}
-        wrap="wrap"
-      >
-        <Flex gap={2} align="center" flex="1" minW="200px">
+      </div>
+      <div className="mb-4 flex flex-col flex-wrap gap-4 md:flex-row">
+        <div className="flex min-w-[200px] flex-1 items-center gap-2">
           <Input
             placeholder="Поиск (серийный номер, бренд, модель)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            size="sm"
-            maxW="40ch"
+            className="h-8 max-w-[40ch]"
           />
-          <Box color="fg.muted">
+          <span className="text-muted-foreground">
             <FiSearch />
-          </Box>
-        </Flex>
-        <Flex gap={2} align="center">
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
-              fontSize: "14px",
-            }}
+            style={selectStyle}
           >
             <option value="">Все типы</option>
             {Object.entries(EQUIPMENT_TYPE_LABELS).map(([value, label]) => (
@@ -388,12 +374,7 @@ export function EquipmentList() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: "6px 12px",
-              borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
-              fontSize: "14px",
-            }}
+            style={selectStyle}
           >
             <option value="">Все состояния</option>
             <option value="active">В эксплуатации</option>
@@ -411,40 +392,37 @@ export function EquipmentList() {
             <FaPlus />
             Добавить
           </Button>
-        </Flex>
-      </Flex>
+        </div>
+      </div>
 
       {isLoading && !data ? (
-        <Text color="fg.muted">Загрузка...</Text>
+        <p className="text-sm text-muted-foreground">Загрузка...</p>
       ) : allItems.length === 0 ? (
-        <EmptyState.Root>
-          <EmptyState.Content>
-            <EmptyState.Indicator>
-              <FaPlus />
-            </EmptyState.Indicator>
-            <EmptyState.Title>Нет техники</EmptyState.Title>
-            <EmptyState.Description>
-              Складская техника: бренды задаются в разделе «Администрирование» →
-              Бренды.
-            </EmptyState.Description>
-            <Button variant="solid" size="sm" onClick={handleAdd}>
-              Добавить технику
-            </Button>
-          </EmptyState.Content>
-        </EmptyState.Root>
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border py-12 text-center">
+          <div className="rounded-full bg-muted p-3 text-muted-foreground">
+            <FaPlus className="size-6" />
+          </div>
+          <p className="font-heading font-semibold">Нет техники</p>
+          <p className="max-w-md text-sm text-muted-foreground">
+            Складская техника: бренды задаются в разделе «Администрирование» →
+            Бренды.
+          </p>
+          <Button variant="solid" size="sm" onClick={handleAdd}>
+            Добавить технику
+          </Button>
+        </div>
       ) : filteredCount === 0 ? (
-        <Text color="fg.muted" py={8}>
+        <p className="py-8 text-sm text-muted-foreground">
           Нет записей по текущим фильтрам и поиску.
-        </Text>
+        </p>
       ) : (
-        <Box>
+        <div>
           <FetchingIndicator active={isFetching && !!data} mb={2} />
-          <Table.Root size="sm">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader
-                  w="8"
-                  minW="8"
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead
+                  className="w-8 min-w-8"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Checkbox
@@ -458,7 +436,7 @@ export function EquipmentList() {
                     onCheckedChange={toggleAll}
                     aria-label="Выбрать все на странице"
                   />
-                </Table.ColumnHeader>
+                </TableHead>
                 <SortableHeader
                   label="Модель"
                   sortKey="brand_model"
@@ -515,24 +493,18 @@ export function EquipmentList() {
                   currentOrder={sortOrder}
                   onSort={handleSort}
                 />
-                <Table.ColumnHeader textAlign="end">
-                  Действия
-                </Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
+                <TableHead className="text-end">Действия</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {pageItems.map((item) => (
-                <Table.Row
+                <TableRow
                   key={item.id}
-                  cursor="pointer"
-                  transition="background 0.15s ease"
-                  _hover={{ bg: "gray.subtle" }}
-                  _active={{ bg: "gray.muted" }}
+                  className="cursor-pointer transition-colors hover:bg-muted/50 active:bg-muted/80"
                   onClick={() => handleEdit(item)}
                 >
-                  <Table.Cell
-                    w="8"
-                    minW="8"
+                  <TableCell
+                    className="w-8 min-w-8"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Checkbox
@@ -547,63 +519,63 @@ export function EquipmentList() {
                       }}
                       aria-label={`Выбрать ${item.brand_name} ${item.model}`}
                     />
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Flex direction="column" gap={0.5}>
-                      <Text fontWeight="medium">
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium">
                         {item.brand_name} {item.model}
-                      </Text>
-                      <Text fontSize="xs" color="fg.muted">
+                      </span>
+                      <span className="text-xs text-muted-foreground">
                         Ввод в эксплуатацию:{" "}
                         {item.commissioned_at
                           ? new Date(item.commissioned_at).toLocaleDateString(
                               "ru-RU",
                             )
                           : "—"}
-                      </Text>
-                    </Flex>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text fontSize="sm">{item.serial_number || "—"}</Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text fontSize="sm">{item.garage_number || "—"}</Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text fontSize="sm">
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">{item.serial_number || "—"}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">{item.garage_number || "—"}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">
                       {EQUIPMENT_TYPE_LABELS[item.equipment_type] ??
                         item.equipment_type}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text fontSize="sm">
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">
                       {zones.some((z) => z.name === item.zone)
                         ? item.zone
                         : "—"}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text fontSize="sm">
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">
                       {item.commissioned_at
                         ? new Date(item.commissioned_at).toLocaleDateString(
                             "ru-RU",
                           )
                         : "—"}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text fontSize="sm">
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">
                       {item.engine_hours != null ? item.engine_hours : "—"}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text fontSize="sm">
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm">
                       {STATUS_LABELS[item.current_status] ??
                         item.current_status}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell
-                    textAlign="end"
+                    </span>
+                  </TableCell>
+                  <TableCell
+                    className="text-end"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MenuRoot>
@@ -616,51 +588,45 @@ export function EquipmentList() {
                         <MenuItem
                           value="delete"
                           onClick={() => handleDeleteClick(item)}
-                          color="red"
+                          className="text-destructive data-highlighted:text-destructive"
                         >
                           Удалить
                         </MenuItem>
                       </MenuContent>
                     </MenuRoot>
-                  </Table.Cell>
-                </Table.Row>
+                  </TableCell>
+                </TableRow>
               ))}
-            </Table.Body>
-          </Table.Root>
-        </Box>
+            </TableBody>
+          </Table>
+        </div>
       )}
       {totalCount > 0 && filteredCount > 0 && (
-        <Flex
-          mt={4}
-          align="center"
-          justify="space-between"
-          flexWrap="wrap"
-          gap={3}
-        >
-          <Text fontSize="sm" color="fg.muted">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
             {`Строки ${rangeStart}–${rangeEnd} из ${filteredCount}${
               filteredCount !== totalCount
                 ? ` (всего в системе: ${totalCount})`
                 : ""
             }`}
-          </Text>
+          </p>
           {totalPages > 1 ? (
-            <Flex justifyContent="flex-end" flexShrink={0}>
+            <div className="flex shrink-0 justify-end">
               <PaginationRoot
                 count={filteredCount}
                 pageSize={PER_PAGE}
                 page={page}
                 onPageChange={(e) => setPage(e.page)}
               >
-                <Flex>
+                <div className="flex">
                   <PaginationPrevTrigger />
                   <PaginationItems />
                   <PaginationNextTrigger />
-                </Flex>
+                </div>
               </PaginationRoot>
-            </Flex>
+            </div>
           ) : null}
-        </Flex>
+        </div>
       )}
       <EquipmentImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <MassAssignZoneDialog
@@ -684,6 +650,6 @@ export function EquipmentList() {
         isLoading={isDeleting}
         onConfirm={handleDeleteConfirm}
       />
-    </Box>
+    </div>
   )
 }

@@ -1,16 +1,13 @@
-import { Box } from "@chakra-ui/react"
-
-import { MaintenanceScheduleEditor } from "@/components/Equipment/MaintenanceScheduleEditor.tsx"
 import { MaintenanceReglamentTemplatesManager } from "@/components/Equipment/MaintenanceReglamentTemplatesManager.tsx"
+import { MaintenanceScheduleEditor } from "@/components/Equipment/MaintenanceScheduleEditor.tsx"
 
 export function MaintenanceSettingsPage() {
   return (
-    <Box>
+    <div>
       <MaintenanceScheduleEditor />
-      <Box mt={10}>
+      <div className="mt-10">
         <MaintenanceReglamentTemplatesManager />
-      </Box>
-    </Box>
+      </div>
+    </div>
   )
 }
-

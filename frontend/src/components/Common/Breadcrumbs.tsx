@@ -1,4 +1,3 @@
-import { Box, Link, Text } from "@chakra-ui/react"
 import { Link as RouterLink, useLocation } from "@tanstack/react-router"
 
 interface Crumb {
@@ -21,7 +20,6 @@ const PATH_LABELS: Record<string, string> = {
   "/admin": "Администрирование",
 }
 
-/** Подразделы «Техника» для хлебных крошек (section → заголовок). */
 const TECHNIQUE_SECTION_LABELS: Record<string, string> = {
   assets: "Список техники",
   maintenance: "График ТО",
@@ -37,7 +35,10 @@ const TECHNIQUE_SECTION_LABELS: Record<string, string> = {
   predictive: "Прогнозирование",
 }
 
-function pathToCrumbs(pathname: string, search?: { section?: string }): Crumb[] {
+function pathToCrumbs(
+  pathname: string,
+  search?: { section?: string },
+): Crumb[] {
   const segments = pathname.split("/").filter(Boolean)
   const crumbs: Crumb[] = [{ label: PATH_LABELS["/"] ?? "Главная", to: "/" }]
   let acc = ""
@@ -48,7 +49,11 @@ function pathToCrumbs(pathname: string, search?: { section?: string }): Crumb[] 
       (seg.length > 10 ? `${seg.slice(0, 8)}…` : decodeURIComponent(seg))
     crumbs.push({ label, to: acc })
   }
-  if (pathname === "/technique" && search?.section && TECHNIQUE_SECTION_LABELS[search.section]) {
+  if (
+    pathname === "/technique" &&
+    search?.section &&
+    TECHNIQUE_SECTION_LABELS[search.section]
+  ) {
     crumbs.push({
       label: TECHNIQUE_SECTION_LABELS[search.section],
       to: undefined,
@@ -64,41 +69,41 @@ interface BreadcrumbsProps {
 export function Breadcrumbs({ extra = [] }: BreadcrumbsProps) {
   const location = useLocation()
   const pathname = location.pathname
-  const section = new URLSearchParams(location.search).get("section") ?? undefined
+  const section =
+    new URLSearchParams(location.search).get("section") ?? undefined
   const baseCrumbs = pathToCrumbs(pathname, section ? { section } : undefined)
   const crumbs =
     extra.length > 0 ? [...baseCrumbs.slice(0, -1), ...extra] : baseCrumbs
   if (crumbs.length <= 1) return null
 
   return (
-    <Box
-      as="nav"
+    <nav
       aria-label="Хлебные крошки"
-      fontSize="sm"
-      color="gray.600"
-      mb={2}
-      display="flex"
-      flexWrap="wrap"
-      gap={1}
-      alignItems="center"
+      className="mb-2 flex flex-wrap items-center gap-1 text-sm text-muted-foreground"
     >
       {crumbs.map((crumb, i) => {
         const isLast = i === crumbs.length - 1
         return (
-          <Box key={crumb.to ?? crumb.label} display="flex" alignItems="center" gap={1}>
-            {i > 0 && <Text as="span">/</Text>}
+          <div
+            key={crumb.to ?? `${crumb.label}-${i}`}
+            className="flex items-center gap-1"
+          >
+            {i > 0 ? <span aria-hidden>/</span> : null}
             {isLast || !crumb.to ? (
-              <Text as="span" aria-current="page">
+              <span className="text-foreground" aria-current="page">
                 {crumb.label}
-              </Text>
+              </span>
             ) : (
-              <Link asChild>
-                <RouterLink to={crumb.to}>{crumb.label}</RouterLink>
-              </Link>
+              <RouterLink
+                to={crumb.to}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                {crumb.label}
+              </RouterLink>
             )}
-          </Box>
+          </div>
         )
       })}
-    </Box>
+    </nav>
   )
 }

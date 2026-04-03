@@ -1,16 +1,6 @@
 /**
  * Общий список проведённых ТО для раздела «Обслуживание и ремонт техники».
  */
-import {
-  Box,
-  Button,
-  Flex,
-  Input,
-  Table,
-  Text,
-  Textarea,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
@@ -33,7 +23,18 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Input } from "@/components/ui/input.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { getIntervalHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
@@ -70,7 +71,7 @@ function CreateOrderDialog({
     ) {
       setIntervalHours(chainIntervals[0])
     }
-  }, [equipmentId, chainIntervals, intervalHours])
+  }, [chainIntervals, intervalHours])
 
   const { data: equipmentData } = useQuery({
     queryKey: ["equipment", "all"],
@@ -121,11 +122,11 @@ function CreateOrderDialog({
             <DialogTitle>Создать заказ (проведённое ТО)</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <VStack gap={3} align="stretch">
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+            <div className="flex flex-col gap-3">
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Техника
-                </Text>
+                </p>
                 <select
                   value={equipmentId}
                   onChange={(e) => {
@@ -143,12 +144,7 @@ function CreateOrderDialog({
                     }
                   }}
                   required
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid var(--chakra-colors-border)",
-                  }}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm"
                 >
                   <option value="">— Выберите технику —</option>
                   {equipmentList.map((eq) => (
@@ -158,23 +154,23 @@ function CreateOrderDialog({
                     </option>
                   ))}
                 </select>
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Дата проведения ТО
-                </Text>
+                </p>
                 <Input
                   type="date"
                   value={performedAt}
                   onChange={(e) => setPerformedAt(e.target.value)}
                   required
-                  size="sm"
+                  className="h-7"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Интервал ТО (м/ч)
-                </Text>
+                </p>
                 {chainIntervals.length > 0 ? (
                   <select
                     value={
@@ -186,12 +182,7 @@ function CreateOrderDialog({
                       setIntervalHours(parseInt(e.target.value, 10))
                     }
                     required
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--chakra-colors-border)",
-                    }}
+                    className="w-full rounded-md border border-border px-3 py-2 text-sm"
                   >
                     {chainIntervals.map((h) => (
                       <option key={h} value={h}>
@@ -210,41 +201,41 @@ function CreateOrderDialog({
                           parseInt(e.target.value, 10) || 500,
                         )
                       }
-                      size="sm"
+                      className="h-7"
                     />
-                    <Text fontSize="xs" color="fg.muted" mt={1}>
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Техника не привязана к цепочке ТО — укажите интервал
                       вручную
-                    </Text>
+                    </p>
                   </>
                 )}
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Моточасы на момент ТО (необязательно)
-                </Text>
+                </p>
                 <Input
                   type="number"
                   min={0}
                   value={engineHoursAtService}
                   onChange={(e) => setEngineHoursAtService(e.target.value)}
                   placeholder="—"
-                  size="sm"
+                  className="h-7"
                 />
-              </Box>
-              <Box>
-                <Text fontSize="sm" mb={1} fontWeight="medium">
+              </div>
+              <div>
+                <p className="mb-1 text-sm font-medium">
                   Комментарий (необязательно)
-                </Text>
+                </p>
                 <Textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="—"
-                  size="sm"
                   rows={2}
+                  className="min-h-[4rem] text-sm"
                 />
-              </Box>
-            </VStack>
+              </div>
+            </div>
           </DialogBody>
           <DialogFooter>
             <Button
@@ -255,7 +246,7 @@ function CreateOrderDialog({
             >
               Отмена
             </Button>
-            <Button variant="solid" size="sm" type="submit" loading={createMutation.isPending}>
+            <Button size="sm" type="submit" loading={createMutation.isPending}>
               Создать
             </Button>
           </DialogFooter>
@@ -286,24 +277,24 @@ export function PerformedMaintenanceList() {
   }
 
   if (isLoading) {
-    return <Text color="fg.muted">Загрузка…</Text>
+    return <p className="text-muted-foreground">Загрузка…</p>
   }
 
   return (
-    <Box>
-      <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
-        <Button variant="solid" size="sm" onClick={() => setCreateOpen(true)}>
-          <Flex as="span" align="center" gap={2}>
-            <Box as={FaPlus} />
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <span className="inline-flex items-center gap-2">
+            <FaPlus />
             Создать заказ
-          </Flex>
+          </span>
         </Button>
         {records.length > 0 && (
-          <Text fontSize="sm" color="fg.muted">
+          <p className="text-sm text-muted-foreground">
             Всего записей: {count}
-          </Text>
+          </p>
         )}
-      </Flex>
+      </div>
 
       <CreateOrderDialog
         open={createOpen}
@@ -312,28 +303,26 @@ export function PerformedMaintenanceList() {
       />
 
       {records.length === 0 ? (
-        <Text color="fg.muted">
+        <p className="text-muted-foreground">
           Проведённых ТО пока нет. Нажмите «Создать заказ», чтобы добавить
           запись о проведённом ТО.
-        </Text>
+        </p>
       ) : (
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Техника</Table.ColumnHeader>
-              <Table.ColumnHeader>Дата</Table.ColumnHeader>
-              <Table.ColumnHeader>Интервал (м/ч)</Table.ColumnHeader>
-              <Table.ColumnHeader>Моточасы на момент ТО</Table.ColumnHeader>
-              <Table.ColumnHeader>Комментарий</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Техника</TableHead>
+              <TableHead>Дата</TableHead>
+              <TableHead>Интервал (м/ч)</TableHead>
+              <TableHead>Моточасы на момент ТО</TableHead>
+              <TableHead>Комментарий</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {records.map((r) => (
-              <Table.Row
+              <TableRow
                 key={r.id}
-                cursor="pointer"
-                _hover={{ bg: "gray.subtle" }}
-                _active={{ bg: "gray.muted" }}
+                className="cursor-pointer"
                 onClick={() =>
                   navigate({
                     to: "/technique/equipment/$equipmentId",
@@ -341,24 +330,24 @@ export function PerformedMaintenanceList() {
                   })
                 }
               >
-                <Table.Cell>
-                  <Text fontWeight="medium">{r.equipment_name || "—"}</Text>
-                </Table.Cell>
-                <Table.Cell>
+                <TableCell>
+                  <span className="font-medium">{r.equipment_name || "—"}</span>
+                </TableCell>
+                <TableCell>
                   {new Date(r.performed_at).toLocaleDateString("ru-RU")}
-                </Table.Cell>
-                <Table.Cell>{r.interval_hours}</Table.Cell>
-                <Table.Cell>
+                </TableCell>
+                <TableCell>{r.interval_hours}</TableCell>
+                <TableCell>
                   {r.engine_hours_at_service != null
                     ? r.engine_hours_at_service
                     : "—"}
-                </Table.Cell>
-                <Table.Cell>{r.comment ?? "—"}</Table.Cell>
-              </Table.Row>
+                </TableCell>
+                <TableCell className="whitespace-normal">{r.comment ?? "—"}</TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
+          </TableBody>
+        </Table>
       )}
-    </Box>
+    </div>
   )
 }

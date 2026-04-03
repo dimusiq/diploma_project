@@ -1,12 +1,3 @@
-import {
-  Button,
-  DialogActionTrigger,
-  DialogTitle,
-  Flex,
-  Input,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
@@ -15,17 +6,21 @@ import type { ApiError } from "@/client/core/ApiError.ts"
 import { RolesService, type UserCreate, UsersService } from "@/client/index.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { emailPattern, handleError } from "@/utils.ts"
-import { Checkbox } from "../ui/checkbox.tsx"
 import {
+  DialogActionTrigger,
   DialogBody,
   DialogCloseTrigger,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogRoot,
+  DialogTitle,
   DialogTrigger,
-} from "../ui/dialog.tsx"
+} from "../ui/app-dialog.tsx"
+import { Button } from "../ui/button.tsx"
+import { Checkbox } from "../ui/checkbox.tsx"
 import { Field } from "../ui/field.tsx"
+import { Input } from "../ui/input.tsx"
 
 interface UserCreateForm extends UserCreate {
   confirm_password: string
@@ -108,11 +103,11 @@ const AddUser = () => {
             <DialogTitle>Добавить пользователя</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <Text mb={4}>
+            <p className="mb-4 text-sm">
               Заполните форму для создания нового пользователя. Все поля
               обязательны для заполнения.
-            </Text>
-            <VStack gap={4}>
+            </p>
+            <div className="flex flex-col gap-4">
               <Field
                 required
                 invalid={!!errors.email}
@@ -151,7 +146,7 @@ const AddUser = () => {
                     width: "100%",
                     padding: "8px 12px",
                     borderRadius: "6px",
-                    border: "1px solid var(--chakra-colors-border)",
+                    border: "1px solid var(--border)",
                   }}
                 >
                   <option value={ROLE_EMPTY}>— не выбрана —</option>
@@ -200,17 +195,20 @@ const AddUser = () => {
                   type="password"
                 />
               </Field>
-            </VStack>
+            </div>
 
-            <Flex mt={4} direction="column" gap={4}>
+            <div className="mt-4 flex flex-col gap-4">
               <Controller
                 control={control}
                 name="is_superuser"
                 render={({ field }) => (
-                  <Field disabled={field.disabled} colorPalette="cyan">
+                  <Field
+                    disabled={field.disabled}
+                    className="text-cyan-700 dark:text-cyan-400"
+                  >
                     <Checkbox
                       checked={field.value}
-                      onCheckedChange={({ checked }) => field.onChange(checked)}
+                      onCheckedChange={(c) => field.onChange(c)}
                     >
                       Суперпользователь?
                     </Checkbox>
@@ -221,17 +219,20 @@ const AddUser = () => {
                 control={control}
                 name="is_active"
                 render={({ field }) => (
-                  <Field disabled={field.disabled} colorPalette="cyan">
+                  <Field
+                    disabled={field.disabled}
+                    className="text-cyan-700 dark:text-cyan-400"
+                  >
                     <Checkbox
                       checked={field.value}
-                      onCheckedChange={({ checked }) => field.onChange(checked)}
+                      onCheckedChange={(c) => field.onChange(c)}
                     >
                       Активный?
                     </Checkbox>
                   </Field>
                 )}
               />
-            </Flex>
+            </div>
           </DialogBody>
 
           <DialogFooter gap={2}>

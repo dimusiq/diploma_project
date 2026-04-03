@@ -1,21 +1,14 @@
 /**
  * Диалог создания заявки на обслуживание/ремонт.
  */
-import {
-  Box,
-  Button,
-  Input,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
 import { equipmentApi } from "@/api/equipment.ts"
 import {
-  workOrdersApi,
   WORK_ORDER_PRIORITY_LABELS,
   type WorkOrderCreate,
+  workOrdersApi,
 } from "@/api/workOrders.ts"
 import type { UserPublic } from "@/client/index.ts"
 import {
@@ -25,7 +18,9 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 export function CreateWorkOrderDialog({
@@ -91,6 +86,9 @@ export function CreateWorkOrderDialog({
     })
   }
 
+  const selectClass =
+    "w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+
   return (
     <DialogRoot open={open} onOpenChange={(e) => onOpenChange(e.open)}>
       <DialogContent>
@@ -99,21 +97,16 @@ export function CreateWorkOrderDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <DialogBody>
-          <VStack gap={3} align="stretch">
-            <Box>
-              <Text fontSize="sm" mb={1} fontWeight="medium">
+          <div className="flex flex-col gap-3">
+            <div>
+              <p className="mb-1 text-sm font-medium">
                 Техника
-              </Text>
+              </p>
               <select
                 value={equipmentId}
                 onChange={(e) => setEquipmentId(e.target.value)}
                 required
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--chakra-colors-border)",
-                }}
+                className={selectClass}
               >
                 <option value="">— Выберите технику —</option>
                 {equipmentList.map((eq) => (
@@ -123,43 +116,38 @@ export function CreateWorkOrderDialog({
                   </option>
                 ))}
               </select>
-            </Box>
-            <Box>
-              <Text fontSize="sm" mb={1} fontWeight="medium">
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium">
                 Заголовок
-              </Text>
+              </p>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Краткое описание заявки"
                 maxLength={256}
-                size="sm"
+                className="h-8 text-sm"
               />
-            </Box>
-            <Box>
-              <Text fontSize="sm" mb={1} fontWeight="medium">
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium">
                 Описание (необязательно)
-              </Text>
+              </p>
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Подробности"
-                size="sm"
+                className="h-8 text-sm"
               />
-            </Box>
-            <Box>
-              <Text fontSize="sm" mb={1} fontWeight="medium">
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium">
                 Приоритет
-              </Text>
+              </p>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--chakra-colors-border)",
-                }}
+                className={selectClass}
               >
                 {Object.entries(WORK_ORDER_PRIORITY_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>
@@ -167,20 +155,15 @@ export function CreateWorkOrderDialog({
                   </option>
                 ))}
               </select>
-            </Box>
-            <Box>
-              <Text fontSize="sm" mb={1} fontWeight="medium">
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium">
                 Исполнитель (необязательно)
-              </Text>
+              </p>
               <select
                 value={assignedToId}
                 onChange={(e) => setAssignedToId(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--chakra-colors-border)",
-                }}
+                className={selectClass}
               >
                 <option value="">— Не назначен —</option>
                 {users.map((u) => (
@@ -189,19 +172,19 @@ export function CreateWorkOrderDialog({
                   </option>
                 ))}
               </select>
-            </Box>
-            <Box>
-              <Text fontSize="sm" mb={1} fontWeight="medium">
+            </div>
+            <div>
+              <p className="mb-1 text-sm font-medium">
                 Срок (необязательно)
-              </Text>
+              </p>
               <Input
                 type="date"
                 value={dueAt}
                 onChange={(e) => setDueAt(e.target.value)}
-                size="sm"
+                className="h-8 text-sm"
               />
-            </Box>
-          </VStack>
+            </div>
+          </div>
         </DialogBody>
         <DialogFooter>
           <Button

@@ -1,20 +1,16 @@
-import { Box, Button, Flex, Image, useBreakpointValue } from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { FaRobot } from "react-icons/fa"
 
 import { fetchAgentPermissions } from "@/api/agent.ts"
-import Logo from "/images/nebardak-logo.svg"
+import { buttonVariants } from "@/components/ui/button.tsx"
 import { ColorModeButton } from "@/components/ui/color-mode.tsx"
+import { cn } from "@/lib/utils"
+import Logo from "/images/nebardak-logo.svg"
 import { NotificationCenter } from "./NotificationCenter.tsx"
 import UserMenu from "./UserMenu.tsx"
 
 function Navbar() {
-  const display = useBreakpointValue({
-    base: "none",
-    md: "flex",
-  })
-
   const { data: agentPerm, isPending: agentPermPending } = useQuery({
     queryKey: ["agent-permissions"],
     queryFn: fetchAgentPermissions,
@@ -22,46 +18,32 @@ function Navbar() {
   const showAssistant = !agentPermPending && agentPerm?.can_use === true
 
   return (
-    <Flex
-      display={display}
-      justify="space-between"
-      position="sticky"
-      color="white"
-      align="center"
-      bg="bg.muted"
-      w="100%"
-      top={0}
-      p={4}
+    <header
+      className={cn(
+        "sticky top-0 z-40 hidden w-full items-center justify-between bg-muted/95 p-4 text-foreground backdrop-blur md:flex",
+      )}
     >
       <Link to="/">
-        <Image src={Logo} alt="Nebardak" maxW="3xs" p={2} />
+        <img src={Logo} alt="Nebardak" className="max-w-[10rem] p-2" />
       </Link>
-      <Flex gap={2} alignItems="center">
+      <div className="flex items-center gap-2">
         {showAssistant ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-            borderRadius="md"
-            cursor="pointer"
-            _hover={{ bg: "whiteAlpha.300" }}
-            _active={{ bg: "whiteAlpha.400" }}
+          <Link
+            to="/assistant"
+            aria-label="Ассистент склада"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "rounded-md hover:bg-white/10",
+            )}
           >
-            <Link to="/assistant" aria-label="Ассистент склада">
-              <Box
-                as={FaRobot}
-                boxSize="5"
-                aria-hidden
-                css={{ "& svg": { fill: "currentColor" } }}
-              />
-            </Link>
-          </Button>
+            <FaRobot className="size-5" aria-hidden />
+          </Link>
         ) : null}
         <NotificationCenter />
-        <ColorModeButton />
+        <ColorModeButton className="hover:bg-white/10" />
         <UserMenu />
-      </Flex>
-    </Flex>
+      </div>
+    </header>
   )
 }
 

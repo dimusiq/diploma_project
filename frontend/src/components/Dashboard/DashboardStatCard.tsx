@@ -1,5 +1,10 @@
-import { Box, Card, Text } from "@chakra-ui/react"
 import type { ReactNode } from "react"
+
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card.tsx"
+import { cn } from "@/lib/utils"
 
 interface DashboardStatCardProps {
   label: string
@@ -10,11 +15,19 @@ interface DashboardStatCardProps {
 }
 
 const colorMap = {
-  info: "blue.500",
-  success: "green.500",
-  warning: "orange.500",
-  error: "red.500",
-  muted: "gray.600",
+  info: "text-blue-600 dark:text-blue-400",
+  success: "text-green-600 dark:text-green-400",
+  warning: "text-orange-600 dark:text-orange-400",
+  error: "text-red-600 dark:text-red-400",
+  muted: "text-muted-foreground",
+} as const
+
+const iconColorMap = {
+  info: "text-blue-600 dark:text-blue-400",
+  success: "text-green-600 dark:text-green-400",
+  warning: "text-orange-600 dark:text-orange-400",
+  error: "text-red-600 dark:text-red-400",
+  muted: "text-muted-foreground",
 } as const
 
 export function DashboardStatCard({
@@ -25,28 +38,19 @@ export function DashboardStatCard({
   icon,
 }: DashboardStatCardProps) {
   const color = colorMap[valueColor]
+  const iconColor = iconColorMap[valueColor]
   return (
-    <Card.Root>
-      <Card.Body>
-        <Box display="flex" flexDirection="column" gap={2}>
-          {icon && (
-            <Box color={color} fontSize="xl">
-              {icon}
-            </Box>
-          )}
-          <Text fontSize="lg" fontWeight="bold">
-            {label}
-          </Text>
-          <Text fontSize="2xl" fontWeight="bold" color={color}>
-            {value}
-          </Text>
-          {helpText && (
-            <Text fontSize="sm" color="gray.600">
-              {helpText}
-            </Text>
-          )}
-        </Box>
-      </Card.Body>
-    </Card.Root>
+    <Card>
+      <CardContent className="flex flex-col gap-2 pt-4">
+        {icon && (
+          <div className={cn("text-xl", iconColor)}>{icon}</div>
+        )}
+        <p className="text-lg font-bold">{label}</p>
+        <p className={cn("text-2xl font-bold", color)}>{value}</p>
+        {helpText && (
+          <p className="text-sm text-muted-foreground">{helpText}</p>
+        )}
+      </CardContent>
+    </Card>
   )
 }

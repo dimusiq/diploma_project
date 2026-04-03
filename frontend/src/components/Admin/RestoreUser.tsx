@@ -1,8 +1,8 @@
-import { Button } from "@chakra-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { FiRefreshCw } from "react-icons/fi"
 
 import { UsersService } from "@/client/index.ts"
+import { Button } from "@/components/ui/button.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 const RestoreUser = ({ id }: { id: string }) => {
@@ -26,10 +26,9 @@ const RestoreUser = ({ id }: { id: string }) => {
     <Button
       variant="ghost"
       size="sm"
-      colorPalette="green"
+      className="gap-2 text-green-600 hover:text-green-700 dark:text-green-500"
       onClick={() => mutation.mutate()}
       loading={mutation.isPending}
-      gap={2}
     >
       <FiRefreshCw />
       Восстановить

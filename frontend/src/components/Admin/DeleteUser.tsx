@@ -1,4 +1,3 @@
-import { Button, DialogTitle, Text } from "@chakra-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
@@ -13,8 +12,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogRoot,
+  DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 const DeleteUser = ({ id }: { id: string }) => {
@@ -57,8 +58,12 @@ const DeleteUser = ({ id }: { id: string }) => {
       onOpenChange={({ open }) => setIsOpen(open)}
     >
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" colorPalette="red">
-          <FiTrash2 fontSize="16px" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+        >
+          <FiTrash2 className="size-4" />
           Удалить Пользователя
         </Button>
       </DialogTrigger>
@@ -68,11 +73,11 @@ const DeleteUser = ({ id }: { id: string }) => {
             <DialogTitle>Удалить Пользователя</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <Text mb={4}>
+            <p className="mb-4 text-sm">
               Пользователь будет перемещён в список удалённых и не сможет
               входить в систему. Его товары сохранятся. Восстановить можно в
               любой момент во вкладке «Удалённые». Продолжить?
-            </Text>
+            </p>
           </DialogBody>
 
           <DialogFooter gap={2}>
@@ -82,9 +87,8 @@ const DeleteUser = ({ id }: { id: string }) => {
               </Button>
             </DialogActionTrigger>
             <Button
-              variant="solid"
+              variant="destructive"
               size="sm"
-              colorPalette="red"
               type="submit"
               loading={isSubmitting}
             >

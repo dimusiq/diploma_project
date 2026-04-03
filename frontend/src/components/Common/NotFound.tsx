@@ -1,43 +1,31 @@
-import { Button, Center, Flex, Text } from "@chakra-ui/react"
 import { Link } from "@tanstack/react-router"
+
+import { Button } from "@/components/ui/button.tsx"
 
 const NotFound = () => {
   return (
-    <Flex
-      height="100vh"
-      align="center"
-      justify="center"
-      flexDir="column"
+    <div
+      className="flex h-screen flex-col items-center justify-center p-4"
       data-testid="not-found"
-      p={4}
     >
-      <Flex alignItems="center" zIndex={1}>
-        <Flex flexDir="column" ml={4} align="center" justify="center" p={4}>
-          <Text
-            fontSize={{ base: "6xl", md: "8xl" }}
-            fontWeight="bold"
-            lineHeight="1"
-            mb={4}
-          >
-            404
-          </Text>
-          <Text fontSize="2xl" fontWeight="bold" mb={2}>
-            Ошибка!
-          </Text>
-        </Flex>
-      </Flex>
+      <div className="z-[1] flex items-center">
+        <div className="ml-4 flex flex-col items-center justify-center p-4">
+          <p className="mb-4 text-6xl leading-none font-bold md:text-8xl">404</p>
+          <p className="mb-2 text-2xl font-bold">Ошибка!</p>
+        </div>
+      </div>
 
-      <Text fontSize="lg" color="gray.600" mb={4} textAlign="center" zIndex={1}>
+      <p className="z-[1] mb-4 text-center text-lg text-muted-foreground">
         Страница не найдена.
-      </Text>
-      <Center zIndex={1}>
+      </p>
+      <div className="z-[1] flex justify-center">
         <Link to="/">
-          <Button variant="solid" colorPalette="blue" size="sm" mt={4} alignSelf="center">
+          <Button variant="default" size="sm" className="mt-4 self-center">
             Вернуться на главную
           </Button>
         </Link>
-      </Center>
-    </Flex>
+      </div>
+    </div>
   )
 }
 

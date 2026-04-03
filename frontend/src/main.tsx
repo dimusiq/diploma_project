@@ -6,13 +6,14 @@ import {
 } from "@tanstack/react-query"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
-import React, { StrictMode } from "react"
+import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
 import { OpenAPI } from "./client/index.ts"
 import { CustomProvider } from "./components/ui/provider.tsx"
+import "./index.css"
 import { getErrorHttpStatus } from "./lib/apiClient.ts"
-import { isLikelyBrowserExtensionRejection } from "./lib/extensionNoise.ts"
 import { getAccessToken, removeAccessToken } from "./lib/authStorage.ts"
+import { isLikelyBrowserExtensionRejection } from "./lib/extensionNoise.ts"
 import { routeTree } from "./routeTree.gen.ts"
 
 // Типы для переменных окружения Vite

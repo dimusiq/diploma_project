@@ -1,26 +1,15 @@
 /**
  * Детали заявки: основная информация, таймлайн (история статусов + комментарии), чек-лист, вложения.
  */
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Heading,
-  Input,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
-
+import { sparePartsApi } from "@/api/spareParts.ts"
 import {
-  workOrdersApi,
   WORK_ORDER_PRIORITY_LABELS,
   WORK_ORDER_STATUS_LABELS,
   type WorkOrderDetailPublic,
+  workOrdersApi,
 } from "@/api/workOrders.ts"
-import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
   DialogBody,
   DialogContent,
@@ -28,18 +17,21 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
   DrawerBackdrop,
   DrawerBody,
   DrawerCloseTrigger,
   DrawerContent,
-  DrawerRoot,
   DrawerHeader,
+  DrawerRoot,
   DrawerTitle,
 } from "@/components/ui/drawer.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
-import { sparePartsApi } from "@/api/spareParts.ts"
+import { cn } from "@/lib/utils.ts"
 
 export function WorkOrderDetailDrawer({
   workOrderId,
@@ -145,9 +137,9 @@ export function WorkOrderDetailDrawer({
             {isLoading ? "Загрузка…" : order?.title ?? "Заявка"}
           </DrawerTitle>
         </DrawerHeader>
-        <DrawerBody overflowY="auto" pb={6}>
+        <DrawerBody className="overflow-y-auto pb-6">
           {!order ? (
-            <Text color="fg.muted">Загрузка…</Text>
+            <p className="text-muted-foreground">Загрузка…</p>
           ) : (
             <WorkOrderDetailContent
               order={order}
@@ -266,26 +258,26 @@ function WorkOrderDetailContent({
   ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
   return (
-    <VStack align="stretch" gap={6}>
-      <Box>
-        <Text fontSize="sm" color="fg.muted" mb={1}>
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="mb-1 text-sm text-muted-foreground">
           Техника
-        </Text>
-        <Text fontWeight="medium">{order.equipment_name ?? "—"}</Text>
-      </Box>
+        </p>
+        <p className="font-medium">{order.equipment_name ?? "—"}</p>
+      </div>
       {order.description && (
-        <Box>
-          <Text fontSize="sm" color="fg.muted" mb={1}>
+        <div>
+          <p className="mb-1 text-sm text-muted-foreground">
             Описание
-          </Text>
-          <Text>{order.description}</Text>
-        </Box>
+          </p>
+          <p>{order.description}</p>
+        </div>
       )}
-      <Flex gap={2} flexWrap="wrap">
-        <Box>
-          <Text fontSize="xs" color="fg.muted">Статус</Text>
+      <div className="flex flex-wrap gap-2">
+        <div>
+          <p className="text-xs text-muted-foreground">Статус</p>
           {statusEditing ? (
-            <VStack align="stretch" gap={1} mt={1}>
+            <div className="mt-1 flex flex-col gap-1">
               <select
                 defaultValue={order.status}
                 onBlur={(e) => {
@@ -294,12 +286,7 @@ function WorkOrderDetailContent({
                   setStatusEditing(false)
                 }}
                 onChange={(e) => onUpdateStatus(e.target.value, statusComment)}
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--chakra-colors-border)",
-                  fontSize: "13px",
-                }}
+                className="rounded-md border border-border px-2 py-1 text-[13px]"
               >
                 {Object.entries(WORK_ORDER_STATUS_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>
@@ -308,104 +295,100 @@ function WorkOrderDetailContent({
                 ))}
               </select>
               <Input
-                size="xs"
+                className="h-7 text-xs"
                 placeholder="Комментарий к смене статуса"
                 value={statusComment}
                 onChange={(e) => setStatusComment(e.target.value)}
               />
-            </VStack>
+            </div>
           ) : (
-            <Badge
-              cursor="pointer"
+            <button
+              type="button"
+              className="mt-1 cursor-pointer rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs"
               onClick={() => setStatusEditing(true)}
-              mt={1}
             >
               {statusLabel}
-            </Badge>
+            </button>
           )}
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="fg.muted">Приоритет</Text>
-          <Badge mt={1}>{priorityLabel}</Badge>
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="fg.muted">Исполнитель</Text>
-          <Text fontSize="sm" mt={1}>{order.assigned_to_email ?? "—"}</Text>
-        </Box>
-        <Box>
-          <Text fontSize="xs" color="fg.muted">Срок</Text>
-          <Text fontSize="sm" mt={1}>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Приоритет</p>
+          <span className="mt-1 inline-block rounded-md border border-border px-2 py-0.5 text-xs">
+            {priorityLabel}
+          </span>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Исполнитель</p>
+          <p className="mt-1 text-sm">{order.assigned_to_email ?? "—"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Срок</p>
+          <p className="mt-1 text-sm">
             {order.due_at
               ? new Date(order.due_at).toLocaleDateString("ru-RU")
               : "—"}
-          </Text>
-        </Box>
-      </Flex>
+          </p>
+        </div>
+      </div>
 
-      <Heading size="sm">Таймлайн</Heading>
-      <VStack align="stretch" gap={2}>
+      <h3 className="font-heading text-sm font-semibold">Таймлайн</h3>
+      <div className="flex flex-col gap-2">
         {timeline.length === 0 ? (
-          <Text fontSize="sm" color="fg.muted">
+          <p className="text-sm text-muted-foreground">
             Пока нет событий и комментариев.
-          </Text>
+          </p>
         ) : (
           timeline.map((item) => (
-            <Box
+            <div
               key={item.id}
-              pl={3}
-              borderLeftWidth="2px"
-              borderLeftColor="blue.200"
-              py={1}
+              className="border-l-2 border-blue-200 py-1 pl-3 dark:border-blue-800"
             >
-              <Text fontSize="xs" color="fg.muted">
+              <p className="text-xs text-muted-foreground">
                 {new Date(item.date).toLocaleString("ru-RU")}
                 {item.user ? ` · ${item.user}` : ""}
-              </Text>
-              <Text fontSize="sm">{item.text}</Text>
-            </Box>
+              </p>
+              <p className="text-sm">{item.text}</p>
+            </div>
           ))
         )}
-        <Flex gap={2} mt={2}>
+        <div className="mt-2 flex gap-2">
           <Input
-            size="sm"
+            className="h-7"
             placeholder="Добавить комментарий"
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
           />
           <Button
             size="sm"
-            variant="solid"
             onClick={onAddComment}
             loading={addCommentLoading}
             disabled={!commentText.trim()}
           >
             Отправить
           </Button>
-        </Flex>
-      </VStack>
+        </div>
+      </div>
 
-      <Heading size="sm">Чек-лист</Heading>
-      <VStack align="stretch" gap={2}>
+      <h3 className="font-heading text-sm font-semibold">Чек-лист</h3>
+      <div className="flex flex-col gap-2">
         {order.checklist_items.map((item) => (
-          <Flex key={item.id} align="center" gap={2}>
+          <div key={item.id} className="flex items-center gap-2">
             <Checkbox
               checked={item.completed}
-              onCheckedChange={(e) =>
-                onToggleCheck(item.id, e.checked === true)
-              }
+              onCheckedChange={(c) => onToggleCheck(item.id, Boolean(c))}
             />
-            <Text
-              as="span"
-              textDecoration={item.completed ? "line-through" : undefined}
-              color={item.completed ? "fg.muted" : undefined}
+            <span
+              className={cn(
+                item.completed && "text-muted-foreground line-through",
+              )}
             >
               {item.title}
-            </Text>
-          </Flex>
+            </span>
+          </div>
         ))}
-        <Flex gap={2}>
+        <div className="flex gap-2">
           <Input
-            size="sm"
+            className="h-7"
             placeholder="Новый пункт"
             value={newCheckItem}
             onChange={(e) => setNewCheckItem(e.target.value)}
@@ -419,15 +402,15 @@ function WorkOrderDetailContent({
           >
             Добавить
           </Button>
-        </Flex>
-      </VStack>
+        </div>
+      </div>
 
       {order.attachments.length > 0 && (
         <>
-          <Heading size="sm">Вложения</Heading>
-          <VStack align="stretch" gap={1}>
+          <h3 className="font-heading text-sm font-semibold">Вложения</h3>
+          <div className="flex flex-col gap-1">
             {order.attachments.map((a) => (
-              <Text key={a.id} fontSize="sm">
+              <p key={a.id} className="text-sm">
                 <a
                   href={a.file_path}
                   target="_blank"
@@ -436,17 +419,17 @@ function WorkOrderDetailContent({
                   {a.filename || a.file_path}
                 </a>
                 {a.kind !== "attachment" && (
-                  <Badge size="sm" ml={2}>
+                  <span className="ml-2 rounded-md border border-border px-2 py-0.5 text-xs">
                     {a.kind === "before_photo" ? "До" : "После"}
-                  </Badge>
+                  </span>
                 )}
-              </Text>
+              </p>
             ))}
-          </VStack>
+          </div>
         </>
       )}
 
-      <Heading size="sm">Резерв запчастей</Heading>
+      <h3 className="font-heading text-sm font-semibold">Резерв запчастей</h3>
       <PartReservationsSection
         reservations={order.part_reservations ?? []}
         onAddReservation={onAddReservation}
@@ -455,13 +438,13 @@ function WorkOrderDetailContent({
         deleteReservationLoading={deleteReservationLoading}
       />
 
-      <Heading size="sm">Списание по заявке</Heading>
+      <h3 className="font-heading text-sm font-semibold">Списание по заявке</h3>
       <PartConsumptionsSection
         consumptions={order.part_consumptions ?? []}
         onAddConsumption={onAddConsumption}
         addConsumptionLoading={addConsumptionLoading}
       />
-    </VStack>
+    </div>
   )
 }
 
@@ -497,31 +480,31 @@ function PartReservationsSection({
     setQuantity(1)
   }
   return (
-    <VStack align="stretch" gap={2}>
+    <div className="flex flex-col gap-2">
       {list.length > 0 ? (
         list.map((r) => (
-          <Flex key={r.id} justify="space-between" align="center" gap={2}>
-            <Text fontSize="sm">
+          <div key={r.id} className="flex items-center justify-between gap-2">
+            <p className="text-sm">
               {r.spare_part_title ?? "—"} {r.spare_part_sku ? `(${r.spare_part_sku})` : ""} — {r.quantity} шт.
-            </Text>
+            </p>
             <Button
               size="sm"
               variant="ghost"
-              colorPalette="red"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={() => onDeleteReservation(r.id)}
               loading={deleteReservationLoading}
             >
               Снять
             </Button>
-          </Flex>
+          </div>
         ))
       ) : (
-        <Text fontSize="sm" color="fg.muted">
+        <p className="text-sm text-muted-foreground">
           Резервов нет
-        </Text>
+        </p>
       )}
       <DialogRoot open={dialogOpen} onOpenChange={(e) => setDialogOpen(e.open)}>
-        <Button size="sm" variant="outline" colorPalette="blue" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
           Добавить резерв
         </Button>
         <DialogContent>
@@ -530,21 +513,16 @@ function PartReservationsSection({
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <DialogBody>
-              <VStack gap={3} align="stretch">
-                <Box>
-                  <Text fontSize="sm" mb={1} fontWeight="medium">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="mb-1 text-sm font-medium">
                     Запчасть
-                  </Text>
+                  </p>
                   <select
                     value={sparePartId}
                     onChange={(e) => setSparePartId(e.target.value)}
                     required
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--chakra-colors-border)",
-                    }}
+                    className="w-full rounded-md border border-border px-3 py-2 text-sm"
                   >
                     <option value="">— Выберите —</option>
                     {parts.map((p) => (
@@ -553,33 +531,33 @@ function PartReservationsSection({
                       </option>
                     ))}
                   </select>
-                </Box>
-                <Box>
-                  <Text fontSize="sm" mb={1} fontWeight="medium">
+                </div>
+                <div>
+                  <p className="mb-1 text-sm font-medium">
                     Количество
-                  </Text>
+                  </p>
                   <Input
                     type="number"
                     min={1}
                     value={quantity}
                     onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
-                    size="sm"
+                    className="h-7"
                   />
-                </Box>
-              </VStack>
+                </div>
+              </div>
             </DialogBody>
             <DialogFooter>
               <Button type="button" size="sm" variant="outline" onClick={() => setDialogOpen(false)}>
                 Отмена
               </Button>
-              <Button type="submit" size="sm" variant="solid" colorPalette="blue" loading={addReservationLoading}>
+              <Button type="submit" size="sm" loading={addReservationLoading}>
                 Зарезервировать
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </DialogRoot>
-    </VStack>
+    </div>
   )
 }
 
@@ -611,21 +589,21 @@ function PartConsumptionsSection({
     setQuantity(1)
   }
   return (
-    <VStack align="stretch" gap={2}>
+    <div className="flex flex-col gap-2">
       {list.length > 0 ? (
         list.map((c) => (
-          <Text key={c.id} fontSize="sm">
+          <p key={c.id} className="text-sm">
             {c.spare_part_title ?? "—"} {c.spare_part_sku ? `(${c.spare_part_sku})` : ""} — {c.quantity} шт. (
             {new Date(c.consumed_at).toLocaleString("ru")})
-          </Text>
+          </p>
         ))
       ) : (
-        <Text fontSize="sm" color="fg.muted">
+        <p className="text-sm text-muted-foreground">
           Списаний нет
-        </Text>
+        </p>
       )}
       <DialogRoot open={dialogOpen} onOpenChange={(e) => setDialogOpen(e.open)}>
-        <Button size="sm" variant="outline" colorPalette="blue" onClick={() => setDialogOpen(true)}>
+        <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
           Списать
         </Button>
         <DialogContent>
@@ -634,21 +612,16 @@ function PartConsumptionsSection({
           </DialogHeader>
           <form onSubmit={handleSubmit}>
             <DialogBody>
-              <VStack gap={3} align="stretch">
-                <Box>
-                  <Text fontSize="sm" mb={1} fontWeight="medium">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="mb-1 text-sm font-medium">
                     Запчасть
-                  </Text>
+                  </p>
                   <select
                     value={sparePartId}
                     onChange={(e) => setSparePartId(e.target.value)}
                     required
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--chakra-colors-border)",
-                    }}
+                    className="w-full rounded-md border border-border px-3 py-2 text-sm"
                   >
                     <option value="">— Выберите —</option>
                     {parts.map((p) => (
@@ -657,32 +630,32 @@ function PartConsumptionsSection({
                       </option>
                     ))}
                   </select>
-                </Box>
-                <Box>
-                  <Text fontSize="sm" mb={1} fontWeight="medium">
+                </div>
+                <div>
+                  <p className="mb-1 text-sm font-medium">
                     Количество
-                  </Text>
+                  </p>
                   <Input
                     type="number"
                     min={1}
                     value={quantity}
                     onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
-                    size="sm"
+                    className="h-7"
                   />
-                </Box>
-              </VStack>
+                </div>
+              </div>
             </DialogBody>
             <DialogFooter>
               <Button type="button" size="sm" variant="outline" onClick={() => setDialogOpen(false)}>
                 Отмена
               </Button>
-              <Button type="submit" size="sm" variant="solid" colorPalette="blue" loading={addConsumptionLoading}>
+              <Button type="submit" size="sm" loading={addConsumptionLoading}>
                 Списать
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </DialogRoot>
-    </VStack>
+    </div>
   )
 }

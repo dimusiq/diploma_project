@@ -1,4 +1,3 @@
-import { Button, ButtonGroup, Field, Input } from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { CategoriesService, ItemsService } from "@/client/index.ts"
@@ -10,7 +9,10 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Field } from "@/components/ui/field.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 interface MassEditItemsDialogProps {
@@ -85,18 +87,11 @@ export function MassEditItemsDialog({
           <DialogTitle>Изменить выбранные ({selectedIds.length})</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <Field.Root>
-            <Field.Label>Категория</Field.Label>
+          <Field label="Категория">
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              style={{
-                padding: "8px 12px",
-                borderRadius: "6px",
-                border: "1px solid var(--chakra-colors-border)",
-                width: "100%",
-                fontSize: "14px",
-              }}
+              className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
             >
               <option value="">— Не менять</option>
               {categories.map((c) => (
@@ -105,19 +100,18 @@ export function MassEditItemsDialog({
                 </option>
               ))}
             </select>
-          </Field.Root>
-          <Field.Root mt={3}>
-            <Field.Label>Единица измерения</Field.Label>
+          </Field>
+          <Field label="Единица измерения" className="mt-3">
             <Input
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
               placeholder="— Не менять"
-              size="sm"
+              className="h-8 text-sm"
             />
-          </Field.Root>
+          </Field>
         </DialogBody>
         <DialogFooter>
-          <ButtonGroup>
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
               Отмена
             </Button>
@@ -130,7 +124,7 @@ export function MassEditItemsDialog({
             >
               Применить
             </Button>
-          </ButtonGroup>
+          </div>
         </DialogFooter>
       </DialogContent>
     </DialogRoot>

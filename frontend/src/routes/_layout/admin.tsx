@@ -1,41 +1,30 @@
-import {
-  Badge,
-  Box,
-  Button,
-  Container,
-  Flex,
-  Heading,
-  Input,
-  Table,
-  Tabs,
-  Text,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { z } from "zod"
 
 import {
-  auditApi,
   AUDIT_ACTION_LABELS,
   AUDIT_RESOURCE_LABELS,
   type AuditLogPublic,
+  auditApi,
 } from "@/api/audit.ts"
 import { type BrandPublic, brandsApi } from "@/api/brands.ts"
 import { type ZonePublic, zonesApi } from "@/api/zones.ts"
 import { CategoriesService, RolesService, UsersService } from "@/client/index.ts"
+import AddUser from "@/components/Admin/AddUser.tsx"
 import { AdminPanel } from "@/components/Admin/AdminPanel.tsx"
 import { AgentChatLogsAdmin } from "@/components/Admin/AgentChatLogsAdmin.tsx"
 import { AgentGovernanceAdmin } from "@/components/Admin/AgentGovernanceAdmin.tsx"
 import { AgentKnowledgeAdmin } from "@/components/Admin/AgentKnowledgeAdmin.tsx"
-import { WarehouseTopologyAdmin } from "@/components/Admin/WarehouseTopologyAdmin.tsx"
-import AddUser from "@/components/Admin/AddUser.tsx"
 import RestoreUser from "@/components/Admin/RestoreUser.tsx"
+import { WarehouseTopologyAdmin } from "@/components/Admin/WarehouseTopologyAdmin.tsx"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import { ShortId } from "@/components/Common/ShortId.tsx"
 import { UserActionsMenu } from "@/components/Common/UserActionsMenu.tsx"
 import PendingUsers from "@/components/Pending/PendingUsers.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import {
   DrawerBackdrop,
   DrawerBody,
@@ -45,13 +34,29 @@ import {
   DrawerRoot,
   DrawerTitle,
 } from "@/components/ui/drawer.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   PaginationItems,
   PaginationNextTrigger,
   PaginationPrevTrigger,
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
+import { cn } from "@/lib/utils.ts"
 
 const usersSearchSchema = z.object({
   page: z.number().catch(1),
@@ -113,47 +118,49 @@ function UserAuditBlock({
     queryFn,
   })
   const rows = data?.data ?? []
-  if (isLoading) return <Text fontSize="sm" color="fg.muted">Загрузка…</Text>
-  if (isError) return <Text color="red.500">Не удалось загрузить записи.</Text>
-  if (rows.length === 0) return <Text fontSize="sm" color="fg.muted">Записей нет.</Text>
+  if (isLoading)
+    return (
+      <p className="text-sm text-muted-foreground">Загрузка…</p>
+    )
+  if (isError)
+    return <p className="text-sm text-destructive">Не удалось загрузить записи.</p>
+  if (rows.length === 0)
+    return <p className="text-sm text-muted-foreground">Записей нет.</p>
   return (
-    <Box>
-      <Text fontWeight="semibold" mb={2} fontSize="sm">
-        {title}
-      </Text>
-      <Box overflowX="auto">
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader whiteSpace="nowrap">Дата и время</Table.ColumnHeader>
-              <Table.ColumnHeader>Действие</Table.ColumnHeader>
-              <Table.ColumnHeader>Ресурс</Table.ColumnHeader>
-              <Table.ColumnHeader>Детали</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+    <div>
+      <p className="mb-2 text-sm font-semibold">{title}</p>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="whitespace-nowrap">Дата и время</TableHead>
+              <TableHead>Действие</TableHead>
+              <TableHead>Ресурс</TableHead>
+              <TableHead>Детали</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((r: AuditLogPublic) => (
-              <Table.Row
-                key={r.id}
-                _hover={{ bg: "gray.subtle" }}
-                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
-              >
-                <Table.Cell whiteSpace="nowrap" fontSize="xs">
+              <TableRow key={r.id}>
+                <TableCell className="whitespace-nowrap text-xs">
                   {formatDateTime(r.created_at)}
-                </Table.Cell>
-                <Table.Cell>{AUDIT_ACTION_LABELS[r.action] ?? r.action}</Table.Cell>
-                <Table.Cell>
+                </TableCell>
+                <TableCell>{AUDIT_ACTION_LABELS[r.action] ?? r.action}</TableCell>
+                <TableCell>
                   {AUDIT_RESOURCE_LABELS[r.resource_type] ?? r.resource_type}
-                </Table.Cell>
-                <Table.Cell maxW="200px" truncate title={r.details ?? undefined}>
+                </TableCell>
+                <TableCell
+                  className="max-w-[200px] truncate"
+                  title={r.details ?? undefined}
+                >
                   {r.details ?? "—"}
-                </Table.Cell>
-              </Table.Row>
+                </TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
-      </Box>
-    </Box>
+          </TableBody>
+        </Table>
+      </div>
+    </div>
   )
 }
 
@@ -181,7 +188,7 @@ function UserDetailDrawer({
           </DrawerTitle>
           <DrawerCloseTrigger />
         </DrawerHeader>
-        <DrawerBody overflowY="auto" gap={6}>
+        <DrawerBody className="flex flex-col gap-6 overflow-y-auto">
           <UserAuditBlock
             title="Действия пользователя (журнал аудита)"
             queryKey={["audit", "by-user", user.id]}
@@ -246,100 +253,114 @@ function UsersTable() {
 
   return (
     <>
-      <Tabs.Root
-        value={deleted ? "deleted" : "active"}
-        onValueChange={(e) => setDeleted(e.value === "deleted")}
-        variant="line"
-        size="sm"
-        mb={4}
-      >
-        <Tabs.List>
-          <Tabs.Trigger value="active">Активные</Tabs.Trigger>
-          <Tabs.Trigger value="deleted">Удалённые</Tabs.Trigger>
-        </Tabs.List>
-      </Tabs.Root>
-      <Box overflowX="auto">
-        <Table.Root size={{ base: "sm", md: "md" }}>
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader w="sm">Полное имя</Table.ColumnHeader>
-            <Table.ColumnHeader w="sm">Email</Table.ColumnHeader>
-            <Table.ColumnHeader w="sm">Роль</Table.ColumnHeader>
-            <Table.ColumnHeader w="sm">Статус</Table.ColumnHeader>
-            {deleted ? (
-              <Table.ColumnHeader w="sm">Удалён</Table.ColumnHeader>
-            ) : (
-              <Table.ColumnHeader w="sm">Последний вход</Table.ColumnHeader>
-            )}
-            <Table.ColumnHeader w="sm">Действия</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {users?.map((user) => (
-            <Table.Row
-              key={user.id}
-              opacity={isPlaceholderData ? 0.5 : 1}
-              cursor="pointer"
-              _hover={{ bg: "gray.subtle" }}
-              _dark={{ _hover: { bg: "whiteAlpha.100" } }}
-              onClick={() => setSelectedUser(user)}
-            >
-              <Table.Cell color={!user.full_name ? "gray" : "inherit"}>
-                {user.full_name || "N/A"}
-                {!deleted && currentUser.id === user.id && (
-                  <Badge ml="1" colorScheme="cyan">
-                    You
-                  </Badge>
-                )}
-              </Table.Cell>
-              <Table.Cell truncate maxW="sm">
-                {user.email}
-              </Table.Cell>
-              <Table.Cell>
-                {user.is_superuser
-                  ? "Суперпользователь"
-                  : (user.role_id && roleNameById[user.role_id]) || "—"}
-              </Table.Cell>
-              <Table.Cell>
-                {user.is_active ? "Активный" : "Неактивный"}
-              </Table.Cell>
+      <div className="mb-4 inline-flex gap-1 rounded-lg border border-border bg-muted/30 p-1">
+        <button
+          type="button"
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            !deleted
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => setDeleted(false)}
+        >
+          Активные
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            deleted
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          onClick={() => setDeleted(true)}
+        >
+          Удалённые
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-32">Полное имя</TableHead>
+              <TableHead className="w-32">Email</TableHead>
+              <TableHead className="w-32">Роль</TableHead>
+              <TableHead className="w-32">Статус</TableHead>
               {deleted ? (
-                <Table.Cell whiteSpace="nowrap" fontSize="sm">
-                  {formatDateTime(user.deleted_at)}
-                </Table.Cell>
+                <TableHead className="w-32">Удалён</TableHead>
               ) : (
-                <Table.Cell whiteSpace="nowrap" fontSize="sm">
-                  {formatDateTime(user.last_login_at)}
-                </Table.Cell>
+                <TableHead className="w-32">Последний вход</TableHead>
               )}
-              <Table.Cell onClick={(e) => e.stopPropagation()}>
-                {deleted ? (
-                  <RestoreUser id={user.id} />
-                ) : (
-                  <UserActionsMenu
-                    user={user}
-                    disabled={currentUser.id === user.id}
-                  />
+              <TableHead className="w-32">Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users?.map((user) => (
+              <TableRow
+                key={user.id}
+                className={cn(
+                  "cursor-pointer",
+                  isPlaceholderData && "opacity-50",
                 )}
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-        </Table.Root>
-      </Box>
-      <Flex justifyContent="flex-end" mt={4}>
+                onClick={() => setSelectedUser(user)}
+              >
+                <TableCell
+                  className={cn(!user.full_name && "text-muted-foreground")}
+                >
+                  {user.full_name || "N/A"}
+                  {!deleted && currentUser.id === user.id && (
+                    <span className="ml-1 inline-flex rounded-md border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-800 dark:text-cyan-300">
+                      You
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="max-w-sm truncate">{user.email}</TableCell>
+                <TableCell>
+                  {user.is_superuser
+                    ? "Суперпользователь"
+                    : (user.role_id && roleNameById[user.role_id]) || "—"}
+                </TableCell>
+                <TableCell>
+                  {user.is_active ? "Активный" : "Неактивный"}
+                </TableCell>
+                {deleted ? (
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {formatDateTime(user.deleted_at)}
+                  </TableCell>
+                ) : (
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {formatDateTime(user.last_login_at)}
+                  </TableCell>
+                )}
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  {deleted ? (
+                    <RestoreUser id={user.id} />
+                  ) : (
+                    <UserActionsMenu
+                      user={user}
+                      disabled={currentUser.id === user.id}
+                    />
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <div className="mt-4 flex justify-end">
         <PaginationRoot
           count={count}
           pageSize={PER_PAGE}
           onPageChange={({ page: p }) => setPage(p)}
         >
-          <Flex>
+          <div className="flex">
             <PaginationPrevTrigger />
             <PaginationItems />
             <PaginationNextTrigger />
-          </Flex>
+          </div>
         </PaginationRoot>
-      </Flex>
+      </div>
       {selectedUser && (
         <UserDetailDrawer
           user={selectedUser}
@@ -370,12 +391,12 @@ function AddCategory() {
     },
   })
   return (
-    <Flex gap={2} mb={3} flexWrap="wrap" align="center">
+    <div className="mb-3 flex flex-wrap items-center gap-2">
       <Input
         placeholder="Новая категория"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        maxW="xs"
+        className="max-w-xs"
       />
       <select
         value={parentId}
@@ -403,7 +424,7 @@ function AddCategory() {
       >
         Добавить категорию
       </Button>
-    </Flex>
+    </div>
   )
 }
 
@@ -443,39 +464,25 @@ function EditCategory({
         Изменить
       </Button>
       {open && (
-        <Box
-          position="fixed"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          zIndex={50}
-          bg="blackAlpha.500"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setOpen(false)}
+          onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
+          role="presentation"
         >
-          <Box
-            bg="bg"
-            color="fg"
-            p={4}
-            borderRadius="md"
-            shadow="lg"
-            minW="280px"
-            borderWidth="1px"
-            borderColor="border"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          <div
+            className="min-w-[280px] rounded-lg border border-border bg-card p-4 text-card-foreground shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
           >
-            <Text fontWeight="bold" mb={3}>
-              Редактировать категорию
-            </Text>
-            <Flex direction="column" gap={3} mb={4}>
+            <p className="mb-3 font-bold">Редактировать категорию</p>
+            <div className="mb-4 flex flex-col gap-3">
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Название"
-                size="sm"
+                className="h-7 text-sm"
               />
               <select
                 value={parentId}
@@ -495,8 +502,8 @@ function EditCategory({
                   </option>
                 ))}
               </select>
-            </Flex>
-            <Flex gap={2} justifyContent="flex-end">
+            </div>
+            <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
                 Отмена
               </Button>
@@ -508,9 +515,9 @@ function EditCategory({
               >
                 Сохранить
               </Button>
-            </Flex>
-          </Box>
-        </Box>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
@@ -539,35 +546,31 @@ function CategoriesList() {
   if (categories.length === 0) return null
   return (
     <>
-      <Box overflowX="auto">
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Название</Table.ColumnHeader>
-              <Table.ColumnHeader>Категории</Table.ColumnHeader>
-              <Table.ColumnHeader>Действия</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Название</TableHead>
+              <TableHead>Категории</TableHead>
+              <TableHead>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {categories.map((c) => (
-              <Table.Row
-                key={c.id}
-                _hover={{ bg: "gray.subtle" }}
-                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
-              >
-                <Table.Cell>{c.name}</Table.Cell>
-                <Table.Cell>
+              <TableRow key={c.id}>
+                <TableCell>{c.name}</TableCell>
+                <TableCell>
                   {c.parent_id
                     ? (parentMap[c.parent_id] ?? <ShortId id={c.parent_id} />)
                     : "—"}
-                </Table.Cell>
-                <Table.Cell>
-                  <Flex gap={2}>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
                     <EditCategory category={c} categories={categories} />
                     <Button
                       size="xs"
                       variant="ghost"
-                      colorPalette="red"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() =>
                         setDeleteConfirm({ id: c.id, name: c.name })
                       }
@@ -575,13 +578,13 @@ function CategoriesList() {
                     >
                       Удалить
                     </Button>
-                  </Flex>
-                </Table.Cell>
-              </Table.Row>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
-      </Box>
+          </TableBody>
+        </Table>
+      </div>
       <ConfirmDialog
         open={deleteConfirm != null}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
@@ -614,12 +617,12 @@ function AddBrand() {
     },
   })
   return (
-    <Flex gap={2} mb={3} flexWrap="wrap" align="center">
+    <div className="mb-3 flex flex-wrap items-center gap-2">
       <Input
         placeholder="Новый бренд техники"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        maxW="xs"
+        className="max-w-xs"
       />
       <Button
         variant="solid"
@@ -630,7 +633,7 @@ function AddBrand() {
       >
         Добавить бренд
       </Button>
-    </Flex>
+    </div>
   )
 }
 
@@ -657,42 +660,27 @@ function EditBrand({ brand }: { brand: BrandPublic }) {
         Изменить
       </Button>
       {open && (
-        <Box
-          position="fixed"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          zIndex={50}
-          bg="blackAlpha.500"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setOpen(false)}
+          role="presentation"
         >
-          <Box
-            bg="bg"
-            color="fg"
-            p={4}
-            borderRadius="md"
-            shadow="lg"
-            minW="280px"
-            borderWidth="1px"
-            borderColor="border"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          <div
+            className="min-w-[280px] rounded-lg border border-border bg-card p-4 text-card-foreground shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
           >
-            <Text fontWeight="bold" mb={3}>
-              Редактировать бренд
-            </Text>
-            <Flex direction="column" gap={3} mb={4}>
+            <p className="mb-3 font-bold">Редактировать бренд</p>
+            <div className="mb-4 flex flex-col gap-3">
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Название"
-                size="sm"
+                className="h-7 text-sm"
               />
-            </Flex>
-            <Flex gap={2} justifyContent="flex-end">
+            </div>
+            <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
                 Отмена
               </Button>
@@ -705,9 +693,9 @@ function EditBrand({ brand }: { brand: BrandPublic }) {
               >
                 Сохранить
               </Button>
-            </Flex>
-          </Box>
-        </Box>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
@@ -734,29 +722,25 @@ function BrandsList() {
   if (brands.length === 0) return null
   return (
     <>
-      <Box overflowX="auto">
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Название</Table.ColumnHeader>
-              <Table.ColumnHeader>Действия</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Название</TableHead>
+              <TableHead>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {brands.map((b) => (
-              <Table.Row
-                key={b.id}
-                _hover={{ bg: "gray.subtle" }}
-                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
-              >
-                <Table.Cell>{b.name}</Table.Cell>
-                <Table.Cell>
-                  <Flex gap={2}>
+              <TableRow key={b.id}>
+                <TableCell>{b.name}</TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
                     <EditBrand brand={b} />
                     <Button
                       size="xs"
                       variant="ghost"
-                      colorPalette="red"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() =>
                         setDeleteConfirm({ id: b.id, name: b.name })
                       }
@@ -764,13 +748,13 @@ function BrandsList() {
                     >
                       Удалить
                     </Button>
-                  </Flex>
-                </Table.Cell>
-              </Table.Row>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
-      </Box>
+          </TableBody>
+        </Table>
+      </div>
       <ConfirmDialog
         open={deleteConfirm != null}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
@@ -803,12 +787,12 @@ function AddZone() {
     },
   })
   return (
-    <Flex gap={2} mb={3} flexWrap="wrap" align="center">
+    <div className="mb-3 flex flex-wrap items-center gap-2">
       <Input
         placeholder="Новая зона склада"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        maxW="xs"
+        className="max-w-xs"
       />
       <Button
         variant="solid"
@@ -819,7 +803,7 @@ function AddZone() {
       >
         Добавить зону
       </Button>
-    </Flex>
+    </div>
   )
 }
 
@@ -846,42 +830,27 @@ function EditZone({ zone }: { zone: ZonePublic }) {
         Изменить
       </Button>
       {open && (
-        <Box
-          position="fixed"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          zIndex={50}
-          bg="blackAlpha.500"
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setOpen(false)}
+          role="presentation"
         >
-          <Box
-            bg="bg"
-            color="fg"
-            p={4}
-            borderRadius="md"
-            shadow="lg"
-            minW="280px"
-            borderWidth="1px"
-            borderColor="border"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          <div
+            className="min-w-[280px] rounded-lg border border-border bg-card p-4 text-card-foreground shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
           >
-            <Text fontWeight="bold" mb={3}>
-              Редактировать зону
-            </Text>
-            <Flex direction="column" gap={3} mb={4}>
+            <p className="mb-3 font-bold">Редактировать зону</p>
+            <div className="mb-4 flex flex-col gap-3">
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Название"
-                size="sm"
+                className="h-7 text-sm"
               />
-            </Flex>
-            <Flex gap={2} justifyContent="flex-end">
+            </div>
+            <div className="flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
                 Отмена
               </Button>
@@ -894,9 +863,9 @@ function EditZone({ zone }: { zone: ZonePublic }) {
               >
                 Сохранить
               </Button>
-            </Flex>
-          </Box>
-        </Box>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
@@ -936,22 +905,15 @@ function AuditLogSection() {
 
   return (
     <>
-      <Flex gap={2} mb={4} flexWrap="wrap" align="center">
-        <Text fontSize="sm" color="fg.muted">
-          Тип ресурса:
-        </Text>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted-foreground">Тип ресурса:</span>
         <select
           value={resourceTypeFilter}
           onChange={(e) => {
             setResourceTypeFilter(e.target.value)
             setAuditPage(1)
           }}
-          style={{
-            padding: "6px 10px",
-            borderRadius: "6px",
-            border: "1px solid var(--chakra-colors-border)",
-            minWidth: "140px",
-          }}
+          className="min-w-[140px] rounded-md border border-input bg-background px-2.5 py-1.5 text-sm"
         >
           <option value="">— Все —</option>
           {Object.entries(AUDIT_RESOURCE_LABELS).map(([value, label]) => (
@@ -960,76 +922,71 @@ function AuditLogSection() {
             </option>
           ))}
         </select>
-      </Flex>
+      </div>
 
       <FetchingIndicator active={isFetching && !!data} mb={2} />
 
       {isLoading && !data ? (
-        <Text color="fg.muted">Загрузка журнала…</Text>
+        <p className="text-sm text-muted-foreground">Загрузка журнала…</p>
       ) : isError ? (
-        <Text color="red.500">Не удалось загрузить журнал аудита.</Text>
+        <p className="text-sm text-destructive">Не удалось загрузить журнал аудита.</p>
       ) : rows.length === 0 ? (
-        <Text color="fg.muted">Записей пока нет.</Text>
+        <p className="text-sm text-muted-foreground">Записей пока нет.</p>
       ) : (
         <>
-          <Box overflowX="auto">
-            <Table.Root size="sm">
-              <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeader whiteSpace="nowrap">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap">
                     Дата и время
-                  </Table.ColumnHeader>
-                  <Table.ColumnHeader>Пользователь</Table.ColumnHeader>
-                  <Table.ColumnHeader>Действие</Table.ColumnHeader>
-                  <Table.ColumnHeader>Ресурс</Table.ColumnHeader>
-                  <Table.ColumnHeader>Детали</Table.ColumnHeader>
-                  <Table.ColumnHeader>IP</Table.ColumnHeader>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
+                  </TableHead>
+                  <TableHead>Пользователь</TableHead>
+                  <TableHead>Действие</TableHead>
+                  <TableHead>Ресурс</TableHead>
+                  <TableHead>Детали</TableHead>
+                  <TableHead>IP</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((r: AuditLogPublic) => (
-                  <Table.Row
-                    key={r.id}
-                    _hover={{ bg: "gray.subtle" }}
-                    _dark={{ _hover: { bg: "whiteAlpha.100" } }}
-                  >
-                    <Table.Cell whiteSpace="nowrap" fontSize="xs">
+                  <TableRow key={r.id}>
+                    <TableCell className="whitespace-nowrap text-xs">
                       {formatDate(r.created_at)}
-                    </Table.Cell>
-                    <Table.Cell>{r.user_email ?? "—"}</Table.Cell>
-                    <Table.Cell>
+                    </TableCell>
+                    <TableCell>{r.user_email ?? "—"}</TableCell>
+                    <TableCell>
                       {AUDIT_ACTION_LABELS[r.action] ?? r.action}
-                    </Table.Cell>
-                    <Table.Cell>
+                    </TableCell>
+                    <TableCell>
                       {AUDIT_RESOURCE_LABELS[r.resource_type] ??
                         r.resource_type}
-                    </Table.Cell>
-                    <Table.Cell
-                      maxW="200px"
-                      truncate
+                    </TableCell>
+                    <TableCell
+                      className="max-w-[200px] truncate"
                       title={r.details ?? undefined}
                     >
                       {r.details ?? "—"}
-                    </Table.Cell>
-                    <Table.Cell fontSize="xs">{r.ip_address ?? "—"}</Table.Cell>
-                  </Table.Row>
+                    </TableCell>
+                    <TableCell className="text-xs">{r.ip_address ?? "—"}</TableCell>
+                  </TableRow>
                 ))}
-              </Table.Body>
-            </Table.Root>
-          </Box>
-          <Flex justifyContent="flex-end" mt={4}>
+              </TableBody>
+            </Table>
+          </div>
+          <div className="mt-4 flex justify-end">
             <PaginationRoot
               count={count}
               pageSize={AUDIT_PAGE_SIZE}
               onPageChange={({ page }) => setAuditPage(page)}
             >
-              <Flex>
+              <div className="flex">
                 <PaginationPrevTrigger />
                 <PaginationItems />
                 <PaginationNextTrigger />
-              </Flex>
+              </div>
             </PaginationRoot>
-          </Flex>
+          </div>
         </>
       )}
     </>
@@ -1057,29 +1014,25 @@ function ZonesList() {
   if (zones.length === 0) return null
   return (
     <>
-      <Box overflowX="auto">
-        <Table.Root size="sm">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>Название</Table.ColumnHeader>
-              <Table.ColumnHeader>Действия</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Название</TableHead>
+              <TableHead>Действия</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {zones.map((z) => (
-              <Table.Row
-                key={z.id}
-                _hover={{ bg: "gray.subtle" }}
-                _dark={{ _hover: { bg: "whiteAlpha.100" } }}
-              >
-                <Table.Cell>{z.name}</Table.Cell>
-                <Table.Cell>
-                  <Flex gap={2}>
+              <TableRow key={z.id}>
+                <TableCell>{z.name}</TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
                     <EditZone zone={z} />
                     <Button
                       size="xs"
                       variant="ghost"
-                      colorPalette="red"
+                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() =>
                         setDeleteConfirm({ id: z.id, name: z.name })
                       }
@@ -1087,13 +1040,13 @@ function ZonesList() {
                     >
                       Удалить
                     </Button>
-                  </Flex>
-                </Table.Cell>
-              </Table.Row>
+                  </div>
+                </TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
-        </Table.Root>
-      </Box>
+          </TableBody>
+        </Table>
+      </div>
       <ConfirmDialog
         open={deleteConfirm != null}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
@@ -1117,7 +1070,7 @@ function ZonesList() {
 
 function AppSettingsContent() {
   return (
-    <Box>
+    <div>
       <AdminPanel
         mt={4}
         title="Категории"
@@ -1143,81 +1096,80 @@ function AppSettingsContent() {
         <AddZone />
         <ZonesList />
       </AdminPanel>
-    </Box>
+    </div>
   )
 }
 
 function Admin() {
   return (
-    <Container maxW="7xl" py={{ base: 4, md: 6 }} px={{ base: 4, md: 6 }}>
-      <Box mb={6}>
-        <Heading size="lg" letterSpacing="-0.02em">
+    <div className="mx-auto w-full max-w-7xl px-4 py-4 md:px-6 md:py-6">
+      <div className="mb-6">
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">
           Администрирование
-        </Heading>
-        <Text color="fg.muted" fontSize="sm" mt={1.5} maxW="3xl">
+        </h1>
+        <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground">
           Настройки приложения, пользователи, журнал аудита и сервисы ассистента.
-        </Text>
-      </Box>
+        </p>
+      </div>
 
-      <Tabs.Root defaultValue="app-settings" variant="line" size="sm">
-        <Tabs.List flexWrap="wrap" gap={1} rowGap={2}>
-          <Tabs.Trigger value="app-settings">
-            Приложение
-          </Tabs.Trigger>
-          <Tabs.Trigger value="users">Пользователи</Tabs.Trigger>
-          <Tabs.Trigger value="audit">Журнал аудита</Tabs.Trigger>
-          <Tabs.Trigger value="agent-knowledge">База знаний</Tabs.Trigger>
-          <Tabs.Trigger value="agent-logs">Чат ассистента</Tabs.Trigger>
-          <Tabs.Trigger value="agent-governance">Агент</Tabs.Trigger>
-          <Tabs.Trigger value="warehouse-topology">Топология склада</Tabs.Trigger>
-        </Tabs.List>
-        <Tabs.Content value="app-settings">
+      <Tabs defaultValue="app-settings" className="w-full">
+        <TabsList
+          variant="line"
+          className="mb-0 h-auto w-full flex-wrap justify-start gap-1 gap-y-2"
+        >
+          <TabsTrigger value="app-settings">Приложение</TabsTrigger>
+          <TabsTrigger value="users">Пользователи</TabsTrigger>
+          <TabsTrigger value="audit">Журнал аудита</TabsTrigger>
+          <TabsTrigger value="agent-knowledge">База знаний</TabsTrigger>
+          <TabsTrigger value="agent-logs">Чат ассистента</TabsTrigger>
+          <TabsTrigger value="agent-governance">Агент</TabsTrigger>
+          <TabsTrigger value="warehouse-topology">Топология склада</TabsTrigger>
+        </TabsList>
+        <TabsContent value="app-settings" className="mt-4 outline-none">
           <AppSettingsContent />
-        </Tabs.Content>
-        <Tabs.Content value="users">
+        </TabsContent>
+        <TabsContent value="users" className="mt-4 outline-none">
           <AdminPanel
-            mt={4}
             title="Пользователи"
             description="Роли, статус учётной записи. Клик по строке открывает журнал действий пользователя."
             headerExtra={
-              <Flex justify="flex-end" w="100%">
+              <div className="flex w-full justify-end">
                 <AddUser />
-              </Flex>
+              </div>
             }
           >
             <UsersTable />
           </AdminPanel>
-        </Tabs.Content>
-        <Tabs.Content value="audit">
+        </TabsContent>
+        <TabsContent value="audit" className="mt-4 outline-none">
           <AdminPanel
-            mt={4}
             title="Журнал аудита"
             description="Критичные действия администраторов: пользователи, категории, бренды, зоны, сброс пароля."
           >
             <AuditLogSection />
           </AdminPanel>
-        </Tabs.Content>
-        <Tabs.Content value="agent-knowledge">
-          <AdminPanel mt={4} mb={0}>
+        </TabsContent>
+        <TabsContent value="agent-knowledge" className="mt-4 outline-none">
+          <AdminPanel mb={0}>
             <AgentKnowledgeAdmin />
           </AdminPanel>
-        </Tabs.Content>
-        <Tabs.Content value="agent-logs">
-          <AdminPanel mt={4} mb={0}>
+        </TabsContent>
+        <TabsContent value="agent-logs" className="mt-4 outline-none">
+          <AdminPanel mb={0}>
             <AgentChatLogsAdmin />
           </AdminPanel>
-        </Tabs.Content>
-        <Tabs.Content value="agent-governance">
-          <AdminPanel mt={4} mb={0}>
+        </TabsContent>
+        <TabsContent value="agent-governance" className="mt-4 outline-none">
+          <AdminPanel mb={0}>
             <AgentGovernanceAdmin />
           </AdminPanel>
-        </Tabs.Content>
-        <Tabs.Content value="warehouse-topology">
-          <AdminPanel mt={4} mb={0}>
+        </TabsContent>
+        <TabsContent value="warehouse-topology" className="mt-4 outline-none">
+          <AdminPanel mb={0}>
             <WarehouseTopologyAdmin />
           </AdminPanel>
-        </Tabs.Content>
-      </Tabs.Root>
-    </Container>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

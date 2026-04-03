@@ -1,26 +1,28 @@
 /**
  * Список заявок на обслуживание и ремонт (Work Order) с фильтрами по статусу, приоритету, исполнителю.
  */
-import {
-  Box,
-  Button,
-  Flex,
-  Table,
-  Text,
-} from "@chakra-ui/react"
+
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { FaPlus } from "react-icons/fa"
-
 import {
-  workOrdersApi,
   WORK_ORDER_PRIORITY_LABELS,
   WORK_ORDER_STATUS_LABELS,
+  workOrdersApi,
 } from "@/api/workOrders.ts"
 import { UsersService } from "@/client/index.ts"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import { CreateWorkOrderDialog } from "@/components/Equipment/CreateWorkOrderDialog.tsx"
 import { WorkOrderDetailDrawer } from "@/components/Equipment/WorkOrderDetailDrawer.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 
 export function WorkOrderList() {
   const [statusFilter, setStatusFilter] = useState<string>("")
@@ -56,26 +58,28 @@ export function WorkOrderList() {
   const orders = data?.data ?? []
   const count = data?.count ?? 0
 
+  const selectStyle = {
+    padding: "6px 10px",
+    borderRadius: "6px",
+    border: "1px solid var(--border)",
+    minWidth: "140px",
+    fontSize: "14px",
+  } as const
+
   return (
-    <Box>
-      <Flex justify="space-between" align="center" mb={4} wrap="wrap" gap={2}>
-        <Flex gap={2} align="center" wrap="wrap">
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="solid" size="sm" onClick={() => setCreateOpen(true)}>
-            <Flex as="span" align="center" gap={2}>
-              <Box as={FaPlus} />
+            <span className="inline-flex items-center gap-2">
+              <FaPlus />
               Создать заявку
-            </Flex>
+            </span>
           </Button>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: "6px 10px",
-              borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
-              minWidth: "140px",
-              fontSize: "14px",
-            }}
+            style={selectStyle}
           >
             <option value="">Все статусы</option>
             {Object.entries(WORK_ORDER_STATUS_LABELS).map(([k, v]) => (
@@ -87,13 +91,7 @@ export function WorkOrderList() {
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            style={{
-              padding: "6px 10px",
-              borderRadius: "6px",
-              border: "1px solid var(--chakra-colors-border)",
-              minWidth: "130px",
-              fontSize: "14px",
-            }}
+            style={{ ...selectStyle, minWidth: "130px" }}
           >
             <option value="">Все приоритеты</option>
             {Object.entries(WORK_ORDER_PRIORITY_LABELS).map(([k, v]) => (
@@ -102,13 +100,11 @@ export function WorkOrderList() {
               </option>
             ))}
           </select>
-        </Flex>
+        </div>
         {count > 0 && (
-          <Text fontSize="sm" color="fg.muted">
-            Заявок: {count}
-          </Text>
+          <p className="text-sm text-muted-foreground">Заявок: {count}</p>
         )}
-      </Flex>
+      </div>
 
       <FetchingIndicator active={isFetching && !!data} mb={2} />
 
@@ -127,62 +123,60 @@ export function WorkOrderList() {
       )}
 
       {isLoading && !data ? (
-        <Text color="fg.muted">Загрузка…</Text>
+        <p className="text-sm text-muted-foreground">Загрузка…</p>
       ) : orders.length === 0 ? (
-        <Text color="fg.muted">
+        <p className="text-sm text-muted-foreground">
           Заявок пока нет. Нажмите «Создать заявку», чтобы добавить заявку на
           обслуживание или ремонт.
-        </Text>
+        </p>
       ) : (
-        <Box overflowX="auto">
-          <Table.Root size="sm">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader>Техника</Table.ColumnHeader>
-                <Table.ColumnHeader>Заголовок</Table.ColumnHeader>
-                <Table.ColumnHeader>Статус</Table.ColumnHeader>
-                <Table.ColumnHeader>Приоритет</Table.ColumnHeader>
-                <Table.ColumnHeader>Исполнитель</Table.ColumnHeader>
-                <Table.ColumnHeader>Срок</Table.ColumnHeader>
-                <Table.ColumnHeader>Создана</Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Техника</TableHead>
+                <TableHead>Заголовок</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead>Приоритет</TableHead>
+                <TableHead>Исполнитель</TableHead>
+                <TableHead>Срок</TableHead>
+                <TableHead>Создана</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {orders.map((order) => (
-                <Table.Row
+                <TableRow
                   key={order.id}
-                  cursor="pointer"
-                  _hover={{ bg: "gray.50" }}
-                  _dark={{ _hover: { bg: "whiteAlpha.100" } }}
+                  className="cursor-pointer"
                   onClick={() => setSelectedId(order.id)}
                 >
-                  <Table.Cell>
-                    <Text fontWeight="medium">
+                  <TableCell>
+                    <span className="font-medium">
                       {order.equipment_name || "—"}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell>{order.title}</Table.Cell>
-                  <Table.Cell>
+                    </span>
+                  </TableCell>
+                  <TableCell>{order.title}</TableCell>
+                  <TableCell>
                     {WORK_ORDER_STATUS_LABELS[order.status as keyof typeof WORK_ORDER_STATUS_LABELS] ?? order.status}
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     {WORK_ORDER_PRIORITY_LABELS[order.priority as keyof typeof WORK_ORDER_PRIORITY_LABELS] ?? order.priority}
-                  </Table.Cell>
-                  <Table.Cell>{order.assigned_to_email ?? "—"}</Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>{order.assigned_to_email ?? "—"}</TableCell>
+                  <TableCell>
                     {order.due_at
                       ? new Date(order.due_at).toLocaleDateString("ru-RU")
                       : "—"}
-                  </Table.Cell>
-                  <Table.Cell>
+                  </TableCell>
+                  <TableCell>
                     {new Date(order.created_at).toLocaleDateString("ru-RU")}
-                  </Table.Cell>
-                </Table.Row>
+                  </TableCell>
+                </TableRow>
               ))}
-            </Table.Body>
-          </Table.Root>
-        </Box>
+            </TableBody>
+          </Table>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }

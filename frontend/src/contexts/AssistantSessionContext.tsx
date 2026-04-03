@@ -6,13 +6,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react"
 import {
   type AgentUserChatDetailPublic,
@@ -24,10 +24,10 @@ import {
   postAgentChat,
 } from "@/api/agent.ts"
 import { ApiError } from "@/client/index.ts"
-import { getErrorHttpStatus } from "@/lib/apiClient.ts"
-import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import { getErrorHttpStatus } from "@/lib/apiClient.ts"
 import type { ChatMessage } from "@/lib/assistantChatStorage.ts"
+import { safeInvalidateQueries } from "@/lib/safeInvalidate.ts"
 
 const STREAM_CHARS_PER_SEC_SMOOTH = 78
 const STREAM_CHARS_PER_SEC_LONG = 260

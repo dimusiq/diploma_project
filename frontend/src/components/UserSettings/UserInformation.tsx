@@ -1,12 +1,3 @@
-import {
-  Box,
-  Button,
-  Container,
-  Flex,
-  Heading,
-  Input,
-  Text,
-} from "@chakra-ui/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { useState } from "react"
@@ -18,10 +9,12 @@ import {
   UsersService,
   type UserUpdateMe,
 } from "@/client/index.ts"
+import { Button } from "@/components/ui/button.tsx"
+import { Input } from "@/components/ui/input.tsx"
+import { Label } from "@/components/ui/label.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { emailPattern, handleError } from "@/utils.ts"
-import { Field } from "../ui/field.tsx"
 
 const UserInformation = () => {
   const queryClient = useQueryClient()
@@ -44,15 +37,12 @@ const UserInformation = () => {
     },
   })
 
-  const toggleEditMode = () => {
-    setEditMode(!editMode)
-  }
-
   const mutation = useMutation({
     mutationFn: (data: UserUpdateMe) =>
       UsersService.updateUserMe({ requestBody: data }),
     onSuccess: async () => {
       showSuccessToast("Пользователь успешно обновлен.")
+      setEditMode(false)
       queryClient.invalidateQueries({ queryKey: ["currentUser"] })
       await router.invalidate()
     },
@@ -67,83 +57,89 @@ const UserInformation = () => {
 
   const onCancel = () => {
     reset()
-    toggleEditMode()
+    setEditMode(false)
   }
 
   return (
-    <Container maxW="full">
-      <Heading size="sm" py={4}>
-        Информация о пользователе
-      </Heading>
-      <Box
-        w={{ sm: "full", md: "sm" }}
-        as="form"
-        onSubmit={handleSubmit(onSubmit)}
-      >
-        <Field label="Полное имя">
+    <div className="w-full max-w-full">
+      <h2 className="py-4 text-lg font-medium">Информация о пользователе</h2>
+      <form className="w-full max-w-sm" onSubmit={handleSubmit(onSubmit)}>
+        <div className="space-y-2">
+          <Label htmlFor="full_name">Полное имя</Label>
           {editMode ? (
             <Input
+              id="full_name"
               {...register("full_name", { maxLength: 30 })}
               type="text"
-              size="md"
             />
           ) : (
-            <Text
-              fontSize="md"
-              py={2}
-              color={!currentUser.full_name ? "gray" : "inherit"}
-              truncate
-              maxW="sm"
+            <p
+              className={`rounded-md py-2 text-sm ${
+                !currentUser.full_name ? "text-muted-foreground" : ""
+              }`}
             >
               {currentUser.full_name || "N/A"}
-            </Text>
+            </p>
           )}
-        </Field>
-        <Field
-          mt={4}
-          label="Email"
-          invalid={!!errors.email}
-          errorText={errors.email?.message}
-        >
+        </div>
+        <div className="mt-4 space-y-2">
+          <Label htmlFor="email">Email</Label>
           {editMode ? (
-            <Input
-              {...register("email", {
-                required: "Email is required",
-                pattern: emailPattern,
-              })}
-              type="email"
-              size="md"
-            />
+            <>
+              <Input
+                id="email"
+                {...register("email", {
+                  required: "Email is required",
+                  pattern: emailPattern,
+                })}
+                type="email"
+                aria-invalid={!!errors.email}
+              />
+              {errors.email?.message ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {String(errors.email.message)}
+                </p>
+              ) : null}
+            </>
           ) : (
-            <Text fontSize="md" py={2} truncate maxW="sm">
-              {currentUser.email}
-            </Text>
+            <p className="truncate py-2 text-sm">{currentUser.email}</p>
           )}
-        </Field>
-        <Flex mt={4} gap={3}>
-          <Button
-            variant="solid"
-            size="sm"
-            onClick={toggleEditMode}
-            type={editMode ? "button" : "submit"}
-            loading={editMode ? isSubmitting : false}
-            disabled={editMode ? !isDirty || !getValues("email") : false}
-          >
-            {editMode ? "Сохранить" : "Изменить"}
-          </Button>
-          {editMode && (
+        </div>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {editMode ? (
+            <>
+              <Button
+                variant="solid"
+                size="sm"
+                type="submit"
+                loading={isSubmitting}
+                disabled={!isDirty || !getValues("email")}
+              >
+                Сохранить
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                type="button"
+                onClick={onCancel}
+                disabled={isSubmitting}
+              >
+                Отмена
+              </Button>
+            </>
+          ) : (
             <Button
-              variant="outline"
+              variant="solid"
               size="sm"
-              onClick={onCancel}
-              disabled={isSubmitting}
+              type="button"
+              onClick={() => setEditMode(true)}
             >
-              Отмена
+              Изменить
             </Button>
           )}
-        </Flex>
-      </Box>
-    </Container>
+        </div>
+      </form>
+    </div>
   )
 }
 

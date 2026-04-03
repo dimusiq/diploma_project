@@ -2,20 +2,10 @@
  * Запчасти: таблица с минимальными остатками и алертами (остаток <= min_quantity).
  */
 
-import {
-  Badge,
-  Box,
-  Button,
-  Flex,
-  Input,
-  Table,
-  Text,
-  VStack,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { FiAlertTriangle, FiPlus } from "react-icons/fi"
-import { sparePartsApi, type SparePartCreate, type SparePartPublic } from "@/api/spareParts.ts"
+import { type SparePartCreate, type SparePartPublic, sparePartsApi } from "@/api/spareParts.ts"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import {
   DialogBody,
@@ -24,13 +14,23 @@ import {
   DialogHeader,
   DialogRoot,
   DialogTitle,
-} from "@/components/ui/dialog.tsx"
+} from "@/components/ui/app-dialog.tsx"
+import { Button } from "@/components/ui/button.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import {
   PaginationItems,
   PaginationNextTrigger,
   PaginationPrevTrigger,
   PaginationRoot,
 } from "@/components/ui/pagination.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 const PER_PAGE = 20
@@ -103,23 +103,20 @@ export function SparePartsList() {
   }
 
   return (
-    <VStack align="stretch" gap={4}>
-      <Flex gap={2} align="center" flexWrap="wrap">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
-          variant="solid"
-          colorPalette="blue"
           onClick={() => setCreateOpen(true)}
         >
-          <Flex as="span" align="center" gap={1.5}>
+          <span className="inline-flex items-center gap-1.5">
             <FiPlus />
             Добавить запчасть
-          </Flex>
+          </span>
         </Button>
         <Button
           size="sm"
-          variant={alertsOnly ? "solid" : "outline"}
-          colorPalette="blue"
+          variant={alertsOnly ? "default" : "outline"}
           onClick={() => {
             setAlertsOnly(true)
             setPage(1)
@@ -129,8 +126,7 @@ export function SparePartsList() {
         </Button>
         <Button
           size="sm"
-          variant={alertsOnly ? "outline" : "solid"}
-          colorPalette="blue"
+          variant={alertsOnly ? "outline" : "default"}
           onClick={() => {
             setAlertsOnly(false)
             setPage(1)
@@ -138,7 +134,7 @@ export function SparePartsList() {
         >
           Все позиции
         </Button>
-      </Flex>
+      </div>
 
       <DialogRoot open={createOpen} onOpenChange={(e) => setCreateOpen(e.open)}>
         <DialogContent>
@@ -147,60 +143,60 @@ export function SparePartsList() {
           </DialogHeader>
           <form onSubmit={handleCreateSubmit}>
             <DialogBody>
-              <VStack gap={3} align="stretch">
-                <Box>
-                  <Text fontSize="sm" mb={1} fontWeight="medium">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="mb-1 text-sm font-medium">
                     Название *
-                  </Text>
+                  </p>
                   <Input
                     value={form.title}
                     onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                     placeholder="Название запчасти"
-                    size="sm"
+                    className="h-7"
                     maxLength={255}
                   />
-                </Box>
-                <Box>
-                  <Text fontSize="sm" mb={1} fontWeight="medium">
+                </div>
+                <div>
+                  <p className="mb-1 text-sm font-medium">
                     Артикул
-                  </Text>
+                  </p>
                   <Input
                     value={form.sku ?? ""}
                     onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
                     placeholder="Артикул"
-                    size="sm"
+                    className="h-7"
                     maxLength={64}
                   />
-                </Box>
-                <Box>
-                  <Text fontSize="sm" mb={1} fontWeight="medium">
+                </div>
+                <div>
+                  <p className="mb-1 text-sm font-medium">
                     Описание
-                  </Text>
+                  </p>
                   <Input
                     value={form.description ?? ""}
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     placeholder="Описание"
-                    size="sm"
+                    className="h-7"
                     maxLength={512}
                   />
-                </Box>
-                <Flex gap={3}>
-                  <Box flex={1}>
-                    <Text fontSize="sm" mb={1} fontWeight="medium">
+                </div>
+                <div className="flex gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 text-sm font-medium">
                       Остаток
-                    </Text>
+                    </p>
                     <Input
                       type="number"
                       min={0}
                       value={form.quantity ?? 0}
                       onChange={(e) => setForm((f) => ({ ...f, quantity: parseInt(e.target.value, 10) || 0 }))}
-                      size="sm"
+                      className="h-7"
                     />
-                  </Box>
-                  <Box flex={1}>
-                    <Text fontSize="sm" mb={1} fontWeight="medium">
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 text-sm font-medium">
                       Мин. остаток (алерт)
-                    </Text>
+                    </p>
                     <Input
                       type="number"
                       min={0}
@@ -212,23 +208,23 @@ export function SparePartsList() {
                         }))
                       }
                       placeholder="—"
-                      size="sm"
+                      className="h-7"
                     />
-                  </Box>
-                  <Box flex={1}>
-                    <Text fontSize="sm" mb={1} fontWeight="medium">
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="mb-1 text-sm font-medium">
                       Ед. изм.
-                    </Text>
+                    </p>
                     <Input
                       value={form.unit ?? ""}
                       onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
                       placeholder="шт."
-                      size="sm"
+                      className="h-7"
                       maxLength={32}
                     />
-                  </Box>
-                </Flex>
-              </VStack>
+                  </div>
+                </div>
+              </div>
             </DialogBody>
             <DialogFooter>
               <Button type="button" size="sm" variant="outline" onClick={() => setCreateOpen(false)}>
@@ -237,8 +233,6 @@ export function SparePartsList() {
               <Button
                 type="submit"
                 size="sm"
-                variant="solid"
-                colorPalette="blue"
                 loading={createMutation.isPending}
                 disabled={!form.title.trim()}
               >
@@ -252,60 +246,56 @@ export function SparePartsList() {
       <FetchingIndicator active={isFetching && !!data} />
 
       {isLoading && !data ? (
-        <Text color="fg.muted">Загрузка…</Text>
+        <p className="text-muted-foreground">Загрузка…</p>
       ) : parts.length === 0 ? (
-        <Text color="fg.muted">
+        <p className="text-muted-foreground">
           {alertsOnly
             ? "Нет позиций с остатком ниже минимального."
             : "Нет запчастей на складе запчастей. Добавьте позиции."}
-        </Text>
+        </p>
       ) : (
-        <Box overflowX="auto">
-          <Table.Root size="sm">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader>Название</Table.ColumnHeader>
-                <Table.ColumnHeader>Артикул</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">Остаток</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">Мин. остаток</Table.ColumnHeader>
-                <Table.ColumnHeader>Ед.</Table.ColumnHeader>
-                <Table.ColumnHeader>Статус</Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Название</TableHead>
+                <TableHead>Артикул</TableHead>
+                <TableHead className="text-end">Остаток</TableHead>
+                <TableHead className="text-end">Мин. остаток</TableHead>
+                <TableHead>Ед.</TableHead>
+                <TableHead>Статус</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {parts.map((part) => {
                 const alert = isBelowMin(part)
                 return (
-                  <Table.Row
-                    key={part.id}
-                    _hover={{ bg: "gray.50" }}
-                    _dark={{ _hover: { bg: "gray.800" } }}
-                  >
-                    <Table.Cell fontWeight="medium">{part.title}</Table.Cell>
-                    <Table.Cell color="fg.muted">{part.sku ?? "—"}</Table.Cell>
-                    <Table.Cell textAlign="end">{part.quantity}</Table.Cell>
-                    <Table.Cell textAlign="end">
+                  <TableRow key={part.id}>
+                    <TableCell className="font-medium">{part.title}</TableCell>
+                    <TableCell className="text-muted-foreground">{part.sku ?? "—"}</TableCell>
+                    <TableCell className="text-end">{part.quantity}</TableCell>
+                    <TableCell className="text-end">
                       {part.min_quantity != null ? part.min_quantity : "—"}
-                    </Table.Cell>
-                    <Table.Cell color="fg.muted">{part.unit ?? "—"}</Table.Cell>
-                    <Table.Cell>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{part.unit ?? "—"}</TableCell>
+                    <TableCell>
                       {alert ? (
-                        <Badge colorPalette="red" gap={1}>
+                        <span className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
                           <FiAlertTriangle />
                           Ниже минимума
-                        </Badge>
+                        </span>
                       ) : (
-                        <Text color="fg.muted" fontSize="sm">
+                        <span className="text-sm text-muted-foreground">
                           Норма
-                        </Text>
+                        </span>
                       )}
-                    </Table.Cell>
-                  </Table.Row>
+                    </TableCell>
+                  </TableRow>
                 )
               })}
-            </Table.Body>
-          </Table.Root>
-        </Box>
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {totalPages > 1 && (
@@ -315,7 +305,7 @@ export function SparePartsList() {
           page={page}
           onPageChange={(e) => setPage(e.page)}
         >
-          <Flex gap={2} align="center">
+          <div className="flex items-center gap-2">
             <PaginationPrevTrigger asChild>
               <Button size="sm" variant="outline">
                 Назад
@@ -327,9 +317,9 @@ export function SparePartsList() {
                 Вперёд
               </Button>
             </PaginationNextTrigger>
-          </Flex>
+          </div>
         </PaginationRoot>
       )}
-    </VStack>
+    </div>
   )
 }

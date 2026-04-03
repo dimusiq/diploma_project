@@ -1,29 +1,21 @@
-import {
-  Box,
-  Button,
-  Card,
-  Container,
-  Flex,
-  Heading,
-  Input,
-  SimpleGrid,
-  Text,
-} from "@chakra-ui/react"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import type { ChangeEvent, ReactNode } from "react"
 import { useState } from "react"
 import {
-  type PutawayRule,
-  type SimulationRunBody,
   fetchKpiSnapshot,
   fetchSimulationScenarios,
   fetchWarehousesForSimulationSeed,
+  type PutawayRule,
   postSimulationRun,
   postSimulationScenario,
   postSimulationScenarioRun,
+  type SimulationRunBody,
 } from "@/api/warehouseSimulation.ts"
+import { Button } from "@/components/ui/button.tsx"
+import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
+import { Input } from "@/components/ui/input.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
@@ -130,29 +122,27 @@ function WarehouseSimulationPage() {
   const k = lastSimResult?.kpis
 
   return (
-    <Container maxW="6xl" py={{ base: 6, md: 10 }}>
-      <Heading size="lg" mb={2}>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 md:py-10">
+      <h1 className="font-heading mb-2 text-2xl font-semibold tracking-tight">
         Симуляция и аналитика
-      </Heading>
-      <Text color="fg.muted" fontSize="sm" mb={8}>
+      </h1>
+      <p className="mb-8 text-sm text-muted-foreground">
         Снимок показателей из базы: занятость по зонам, рядам и уровням ячеек,
         среднее время нахождения на складе, сроки годности, оценка точности
         запасов по событиям. Дискретно-событийная модель прогнозирует очереди,
         работу доков, отбор, пополнение и загрузку ресурсов до изменения планировки
         или правил.
-      </Text>
+      </p>
 
-      <Heading size="sm" mb={3}>
+      <h2 className="font-heading mb-3 text-sm font-semibold">
         Снимок показателей (база данных)
-      </Heading>
-      {snapQ.isPending && <Skeleton h="120px" mb={8} />}
+      </h2>
+      {snapQ.isPending && <Skeleton className="mb-8 h-[120px]" />}
       {snapQ.isError && (
-        <Text color="red.fg" mb={8}>
-          Не удалось загрузить снимок.
-        </Text>
+        <p className="mb-8 text-sm text-destructive">Не удалось загрузить снимок.</p>
       )}
       {snapQ.data && (
-        <SimpleGrid columns={{ base: 1, sm: 2, md: 4 }} gap={4} mb={8}>
+        <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
           <StatCard
             label="Товаров на складе"
             value={String(twin?.warehouse_items_total ?? "—")}
@@ -197,40 +187,46 @@ function WarehouseSimulationPage() {
                 : "нет данных"
             }
           />
-        </SimpleGrid>
+        </div>
       )}
 
       {snapQ.data && snapQ.data.occupancy_by_zone.length > 0 && (
-        <Card.Root mb={8} variant="subtle">
-          <Card.Body>
-            <Heading size="sm" mb={2}>
+        <Card className="mb-8 bg-muted/30 ring-foreground/5">
+          <CardContent className="space-y-2 pt-6">
+            <h2 className="font-heading text-sm font-semibold">
               Занятость по зонам
-            </Heading>
-            <Flex direction="column" gap={1} fontSize="sm">
+            </h2>
+            <div className="flex flex-col gap-1 text-sm">
               {snapQ.data.occupancy_by_zone.map((z) => (
-                <Flex key={z.zone_name} justify="space-between">
-                  <Text>{z.zone_name}</Text>
-                  <Text fontWeight="medium">{z.item_count}</Text>
-                </Flex>
+                <div
+                  key={z.zone_name}
+                  className="flex justify-between gap-2"
+                >
+                  <span>{z.zone_name}</span>
+                  <span className="font-medium">{z.item_count}</span>
+                </div>
               ))}
-            </Flex>
-          </Card.Body>
-        </Card.Root>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {snapQ.data && snapQ.data.occupancy_by_slot_level.length > 0 && (
-        <Card.Root mb={8} variant="subtle">
-          <Card.Body>
-            <Heading size="sm" mb={2}>
+        <Card className="mb-8 bg-muted/30 ring-foreground/5">
+          <CardContent className="space-y-2 pt-6">
+            <h2 className="font-heading text-sm font-semibold">
               По уровню ячейки (тип слота — условно)
-            </Heading>
-            <Text fontSize="xs" color="fg.muted" mb={2}>
+            </h2>
+            <p className="mb-2 text-xs text-muted-foreground">
               Уровень 1 — зона отбора; остальные уровни — резервное хранение.
-            </Text>
-            <Flex direction="column" gap={1} fontSize="sm">
+            </p>
+            <div className="flex flex-col gap-1 text-sm">
               {snapQ.data.occupancy_by_slot_level.map((s) => (
-                <Flex key={s.storage_level} justify="space-between">
-                  <Text>
+                <div
+                  key={`${s.storage_level}-${s.slot_kind}`}
+                  className="flex justify-between gap-2"
+                >
+                  <span>
                     Уровень {s.storage_level} (
                     {s.slot_kind === "pick_face"
                       ? "отбор"
@@ -238,59 +234,52 @@ function WarehouseSimulationPage() {
                         ? "резерв"
                         : s.slot_kind}
                     )
-                  </Text>
-                  <Text fontWeight="medium">{s.item_count}</Text>
-                </Flex>
+                  </span>
+                  <span className="font-medium">{s.item_count}</span>
+                </div>
               ))}
-            </Flex>
-          </Card.Body>
-        </Card.Root>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      <Heading size="sm" mb={3}>
+      <h2 className="font-heading mb-3 text-sm font-semibold">
         Модель «что если» (дискретно-событийная)
-      </Heading>
-      <Card.Root mb={6} variant="subtle">
-        <Card.Body>
-          <Text fontSize="sm" color="fg.muted" mb={4}>
+      </h2>
+      <Card className="mb-6 bg-muted/30 ring-foreground/5">
+        <CardContent className="pt-6">
+          <p className="mb-4 text-sm text-muted-foreground">
             «Масштаб пути» отражает удлинение маршрутов при усложнении планировки;
             дополнительные минуты размещения имитируют перестановки в песочнице
             (дольше уходит размещение). Старт из twin подставляет глубины очередей
             из проекций (имена очередей: dock*, pick*, putaway* / staging).
-          </Text>
-          <Flex direction="column" gap={3} mb={4}>
+          </p>
+          <div className="mb-4 flex flex-col gap-3">
             <Checkbox
               checked={seedFromTwin}
-              onCheckedChange={(d) => setSeedFromTwin(d.checked === true)}
+              onCheckedChange={(c) => setSeedFromTwin(c)}
             >
               Стартовать сценарий из актуального twin (очереди док / размещение /
               отбор)
             </Checkbox>
             {seedFromTwin && (
-              <Box>
-                <Text fontSize="xs" color="fg.muted" mb={1}>
+              <div>
+                <p className="mb-1 text-xs text-muted-foreground">
                   Склад для чтения очередей (пусто — первый склад в системе)
-                </Text>
+                </p>
                 {whSeedQ.isPending ? (
-                  <Skeleton h="32px" maxW="320px" />
+                  <Skeleton className="h-8 max-w-[320px]" />
                 ) : whSeedQ.isError ? (
-                  <Text fontSize="xs" color="red.fg">
+                  <p className="text-xs text-destructive">
                     Не удалось загрузить список складов.
-                  </Text>
+                  </p>
                 ) : (
                   <select
                     value={simWarehouseId}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                       setSimWarehouseId(e.target.value)
                     }
-                    style={{
-                      maxWidth: 320,
-                      width: "100%",
-                      padding: "6px 8px",
-                      borderRadius: 6,
-                      border: "1px solid",
-                      fontSize: 14,
-                    }}
+                    className="w-full max-w-[320px] rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                   >
                     <option value="">По умолчанию</option>
                     {(whSeedQ.data ?? []).map((w) => (
@@ -300,88 +289,73 @@ function WarehouseSimulationPage() {
                     ))}
                   </select>
                 )}
-              </Box>
+              </div>
             )}
-          </Flex>
-          <Flex gap={3} align="flex-end" flexWrap="wrap">
+          </div>
+          <div className="mb-4 flex flex-wrap items-end gap-3">
             <Field label="Длительность, ч">
               <Input
-                size="sm"
-                w="90px"
+                className="h-7 w-[90px] text-sm"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
               />
             </Field>
             <Field label="Зерно случайности">
               <Input
-                size="sm"
-                w="80px"
+                className="h-7 w-20 text-sm"
                 value={seed}
                 onChange={(e) => setSeed(e.target.value)}
               />
             </Field>
             <Field label="Мест у дока">
               <Input
-                size="sm"
-                w="70px"
+                className="h-7 w-[70px] text-sm"
                 value={docks}
                 onChange={(e) => setDocks(e.target.value)}
               />
             </Field>
             <Field label="Погрузчики">
               <Input
-                size="sm"
-                w="90px"
+                className="h-7 w-[90px] text-sm"
                 value={forklifts}
                 onChange={(e) => setForklifts(e.target.value)}
               />
             </Field>
             <Field label="Операторы">
               <Input
-                size="sm"
-                w="90px"
+                className="h-7 w-[90px] text-sm"
                 value={operators}
                 onChange={(e) => setOperators(e.target.value)}
               />
             </Field>
             <Field label="Масштаб пути">
               <Input
-                size="sm"
-                w="90px"
+                className="h-7 w-[90px] text-sm"
                 value={travelScale}
                 onChange={(e) => setTravelScale(e.target.value)}
               />
             </Field>
             <Field label="Доп. время размещения, мин">
               <Input
-                size="sm"
-                w="100px"
+                className="h-7 w-[100px] text-sm"
                 value={sandboxPutawayExtra}
                 onChange={(e) => setSandboxPutawayExtra(e.target.value)}
               />
             </Field>
-            <Box>
-              <Text fontSize="xs" mb={1}>
-                Правило размещения
-              </Text>
+            <div>
+              <p className="mb-1 text-xs">Правило размещения</p>
               <select
                 value={putawayRule}
                 onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                   setPutawayRule(e.target.value as PutawayRule)
                 }
-                style={{
-                  width: 200,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  border: "1px solid",
-                  fontSize: 14,
-                }}
+                className="w-[200px] rounded-md border border-input bg-background px-2 py-1.5 text-sm"
               >
                 <option value="nearest">Ближайшая ячейка</option>
                 <option value="round_robin">По кругу</option>
                 <option value="random">Случайно</option>
               </select>
-            </Box>
+            </div>
             <Button
               size="sm"
               loading={runMut.isPending}
@@ -391,8 +365,7 @@ function WarehouseSimulationPage() {
             </Button>
             <Field label="Имя сценария">
               <Input
-                size="sm"
-                w="200px"
+                className="h-7 w-[200px] text-sm"
                 placeholder="Сохранить параметры"
                 value={scenarioName}
                 onChange={(e) => setScenarioName(e.target.value)}
@@ -406,39 +379,34 @@ function WarehouseSimulationPage() {
             >
               Сохранить сценарий
             </Button>
-          </Flex>
-        </Card.Body>
-      </Card.Root>
+          </div>
+        </CardContent>
+      </Card>
 
-      <Heading size="sm" mb={3} mt={4}>
+      <h2 className="font-heading mb-3 mt-4 text-sm font-semibold">
         Сохранённые сценарии
-      </Heading>
-      <Card.Root mb={8} variant="subtle">
-        <Card.Body>
+      </h2>
+      <Card className="mb-8 bg-muted/30 ring-foreground/5">
+        <CardContent className="pt-6">
           {scenariosQ.isPending ? (
-            <Skeleton h="80px" />
+            <Skeleton className="h-20" />
           ) : scenariosQ.isError ? (
-            <Text fontSize="sm" color="fg.muted">
+            <p className="text-sm text-muted-foreground">
               Не удалось загрузить список (нужна авторизация).
-            </Text>
+            </p>
           ) : (
-            <Flex direction="column" gap={2}>
+            <div className="flex flex-col gap-2">
               {(scenariosQ.data?.data ?? []).length === 0 ? (
-                <Text fontSize="sm" color="fg.muted">
+                <p className="text-sm text-muted-foreground">
                   Пока нет сохранённых сценариев.
-                </Text>
+                </p>
               ) : (
                 (scenariosQ.data?.data ?? []).map((s) => (
-                  <Flex
+                  <div
                     key={s.id}
-                    justify="space-between"
-                    align="center"
-                    flexWrap="wrap"
-                    gap={2}
+                    className="flex flex-wrap items-center justify-between gap-2"
                   >
-                    <Text fontSize="sm" fontWeight="medium">
-                      {s.name}
-                    </Text>
+                    <span className="text-sm font-medium">{s.name}</span>
                     <Button
                       size="xs"
                       loading={runSavedMut.isPending}
@@ -446,114 +414,108 @@ function WarehouseSimulationPage() {
                     >
                       Прогнать
                     </Button>
-                  </Flex>
+                  </div>
                 ))
               )}
-            </Flex>
+            </div>
           )}
-        </Card.Body>
-      </Card.Root>
+        </CardContent>
+      </Card>
 
       {k && (
         <>
-          <Heading size="sm" mb={3} mt={2}>
+          <h2 className="font-heading mb-3 mt-2 text-sm font-semibold">
             Результаты симуляции
-          </Heading>
-          <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} gap={4} mb={8}>
-          <StatCard
-            label="Макс. очередь у доков"
-            value={String(k.max_dock_queue)}
-          />
-          <StatCard
-            label="Макс. очередь размещения"
-            value={String(k.max_putaway_queue)}
-          />
-          <StatCard
-            label="Макс. очередь отбора"
-            value={String(k.max_pick_queue)}
-          />
-          <StatCard
-            label="Время оборота у дока, мин"
-            value={fmt(k.mean_dock_turnaround_min)}
-          />
-          <StatCard
-            label="Время «вход → размещено» (модель), мин"
-            value={fmt(k.mean_inbound_dwell_min)}
-          />
-          <StatCard
-            label="Ожидание отбора, мин"
-            value={fmt(k.mean_pick_wait_min)}
-          />
-          <StatCard
-            label="Прокси длины пути отбора, мин"
-            value={fmt(k.mean_pick_path_proxy_min)}
-          />
-          <StatCard
-            label="Длительность цикла пополнения, мин"
-            value={fmt(k.mean_replenishment_cycle_min)}
-          />
-          <StatCard
-            label="Загрузка погрузчиков"
-            value={pct(k.forklift_utilization)}
-          />
-          <StatCard
-            label="Загрузка операторов"
-            value={pct(k.operator_utilization)}
-          />
-          <StatCard label="Загрузка доков" value={pct(k.dock_utilization)} />
-          <StatCard
-            label="Прокси своевременности (OTIF)"
-            value={pct(k.otif_proxy)}
-          />
-          <StatCard
-            label="Доля отборов с опозданием"
-            value={pct(k.late_pick_fraction)}
-          />
-          <StatCard
-            label="Обработано событий модели"
-            value={String(k.events_processed)}
-          />
-        </SimpleGrid>
-        {lastSimResult?.twin_initial_state != null &&
-          typeof lastSimResult.twin_initial_state === "object" && (
-            <Card.Root mb={8} variant="outline">
-              <Card.Body>
-                <Heading size="sm" mb={2}>
-                  Стартовое состояние из twin
-                </Heading>
-                <TwinInitialStateView state={lastSimResult.twin_initial_state} />
-              </Card.Body>
-            </Card.Root>
-          )}
+          </h2>
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <StatCard
+              label="Макс. очередь у доков"
+              value={String(k.max_dock_queue)}
+            />
+            <StatCard
+              label="Макс. очередь размещения"
+              value={String(k.max_putaway_queue)}
+            />
+            <StatCard
+              label="Макс. очередь отбора"
+              value={String(k.max_pick_queue)}
+            />
+            <StatCard
+              label="Время оборота у дока, мин"
+              value={fmt(k.mean_dock_turnaround_min)}
+            />
+            <StatCard
+              label="Время «вход → размещено» (модель), мин"
+              value={fmt(k.mean_inbound_dwell_min)}
+            />
+            <StatCard
+              label="Ожидание отбора, мин"
+              value={fmt(k.mean_pick_wait_min)}
+            />
+            <StatCard
+              label="Прокси длины пути отбора, мин"
+              value={fmt(k.mean_pick_path_proxy_min)}
+            />
+            <StatCard
+              label="Длительность цикла пополнения, мин"
+              value={fmt(k.mean_replenishment_cycle_min)}
+            />
+            <StatCard
+              label="Загрузка погрузчиков"
+              value={pct(k.forklift_utilization)}
+            />
+            <StatCard
+              label="Загрузка операторов"
+              value={pct(k.operator_utilization)}
+            />
+            <StatCard label="Загрузка доков" value={pct(k.dock_utilization)} />
+            <StatCard
+              label="Прокси своевременности (OTIF)"
+              value={pct(k.otif_proxy)}
+            />
+            <StatCard
+              label="Доля отборов с опозданием"
+              value={pct(k.late_pick_fraction)}
+            />
+            <StatCard
+              label="Обработано событий модели"
+              value={String(k.events_processed)}
+            />
+          </div>
+          {lastSimResult?.twin_initial_state != null &&
+            typeof lastSimResult.twin_initial_state === "object" && (
+              <Card className="mb-8 ring-foreground/15">
+                <CardContent className="pt-6">
+                  <h2 className="font-heading mb-2 text-sm font-semibold">
+                    Стартовое состояние из twin
+                  </h2>
+                  <TwinInitialStateView state={lastSimResult.twin_initial_state} />
+                </CardContent>
+              </Card>
+            )}
         </>
       )}
-    </Container>
+    </div>
   )
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <Box>
-      <Text fontSize="xs" mb={1}>
-        {label}
-      </Text>
+    <div>
+      <p className="mb-1 text-xs">{label}</p>
       {children}
-    </Box>
+    </div>
   )
 }
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card.Root variant="outline">
-      <Card.Body py={3}>
-        <Text fontSize="xs" color="fg.muted" mb={1}>
-          {label}
-        </Text>
-        <Text fontSize="lg" fontWeight="semibold">
-          {value}
-        </Text>
-      </Card.Body>
-    </Card.Root>
+    <Card>
+      <CardContent className="py-3 pt-6">
+        <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+        <p className="text-lg font-semibold">{value}</p>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -575,33 +537,31 @@ function TwinInitialStateView({ state }: { state: Record<string, unknown> }) {
   const pick = state.initial_pick_queue
   const rows = state.queue_projection_rows
   return (
-    <Flex direction="column" gap={2} fontSize="sm">
-      <Text color="fg.muted">
-        Склад: <strong>{String(wh ?? "—")}</strong>
-      </Text>
-      <Text>
+    <div className="flex flex-col gap-2 text-sm">
+      <p className="text-muted-foreground">
+        Склад: <strong className="text-foreground">{String(wh ?? "—")}</strong>
+      </p>
+      <p>
         Начальные очереди DES: док {String(dock ?? "—")}, размещение{" "}
         {String(put ?? "—")}, отбор {String(pick ?? "—")}
-      </Text>
+      </p>
       {Array.isArray(rows) && rows.length > 0 && (
-        <Box mt={2}>
-          <Text fontSize="xs" color="fg.muted" mb={1}>
-            Строки проекции
-          </Text>
-          <Flex direction="column" gap={0.5} fontSize="xs">
+        <div className="mt-2">
+          <p className="mb-1 text-xs text-muted-foreground">Строки проекции</p>
+          <div className="flex flex-col gap-0.5 text-xs">
             {rows.slice(0, 24).map((r, i) => (
-              <Text key={i}>
+              <p key={i}>
                 {String((r as { queue_name?: string }).queue_name ?? "?")}: depth{" "}
                 {String((r as { depth?: number }).depth ?? "?")} (
                 {String((r as { category?: string | null }).category ?? "—")})
-              </Text>
+              </p>
             ))}
             {rows.length > 24 && (
-              <Text color="fg.muted">… ещё {rows.length - 24}</Text>
+              <p className="text-muted-foreground">… ещё {rows.length - 24}</p>
             )}
-          </Flex>
-        </Box>
+          </div>
+        </div>
       )}
-    </Flex>
+    </div>
   )
 }

@@ -1,8 +1,6 @@
-import { Box, Collapsible, Flex, Icon, Text } from "@chakra-ui/react"
 import { useQuery } from "@tanstack/react-query"
 import { Link as RouterLink, useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
-import { fetchAgentPermissions } from "@/api/agent.ts"
 import {
   FiActivity,
   FiArrowDownRight,
@@ -16,13 +14,21 @@ import {
   FiList,
   FiMessageCircle,
   FiSettings,
+  FiTarget,
   FiTruck,
   FiUsers,
-  FiTarget,
 } from "react-icons/fi"
 import type { IconType } from "react-icons/lib"
 import { TbForklift } from "react-icons/tb"
+import { fetchAgentPermissions } from "@/api/agent.ts"
+
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
+import { cn } from "@/lib/utils"
 
 interface SubItem {
   id: string
@@ -44,66 +50,22 @@ interface ItemExpandable extends ItemBase {
 type Item = ItemLink | ItemExpandable
 
 const items: Item[] = [
-  {
-    icon: FiBarChart2,
-    title: "Дашборд",
-    path: "/",
-  },
-  {
-    icon: FiGrid,
-    title: "Центр платформы",
-    path: "/operator-hub",
-  },
-  {
-    icon: FiTarget,
-    title: "Control Tower",
-    path: "/control-tower",
-  },
-  {
-    icon: FiArrowDownRight,
-    title: "Поступления",
-    path: "/items",
-  },
-  {
-    icon: FiBox,
-    title: "Склад",
-    path: "/warehouse",
-  },
-  {
-    icon: FiList,
-    title: "Задания склада",
-    path: "/warehouse-tasks",
-  },
-  {
-    icon: FiActivity,
-    title: "Аналитика двойника",
-    path: "/warehouse-twin",
-  },
+  { icon: FiBarChart2, title: "Дашборд", path: "/" },
+  { icon: FiGrid, title: "Центр платформы", path: "/operator-hub" },
+  { icon: FiTarget, title: "Control Tower", path: "/control-tower" },
+  { icon: FiArrowDownRight, title: "Поступления", path: "/items" },
+  { icon: FiBox, title: "Склад", path: "/warehouse" },
+  { icon: FiList, title: "Задания склада", path: "/warehouse-tasks" },
+  { icon: FiActivity, title: "Аналитика двойника", path: "/warehouse-twin" },
   {
     icon: FiCpu,
     title: "Симуляция и аналитика",
     path: "/warehouse-simulation",
   },
-  {
-    icon: FiLayers,
-    title: "3D Склад",
-    path: "/warehouse-3d",
-  },
-  {
-    icon: FiMessageCircle,
-    title: "Ассистент",
-    path: "/assistant",
-  },
-  {
-    icon: FiTruck,
-    title: "Отгрузка",
-    path: "/shipment",
-  },
-  {
-    icon: FiCheckCircle,
-    title: "Отгружено",
-    path: "/shipped",
-  },
+  { icon: FiLayers, title: "3D Склад", path: "/warehouse-3d" },
+  { icon: FiMessageCircle, title: "Ассистент", path: "/assistant" },
+  { icon: FiTruck, title: "Отгрузка", path: "/shipment" },
+  { icon: FiCheckCircle, title: "Отгружено", path: "/shipped" },
   {
     icon: TbForklift,
     title: "Техника",
@@ -123,11 +85,7 @@ const items: Item[] = [
       { id: "predictive", title: "Прогнозирование" },
     ],
   },
-  {
-    icon: FiSettings,
-    title: "Настройки Пользователя",
-    path: "/settings",
-  },
+  { icon: FiSettings, title: "Настройки Пользователя", path: "/settings" },
 ]
 
 interface SidebarItemsProps {
@@ -146,7 +104,9 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
 
   const currentSection =
     pathname === "/technique"
-      ? location.search && typeof location.search === "object" && "section" in location.search
+      ? location.search &&
+        typeof location.search === "object" &&
+        "section" in location.search
         ? (location.search as { section?: string }).section
         : "assets"
       : undefined
@@ -160,8 +120,8 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
         ...items,
         {
           icon: FiUsers,
-          title: 'Администрирование',
-          path: '/admin',
+          title: "Администрирование",
+          path: "/admin",
         },
       ]
     : items
@@ -181,40 +141,26 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
 
   const listItems = navItems.map((item) => {
     if (isExpandable(item)) {
+      const Icon = item.icon
       return (
-        <Collapsible.Root
+        <Collapsible
           key={item.title}
           open={techniqueExpanded}
-          onOpenChange={(e) => setTechniqueExpanded(e.open)}
+          onOpenChange={setTechniqueExpanded}
         >
-          <Collapsible.Trigger
-            display="flex"
-            gap={4}
-            px={4}
-            py={2}
-            w="100%"
-            textAlign="left"
-            alignItems="center"
-            fontSize="sm"
-            bg="transparent"
-            border="none"
-            cursor="pointer"
-            color="inherit"
-            _hover={{ background: "gray.subtle" }}
-          >
-            <Icon as={item.icon} alignSelf="center" />
-            <Text ml={2}>{item.title}</Text>
-            <Icon
-              as={FiChevronDown}
-              ml="auto"
-              boxSize={4}
-              flexShrink={0}
-              transition="transform 0.2s ease"
-              transform={techniqueExpanded ? "rotate(0deg)" : "rotate(-90deg)"}
+          <CollapsibleTrigger className="flex w-full items-center gap-4 rounded-md px-4 py-2 text-left text-sm text-foreground hover:bg-muted">
+            <Icon className="size-4 shrink-0 self-center" aria-hidden />
+            <span className="ml-2">{item.title}</span>
+            <FiChevronDown
+              className={cn(
+                "ml-auto size-4 shrink-0 transition-transform",
+                techniqueExpanded ? "rotate-0" : "-rotate-90",
+              )}
+              aria-hidden
             />
-          </Collapsible.Trigger>
-          <Collapsible.Content>
-            <Box pl={6} pr={2} pb={1}>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-2 pb-1 pl-6">
               {item.children.map((sub) => {
                 const isActive = currentSection === sub.id
                 return (
@@ -223,59 +169,44 @@ const SidebarItems = ({ onClose }: SidebarItemsProps) => {
                     to="/technique"
                     search={{ section: sub.id }}
                     onClick={onClose}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted",
+                      isActive &&
+                        "border-l-[3px] border-primary bg-muted font-bold",
+                      !isActive && "font-medium",
+                    )}
                   >
-                    <Flex
-                      gap={2}
-                      px={2}
-                      py={1.5}
-                      _hover={{ background: "gray.subtle" }}
-                      alignItems="center"
-                      fontSize="xs"
-                      borderRadius="md"
-                      bg={isActive ? "gray.subtle" : undefined}
-                      fontWeight={isActive ? "bold" : "medium"}
-                      borderLeftWidth={isActive ? "3px" : 0}
-                      borderLeftColor="blue.500"
-                    >
-                      <Text>{sub.title}</Text>
-                    </Flex>
+                    {sub.title}
                   </RouterLink>
                 )
               })}
-            </Box>
-          </Collapsible.Content>
-        </Collapsible.Root>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )
     }
-    const { icon, title, path } = item
+    const { icon: Icon, title, path } = item
     const isActive = pathname === path || (path === "/" && pathname === "/")
     return (
       <RouterLink key={title} to={path} onClick={onClose}>
-        <Flex
-          gap={4}
-          px={4}
-          py={2}
-          _hover={{ background: "gray.subtle" }}
-          alignItems="center"
-          fontSize="sm"
-          bg={isActive ? "gray.subtle" : undefined}
-          fontWeight={isActive ? "bold" : undefined}
-          borderLeftWidth={isActive ? "3px" : 0}
-          borderLeftColor="blue.500"
+        <div
+          className={cn(
+            "flex items-center gap-4 rounded-md px-4 py-2 text-sm hover:bg-muted",
+            isActive && "border-l-[3px] border-primary bg-muted font-bold",
+            !isActive && "font-normal",
+          )}
         >
-          <Icon as={icon} alignSelf="center" />
-          <Text ml={2}>{title}</Text>
-        </Flex>
+          <Icon className="size-4 shrink-0 self-center" aria-hidden />
+          <span className="ml-2">{title}</span>
+        </div>
       </RouterLink>
     )
   })
 
   return (
     <>
-      <Text fontSize="xs" px={4} py={2} fontWeight="bold">
-        Меню
-      </Text>
-      <Box>{listItems}</Box>
+      <p className="px-4 py-2 text-xs font-bold text-muted-foreground">Меню</p>
+      <div>{listItems}</div>
     </>
   )
 }

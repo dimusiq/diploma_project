@@ -1,4 +1,3 @@
-import { Container, Image, Input, Text } from "@chakra-ui/react"
 import {
   createFileRoute,
   Link as RouterLink,
@@ -11,9 +10,9 @@ import { FiLock, FiMail } from "react-icons/fi"
 import { LoginService } from "@/client/index.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
-import { Field } from "@/components/ui/field.tsx"
-import { InputGroup } from "@/components/ui/input-group.tsx"
-import { PasswordInput } from "@/components/ui/password-input.tsx"
+import { InputWithIcon } from "@/components/ui/input-with-icon.tsx"
+import { Label } from "@/components/ui/label.tsx"
+import { PasswordField } from "@/components/ui/password-field.tsx"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
 import { setAccessToken } from "@/lib/authStorage.ts"
 import { getApiErrorMessage } from "@/utils.ts"
@@ -78,40 +77,21 @@ function Login() {
   }, [state.success, navigate])
 
   return (
-    <Container
-      h="100vh"
-      maxW="sm"
-      alignItems="stretch"
-      justifyContent="center"
-      gap={4}
-      centerContent
-    >
-      <form
-        action={formAction}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "stretch",
-          gap: "1rem",
-          width: "100%",
-        }}
-      >
-      <Image
-        src="/images/nebardak-logo.svg"
-        alt="Nebardak"
-        height="auto"
-        maxW="2xs"
-        alignSelf="center"
-        mb={4}
-      />
-      {state.error && (
-        <Text fontSize="sm" color="red.500" role="alert">
-          {state.error}
-        </Text>
-      )}
-      <Field invalid={!!state.error} errorText={undefined}>
-        <InputGroup w="100%" startElement={<FiMail />}>
-          <Input
+    <div className="flex min-h-screen flex-col items-center justify-center px-4">
+      <form action={formAction} className="flex w-full max-w-sm flex-col gap-4">
+        <img
+          src="/images/nebardak-logo.svg"
+          alt="Nebardak"
+          className="mx-auto mb-4 h-auto w-full max-w-[12rem]"
+        />
+        {state.error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+        <div className="space-y-2">
+          <Label htmlFor="username">Email</Label>
+          <InputWithIcon
             id="username"
             name="username"
             placeholder="Email"
@@ -119,41 +99,46 @@ function Login() {
             required
             autoComplete="username"
             minLength={3}
+            startElement={<FiMail />}
+            aria-invalid={!!state.error}
           />
-        </InputGroup>
-      </Field>
-      <PasswordInput
-        name="password"
-        type="password"
-        startElement={<FiLock />}
-        placeholder="Пароль"
-        required
-        autoComplete="current-password"
-        errors={{}}
-        minLength={MIN_PASSWORD_LENGTH}
-      />
-      <Checkbox inputProps={{ name: "remember", value: "on" }}>
-        Запомнить меня
-      </Checkbox>
-      <RouterLink to="/recover-password" className="main-link">
-        Забыли пароль?
-      </RouterLink>
-      <Button
-        variant="solid"
-        size="sm"
-        type="submit"
-        loading={isPending}
-        disabled={isPending}
-      >
-        Войти
-      </Button>
-      <Text>
-        Ещё нет аккаунта?{" "}
-        <RouterLink to="/signup" className="main-link">
-          Зарегистрируйтесь!
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Пароль</Label>
+          <PasswordField
+            id="password"
+            name="password"
+            placeholder="Пароль"
+            required
+            autoComplete="current-password"
+            minLength={MIN_PASSWORD_LENGTH}
+            startElement={<FiLock />}
+            aria-invalid={!!state.error}
+          />
+        </div>
+        <Checkbox name="remember" value="on" className="self-start">
+          Запомнить меня
+        </Checkbox>
+        <RouterLink to="/recover-password" className="main-link text-sm">
+          Забыли пароль?
         </RouterLink>
-      </Text>
+        <Button
+          variant="solid"
+          size="sm"
+          type="submit"
+          loading={isPending}
+          disabled={isPending}
+          className="w-full"
+        >
+          Войти
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          Ещё нет аккаунта?{" "}
+          <RouterLink to="/signup" className="main-link">
+            Зарегистрируйтесь!
+          </RouterLink>
+        </p>
       </form>
-    </Container>
+    </div>
   )
 }

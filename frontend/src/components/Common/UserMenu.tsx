@@ -1,58 +1,57 @@
-import { Box, Button, Flex, Text } from "@chakra-ui/react"
-import { Link } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import { FaHardHat } from "react-icons/fa"
 import { FiLogOut, FiUser } from "react-icons/fi"
 
+import { Button } from "@/components/ui/button.tsx"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu.tsx"
 import useAuth from "@/hooks/useAuth.ts"
-import { MenuContent, MenuItem, MenuRoot, MenuTrigger } from "../ui/menu.tsx"
 
 const UserMenu = () => {
+  const navigate = useNavigate()
   const { user, logout } = useAuth()
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     logout()
   }
 
   return (
-    <>
-      {/* Desktop */}
-      <Flex>
-        <MenuRoot>
-          <MenuTrigger asChild p={2}>
-            <Button data-testid="user-menu" variant="solid" maxW="sm" truncate>
-              <FaHardHat fontSize="18" />
-              <Text>{user?.full_name || "Пользователь"}</Text>
-            </Button>
-          </MenuTrigger>
-
-          <MenuContent>
-            <Link to="/settings">
-              <MenuItem
-                closeOnSelect
-                value="user-settings"
-                gap={2}
-                py={2}
-                style={{ cursor: "pointer" }}
-              >
-                <FiUser fontSize="18px" />
-                <Box flex="1">Мой профиль</Box>
-              </MenuItem>
-            </Link>
-
-            <MenuItem
-              value="logout"
-              gap={2}
-              py={2}
-              onClick={handleLogout}
-              style={{ cursor: "pointer" }}
-            >
-              <FiLogOut />
-              Выйти
-            </MenuItem>
-          </MenuContent>
-        </MenuRoot>
-      </Flex>
-    </>
+    <DropdownMenu>
+      <DropdownMenuTrigger>
+        <Button
+          data-testid="user-menu"
+          variant="default"
+          size="sm"
+          className="max-w-xs truncate"
+        >
+          <FaHardHat className="size-[18px] shrink-0" />
+          <span className="truncate">{user?.full_name ?? "Пользователь"}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuItem
+          onClick={() => navigate({ to: "/settings" })}
+          className="cursor-pointer gap-2"
+        >
+          <FiUser className="size-4" />
+          Мой профиль
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={handleLogout}
+          className="cursor-pointer gap-2"
+        >
+          <FiLogOut className="size-4" />
+          Выйти
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

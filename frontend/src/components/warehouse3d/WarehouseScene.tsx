@@ -14,32 +14,31 @@ import { Canvas, useFrame } from "@react-three/fiber"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Group, MeshStandardMaterial } from "three"
 import { Vector3 } from "three"
-
-import {
-  WarehouseEquipmentMesh,
-  type WarehouseEquipmentKind,
-} from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
-import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
-import {
-  WarehouseTwinLayers,
-  type TwinLayersVisibility,
-} from "@/components/warehouse3d/WarehouseTwinLayers.tsx"
-import {
-  buildWarehouseGeometry,
-  cellWorldOnFloor,
-  CELL_GAP,
-  CELL_SIZE,
-  DEFAULT_WAREHOUSE_LAYOUT_SPEC,
-  LEVEL_HEIGHT,
-  useWarehouseGeometry,
-  WarehouseGeometryProvider,
-  type WarehouseGeometry,
-  type WarehouseLayoutSpec,
-} from "@/components/warehouse3d/warehouseGeometry.tsx"
 import type { EquipmentPublic } from "@/api/equipment.ts"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
 import type { TopologyDocument } from "@/api/warehouseTopology.ts"
+import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
+import {
+  type WarehouseEquipmentKind,
+  WarehouseEquipmentMesh,
+} from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
+import {
+  type TwinLayersVisibility,
+  WarehouseTwinLayers,
+} from "@/components/warehouse3d/WarehouseTwinLayers.tsx"
 import { buildAisleRoutePolyline } from "@/components/warehouse3d/warehouseAisleRouting.ts"
+import {
+  buildWarehouseGeometry,
+  CELL_GAP,
+  CELL_SIZE,
+  cellWorldOnFloor,
+  DEFAULT_WAREHOUSE_LAYOUT_SPEC,
+  LEVEL_HEIGHT,
+  useWarehouseGeometry,
+  type WarehouseGeometry,
+  WarehouseGeometryProvider,
+  type WarehouseLayoutSpec,
+} from "@/components/warehouse3d/warehouseGeometry.tsx"
 import {
   polylineLength,
   samplePolyline3D,
@@ -714,7 +713,7 @@ function SimulationEquipmentAlongRoute({
       tRef.current = 0
       doneRef.current = false
     }
-  }, [active, pathPoints])
+  }, [active])
 
   useFrame((state, delta) => {
     if (!active || pathPoints.length < 2 || !groupRef.current) return

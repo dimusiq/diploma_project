@@ -1,15 +1,15 @@
-import { Container, Heading, Text } from "@chakra-ui/react"
 import {
   createFileRoute,
   redirect,
   useNavigate,
 } from "@tanstack/react-router"
-import { useActionState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { FiLock } from "react-icons/fi"
 
 import { LoginService } from "@/client/index.ts"
 import { Button } from "@/components/ui/button.tsx"
-import { PasswordInput } from "@/components/ui/password-input.tsx"
+import { Label } from "@/components/ui/label.tsx"
+import { PasswordField } from "@/components/ui/password-field.tsx"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { getApiErrorMessage } from "@/utils.ts"
@@ -59,10 +59,11 @@ async function resetPasswordAction(
 function ResetPassword() {
   const navigate = useNavigate()
   const { showSuccessToast } = useCustomToast()
-  const [state, formAction, isPending] = useActionState(resetPasswordAction, {
+  const [state, setState] = useState<ResetState>({
     error: null,
     success: false,
-  } as ResetState)
+  })
+  const [isPending, setIsPending] = useState(false)
 
   useEffect(() => {
     if (state.success) {
@@ -72,58 +73,66 @@ function ResetPassword() {
   }, [state.success, showSuccessToast, navigate])
 
   return (
-    <Container
-      h="100vh"
-      maxW="sm"
-      alignItems="stretch"
-      justifyContent="center"
-      gap={4}
-      centerContent
-    >
+    <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <form
-        action={formAction}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "stretch",
-          gap: "1rem",
-          width: "100%",
+        noValidate
+        className="flex w-full max-w-sm flex-col gap-4"
+        onSubmit={async (e) => {
+          e.preventDefault()
+          setIsPending(true)
+          try {
+            const next = await resetPasswordAction(
+              { error: null, success: false },
+              new FormData(e.currentTarget),
+            )
+            setState(next)
+          } finally {
+            setIsPending(false)
+          }
         }}
       >
-      <Heading size="xl" color="ui.main" textAlign="center" mb={2}>
-        Сброс пароля
-      </Heading>
-      <Text textAlign="center">
-        Пожалуйста, введите новый пароль для вашей учетной записи.
-      </Text>
-      {state.error && (
-        <Text fontSize="sm" color="red.500" role="alert">
-          {state.error}
-        </Text>
-      )}
-      <PasswordInput
-        name="new_password"
-        type="new_password"
-        startElement={<FiLock />}
-        placeholder="Новый пароль"
-        required
-        minLength={8}
-        autoComplete="new-password"
-        errors={{}}
-      />
-      <PasswordInput
-        name="confirm_password"
-        type="confirm_password"
-        startElement={<FiLock />}
-        placeholder="Подтвердите пароль"
-        required
-        autoComplete="new-password"
-        errors={{}}
-      />
-      <Button variant="solid" size="sm" type="submit" loading={isPending}>
-        Сбросить пароль
-      </Button>
+        <h1 className="mb-2 text-center text-2xl font-semibold text-primary">
+          Сброс пароля
+        </h1>
+        <p className="text-center text-sm text-muted-foreground">
+          Пожалуйста, введите новый пароль для вашей учетной записи.
+        </p>
+        {state.error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+        <div className="space-y-2">
+          <Label htmlFor="new_password">Новый пароль</Label>
+          <PasswordField
+            id="new_password"
+            name="new_password"
+            placeholder="Новый пароль"
+            autoComplete="new-password"
+            startElement={<FiLock />}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="confirm_password">Подтвердите пароль</Label>
+          <PasswordField
+            id="confirm_password"
+            name="confirm_password"
+            placeholder="Подтвердите пароль"
+            autoComplete="new-password"
+            startElement={<FiLock />}
+          />
+        </div>
+        <Button
+          variant="solid"
+          size="sm"
+          type="submit"
+          loading={isPending}
+          disabled={isPending}
+          className="w-full"
+        >
+          Сбросить пароль
+        </Button>
       </form>
-    </Container>
+    </div>
   )
 }

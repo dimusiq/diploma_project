@@ -1,5 +1,5 @@
-import { Button, Flex, Text } from "@chakra-ui/react"
 import { FiDownload, FiEdit3, FiPrinter, FiTruck, FiX } from "react-icons/fi"
+import { Button } from "@/components/ui/button.tsx"
 import {
   MenuContent,
   MenuItem,
@@ -32,84 +32,65 @@ export function ItemSelectionToolbar({
   const active = selectedCount > 0
 
   return (
-    <Flex
-      gap={3}
-      mb={4}
-      p={3}
-      bg="bg.subtle"
-      borderRadius="md"
-      align="center"
-      flexWrap="wrap"
-      // Важно: панель не должна "вставляться" в поток и сдвигать таблицу вниз.
-      // Держим постоянную высоту и просто прячем содержимое, пока ничего не выбрано.
-      minH="52px"
-      visibility={active ? "visible" : "hidden"}
-      pointerEvents={active ? "auto" : "none"}
+    <div
+      className="mb-4 flex min-h-[52px] flex-wrap items-center gap-3 rounded-md bg-muted/50 p-3"
+      style={{
+        visibility: active ? "visible" : "hidden",
+        pointerEvents: active ? "auto" : "none",
+      }}
     >
-      <Text fontSize="sm" fontWeight="medium">
-        Выбрано: {selectedCount}
-      </Text>
+      <p className="text-sm font-medium">Выбрано: {selectedCount}</p>
       <Button
         size="sm"
         variant="outline"
         onClick={onPrintShippingNote}
         disabled={isPrinting}
       >
-        <Flex as="span" gap={2} align="center">
+        <span className="inline-flex items-center gap-2">
           <FiPrinter />
           Печать накладной
-        </Flex>
+        </span>
       </Button>
       <Button size="sm" variant="outline" onClick={onMove}>
-        <Flex as="span" gap={2} align="center">
+        <span className="inline-flex items-center gap-2">
           <FiTruck />
           Переместить
-        </Flex>
+        </span>
       </Button>
       {onMassEdit && (
         <Button size="sm" variant="outline" onClick={onMassEdit}>
-          <Flex as="span" gap={2} align="center">
+          <span className="inline-flex items-center gap-2">
             <FiEdit3 />
             Изменить выбранные
-          </Flex>
+          </span>
         </Button>
       )}
       {onExportSelected && (
         <MenuRoot>
           <MenuTrigger asChild>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={isExporting}
-            >
-              <Flex as="span" gap={2} align="center">
+            <Button size="sm" variant="outline" disabled={isExporting}>
+              <span className="inline-flex items-center gap-2">
                 <FiDownload />
                 Выгрузить выбранные
-              </Flex>
+              </span>
             </Button>
           </MenuTrigger>
           <MenuContent>
-            <MenuItem
-              value="csv"
-              onClick={() => onExportSelected("csv")}
-            >
+            <MenuItem value="csv" onClick={() => onExportSelected("csv")}>
               CSV
             </MenuItem>
-            <MenuItem
-              value="xlsx"
-              onClick={() => onExportSelected("xlsx")}
-            >
+            <MenuItem value="xlsx" onClick={() => onExportSelected("xlsx")}>
               Excel
             </MenuItem>
           </MenuContent>
         </MenuRoot>
       )}
       <Button size="sm" variant="ghost" onClick={onClear}>
-        <Flex as="span" gap={2} align="center">
+        <span className="inline-flex items-center gap-2">
           <FiX />
           Снять выделение
-        </Flex>
+        </span>
       </Button>
-    </Flex>
+    </div>
   )
 }

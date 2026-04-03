@@ -1,20 +1,22 @@
-import {
-  Box,
-  Button,
-  Heading,
-  Table,
-  Text,
-  Textarea,
-} from "@chakra-ui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import {
-  fetchAgentPolicies,
-  fetchAgentRuns,
-  fetchAgentRun,
-  updateAgentPolicy,
   type AgentPolicyPublic,
+  fetchAgentPolicies,
+  fetchAgentRun,
+  fetchAgentRuns,
+  updateAgentPolicy,
 } from "@/api/agent.ts"
+import { Button } from "@/components/ui/button.tsx"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table.tsx"
+import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 function formatDt(s: string): string {
@@ -42,20 +44,18 @@ function PolicyEditor({ row }: { row: AgentPolicyPublic }) {
     onError: (e: Error) => showErrorToast(e.message),
   })
   return (
-    <Box mb={8} borderWidth="1px" borderRadius="md" p={4}>
-      <Heading size="sm" mb={1}>
+    <div className="mb-8 rounded-md border border-border p-4">
+      <h3 className="font-heading mb-1 text-sm font-semibold">
         {row.title}
-      </Heading>
-      <Text fontSize="xs" color="fg.muted" mb={2}>
+      </h3>
+      <p className="mb-2 text-xs text-muted-foreground">
         code: {row.code} · обновлено {formatDt(row.updated_at)}
-      </Text>
+      </p>
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        fontFamily="mono"
-        fontSize="xs"
+        className="mb-2 font-mono text-xs"
         rows={12}
-        mb={2}
       />
       <Button
         size="sm"
@@ -71,7 +71,7 @@ function PolicyEditor({ row }: { row: AgentPolicyPublic }) {
       >
         Сохранить rules (JSON)
       </Button>
-    </Box>
+    </div>
   )
 }
 
@@ -86,41 +86,41 @@ export function AgentGovernanceAdmin() {
   })
 
   return (
-    <Box>
-      <Heading size="md" mb={4}>
+    <div>
+      <h2 className="font-heading mb-4 text-lg font-semibold">
         Политики и безопасность агента
-      </Heading>
-      <Text fontSize="sm" color="fg.muted" mb={4}>
+      </h2>
+      <p className="mb-4 text-sm text-muted-foreground">
         Запись в БД <code>agent_policy</code> (например deny_tools, allow_act_tools).
         Изменения влияют на вызов инструментов на сервере.
-      </Text>
+      </p>
       {polQ.isPending ? (
-        <Text fontSize="sm">Загрузка политик…</Text>
+        <p className="text-sm">Загрузка политик…</p>
       ) : polQ.isError ? (
-        <Text color="red.fg" fontSize="sm">
+        <p className="text-sm text-destructive">
           Нет доступа или ошибка загрузки политик (нужно право agent.policies.read).
-        </Text>
+        </p>
       ) : (
         polQ.data?.data.map((p) => <PolicyEditor key={p.id} row={p} />)
       )}
 
-      <Heading size="md" mt={10} mb={4}>
+      <h2 className="font-heading mt-10 mb-4 text-lg font-semibold">
         Запуски агента (трассы)
-      </Heading>
-      <Text fontSize="sm" color="fg.muted" mb={4}>
+      </h2>
+      <p className="mb-4 text-sm text-muted-foreground">
         Сохранённые шаги observe / reason / act / verify / conclude. Детали — по
         клику (GET /agent/runs/&#123;id&#125;).
-      </Text>
+      </p>
       {runsQ.isPending ? (
-        <Text fontSize="sm">Загрузка…</Text>
+        <p className="text-sm">Загрузка…</p>
       ) : runsQ.isError ? (
-        <Text color="red.fg" fontSize="sm">
+        <p className="text-sm text-destructive">
           Не удалось загрузить запуски.
-        </Text>
+        </p>
       ) : (
         <AgentRunsTable runs={runsQ.data?.data ?? []} />
       )}
-    </Box>
+    </div>
   )
 }
 
@@ -141,66 +141,58 @@ function AgentRunsTable({
     enabled: selectedId != null,
   })
   return (
-    <Box>
-      <Table.Root size="sm" variant="line">
-        <Table.Header>
-          <Table.Row>
-            <Table.ColumnHeader w="14"> </Table.ColumnHeader>
-            <Table.ColumnHeader>Время</Table.ColumnHeader>
-            <Table.ColumnHeader>Модель</Table.ColumnHeader>
-            <Table.ColumnHeader>Шагов</Table.ColumnHeader>
-            <Table.ColumnHeader>ID</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
+    <div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-14"> </TableHead>
+            <TableHead>Время</TableHead>
+            <TableHead>Модель</TableHead>
+            <TableHead>Шагов</TableHead>
+            <TableHead>ID</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {runs.map((r) => (
-            <Table.Row key={r.id}>
-              <Table.Cell>
+            <TableRow key={r.id}>
+              <TableCell>
                 <Button
                   size="xs"
-                  variant={selectedId === r.id ? "solid" : "ghost"}
+                  variant={selectedId === r.id ? "default" : "ghost"}
                   onClick={() =>
                     setSelectedId((cur) => (cur === r.id ? null : r.id))
                   }
                 >
                   {selectedId === r.id ? "Скрыть" : "Шаги"}
                 </Button>
-              </Table.Cell>
-              <Table.Cell>{formatDt(r.created_at)}</Table.Cell>
-              <Table.Cell>{r.model ?? "—"}</Table.Cell>
-              <Table.Cell>
+              </TableCell>
+              <TableCell>{formatDt(r.created_at)}</TableCell>
+              <TableCell>{r.model ?? "—"}</TableCell>
+              <TableCell>
                 {Array.isArray(r.steps) ? r.steps.length : 0}
-              </Table.Cell>
-              <Table.Cell fontFamily="mono" fontSize="xs">
+              </TableCell>
+              <TableCell className="font-mono text-xs">
                 {r.id.slice(0, 8)}…
-              </Table.Cell>
-            </Table.Row>
+              </TableCell>
+            </TableRow>
           ))}
-        </Table.Body>
-      </Table.Root>
+        </TableBody>
+      </Table>
       {selectedId != null && (
-        <Box mt={4}>
+        <div className="mt-4">
           {q.isPending ? (
-            <Text fontSize="sm">Загрузка трассы…</Text>
+            <p className="text-sm">Загрузка трассы…</p>
           ) : q.isError ? (
-            <Text fontSize="sm" color="red.fg">
+            <p className="text-sm text-destructive">
               Не удалось загрузить запуск.
-            </Text>
+            </p>
           ) : (
-            <Box
-              as="pre"
-              fontSize="10px"
-              overflow="auto"
-              maxH="320px"
-              p={3}
-              bg="bg.subtle"
-              borderRadius="md"
-            >
+            <pre className="max-h-[320px] overflow-auto rounded-md bg-muted/50 p-3 font-mono text-[10px]">
               {JSON.stringify(q.data?.steps ?? [], null, 2)}
-            </Box>
+            </pre>
           )}
-        </Box>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }
