@@ -119,9 +119,9 @@ function ResetPassword() {
           />
         </div>
         <Button
-          variant="solid"
-          size="sm"
           type="submit"
+          variant="default"
+          size="default"
           loading={isPending}
           disabled={isPending}
           className="w-full"

@@ -158,14 +158,14 @@ function SignUp() {
             startElement={<FiLock />}
           />
         </div>
-        <Button variant="solid" size="sm" type="submit" className="w-full">
+        <Button type="submit" variant="default" size="default" className="w-full">
           Зарегистрироваться
         </Button>
         <p className="text-sm text-muted-foreground">
           Уже есть аккаунт?{" "}
-          <RouterLink to="/login" className="main-link">
-            Войти
-          </RouterLink>
+          <Button variant="link" asChild className="inline h-auto p-0 font-normal">
+            <RouterLink to="/login">Войти</RouterLink>
+          </Button>
         </p>
       </form>
     </div>

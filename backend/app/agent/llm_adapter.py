@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from enum import Enum
 import json
+import re
 from typing import Any
 
 import httpx
@@ -98,6 +99,34 @@ def _base_url() -> str:
     if not u:
         raise RuntimeError("LLM inference base URL is not configured")
     return u
+
+
+_CTX_ERR_RE = re.compile(
+    r"maximum context length is\s*(\d+)\s*tokens.*?contains at least\s*(\d+)\s*input tokens",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _fit_max_tokens_from_vllm_400(error_text: str, requested_max_tokens: int | None) -> int | None:
+    """
+    Парсит типичную ошибку vLLM про длину контекста и возвращает безопасный max_tokens.
+    Оставляем небольшой буфер, чтобы повторный запрос не упёрся в ту же границу.
+    """
+    m = _CTX_ERR_RE.search(error_text or "")
+    if not m:
+        return None
+    try:
+        max_ctx = int(m.group(1))
+        input_tokens = int(m.group(2))
+    except (TypeError, ValueError):
+        return None
+    # Небольшой запас на служебные токены шаблона/рендеринга.
+    safe_cap = max_ctx - input_tokens - 16
+    if safe_cap <= 0:
+        return 1
+    if requested_max_tokens is None:
+        return max(1, safe_cap)
+    return max(1, min(int(requested_max_tokens), safe_cap))
 
 
 def build_openai_chat_payload(
@@ -195,6 +224,15 @@ async def chat_completion(
     timeout = httpx.Timeout(timeout_sec, connect=10.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
         r = await client.post(url, json=payload)
+        if r.status_code == 400:
+            body = r.text or ""
+            fitted = _fit_max_tokens_from_vllm_400(body, payload.get("max_tokens"))
+            if fitted is not None and int(payload.get("max_tokens") or 0) != fitted:
+                retry_payload = dict(payload)
+                retry_payload["max_tokens"] = fitted
+                r2 = await client.post(url, json=retry_payload)
+                r2.raise_for_status()
+                return r2.json()
         r.raise_for_status()
         return r.json()
 

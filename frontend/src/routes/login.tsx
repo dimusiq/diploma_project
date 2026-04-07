@@ -79,65 +79,68 @@ function Login() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <form action={formAction} className="flex w-full max-w-sm flex-col gap-4">
-        <img
-          src="/images/sklad-logo.svg"
-          alt="Склад"
-          className="mx-auto mb-4 h-auto w-full max-w-[12rem]"
-        />
-        {state.error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {state.error}
+          <img
+            src="/images/sklad-logo.svg"
+            alt="Склад"
+            className="mx-auto h-auto w-full max-w-[7.2rem]"
+          />
+          <p className="text-center text-sm font-semibold tracking-tight text-muted-foreground">
+            Склад
           </p>
-        ) : null}
-        <div className="space-y-2">
-          <Label htmlFor="username">Email</Label>
-          <InputWithIcon
-            id="username"
-            name="username"
-            placeholder="Email"
-            type="email"
-            required
-            autoComplete="username"
-            minLength={3}
-            startElement={<FiMail />}
-            aria-invalid={!!state.error}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Пароль</Label>
-          <PasswordField
-            id="password"
-            name="password"
-            placeholder="Пароль"
-            required
-            autoComplete="current-password"
-            minLength={MIN_PASSWORD_LENGTH}
-            startElement={<FiLock />}
-            aria-invalid={!!state.error}
-          />
-        </div>
-        <Checkbox name="remember" value="on" className="self-start">
-          Запомнить меня
-        </Checkbox>
-        <RouterLink to="/recover-password" className="main-link text-sm">
-          Забыли пароль?
-        </RouterLink>
-        <Button
-          variant="solid"
-          size="sm"
-          type="submit"
-          loading={isPending}
-          disabled={isPending}
-          className="w-full"
-        >
-          Войти
-        </Button>
-        <p className="text-sm text-muted-foreground">
-          Ещё нет аккаунта?{" "}
-          <RouterLink to="/signup" className="main-link">
-            Зарегистрируйтесь!
-          </RouterLink>
-        </p>
+          {state.error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {state.error}
+            </p>
+          ) : null}
+          <div className="space-y-2">
+            <Label htmlFor="username">Email</Label>
+            <InputWithIcon
+              id="username"
+              name="username"
+              placeholder="Email"
+              type="email"
+              required
+              autoComplete="username"
+              minLength={3}
+              startElement={<FiMail />}
+              aria-invalid={!!state.error}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Пароль</Label>
+            <PasswordField
+              id="password"
+              name="password"
+              placeholder="Пароль"
+              required
+              autoComplete="current-password"
+              minLength={MIN_PASSWORD_LENGTH}
+              startElement={<FiLock />}
+              aria-invalid={!!state.error}
+            />
+          </div>
+          <Checkbox name="remember" value="on" className="self-start">
+            Запомнить меня
+          </Checkbox>
+          <Button variant="link" asChild className="h-auto justify-start p-0 text-sm font-normal">
+            <RouterLink to="/recover-password">Забыли пароль?</RouterLink>
+          </Button>
+          <Button
+            type="submit"
+            variant="default"
+            size="default"
+            loading={isPending}
+            disabled={isPending}
+            className="w-full"
+          >
+            Войти
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Ещё нет аккаунта?{" "}
+            <Button variant="link" asChild className="inline h-auto p-0 font-normal">
+              <RouterLink to="/signup">Зарегистрируйтесь!</RouterLink>
+            </Button>
+          </p>
       </form>
     </div>
   )

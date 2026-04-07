@@ -262,17 +262,6 @@ export function AssistantSessionProvider({
     showErrorToast,
   ])
 
-  /** В списке с сервера нет выбранного id — убираем «призрачный» чат без лишних 404. */
-  useEffect(() => {
-    if (!activeChatId || !chatsQuery.isSuccess) return
-    const rows = chatsQuery.data?.data ?? []
-    if (rows.some((c) => c.id === activeChatId)) return
-    queryClient.removeQueries({ queryKey: ["agent-user-chat", activeChatId] })
-    setActiveChatId(null)
-    activeChatIdRef.current = null
-    setMessages([])
-  }, [activeChatId, chatsQuery.isSuccess, chatsQuery.data, queryClient])
-
   const sortedChats = useMemo(() => {
     const rows = chatsQuery.data?.data ?? []
     return [...rows].sort(
@@ -413,6 +402,44 @@ export function AssistantSessionProvider({
       showErrorToast(msg)
     },
   })
+
+  /**
+   * В списке с сервера нет выбранного id — убираем «призрачный» чат.
+   * Не срабатываем во время refetch списка/деталей и пока идёт ответ: иначе после
+   * invalidateQueries список ещё без нового чата — UI сбрасывался («закрывалось окно»).
+   */
+  useEffect(() => {
+    if (!activeChatId || !chatsQuery.isSuccess) return
+    if (chatsQuery.isFetching) return
+    if (chatMutation.isPending) return
+    if (streamingMessageId !== null) return
+    if (isEnsuringChat) return
+    if (detailQuery.isFetching) return
+    const rows = chatsQuery.data?.data ?? []
+    if (rows.some((c) => c.id === activeChatId)) return
+    if (
+      detailQuery.isSuccess &&
+      detailQuery.data?.id === activeChatId
+    ) {
+      return
+    }
+    queryClient.removeQueries({ queryKey: ["agent-user-chat", activeChatId] })
+    setActiveChatId(null)
+    activeChatIdRef.current = null
+    setMessages([])
+  }, [
+    activeChatId,
+    chatsQuery.isSuccess,
+    chatsQuery.data,
+    chatsQuery.isFetching,
+    chatMutation.isPending,
+    streamingMessageId,
+    isEnsuringChat,
+    detailQuery.isFetching,
+    detailQuery.isSuccess,
+    detailQuery.data,
+    queryClient,
+  ])
 
   const send = useCallback(
     async (override?: { text: string; files: File[] }) => {

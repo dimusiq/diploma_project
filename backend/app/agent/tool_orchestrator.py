@@ -219,6 +219,99 @@ def _truncate_tool_json(s: str) -> str:
     return s[:lim] + "\n…(усечено для LLM)"
 
 
+def _safe_parse_json_object(s: str) -> dict[str, Any] | None:
+    try:
+        d = json.loads(s)
+    except Exception:
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def _fallback_answer_from_tools(tool_payload: list[dict[str, Any]]) -> str:
+    """Детерминированный ответ по данным read-инструментов, если финальный LLM-вызов недоступен."""
+    for row in tool_payload:
+        if str(row.get("tool") or "") != _READ_EQUIPMENT:
+            continue
+        d = _safe_parse_json_object(str(row.get("result_json") or ""))
+        if not d:
+            continue
+        eq_rows = d.get("equipment")
+        if isinstance(eq_rows, list):
+            best_name: str | None = None
+            best_hours: float | int | None = None
+            for e in eq_rows:
+                if not isinstance(e, dict):
+                    continue
+                h = e.get("engine_hours")
+                if not isinstance(h, (int, float)):
+                    continue
+                if best_hours is None or h > best_hours:
+                    best_hours = h
+                    model = str(e.get("model") or "").strip()
+                    eq_type = str(e.get("type") or "").strip()
+                    best_name = model or eq_type or "единица техники"
+            if best_hours is not None:
+                hours = int(best_hours) if isinstance(best_hours, int) or float(best_hours).is_integer() else best_hours
+                return (
+                    f"<answer>Максимум моточасов у техники «{best_name}»: {hours} ч.</answer>"
+                )
+        total = d.get("total_units")
+        summary = d.get("operational_status_summary")
+        if isinstance(total, int):
+            active = None
+            maint = None
+            if isinstance(summary, dict):
+                if isinstance(summary.get("active"), int):
+                    active = int(summary["active"])
+                if isinstance(summary.get("maintenance"), int):
+                    maint = int(summary["maintenance"])
+            if active is not None and maint is not None:
+                return (
+                    f"<answer>На складе {total} единицы техники. "
+                    f"Из них в эксплуатации {active}, на обслуживании {maint}.</answer>"
+                )
+            return f"<answer>На складе {total} единиц техники.</answer>"
+
+    for row in tool_payload:
+        if str(row.get("tool") or "") != _READ_MAINT:
+            continue
+        d = _safe_parse_json_object(str(row.get("result_json") or ""))
+        if not d:
+            continue
+        events = d.get("events")
+        if not isinstance(events, list):
+            continue
+        best_name: str | None = None
+        best_hours: float | int | None = None
+        for e in events:
+            if not isinstance(e, dict):
+                continue
+            h = e.get("engine_hours")
+            if not isinstance(h, (int, float)):
+                continue
+            if best_hours is None or h > best_hours:
+                best_hours = h
+                best_name = str(e.get("equipment_name") or "единица техники").strip() or "единица техники"
+        if best_hours is not None:
+            hours = int(best_hours) if isinstance(best_hours, int) or float(best_hours).is_integer() else best_hours
+            return f"<answer>Максимум моточасов у техники «{best_name}»: {hours} ч.</answer>"
+
+    for row in tool_payload:
+        if str(row.get("tool") or "") != _READ_INV:
+            continue
+        d = _safe_parse_json_object(str(row.get("result_json") or ""))
+        if not d:
+            continue
+        on_wh = d.get("items_status_warehouse")
+        if isinstance(on_wh, int):
+            return f"<answer>Сейчас на складе {on_wh} позиций со статусом warehouse.</answer>"
+
+    return (
+        "<answer>Не удалось стабильно сгенерировать текст ответа LLM, "
+        "но данные по инструментам получены. Повторите запрос, если нужен развёрнутый комментарий.</answer>"
+    )
+
+
 async def run_code_orchestrated_turn(
     *,
     session: Session,
@@ -335,11 +428,20 @@ async def run_code_orchestrated_turn(
         )
         trace.add_step("reason", round_index=0, detail="single_pass_no_llm_tools")
 
-    text = await llm_adapter.chat_completion_text_only(
-        messages=messages,
-        task_kind=loop_kind,
-    )
-    text = apply_numeric_grounding_guardrail(text, messages)
+    try:
+        text = await llm_adapter.chat_completion_text_only(
+            messages=messages,
+            task_kind=loop_kind,
+        )
+        text = apply_numeric_grounding_guardrail(text, messages)
+    except Exception as e:
+        text = _fallback_answer_from_tools(tool_payload)
+        if trace:
+            trace.add_step(
+                "reflect",
+                detail="final_llm_failed_fallback_from_tools",
+                error=str(e)[:240],
+            )
     if trace:
         trace.add_step("conclude", detail="code_orchestration_response", chars=len(text or ""))
         trace.add_step("finish", detail="assistant_text", rounds=1)

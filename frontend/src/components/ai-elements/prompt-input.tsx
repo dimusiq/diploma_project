@@ -7,7 +7,6 @@
 
 import {
   CornerDownLeftIcon,
-  ImageIcon,
   Loader2Icon,
   PlusIcon,
   SquareIcon,
@@ -125,6 +124,22 @@ function fileListToArray(files: File[] | FileList): File[] {
   return Array.isArray(files) ? files : Array.from(files)
 }
 
+/** Одно правило из `accept` (MIME, wildcard `type/*`, расширение `.ext`). */
+function fileMatchesAcceptRule(f: File, rule: string): boolean {
+  const t = rule.trim()
+  if (!t) return false
+  if (t.startsWith(".")) {
+    return f.name.toLowerCase().endsWith(t.toLowerCase())
+  }
+  const mime = f.type.toLowerCase()
+  if (t.endsWith("/*")) {
+    const base = t.slice(0, -2).toLowerCase()
+    return mime.startsWith(`${base}/`)
+  }
+  if (t === "*/*") return true
+  return mime === t.toLowerCase()
+}
+
 // --- PromptInput --------------------------------------------------------------
 
 type PromptInputProps = Omit<
@@ -144,7 +159,11 @@ type PromptInputProps = Omit<
   accept?: string
   maxFiles?: number
   maxFileSize?: number
-  onError?: (err: { code: PromptInputErrorCode; message: string }) => void
+  /** Ошибка валидации вложений (тип, размер, лимит). Не путать с `onError` формы. */
+  onAttachmentError?: (err: {
+    code: PromptInputErrorCode
+    message: string
+  }) => void
 }
 
 export function PromptInput({
@@ -159,7 +178,7 @@ export function PromptInput({
   accept,
   maxFiles = 32,
   maxFileSize = 20 * 1024 * 1024,
-  onError,
+  onAttachmentError,
   ...props
 }: PromptInputProps) {
   const fileInputId = useId()
@@ -181,18 +200,12 @@ export function PromptInput({
       if (batch.length === 0) return
 
       if (accept) {
-        const ok = batch.filter((f) => {
-          const types = accept.split(",").map((s) => s.trim())
-          return types.some((t) => {
-            if (t.endsWith("/*")) {
-              const base = t.slice(0, -2)
-              return f.type.startsWith(`${base}/`)
-            }
-            return f.type === t || t === "*/*"
-          })
-        })
+        const rules = accept.split(",").map((s) => s.trim()).filter(Boolean)
+        const ok = batch.filter((f) =>
+          rules.some((rule) => fileMatchesAcceptRule(f, rule)),
+        )
         if (ok.length < batch.length) {
-          onError?.({
+          onAttachmentError?.({
             code: "accept",
             message: "Неподходящий тип файла",
           })
@@ -205,14 +218,15 @@ export function PromptInput({
         const next = [...prev]
         for (const f of batch) {
           if (f.size > maxFileSize) {
-            onError?.({
+            const mb = Math.round(maxFileSize / (1024 * 1024))
+            onAttachmentError?.({
               code: "max_file_size",
-              message: `Файл слишком большой: ${f.name}`,
+              message: `Файл слишком большой (макс. ${mb} МБ): ${f.name}`,
             })
             continue
           }
           if (next.length >= maxFiles) {
-            onError?.({
+            onAttachmentError?.({
               code: "max_files",
               message: "Слишком много вложений",
             })
@@ -227,7 +241,7 @@ export function PromptInput({
         return next
       })
     },
-    [accept, maxFileSize, maxFiles, onError],
+    [accept, maxFileSize, maxFiles, onAttachmentError],
   )
 
   const removeAttachment = useCallback((id: string) => {
@@ -562,63 +576,6 @@ export function PromptInputActionAddAttachments({
       }}
       {...props}
     >
-      {label}
-    </DropdownMenuItem>
-  )
-}
-
-export function PromptInputActionAddScreenshot({
-  label = "Take screenshot",
-  ...props
-}: MenuItemProps & { label?: string }) {
-  const { add } = usePromptInputAttachments()
-  return (
-    <DropdownMenuItem
-      onSelect={async (e) => {
-        e.preventDefault()
-        try {
-          const stream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-          })
-          const track = stream.getVideoTracks()[0]
-          const video = document.createElement("video")
-          video.srcObject = stream
-          await new Promise<void>((res, rej) => {
-            video.onloadedmetadata = () => res()
-            video.onerror = () => rej(new Error("video"))
-          })
-          await video.play()
-          const canvas = document.createElement("canvas")
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
-          canvas.getContext("2d")?.drawImage(video, 0, 0)
-          track.stop()
-          stream.getTracks().forEach((t) => t.stop())
-          await new Promise<void>((resolve, reject) => {
-            canvas.toBlob(
-              (blob) => {
-                if (!blob) {
-                  reject(new Error("blob"))
-                  return
-                }
-                add([
-                  new File([blob], `screenshot-${Date.now()}.png`, {
-                    type: "image/png",
-                  }),
-                ])
-                resolve()
-              },
-              "image/png",
-              0.92,
-            )
-          })
-        } catch {
-          /* отмена или нет разрешения */
-        }
-      }}
-      {...props}
-    >
-      <ImageIcon className="size-4 opacity-70" />
       {label}
     </DropdownMenuItem>
   )
