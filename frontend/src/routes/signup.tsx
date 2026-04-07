@@ -107,8 +107,8 @@ function SignUp() {
         }}
       >
         <img
-          src="/images/nebardak-logo.svg"
-          alt="Nebardak"
+          src="/images/sklad-logo.svg"
+          alt="Склад"
           className="mx-auto mb-4 h-auto w-full max-w-[12rem]"
         />
         {state.error ? (

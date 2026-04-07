@@ -61,7 +61,7 @@ docker compose -f docker-compose.yml build
 
 ```env
 DOMAIN=localhost
-STACK_NAME=nebardak
+STACK_NAME=sklad
 FRONTEND_HOST=http://localhost:5173
 ENVIRONMENT=local
 

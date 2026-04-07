@@ -38,7 +38,7 @@ const STREAM_CHARS_PER_SEC_LONG = 260
 
 export const CHAT_COLUMN_MAX = "52rem"
 export const SIDEBAR_W = "272px"
-export const NEBARDAK_LOGO_SRC = "/images/nebardak-logo.svg"
+export const SKLAD_LOGO_SRC = "/images/sklad-logo.svg"
 
 export const DS_MSG_IN = {
   animation: "dsMessageIn 0.38s cubic-bezier(0.22, 1, 0.36, 1) both",

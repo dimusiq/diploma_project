@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Запуск vLLM в режиме OpenAI-совместимого API для проекта nebardak.
+# Запуск vLLM в режиме OpenAI-совместимого API для проекта «Склад».
 #
 # Контракт: POST /v1/chat/completions с полем message.tool_calls (см. backend/app/agent/planner.py).
 # Для Qwen3 см. https://qwen.readthedocs.io/en/stable/framework/function_call.html#vllm

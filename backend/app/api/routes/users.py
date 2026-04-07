@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from sqlmodel import func, select
 
 from app import crud
@@ -19,11 +20,11 @@ from app.models import (
     Message,
     UpdatePassword,
     User,
-    UserCreate,
     UserCommunicationPreference,
     UserCommunicationPreferenceList,
     UserCommunicationPreferencePublic,
     UserCommunicationPreferenceUpsert,
+    UserCreate,
     UserPublic,
     UserRegister,
     UsersPublic,
@@ -161,6 +162,82 @@ def read_user_me(current_user: CurrentUser) -> Any:
     Get current user.
     """
     return current_user
+
+
+@router.post("/me/avatar", response_model=UserPublic)
+async def upload_my_avatar(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    file: UploadFile = File(...),
+) -> Any:
+    """
+    Загрузить аватар (JPEG, PNG или WebP, до 2 МБ; сохраняется как WebP).
+    """
+    from app.utils import avatars as avatar_utils
+
+    if file.content_type not in avatar_utils.ALLOWED_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="Допустимы только изображения JPEG, PNG или WebP",
+        )
+    raw = await file.read()
+    processed = avatar_utils.process_avatar_image(raw)
+    avatar_utils.ensure_avatar_storage_dir()
+    new_ext = "webp"
+    path = avatar_utils.avatar_file_path(current_user.id, new_ext)
+    if current_user.avatar_ext:
+        old = avatar_utils.avatar_file_path(current_user.id, current_user.avatar_ext)
+        if old.is_file() and old != path:
+            old.unlink(missing_ok=True)
+    path.write_bytes(processed)
+    current_user.avatar_ext = new_ext
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return current_user
+
+
+@router.delete("/me/avatar", response_model=UserPublic)
+def delete_my_avatar(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> Any:
+    """
+    Удалить аватар.
+    """
+    from app.utils import avatars as avatar_utils
+
+    if current_user.avatar_ext:
+        p = avatar_utils.avatar_file_path(current_user.id, current_user.avatar_ext)
+        p.unlink(missing_ok=True)
+    current_user.avatar_ext = None
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+    return current_user
+
+
+@router.get("/{user_id}/avatar")
+def get_user_avatar_file(
+    user_id: uuid.UUID,
+    session: SessionDep,
+    _current_user: CurrentUser,
+) -> Any:
+    """
+    Получить файл аватара (только для авторизованных клиентов; для UI используйте fetch с токеном и blob URL).
+    """
+    from app.utils import avatars as avatar_utils
+    user = session.get(User, user_id)
+    if not user or user.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.avatar_ext:
+        raise HTTPException(status_code=404, detail="Avatar not set")
+    path = avatar_utils.avatar_file_path(user_id, user.avatar_ext)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Avatar file missing")
+    return FileResponse(path, media_type="image/webp")
 
 
 @router.get("/me/communication-preferences", response_model=UserCommunicationPreferenceList)

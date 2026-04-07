@@ -80,8 +80,8 @@ function Login() {
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
       <form action={formAction} className="flex w-full max-w-sm flex-col gap-4">
         <img
-          src="/images/nebardak-logo.svg"
-          alt="Nebardak"
+          src="/images/sklad-logo.svg"
+          alt="Склад"
           className="mx-auto mb-4 h-auto w-full max-w-[12rem]"
         />
         {state.error ? (

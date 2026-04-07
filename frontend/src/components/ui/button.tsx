@@ -20,9 +20,9 @@ const buttonVariants = cva(
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 dark:hover:bg-destructive/90",
         outline: outlinePrimaryClasses,
         outlineSky: outlinePrimaryClasses,
-        /** Опасное действие (удаление и т.п.) — контур destructive, без заливки */
+        /** Опасное действие (удаление и т.п.) — выраженный контур destructive */
         outlineDestructive:
-          "border-destructive bg-background !text-destructive shadow-xs hover:bg-destructive/10 hover:!text-destructive focus-visible:border-destructive focus-visible:ring-[3px] focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
+          "border-2 border-destructive bg-background !text-destructive shadow-sm hover:bg-destructive/12 hover:!text-destructive focus-visible:border-destructive focus-visible:ring-[3px] focus-visible:ring-destructive/35 dark:focus-visible:ring-destructive/45",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:

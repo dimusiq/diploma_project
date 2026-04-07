@@ -15,7 +15,7 @@ from sqlmodel import Session
 from app.core.db import engine
 from app.services.report_email_service import send_due_reports
 
-REPORT_LOCK_KEY = "nebardak:lock:report_scheduler"
+REPORT_LOCK_KEY = "sklad:lock:report_scheduler"
 LOCK_TTL_SEC = 120
 
 

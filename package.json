@@ -1,4 +1,6 @@
 {
+  "name": "sklad",
+  "private": true,
   "dependencies": {
     "@chakra-ui/stat": "^2.1.1"
   }

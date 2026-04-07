@@ -65,7 +65,7 @@ import {
 } from "@/components/ui/sheet.tsx"
 import {
   CHAT_COLUMN_MAX,
-  NEBARDAK_LOGO_SRC,
+  SKLAD_LOGO_SRC,
   SIDEBAR_W,
   useAssistantSession,
 } from "@/contexts/AssistantSessionContext.tsx"
@@ -380,7 +380,7 @@ function AssistantPage() {
           style={{ width: SIDEBAR_W, flexShrink: 0, minWidth: 0, minHeight: 0 }}
         >
           <h2 className="text-sm font-semibold leading-tight tracking-tight text-sidebar-foreground">
-            Nebardak
+            Склад
           </h2>
           <p className="mb-3 text-[0.65rem] leading-tight text-muted-foreground">
             Ассистент склада
@@ -419,7 +419,7 @@ function AssistantPage() {
                   role: m.role,
                   content: m.content,
                 }))}
-                filename={`nebardak-${activeChatId ?? "chat"}.md`}
+                filename={`sklad-${activeChatId ?? "chat"}.md`}
                 className="static top-auto right-auto shrink-0 rounded-lg"
                 aria-label="Скачать переписку"
               />
@@ -449,8 +449,8 @@ function AssistantPage() {
                     >
                       <div className="mb-6 flex flex-wrap items-center justify-center gap-3 max-sm:gap-3 md:gap-4">
                         <img
-                          src={NEBARDAK_LOGO_SRC}
-                          alt="Nebardak"
+                          src={SKLAD_LOGO_SRC}
+                          alt="Склад"
                           className="h-[34px] w-auto max-w-[120px] shrink-0 object-contain md:h-10"
                           draggable={false}
                         />
@@ -703,7 +703,7 @@ function AssistantPage() {
         >
           <SheetHeader className="border-b-0 pb-0 pr-10 text-left">
             <SheetTitle className="font-semibold tracking-tight text-sidebar-foreground">
-              Nebardak
+              Склад
             </SheetTitle>
             <p className="mt-0.5 text-[0.65rem] font-normal text-muted-foreground">
               История чатов

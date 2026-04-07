@@ -611,6 +611,7 @@ class User(UserBase, table=True):
     hashed_password: str
     last_login_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)
+    avatar_ext: str | None = Field(default=None, max_length=8)
     role: Role | None = Relationship(back_populates="users")
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
@@ -620,6 +621,7 @@ class UserPublic(UserBase):
     id: uuid.UUID
     last_login_at: datetime | None = None
     deleted_at: datetime | None = None
+    avatar_ext: str | None = None
 
 
 class UsersPublic(SQLModel):

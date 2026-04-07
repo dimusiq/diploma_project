@@ -1,4 +1,7 @@
 .vscode
+# Загруженные аватары (каталог с .gitkeep сохраняем)
+backend/data/avatars/*
+!backend/data/avatars/.gitkeep
 node_modules/
 /test-results/
 /playwright-report/

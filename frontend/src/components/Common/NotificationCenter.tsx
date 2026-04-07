@@ -162,7 +162,7 @@ export function NotificationCenter() {
         if (open) ensureMutation.mutate()
       }}
     >
-      <DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="sm"

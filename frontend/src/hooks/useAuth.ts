@@ -23,7 +23,7 @@ const useAuth = () => {
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: user } = useQuery<UserPublic | null, Error>({
+  const { data: user, dataUpdatedAt } = useQuery<UserPublic | null, Error>({
     queryKey: ["currentUser"],
     queryFn: UsersService.readUserMe,
     enabled: isLoggedIn(),
@@ -73,6 +73,8 @@ const useAuth = () => {
     loginMutation,
     logout,
     user,
+    /** Меняется при refetch профиля — для сброса кэша blob URL аватара */
+    userDataUpdatedAt: dataUpdatedAt,
     error,
     resetError: () => setError(null),
   }

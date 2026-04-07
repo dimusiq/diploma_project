@@ -1,6 +1,6 @@
-# Запуск vLLM (OpenAI API) для nebardak. См. vllm-serve-nebardak.sh для комментариев.
-# Пример: .\scripts\vllm-serve-nebardak.ps1
-# Доп. флаги vLLM: .\scripts\vllm-serve-nebardak.ps1 -- --dtype auto
+# Запуск vLLM (OpenAI API) для «Склад». См. vllm-serve-sklad.sh для комментариев.
+# Пример: .\scripts\vllm-serve-sklad.ps1
+# Доп. флаги vLLM: .\scripts\vllm-serve-sklad.ps1 -- --dtype auto
 # Требуется vLLM >= 0.8.5 и `vllm` в PATH.
 
 param(

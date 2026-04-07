@@ -9,7 +9,6 @@ import {
   FiCheckCircle,
   FiChevronDown,
   FiCpu,
-  FiGrid,
   FiLayers,
   FiList,
   FiMessageCircle,
@@ -62,7 +61,6 @@ type Item = ItemLink | ItemExpandable
 
 const items: Item[] = [
   { icon: FiBarChart2, title: "Дашборд", path: "/" },
-  { icon: FiGrid, title: "Центр платформы", path: "/operator-hub" },
   { icon: FiTarget, title: "Control Tower", path: "/control-tower" },
   { icon: FiArrowDownRight, title: "Поступления", path: "/items" },
   { icon: FiBox, title: "Склад", path: "/warehouse" },

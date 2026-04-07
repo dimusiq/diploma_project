@@ -1,4 +1,4 @@
-# Frontend (Nebardak)
+# Frontend (Склад)
 
 Стек: [Vite](https://vitejs.dev/) (Rolldown), [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [TanStack Query](https://tanstack.com/query), [TanStack Router](https://tanstack.com/router), [Tailwind CSS v4](https://tailwindcss.com/), [shadcn/ui](https://ui.shadcn.com/) на [Base UI](https://base-ui.com/), тема через [next-themes](https://github.com/pacocoursey/next-themes), графики — [Recharts](https://recharts.org/). Стили и токены — `src/index.css` (семантические переменные). **Chakra UI и Emotion удалены.**
 

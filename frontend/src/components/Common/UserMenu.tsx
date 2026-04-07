@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router"
-import { FaHardHat } from "react-icons/fa"
 import { FiLogOut, FiUser } from "react-icons/fi"
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
   DropdownMenu,
@@ -11,26 +11,44 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
 import useAuth from "@/hooks/useAuth.ts"
+import { useAuthenticatedAvatarObjectUrl } from "@/hooks/useAuthenticatedAvatarObjectUrl.ts"
+import { initialsFromUser } from "@/lib/userInitials.ts"
 
 const UserMenu = () => {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, userDataUpdatedAt } = useAuth()
+  const avatarObjectUrl = useAuthenticatedAvatarObjectUrl(
+    user?.id,
+    user?.avatar_ext,
+    userDataUpdatedAt,
+  )
 
   const handleLogout = () => {
     logout()
   }
 
+  const label = user?.full_name?.trim() || "Профиль"
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
+      <DropdownMenuTrigger asChild>
         <Button
           data-testid="user-menu"
-          variant="default"
-          size="sm"
-          className="max-w-xs truncate"
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0 rounded-full"
+          aria-label={label}
         >
-          <FaHardHat className="size-[18px] shrink-0" />
-          <span className="truncate">{user?.full_name ?? "Пользователь"}</span>
+          <Avatar className="size-8">
+            {avatarObjectUrl ? (
+              <AvatarImage src={avatarObjectUrl} alt="" />
+            ) : null}
+            <AvatarFallback className="text-xs font-medium">
+              {user
+                ? initialsFromUser(user.full_name, user.email)
+                : "?"}
+            </AvatarFallback>
+          </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">

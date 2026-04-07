@@ -16,7 +16,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar.tsx"
 import useAuth from "@/hooks/useAuth.ts"
-import Logo from "/images/nebardak-logo.svg"
+import Logo from "/images/sklad-logo.svg"
 import SidebarItems from "./SidebarItems.tsx"
 
 export function AppSidebar() {
@@ -43,7 +43,7 @@ export function AppSidebar() {
                   alt=""
                   className="size-8 shrink-0 rounded-md object-contain"
                 />
-                <span className="truncate font-semibold">Nebardak</span>
+                <span className="truncate font-semibold">Склад</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

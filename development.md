@@ -59,15 +59,15 @@ Read-модель занятости ячеек (проекция для twin/KP
 
 **Postgres в Docker**: образ **`pgvector/pgvector:pg16`** (расширение `vector`, индекс HNSW для RAG). Переход с **`postgres:12`**: том данных несовместим по мажорной версии — сделайте дамп/restore или новый volume (осторожно: `docker compose down -v` удаляет данные).
 
-Если **`nebardak-db-1` сразу выходит с кодом 1** и в логах: *«The data directory was initialized by PostgreSQL version 12, which is not compatible with this version 16»* — удалите только том БД и поднимите стек снова (данные в БД пропадут, если не делали `pg_dump`):
+Если **`sklad-db-1` сразу выходит с кодом 1** и в логах: *«The data directory was initialized by PostgreSQL version 12, which is not compatible with this version 16»* — удалите только том БД и поднимите стек снова (данные в БД пропадут, если не делали `pg_dump`):
 
 ```bash
 docker compose down
-docker volume rm nebardak_app-db-data
+docker volume rm sklad_app-db-data
 docker compose up -d
 ```
 
-Имя тома совпадает с префиксом проекта Compose (часто `nebardak_`); проверка: `docker volume ls | grep app-db`.
+Имя тома совпадает с префиксом проекта Compose (часто `sklad_`); проверка: `docker volume ls | grep app-db`.
 
 **База знаний ассистента** (только **суперпользователь**): `GET/POST/PATCH/DELETE /api/v1/agent/knowledge/chunks`, `POST /api/v1/agent/knowledge/chunks/{id}/reindex`, `POST /api/v1/agent/knowledge/chunks/reindex-all`. В админке вкладка «База знаний ассистента».
 

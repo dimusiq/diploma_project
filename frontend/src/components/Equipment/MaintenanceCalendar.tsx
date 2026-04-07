@@ -150,7 +150,7 @@ export function MaintenanceCalendar({
     ok: "green",
   }
 
-  const maintenanceDragType = "application/vnd.nebardak.maintenance-event"
+  const maintenanceDragType = "application/vnd.sklad.maintenance-event"
 
   const renderWorkOrderPill = (order: WorkOrderPublic) => {
     const start = order.start_at ? new Date(order.start_at) : null

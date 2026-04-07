@@ -22,8 +22,8 @@ export default defineConfig({
       devOptions: { enabled: false },
       includeAssets: ["favicon.ico", "images/favicon.png", "vite.svg"],
       manifest: {
-        name: "Sklad",
-        short_name: "Sklad",
+        name: "Склад",
+        short_name: "Склад",
         description: "Учёт товаров и склада",
         theme_color: "#2d3748",
         background_color: "#1a202c",

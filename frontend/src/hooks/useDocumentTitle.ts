@@ -1,11 +1,11 @@
 import { useEffect } from "react"
 
-const APP_TITLE = "Sklad"
+const APP_TITLE = "Склад"
 
 const PATH_TITLES: Record<string, string> = {
   "/": "Дашборд",
   "/items": "Поступления",
-  "/warehouse": "Склад",
+  "/warehouse": "Товары",
   "/warehouse-3d": "3D Склад",
   "/shipment": "Отгрузка",
   "/shipped": "Отгружено",

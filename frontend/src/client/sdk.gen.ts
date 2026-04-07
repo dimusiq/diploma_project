@@ -588,6 +588,36 @@ export class UsersService {
   }
 
   /**
+   * Upload My Avatar
+   * Загрузить аватар (JPEG, PNG или WebP, до 2 МБ).
+   */
+  public static uploadMyAvatar(data: {
+    requestBody: { file: File }
+  }): CancelablePromise<UsersUpdateUserMeResponse> {
+    const formData = new FormData()
+    formData.append("file", data.requestBody.file)
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/v1/users/me/avatar",
+      body: formData,
+      errors: {
+        400: "Bad Request",
+        422: "Validation Error",
+      },
+    })
+  }
+
+  /**
+   * Delete My Avatar
+   */
+  public static deleteMyAvatar(): CancelablePromise<UsersUpdateUserMeResponse> {
+    return __request(OpenAPI, {
+      method: "DELETE",
+      url: "/api/v1/users/me/avatar",
+    })
+  }
+
+  /**
    * Register User
    * Create new user without the need to be logged in.
    * @param data The data for the request.

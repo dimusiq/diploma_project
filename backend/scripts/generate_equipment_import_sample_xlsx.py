@@ -23,7 +23,7 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.services.equipment_import import IMPORT_TEMPLATE_HEADERS  # noqa: E402
 
-# backend/scripts → репозиторий nebardak
+# backend/scripts → проект «Склад»
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 OUT_PATH = REPO_ROOT / "scripts" / "sample-data" / "equipment_import_sample.xlsx"
 

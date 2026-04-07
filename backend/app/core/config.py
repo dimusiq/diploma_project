@@ -1,5 +1,6 @@
 import secrets
 import warnings
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -200,6 +201,12 @@ class Settings(BaseSettings):
     # Уведомления «Аналитика двойника» (ensure /notifications/ensure).
     TWIN_NOTIFICATION_ROW_ITEMS_MIN: int = 30
     TWIN_NOTIFICATION_UTILIZATION_MIN: float = 0.9
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def avatar_storage_dir(self) -> Path:
+        """Каталог файлов аватаров (backend/data/avatars)."""
+        return Path(__file__).resolve().parent.parent / "data" / "avatars"
 
     def _check_default_secret(self, var_name: str, value: str | None) -> None:
         if value == "changethis":
