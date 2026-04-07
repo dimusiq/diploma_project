@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_API_URL: string
+  /** Пустая строка в production: на localhost см. fallback в main.tsx (обычно :8000) */
+  readonly VITE_API_URL?: string
 }

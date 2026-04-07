@@ -16,21 +16,31 @@ import { getAccessToken, removeAccessToken } from "./lib/authStorage.ts"
 import { isLikelyBrowserExtensionRejection } from "./lib/extensionNoise.ts"
 import { routeTree } from "./routeTree.gen.ts"
 
-// Типы для переменных окружения Vite
-type ViteEnv = {
-  env?: {
-    VITE_API_URL?: string
-    DEV?: boolean
-    MODE?: string
+// База API: пустая строка = `/api` на том же origin (Vite proxy → :8000, без CORS).
+function resolveOpenApiBase(): string {
+  if (import.meta.env.DEV) {
+    return ""
   }
+  const raw = import.meta.env.VITE_API_URL
+  if (raw !== undefined && raw !== "") {
+    return raw.replace(/\/$/, "")
+  }
+  if (typeof window !== "undefined") {
+    const { hostname, port } = window.location
+    const isLocal = hostname === "localhost" || hostname === "127.0.0.1"
+    // `npm run dev` / `vite preview`: у Vite есть proxy /api на :5173 и :4173.
+    // Иначе fallback :8000 → кросс-домен и CORS (в т.ч. при загрузке аватара).
+    if (isLocal && (port === "5173" || port === "4173")) {
+      return ""
+    }
+    if (isLocal) {
+      return "http://localhost:8000"
+    }
+  }
+  return ""
 }
 
-// Проверка и установка базового URL API
-const apiUrl = (import.meta as ViteEnv).env?.VITE_API_URL
-if (!apiUrl) {
-  console.error("VITE_API_URL is not defined. Please set it in your .env file.")
-}
-OpenAPI.BASE = apiUrl || "http://localhost:8000"
+OpenAPI.BASE = resolveOpenApiBase()
 
 // Настройка токена для API запросов (из sessionStorage или localStorage)
 OpenAPI.TOKEN = async () => getAccessToken() ?? ""

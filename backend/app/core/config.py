@@ -48,9 +48,28 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def all_cors_origins(self) -> list[str]:
-        return [str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS] + [
-            self.FRONTEND_HOST
+        """Ориджины для CORS: из env + FRONTEND_HOST; в local — ещё 127.0.0.1 (часто ≠ localhost для браузера)."""
+        merged: list[str] = [
+            str(origin).rstrip("/") for origin in self.BACKEND_CORS_ORIGINS
         ]
+        merged.append(self.FRONTEND_HOST.rstrip("/"))
+        if self.ENVIRONMENT == "local":
+            merged.extend(
+                [
+                    "http://127.0.0.1:5173",
+                    "http://localhost:4173",
+                    "http://127.0.0.1:4173",
+                ]
+            )
+        seen: set[str] = set()
+        out: list[str] = []
+        for o in merged:
+            if o and o not in seen:
+                seen.add(o)
+                out.append(o)
+        if not out:
+            return ["http://localhost:5173", "http://127.0.0.1:5173"]
+        return out
 
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None

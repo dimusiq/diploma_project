@@ -10,7 +10,7 @@ import type { ApiResult } from "@/client/core/ApiResult"
 import { OpenAPI } from "@/client/index.ts"
 import { getAccessToken } from "@/lib/authStorage.ts"
 
-const getBase = (): string => OpenAPI.BASE || "http://localhost:8000"
+const getBase = (): string => OpenAPI.BASE
 
 /** Базовый URL API (для кастомных fetch, где нужны заголовки ответа). */
 export function getApiUrl(path: string): string {

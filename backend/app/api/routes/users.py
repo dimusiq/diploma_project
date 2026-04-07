@@ -172,19 +172,13 @@ async def upload_my_avatar(
     file: UploadFile = File(...),
 ) -> Any:
     """
-    Загрузить аватар (JPEG, PNG или WebP, до 2 МБ; сохраняется как WebP).
+    Загрузить аватар (растровое изображение, до 2 МБ; WebP или PNG на диске).
     """
     from app.utils import avatars as avatar_utils
 
-    if file.content_type not in avatar_utils.ALLOWED_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail="Допустимы только изображения JPEG, PNG или WebP",
-        )
     raw = await file.read()
-    processed = avatar_utils.process_avatar_image(raw)
+    processed, new_ext = avatar_utils.process_avatar_image(raw)
     avatar_utils.ensure_avatar_storage_dir()
-    new_ext = "webp"
     path = avatar_utils.avatar_file_path(current_user.id, new_ext)
     if current_user.avatar_ext:
         old = avatar_utils.avatar_file_path(current_user.id, current_user.avatar_ext)
@@ -237,7 +231,13 @@ def get_user_avatar_file(
     path = avatar_utils.avatar_file_path(user_id, user.avatar_ext)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="Avatar file missing")
-    return FileResponse(path, media_type="image/webp")
+    media = {
+        "webp": "image/webp",
+        "png": "image/png",
+        "jpeg": "image/jpeg",
+        "jpg": "image/jpeg",
+    }.get((user.avatar_ext or "").lower(), "application/octet-stream")
+    return FileResponse(path, media_type=media)
 
 
 @router.get("/me/communication-preferences", response_model=UserCommunicationPreferenceList)

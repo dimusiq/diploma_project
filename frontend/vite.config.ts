@@ -55,6 +55,22 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:8000",
         changeOrigin: true,
+        ws: true,
+        /** SSE / chunked streams — иначе возможны ERR_INCOMPLETE_CHUNKED_ENCODING */
+        timeout: 0,
+        proxyTimeout: 0,
+      },
+    },
+  },
+  /** `vite preview` не наследует server.proxy — без этого /api уходит на :4173 без бэкенда */
+  preview: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        ws: true,
+        timeout: 0,
+        proxyTimeout: 0,
       },
     },
   },
