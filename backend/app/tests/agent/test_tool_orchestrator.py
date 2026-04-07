@@ -24,6 +24,17 @@ def test_plan_question_keywords_order() -> None:
     assert names.index("get_inventory_summary") < names.index("get_open_tasks")
 
 
+def test_plan_question_technique_tab_keyword() -> None:
+    names = [
+        n
+        for n, _ in plan_read_tools(
+            "покажи что с техникой во вкладке Техника",
+            {"intent": "question"},
+        )
+    ]
+    assert "get_equipment_status" in names
+
+
 def test_plan_other_empty_when_no_match() -> None:
     names = [n for n, _ in plan_read_tools("расскажи анекдот", {"intent": "other"})]
     assert names == []

@@ -16,25 +16,30 @@ import { getAccessToken, removeAccessToken } from "./lib/authStorage.ts"
 import { isLikelyBrowserExtensionRejection } from "./lib/extensionNoise.ts"
 import { routeTree } from "./routeTree.gen.ts"
 
-// База API: пустая строка = `/api` на том же origin (Vite proxy → :8000, без CORS).
+const LOCAL_API_8000 = "http://localhost:8000"
+
+// База API для сгенерированного клиента. Не используем пустую строку на localhost:5173/4173:
+// раньше при VITE_API_URL=http://localhost:8000 в бандле выбирался "" «под прокси Vite»;
+// если прокси не отрабатывает — POST уходит на :5173/api → 404. Прямой :8000 и в dev, и в preview
+// нормален: CORS в backend для localhost уже включён.
 function resolveOpenApiBase(): string {
-  if (import.meta.env.DEV) {
-    return ""
-  }
   const raw = import.meta.env.VITE_API_URL
-  if (raw !== undefined && raw !== "") {
-    return raw.replace(/\/$/, "")
+  const trimmed =
+    raw !== undefined && raw !== "" ? raw.replace(/\/$/, "") : ""
+
+  if (trimmed !== "") {
+    return trimmed
   }
+
+  if (import.meta.env.DEV) {
+    return LOCAL_API_8000
+  }
+
   if (typeof window !== "undefined") {
-    const { hostname, port } = window.location
+    const { hostname } = window.location
     const isLocal = hostname === "localhost" || hostname === "127.0.0.1"
-    // `npm run dev` / `vite preview`: у Vite есть proxy /api на :5173 и :4173.
-    // Иначе fallback :8000 → кросс-домен и CORS (в т.ч. при загрузке аватара).
-    if (isLocal && (port === "5173" || port === "4173")) {
-      return ""
-    }
     if (isLocal) {
-      return "http://localhost:8000"
+      return LOCAL_API_8000
     }
   }
   return ""

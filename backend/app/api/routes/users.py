@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlmodel import func, select
 
 from app import crud
@@ -184,11 +185,27 @@ async def upload_my_avatar(
         old = avatar_utils.avatar_file_path(current_user.id, current_user.avatar_ext)
         if old.is_file() and old != path:
             old.unlink(missing_ok=True)
-    path.write_bytes(processed)
+    try:
+        path.write_bytes(processed)
+    except OSError as e:
+        raise HTTPException(
+            status_code=507,
+            detail=f"Не удалось сохранить файл аватара на диск: {e}",
+        ) from e
     current_user.avatar_ext = new_ext
     session.add(current_user)
-    session.commit()
-    session.refresh(current_user)
+    try:
+        session.commit()
+        session.refresh(current_user)
+    except (OperationalError, ProgrammingError) as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "База данных без колонки avatar_ext. В каталоге backend выполните: "
+                "alembic upgrade head"
+            ),
+        ) from e
     return current_user
 
 
@@ -208,8 +225,18 @@ def delete_my_avatar(
         p.unlink(missing_ok=True)
     current_user.avatar_ext = None
     session.add(current_user)
-    session.commit()
-    session.refresh(current_user)
+    try:
+        session.commit()
+        session.refresh(current_user)
+    except (OperationalError, ProgrammingError) as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "База данных без колонки avatar_ext. В каталоге backend выполните: "
+                "alembic upgrade head"
+            ),
+        ) from e
     return current_user
 
 

@@ -50,7 +50,7 @@ def _wants_maintenance(text: str) -> bool:
 def _wants_equipment(text: str) -> bool:
     return bool(
         re.search(
-            r"(техник|парк\s+тех|погрузчик|forklift|equipment|единиц.*тех)",
+            r"(техник|парк\s+тех|погрузчик|forklift|equipment|единиц.*тех|вкладк\w*\s+техник)",
             text,
             re.I,
         )

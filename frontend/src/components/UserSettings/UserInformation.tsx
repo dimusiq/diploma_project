@@ -17,6 +17,7 @@ import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
 import { useAuthenticatedAvatarObjectUrl } from "@/hooks/useAuthenticatedAvatarObjectUrl.ts"
+import { uploadUserAvatarFile } from "@/lib/uploadUserAvatar.ts"
 import { initialsFromUser } from "@/lib/userInitials.ts"
 import { emailPattern, handleError } from "@/utils.ts"
 
@@ -76,8 +77,7 @@ const UserInformation = () => {
   }
 
   const uploadAvatarMutation = useMutation({
-    mutationFn: (file: File) =>
-      UsersService.uploadMyAvatar({ requestBody: { file } }),
+    mutationFn: (file: File) => uploadUserAvatarFile(file),
     onSuccess: async () => {
       showSuccessToast("Фото профиля обновлено.")
       queryClient.invalidateQueries({ queryKey: ["currentUser"] })
