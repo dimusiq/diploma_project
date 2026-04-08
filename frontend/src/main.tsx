@@ -61,7 +61,7 @@ declare module "@tanstack/react-router" {
 // Обработчик ошибок API (использует getRouter(), т.к. router создаётся ниже)
 const handleApiError = (error: unknown) => {
   if (isLikelyBrowserExtensionRejection(error)) return
-  if ((import.meta as ViteEnv).env?.DEV) {
+  if (import.meta.env.DEV) {
     console.error("API Error:", error)
   }
   const st = getErrorHttpStatus(error)
