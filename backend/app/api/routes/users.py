@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlmodel import func, select
@@ -44,8 +44,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 )
 def read_users(
     session: SessionDep,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     deleted: bool = False,
 ) -> Any:
     """
@@ -371,6 +371,8 @@ def read_user_by_id(
     Get a specific user by id (себя или при праве users.manage).
     """
     user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     if user == current_user:
         return user
     if not (current_user.is_superuser or user_has_permission(session, current_user, PERM_USERS_MANAGE)):

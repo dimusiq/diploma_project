@@ -1,6 +1,7 @@
 """Генерация PDF: накладная по отгрузке и этикетка со штрихкодом."""
 
 import os
+import threading
 from io import BytesIO
 
 from reportlab.lib import colors
@@ -39,12 +40,16 @@ PDF_FONT = "Helvetica"
 PDF_FONT_BOLD = "Helvetica-Bold"
 
 _cyrillic_font_registered = False
+_font_lock = threading.Lock()
 
 
 def _register_cyrillic_fonts() -> None:
     global _cyrillic_font_registered, PDF_FONT, PDF_FONT_BOLD
     if _cyrillic_font_registered:
         return
+    with _font_lock:
+        if _cyrillic_font_registered:
+            return
     base_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         (os.path.join(base_dir, "fonts", "DejaVuSans.ttf"), os.path.join(base_dir, "fonts", "DejaVuSans-Bold.ttf")),

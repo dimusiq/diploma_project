@@ -24,6 +24,9 @@ def check_login_rate_limit(identifier: str) -> bool:
         key = identifier.strip() or "unknown"
         now = time.monotonic()
         _login_attempts[key] = _prune(_login_attempts[key], WINDOW_SECONDS)
+        if not _login_attempts[key]:
+            del _login_attempts[key]
+            _login_attempts[key] = []
         if len(_login_attempts[key]) >= LOGIN_MAX_PER_MINUTE:
             return False
         _login_attempts[key].append(now)

@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.api.deps import SessionDep
@@ -25,6 +25,13 @@ def create_user(user_in: PrivateUserCreate, session: SessionDep) -> Any:
     """
     Create a new user.
     """
+    from sqlmodel import select
+    existing = session.exec(select(User).where(User.email == user_in.email)).first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="A user with this email already exists.",
+        )
 
     user = User(
         email=user_in.email,
@@ -34,5 +41,6 @@ def create_user(user_in: PrivateUserCreate, session: SessionDep) -> Any:
 
     session.add(user)
     session.commit()
+    session.refresh(user)
 
     return user

@@ -11,7 +11,7 @@ function EquipmentNewPage() {
 
   const handleClose = (open: boolean) => {
     if (!open) {
-      navigate({ to: "/technique", search: { section: "assets" } })
+      navigate({ to: "/technique" })
     }
   }
 

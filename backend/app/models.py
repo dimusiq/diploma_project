@@ -1249,6 +1249,80 @@ class OutboundOrder(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class InboundOrderCreate(SQLModel):
+    code: str = Field(min_length=1, max_length=64)
+    warehouse_id: uuid.UUID | None = None
+    shipment_id: uuid.UUID | None = None
+    status: str = Field(default="open", max_length=32)
+    expected_at: datetime | None = None
+    lines: dict[str, Any] | None = None
+    extra: dict[str, Any] | None = None
+
+
+class InboundOrderUpdate(SQLModel):
+    code: str | None = Field(default=None, min_length=1, max_length=64)
+    status: str | None = Field(default=None, max_length=32)
+    expected_at: datetime | None = None
+    shipment_id: uuid.UUID | None = None
+    lines: dict[str, Any] | None = None
+    extra: dict[str, Any] | None = None
+
+
+class InboundOrderPublic(SQLModel):
+    id: uuid.UUID
+    warehouse_id: uuid.UUID
+    code: str
+    shipment_id: uuid.UUID | None = None
+    status: str
+    expected_at: datetime | None = None
+    lines: dict[str, Any] | None = None
+    extra: dict[str, Any] | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class InboundOrderList(SQLModel):
+    data: list[InboundOrderPublic]
+    count: int
+
+
+class OutboundOrderCreate(SQLModel):
+    code: str = Field(min_length=1, max_length=64)
+    warehouse_id: uuid.UUID | None = None
+    shipment_id: uuid.UUID | None = None
+    status: str = Field(default="open", max_length=32)
+    ship_by_at: datetime | None = None
+    lines: dict[str, Any] | None = None
+    extra: dict[str, Any] | None = None
+
+
+class OutboundOrderUpdate(SQLModel):
+    code: str | None = Field(default=None, min_length=1, max_length=64)
+    status: str | None = Field(default=None, max_length=32)
+    ship_by_at: datetime | None = None
+    shipment_id: uuid.UUID | None = None
+    lines: dict[str, Any] | None = None
+    extra: dict[str, Any] | None = None
+
+
+class OutboundOrderPublic(SQLModel):
+    id: uuid.UUID
+    warehouse_id: uuid.UUID
+    code: str
+    shipment_id: uuid.UUID | None = None
+    status: str
+    ship_by_at: datetime | None = None
+    lines: dict[str, Any] | None = None
+    extra: dict[str, Any] | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class OutboundOrderList(SQLModel):
+    data: list[OutboundOrderPublic]
+    count: int
+
+
 class WarehouseTask(SQLModel, table=True):
     """Складское задание (погрузка, размещение, инвентаризация и т.д.)."""
 

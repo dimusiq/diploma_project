@@ -1,14 +1,26 @@
 import type { QueryClient } from "@tanstack/react-query"
 import {
   createRootRouteWithContext,
+  ErrorComponent,
   Outlet,
   useLocation,
 } from "@tanstack/react-router"
-import React, { Suspense } from "react"
+import { useTheme } from "next-themes"
+import React, { Suspense, useEffect } from "react"
 
 import NotFound from "@/components/Common/NotFound.tsx"
 import { OfflineBanner } from "@/components/Common/OfflineBanner.tsx"
 import { useDocumentTitle } from "@/hooks/useDocumentTitle.ts"
+
+function useThemeColor() {
+  const { resolvedTheme } = useTheme()
+  useEffect(() => {
+    const color = resolvedTheme === "dark" ? "#0a0a0a" : "#ffffff"
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", color)
+  }, [resolvedTheme])
+}
 
 /** Контекст роутера: передаётся в createRouter, дополняется в beforeLoad дочерних маршрутов. */
 export interface RouterContext {
@@ -36,6 +48,7 @@ const TanStackDevtools =
 function RootComponent() {
   const pathname = useLocation({ select: (loc) => loc.pathname })
   useDocumentTitle(pathname)
+  useThemeColor()
 
   return (
     <>
@@ -51,4 +64,22 @@ function RootComponent() {
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
   notFoundComponent: () => <NotFound />,
+  errorComponent: ({ error }) => (
+    <div className="flex min-h-screen items-center justify-center p-8">
+      <div className="max-w-md text-center">
+        <h1 className="mb-4 text-2xl font-bold">Произошла ошибка</h1>
+        <p className="mb-4 text-muted-foreground">
+          Что-то пошло не так. Попробуйте обновить страницу.
+        </p>
+        <ErrorComponent error={error} />
+        <button
+          type="button"
+          className="mt-4 rounded bg-primary px-4 py-2 text-primary-foreground"
+          onClick={() => window.location.reload()}
+        >
+          Обновить страницу
+        </button>
+      </div>
+    </div>
+  ),
 })

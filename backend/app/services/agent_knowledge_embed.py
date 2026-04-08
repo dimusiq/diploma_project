@@ -22,8 +22,7 @@ async def embed_chunk(session: Session, chunk_id: uuid.UUID) -> bool:
     chunk.embedding = vec
     chunk.embedding_vec = vec
     session.add(chunk)
-    session.commit()
-    session.refresh(chunk)
+    session.flush()
     return True
 
 

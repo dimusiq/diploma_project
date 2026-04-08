@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import or_
 from sqlmodel import func, select
@@ -338,7 +338,11 @@ def ingest_external_twin_fact(
 ) -> ExternalTwinFactAccepted:
     ev_id: uuid.UUID | None = None
     if body.persist_domain_event:
-        assert body.domain_event_type and body.aggregate_type and body.aggregate_id
+        if not (body.domain_event_type and body.aggregate_type and body.aggregate_id):
+            raise HTTPException(
+                status_code=400,
+                detail="domain_event_type, aggregate_type, and aggregate_id are required when persist_domain_event is true",
+            )
         ev = emit_domain_event(
             session,
             event_type=body.domain_event_type,

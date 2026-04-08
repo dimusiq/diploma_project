@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import type { ReactNode } from "react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   fetchKpiSnapshot,
   fetchSimulationScenarios,
@@ -30,6 +30,20 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible.tsx"
+import {
+  Legend,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+} from "recharts"
 
 export const Route = createFileRoute("/_layout/warehouse-simulation")({
   component: WarehouseSimulationPage,
@@ -38,6 +52,41 @@ export const Route = createFileRoute("/_layout/warehouse-simulation")({
 function num(v: string, fallback: number): number {
   const n = Number.parseFloat(v)
   return Number.isFinite(n) ? n : fallback
+}
+
+const KPI_META: {
+  key: string
+  label: string
+  lowerIsBetter: boolean
+  isRatio: boolean
+}[] = [
+  { key: "max_dock_queue", label: "Макс. очередь у доков", lowerIsBetter: true, isRatio: false },
+  { key: "max_putaway_queue", label: "Макс. очередь размещения", lowerIsBetter: true, isRatio: false },
+  { key: "max_pick_queue", label: "Макс. очередь отбора", lowerIsBetter: true, isRatio: false },
+  { key: "mean_dock_turnaround_min", label: "Оборот у дока, мин", lowerIsBetter: true, isRatio: false },
+  { key: "mean_inbound_dwell_min", label: "Вход → размещено, мин", lowerIsBetter: true, isRatio: false },
+  { key: "mean_pick_wait_min", label: "Ожидание отбора, мин", lowerIsBetter: true, isRatio: false },
+  { key: "mean_pick_path_proxy_min", label: "Путь отбора, мин", lowerIsBetter: true, isRatio: false },
+  { key: "mean_replenishment_cycle_min", label: "Цикл пополнения, мин", lowerIsBetter: true, isRatio: false },
+  { key: "forklift_utilization", label: "Загрузка погрузчиков", lowerIsBetter: false, isRatio: true },
+  { key: "operator_utilization", label: "Загрузка операторов", lowerIsBetter: false, isRatio: true },
+  { key: "dock_utilization", label: "Загрузка доков", lowerIsBetter: false, isRatio: true },
+  { key: "otif_proxy", label: "OTIF (своевременность)", lowerIsBetter: false, isRatio: true },
+  { key: "late_pick_fraction", label: "Доля опоздавших отборов", lowerIsBetter: true, isRatio: true },
+]
+
+function normalizeForRadar(
+  v1: number,
+  v2: number,
+  lowerIsBetter: boolean,
+): [number, number] {
+  if (v1 === v2) return [65, 65]
+  const minV = Math.min(v1, v2)
+  const maxV = Math.max(v1, v2)
+  const range = maxV - minV
+  const scale = (v: number) => 30 + 70 * ((v - minV) / range)
+  if (lowerIsBetter) return [130 - scale(v1), 130 - scale(v2)]
+  return [scale(v1), scale(v2)]
 }
 
 function WarehouseSimulationPage() {
@@ -132,6 +181,7 @@ function WarehouseSimulationPage() {
 
   const lastSimResult = runMut.data ?? runSavedMut.data
   const k = lastSimResult?.kpis
+  const isSimulating = runMut.isPending || runSavedMut.isPending
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 md:py-10">
@@ -257,6 +307,16 @@ function WarehouseSimulationPage() {
       <h2 className="font-heading mb-3 text-sm font-semibold">
         Модель «что если» (дискретно-событийная)
       </h2>
+      <div className="relative">
+      {isSimulating && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 rounded-lg bg-background/80 backdrop-blur-sm">
+          <div className="size-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="text-center">
+            <p className="text-lg font-semibold">Расчёт модели…</p>
+            <p className="text-sm text-muted-foreground">Симуляция может занять несколько секунд</p>
+          </div>
+        </div>
+      )}
       <Card className="mb-6 bg-muted/30 ring-foreground/5">
         <CardContent className="pt-6">
           <p className="mb-4 text-sm text-muted-foreground">
@@ -377,10 +437,11 @@ function WarehouseSimulationPage() {
             <Button
               size="sm"
               variant="outline"
+              disabled={isSimulating}
               loading={runMut.isPending}
               onClick={() => runMut.mutate()}
             >
-              Запустить симуляцию
+              {runMut.isPending ? "Вычисляем…" : "Запустить симуляцию"}
             </Button>
             <Field label="Имя сценария">
               <Input
@@ -429,10 +490,11 @@ function WarehouseSimulationPage() {
                     <Button
                       size="xs"
                       variant="outline"
+                      disabled={isSimulating}
                       loading={runSavedMut.isPending}
                       onClick={() => runSavedMut.mutate(s.id)}
                     >
-                      Прогнать
+                      {runSavedMut.isPending ? "Вычисляем…" : "Прогнать"}
                     </Button>
                   </div>
                 ))
@@ -441,6 +503,10 @@ function WarehouseSimulationPage() {
           )}
         </CardContent>
       </Card>
+
+      <ScenarioComparisonSection
+        scenarios={scenariosQ.data?.data ?? []}
+      />
 
       {k && (
         <>
@@ -517,6 +583,7 @@ function WarehouseSimulationPage() {
             )}
         </>
       )}
+      </div>
     </div>
   )
 }
@@ -547,6 +614,228 @@ function fmt(v: number | null): string {
 
 function pct(v: number): string {
   return `${(v * 100).toFixed(1)}%`
+}
+
+function ScenarioComparisonSection({
+  scenarios,
+}: {
+  scenarios: Array<{
+    id: string
+    name: string
+    baseline_kpis: Record<string, unknown> | null
+  }>
+}) {
+  const [open, setOpen] = useState(false)
+  const [idA, setIdA] = useState("")
+  const [idB, setIdB] = useState("")
+
+  const completed = useMemo(
+    () => scenarios.filter((s) => s.baseline_kpis != null),
+    [scenarios],
+  )
+
+  const scenarioA = completed.find((s) => s.id === idA)
+  const scenarioB = completed.find((s) => s.id === idB)
+  const kpisA = scenarioA?.baseline_kpis ?? null
+  const kpisB = scenarioB?.baseline_kpis ?? null
+  const nameA = scenarioA?.name ?? "A"
+  const nameB = scenarioB?.name ?? "B"
+
+  const radarData = useMemo(() => {
+    if (!kpisA || !kpisB) return []
+    return KPI_META.map((m) => {
+      const vA = Number(kpisA[m.key] ?? 0) || 0
+      const vB = Number(kpisB[m.key] ?? 0) || 0
+      const [nA, nB] = normalizeForRadar(vA, vB, m.lowerIsBetter)
+      return { metric: m.label, scenarioA: nA, scenarioB: nB }
+    })
+  }, [kpisA, kpisB])
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <h2 className="font-heading mb-3 mt-4 text-sm font-semibold">
+        <CollapsibleTrigger className="flex items-center gap-1.5 hover:underline">
+          <span
+            className="inline-block text-xs transition-transform"
+            style={{ transform: open ? "rotate(90deg)" : "rotate(0deg)" }}
+          >
+            ▶
+          </span>
+          Сравнить сценарии
+        </CollapsibleTrigger>
+      </h2>
+
+      <CollapsibleContent>
+          {completed.length < 2 ? (
+            <p className="mb-6 text-sm text-muted-foreground">
+              Нужно минимум 2 сценария с сохранёнными KPI (baseline). Запустите
+              прогон по сохранённому сценарию и сохраните baseline-результаты.
+            </p>
+          ) : (
+            <Card className="mb-8 bg-muted/30 ring-foreground/5">
+              <CardContent className="pt-6">
+                <div className="mb-4 flex flex-wrap gap-4">
+                  <Field label="Сценарий A">
+                    <Select
+                      value={toSelectAll(idA)}
+                      onValueChange={(v) => setIdA(fromSelectAll(v))}
+                    >
+                      <SelectTrigger className="h-8 w-[260px] text-sm">
+                        <SelectValue placeholder="Выберите сценарий" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={SELECT_ALL_VALUE}>—</SelectItem>
+                        {completed.map((s) => (
+                          <SelectItem
+                            key={s.id}
+                            value={s.id}
+                            disabled={s.id === idB}
+                          >
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Сценарий B">
+                    <Select
+                      value={toSelectAll(idB)}
+                      onValueChange={(v) => setIdB(fromSelectAll(v))}
+                    >
+                      <SelectTrigger className="h-8 w-[260px] text-sm">
+                        <SelectValue placeholder="Выберите сценарий" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={SELECT_ALL_VALUE}>—</SelectItem>
+                        {completed.map((s) => (
+                          <SelectItem
+                            key={s.id}
+                            value={s.id}
+                            disabled={s.id === idA}
+                          >
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+
+                {kpisA && kpisB && (
+                  <div className="space-y-6">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-muted-foreground">
+                            <th className="py-2 pr-4">Показатель</th>
+                            <th className="py-2 pr-4 text-right">{nameA}</th>
+                            <th className="py-2 pr-4 text-right">{nameB}</th>
+                            <th className="py-2 pr-4 text-right">Δ</th>
+                            <th className="py-2 text-right">Δ %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {KPI_META.map((m) => {
+                            const vA = Number(kpisA[m.key] ?? 0) || 0
+                            const vB = Number(kpisB[m.key] ?? 0) || 0
+                            const delta = vB - vA
+                            const deltaPct =
+                              vA !== 0 ? (delta / Math.abs(vA)) * 100 : 0
+                            const improved = m.lowerIsBetter
+                              ? delta < 0
+                              : delta > 0
+                            const degraded = m.lowerIsBetter
+                              ? delta > 0
+                              : delta < 0
+                            const colorClass =
+                              delta === 0
+                                ? "text-muted-foreground"
+                                : improved
+                                  ? "text-green-600 dark:text-green-400"
+                                  : degraded
+                                    ? "text-red-600 dark:text-red-400"
+                                    : ""
+                            const fmtVal = (v: number) =>
+                              m.isRatio ? pct(v) : fmt(v)
+                            const deltaStr = m.isRatio
+                              ? `${delta > 0 ? "+" : ""}${(delta * 100).toFixed(1)}pp`
+                              : `${delta > 0 ? "+" : ""}${Number.isInteger(delta) ? delta : delta.toFixed(2)}`
+                            return (
+                              <tr
+                                key={m.key}
+                                className="border-b last:border-b-0"
+                              >
+                                <td className="py-1.5 pr-4 font-medium">
+                                  {m.label}
+                                </td>
+                                <td className="py-1.5 pr-4 text-right tabular-nums">
+                                  {fmtVal(vA)}
+                                </td>
+                                <td className="py-1.5 pr-4 text-right tabular-nums">
+                                  {fmtVal(vB)}
+                                </td>
+                                <td
+                                  className={`py-1.5 pr-4 text-right tabular-nums ${colorClass}`}
+                                >
+                                  {deltaStr}
+                                </td>
+                                <td
+                                  className={`py-1.5 text-right tabular-nums ${colorClass}`}
+                                >
+                                  {delta === 0
+                                    ? "—"
+                                    : `${deltaPct > 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mx-auto w-full max-w-lg">
+                      <p className="mb-2 text-center text-xs text-muted-foreground">
+                        Радар-профиль (нормализовано 0–100, выше = лучше)
+                      </p>
+                      <ResponsiveContainer width="100%" height={380}>
+                        <RadarChart data={radarData} outerRadius="72%">
+                          <PolarGrid />
+                          <PolarAngleAxis
+                            dataKey="metric"
+                            tick={{ fontSize: 10 }}
+                          />
+                          <PolarRadiusAxis
+                            angle={90}
+                            domain={[0, 100]}
+                            tick={false}
+                            axisLine={false}
+                          />
+                          <Radar
+                            name={nameA}
+                            dataKey="scenarioA"
+                            stroke="hsl(210 80% 55%)"
+                            fill="hsl(210 80% 55%)"
+                            fillOpacity={0.15}
+                          />
+                          <Radar
+                            name={nameB}
+                            dataKey="scenarioB"
+                            stroke="hsl(340 75% 55%)"
+                            fill="hsl(340 75% 55%)"
+                            fillOpacity={0.15}
+                          />
+                          <Legend />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+      </CollapsibleContent>
+    </Collapsible>
+  )
 }
 
 function TwinInitialStateView({ state }: { state: Record<string, unknown> }) {

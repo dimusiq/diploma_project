@@ -4,7 +4,6 @@ import {
   QueryClient,
   QueryClientProvider,
 } from "@tanstack/react-query"
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import ReactDOM from "react-dom/client"
@@ -66,7 +65,7 @@ const handleApiError = (error: unknown) => {
     console.error("API Error:", error)
   }
   const st = getErrorHttpStatus(error)
-  if (st === 401 || st === 403) {
+  if (st === 401) {
     removeAccessToken()
     getRouter().navigate({ to: "/login" })
   }
@@ -100,10 +99,6 @@ ReactDOM.createRoot(rootElement).render(
     <CustomProvider>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
-        {((import.meta as ViteEnv).env?.DEV ??
-          (import.meta as ViteEnv).env?.MODE === "development") && (
-          <ReactQueryDevtools initialIsOpen={false} />
-        )}
       </QueryClientProvider>
     </CustomProvider>
   </StrictMode>,

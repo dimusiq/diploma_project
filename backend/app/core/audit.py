@@ -48,6 +48,5 @@ def log_audit(
         ip_address=ip_address[:64] if ip_address else None,
     )
     session.add(entry)
-    session.commit()
-    session.refresh(entry)
+    session.flush()
     return entry

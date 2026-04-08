@@ -10,8 +10,8 @@ import {
 interface ItemSelectionToolbarProps {
   selectedCount: number
   onClear: () => void
-  onPrintShippingNote: () => void
-  onMove: () => void
+  onPrintShippingNote?: () => void
+  onMove?: () => void
   onMassEdit?: () => void
   /** Экспорт только выбранных товаров (CSV/Excel). */
   onExportSelected?: (format: "csv" | "xlsx") => void
@@ -40,23 +40,27 @@ export function ItemSelectionToolbar({
       }}
     >
       <p className="text-sm font-medium">Выбрано: {selectedCount}</p>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onPrintShippingNote}
-        disabled={isPrinting}
-      >
-        <span className="inline-flex items-center gap-2">
-          <FiPrinter />
-          Печать накладной
-        </span>
-      </Button>
-      <Button size="sm" variant="outline" onClick={onMove}>
-        <span className="inline-flex items-center gap-2">
-          <FiTruck />
-          Переместить
-        </span>
-      </Button>
+      {onPrintShippingNote && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onPrintShippingNote}
+          disabled={isPrinting}
+        >
+          <span className="inline-flex items-center gap-2">
+            <FiPrinter />
+            Печать накладной
+          </span>
+        </Button>
+      )}
+      {onMove && (
+        <Button size="sm" variant="outline" onClick={onMove}>
+          <span className="inline-flex items-center gap-2">
+            <FiTruck />
+            Переместить
+          </span>
+        </Button>
+      )}
       {onMassEdit && (
         <Button size="sm" variant="outline" onClick={onMassEdit}>
           <span className="inline-flex items-center gap-2">

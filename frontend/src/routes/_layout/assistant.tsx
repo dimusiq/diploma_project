@@ -3,17 +3,25 @@ import {
   isRedirect,
   redirect,
 } from '@tanstack/react-router';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useCallback } from 'react';
 import {
+  FiAlertCircle,
   FiAnchor,
+  FiBarChart2,
+  FiBox,
+  FiClock,
   FiCpu,
   FiEdit2,
+  FiList,
   FiMenu,
   FiMoreHorizontal,
   FiPlus,
   FiShare2,
+  FiTool,
   FiTrash2,
 } from 'react-icons/fi';
+import type { IconType } from 'react-icons';
 import type { StickToBottomContext } from 'use-stick-to-bottom';
 import { fetchAgentPermissions } from '@/api/agent.ts';
 import {
@@ -70,6 +78,7 @@ import {
 } from '@/contexts/AssistantSessionContext.tsx';
 import { sanitizeAssistantChatContent } from '@/lib/agentReplySanitize.ts';
 import { getErrorHttpStatus } from '@/lib/apiClient.ts';
+import { ErrorFallback } from '@/components/Common/ErrorFallback.tsx';
 import { cn } from '@/lib/utils.ts';
 import { toast } from 'sonner';
 
@@ -142,6 +151,15 @@ const ASSISTANT_PROMPT_ACCEPT = [
 ].join(',');
 
 const ASSISTANT_PROMPT_MAX_FILE_BYTES = 14 * 1024 * 1024;
+
+const EMPTY_STATE_SUGGESTIONS: { text: string; icon: IconType }[] = [
+  { text: 'Сколько товаров просрочено?', icon: FiAlertCircle },
+  { text: 'Покажи загрузку склада', icon: FiBarChart2 },
+  { text: 'Какая техника нуждается в ТО?', icon: FiTool },
+  { text: 'Есть ли открытые задания?', icon: FiList },
+  { text: 'Какие товары скоро истекут?', icon: FiClock },
+  { text: 'Сводка по складу', icon: FiBox },
+];
 
 function AssistantPromptAttachmentsHeader() {
   const attachments = usePromptInputAttachments();
@@ -370,10 +388,14 @@ function AssistantPage() {
                         size='icon-sm'
                         aria-label='Действия с чатом'
                         className={cn(
-                          '-mr-1 shrink-0 rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground md:opacity-0',
-                          showMenuBtn && 'opacity-100',
-                          'md:transition-opacity md:duration-150',
-                          'max-md:opacity-100',
+                          '-mr-1 shrink-0 rounded-md md:transition-opacity md:duration-150',
+                          active
+                            ? 'text-sidebar-accent-foreground/90 hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground'
+                            : 'text-muted-foreground hover:bg-sidebar-accent/80 hover:text-sidebar-foreground',
+                          // md:opacity-0 раньше перекрывало opacity-100 — на десктопе «⋯» не показывались
+                          showMenuBtn
+                            ? 'opacity-100 md:opacity-100'
+                            : 'opacity-100 md:opacity-0',
                         )}
                         disabled={historyLocked}
                         onClick={(e) => e.stopPropagation()}
@@ -507,6 +529,7 @@ function AssistantPage() {
             ) : null}
           </div>
 
+          <ErrorBoundary FallbackComponent={ErrorFallback}>
           <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
             <Conversation
               contextRef={onConversationContext}
@@ -539,13 +562,31 @@ function AssistantPage() {
                           Чем могу помочь?
                         </h1>
                       </div>
-                      <p className='mx-auto mb-2 max-w-[32rem] text-center text-sm leading-relaxed text-muted-foreground md:text-[0.9375rem]'>
+                      <p className='mx-auto mb-5 max-w-[32rem] text-center text-sm leading-relaxed text-muted-foreground md:text-[0.9375rem]'>
                         {!activeChatId
                           ? sortedChats.length > 0
                             ? 'Предыдущий чат в списке слева; напишите ниже, чтобы продолжить.'
                             : 'Задайте вопрос по складу — диалог появится в истории после первой отправки.'
                           : 'Например: «Сколько позиций на складе?», «Какие ряды в layout?»'}
                       </p>
+                      <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
+                        {EMPTY_STATE_SUGGESTIONS.map((s) => (
+                          <button
+                            key={s.text}
+                            type='button'
+                            className='flex items-center gap-3 rounded-lg border border-border p-3 text-left text-sm transition-colors hover:bg-muted'
+                            onClick={() =>
+                              send({
+                                text: s.text,
+                                files: [],
+                              })
+                            }
+                          >
+                            <s.icon className='size-5 shrink-0 text-muted-foreground' />
+                            <span>{s.text}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -635,12 +676,12 @@ function AssistantPage() {
                                           .brief_explanation
                                       }
                                     </p>
-                                    {m.publicReasoning
-                                      .tools_used.length >
+                                    {(m.publicReasoning
+                                      .tools_used?.length ?? 0) >
                                     0 ? (
                                       <p className='mb-1'>
                                         Инструменты:{' '}
-                                        {m.publicReasoning.tools_used
+                                        {(m.publicReasoning.tools_used ?? [])
                                           .map(
                                             (t) =>
                                               t.name || '?',
@@ -650,7 +691,7 @@ function AssistantPage() {
                                     ) : null}
                                     <p className='mb-1'>
                                       Источники данных:{' '}
-                                      {m.publicReasoning.data_sources.join(
+                                      {(m.publicReasoning.data_sources ?? []).join(
                                         ', ',
                                       )}
                                     </p>
@@ -817,6 +858,7 @@ function AssistantPage() {
               </div>
             </div>
           </div>
+          </ErrorBoundary>
         </div>
       </div>
     </div>

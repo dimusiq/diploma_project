@@ -95,6 +95,7 @@ def process_outbox_batch(
     rows = list(session.exec(stmt).all())
     processed = 0
     failed = 0
+    max_attempts = 10
     for ob in rows:
         try:
             process_single_outbox(session, ob, consumers=consumers)
@@ -104,6 +105,9 @@ def process_outbox_batch(
             failed += 1
             ob.attempts = (ob.attempts or 0) + 1
             ob.last_error = "consumer_error"
+            if ob.attempts >= max_attempts:
+                ob.completed_at = datetime.now(timezone.utc)
+                ob.last_error = f"dead_letter: exceeded {max_attempts} attempts"
             session.add(ob)
     return {"batch_taken": len(rows), "completed": processed, "failed": failed}
 

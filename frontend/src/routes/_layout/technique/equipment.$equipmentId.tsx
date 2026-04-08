@@ -22,7 +22,7 @@ function EquipmentEditPage() {
   const navigate = useNavigate()
 
   const handleBack = () => {
-    navigate({ to: "/technique", search: { section: "assets" } })
+    navigate({ to: "/technique" })
   }
 
   return (

@@ -15,7 +15,10 @@ from app.models import (
     UserCreate,
 )
 
-engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+engine = create_engine(
+    str(settings.SQLALCHEMY_DATABASE_URI),
+    pool_pre_ping=True,
+)
 
 
 # make sure all SQLModel models are imported (app.models) before initializing DB
@@ -26,9 +29,14 @@ engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 def _ensure_roles(session: Session) -> None:
     if session.exec(select(Role)).first():
         return
-    for name in (ROLE_ADMIN, ROLE_MANAGER, ROLE_WAREHOUSE, ROLE_VIEWER):
-        session.add(Role(name=name))
-    session.commit()
+    try:
+        for name in (ROLE_ADMIN, ROLE_MANAGER, ROLE_WAREHOUSE, ROLE_VIEWER):
+            session.add(Role(name=name))
+        session.commit()
+    except Exception:
+        session.rollback()
+        if not session.exec(select(Role)).first():
+            raise
 
 
 def init_db(session: Session) -> None:
@@ -72,7 +80,13 @@ def _ensure_brands(session: Session) -> dict[str, uuid.UUID]:
         if not brand:
             brand = Brand(name=name)
             session.add(brand)
-            session.commit()
-            session.refresh(brand)
+            try:
+                session.commit()
+                session.refresh(brand)
+            except Exception:
+                session.rollback()
+                brand = session.exec(select(Brand).where(Brand.name == name)).first()
+                if not brand:
+                    raise
         result[name] = brand.id
     return result

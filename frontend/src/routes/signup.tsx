@@ -79,6 +79,7 @@ function SignUp() {
     error: null,
     success: false,
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
   useEffect(() => {
     if (state.success) {
       queryClient.invalidateQueries({ queryKey: ["users"] })
@@ -93,6 +94,7 @@ function SignUp() {
         className="flex w-full max-w-sm flex-col gap-4"
         onSubmit={async (e) => {
           e.preventDefault()
+          if (isSubmitting) return
           const fd = new FormData(e.currentTarget)
           const password = String(fd.get("password") ?? "")
           if (password.length > 0 && password.length < 8) {
@@ -102,8 +104,13 @@ function SignUp() {
             })
             return
           }
-          const next = await signupAction({ error: null, success: false }, fd)
-          setState(next)
+          setIsSubmitting(true)
+          try {
+            const next = await signupAction({ error: null, success: false }, fd)
+            setState(next)
+          } finally {
+            setIsSubmitting(false)
+          }
         }}
       >
         <img
@@ -158,8 +165,8 @@ function SignUp() {
             startElement={<FiLock />}
           />
         </div>
-        <Button type="submit" variant="default" size="default" className="w-full">
-          Зарегистрироваться
+        <Button type="submit" variant="default" size="default" className="w-full" disabled={isSubmitting}>
+          {isSubmitting ? "Регистрация…" : "Зарегистрироваться"}
         </Button>
         <p className="text-sm text-muted-foreground">
           Уже есть аккаунт?{" "}

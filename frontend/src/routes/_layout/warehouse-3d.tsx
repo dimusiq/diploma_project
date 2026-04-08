@@ -9,7 +9,9 @@ import {
   useRef,
   useState,
 } from "react"
+import { ErrorBoundary } from "react-error-boundary"
 import { FiChevronRight, FiMaximize2, FiRotateCcw } from "react-icons/fi"
+import { useTheme } from "next-themes"
 import { z } from "zod"
 import { equipmentApi } from "@/api/equipment.ts"
 import {
@@ -51,6 +53,7 @@ import {
   buildWarehouseGeometry,
   DEFAULT_WAREHOUSE_LAYOUT_SPEC,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
+import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
 import { cn } from "@/lib/utils.ts"
 
 const WarehouseScene = lazy(() =>
@@ -144,6 +147,7 @@ function searchToCellInfo(
 }
 
 function Warehouse3DPage() {
+  const { resolvedTheme } = useTheme()
   const search = Route.useSearch()
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [selectedCell, setSelectedCell] = useState<CellInfo | null>(() =>
@@ -221,7 +225,7 @@ function Warehouse3DPage() {
       // Фокус камеры только при смене URL (переход по ссылке из списка), не при клике по ячейке
       setFocusCell(fromUrl)
     }
-  }, [search.row, search.level, search.cellX, search.cellZ, search])
+  }, [search.row, search.level, search.cellX, search.cellZ])
 
   useEffect(() => {
     if (!selectedCell) return
@@ -286,14 +290,17 @@ function Warehouse3DPage() {
   }, [layoutSpec, simulationActive])
 
   const items = itemsData?.data ?? []
+  const itemsRef = useRef(items)
+  itemsRef.current = items
 
   useEffect(() => {
     if (items.length === 0) return
     const now = Date.now()
     if (now - snapThrottleRef.current < 12_000) return
     snapThrottleRef.current = now
-    setSnapshots((prev) => [...prev.slice(-35), { at: now, items: [...items] }])
-  }, [items])
+    setSnapshots((prev) => [...prev.slice(-35), { at: now, items: [...itemsRef.current] }])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsData])
 
   const displayItems = useMemo(() => {
     if (historyIdx < 0 || historyIdx >= snapshots.length) return items
@@ -312,7 +319,6 @@ function Warehouse3DPage() {
       layoutSpecResolved.levels,
       layoutSpecResolved.cellX,
       layoutSpecResolved.cellZ,
-      layoutSpecResolved,
     ],
   )
 
@@ -790,77 +796,79 @@ function Warehouse3DPage() {
         </div>
       </div>
 
-      <div
-        ref={canvasContainerRef}
-        className={cn(
-          "relative w-full",
-          isFullscreen && "min-h-screen h-screen w-screen bg-muted",
-        )}
-      >
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
         <div
+          ref={canvasContainerRef}
           className={cn(
-            "w-full overflow-hidden bg-muted",
-            isFullscreen
-              ? "h-full min-h-0"
-              : "min-h-[480px] h-[calc(100vh-200px)] rounded-lg",
+            "relative w-full",
+            isFullscreen && "min-h-screen h-screen w-screen bg-muted",
           )}
         >
-          <Suspense
-            fallback={
-              <div className="flex h-full w-full flex-col items-center justify-center gap-3">
-                <Skeleton w="100%" h="100%" minH="200px" borderRadius="lg" />
-                <p className="text-sm text-muted-foreground">Загрузка 3D…</p>
-              </div>
-            }
+          <div
+            className={cn(
+              "w-full overflow-hidden bg-muted",
+              isFullscreen
+                ? "h-full min-h-0"
+                : "min-h-[480px] h-[calc(100vh-200px)] rounded-lg",
+            )}
           >
-            <WarehouseScene
-              key={sceneKey}
-              selectedCell={selectedCell}
-              focusCell={focusCell}
-              onFocusDone={() => setFocusCell(null)}
-              onCellSelect={setSelectedCell}
-              occupiedCellKeys={occupiedCellKeys}
-              expiringCellKeys={expiringCellKeys}
-              expiredCellKeys={expiredCellKeys}
-              selectedItem={selectedItemForPopup}
-              darkMode={false}
-              layoutSpec={layoutSpec ?? undefined}
-              interactionMode={interactionMode}
-              routeWaypoints={routeWaypoints}
-              onRouteWaypointAdd={addRouteWaypoint}
-              simulationActive={simulationActive}
-              simulationEquipment={equipmentKind}
-              simulationSpeed={simulationSpeed}
-              simulationShowCargo={simulationShowCargo}
-              onSimulationComplete={handleSimulationComplete}
-              twinEnrichment={twinEnrichment}
-            />
-          </Suspense>
+            <Suspense
+              fallback={
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3">
+                  <Skeleton w="100%" h="100%" minH="200px" borderRadius="lg" />
+                  <p className="text-sm text-muted-foreground">Загрузка 3D…</p>
+                </div>
+              }
+            >
+              <WarehouseScene
+                key={sceneKey}
+                selectedCell={selectedCell}
+                focusCell={focusCell}
+                onFocusDone={() => setFocusCell(null)}
+                onCellSelect={setSelectedCell}
+                occupiedCellKeys={occupiedCellKeys}
+                expiringCellKeys={expiringCellKeys}
+                expiredCellKeys={expiredCellKeys}
+                selectedItem={selectedItemForPopup}
+                darkMode={resolvedTheme === "dark"}
+                layoutSpec={layoutSpec ?? undefined}
+                interactionMode={interactionMode}
+                routeWaypoints={routeWaypoints}
+                onRouteWaypointAdd={addRouteWaypoint}
+                simulationActive={simulationActive}
+                simulationEquipment={equipmentKind}
+                simulationSpeed={simulationSpeed}
+                simulationShowCargo={simulationShowCargo}
+                onSimulationComplete={handleSimulationComplete}
+                twinEnrichment={twinEnrichment}
+              />
+            </Suspense>
+          </div>
+          <div className="absolute right-2 top-2 flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={toggleFullscreen}
+              title="Полноэкранный режим"
+              aria-label="Полноэкранный режим"
+            >
+              <FiMaximize2 className="size-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={resetCamera}
+              title="Вернуть вид по умолчанию"
+              aria-label="Сбросить камеру"
+            >
+              <span className="inline-flex items-center gap-2">
+                <FiRotateCcw className="size-4" />
+                Сбросить камеру
+              </span>
+            </Button>
+          </div>
         </div>
-        <div className="absolute right-2 top-2 flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={toggleFullscreen}
-            title="Полноэкранный режим"
-            aria-label="Полноэкранный режим"
-          >
-            <FiMaximize2 className="size-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={resetCamera}
-            title="Вернуть вид по умолчанию"
-            aria-label="Сбросить камеру"
-          >
-            <span className="inline-flex items-center gap-2">
-              <FiRotateCcw className="size-4" />
-              Сбросить камеру
-            </span>
-          </Button>
-        </div>
-      </div>
+      </ErrorBoundary>
 
       <p className="mt-2 text-xs text-muted-foreground">
         Вращение: ЛКМ · Zoom: колёсико · Панорама: ПКМ или Shift+ЛКМ · Клик по

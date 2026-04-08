@@ -39,7 +39,7 @@ def login_access_token(
     """
     OAuth2 compatible token login, get an access token for future requests
     """
-    if settings.ENVIRONMENT == "production" and not check_login_rate_limit(
+    if settings.ENVIRONMENT != "local" and not check_login_rate_limit(
         _client_ip(request)
     ):
         raise HTTPException(
@@ -50,9 +50,9 @@ def login_access_token(
         session=session, email=form_data.username, password=form_data.password
     )
     if not user:
-        raise HTTPException(status_code=400, detail="Incorrect email or password")
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
     elif not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=401, detail="Inactive user")
     user.last_login_at = datetime.now(timezone.utc)
     session.add(user)
     session.commit()
@@ -80,20 +80,16 @@ def recover_password(email: str, session: SessionDep) -> Message:
     """
     user = crud.get_user_by_email(session=session, email=email)
 
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="The user with this email does not exist in the system.",
+    if user:
+        password_reset_token = generate_password_reset_token(email=email)
+        email_data = generate_reset_password_email(
+            email_to=user.email, email=email, token=password_reset_token
         )
-    password_reset_token = generate_password_reset_token(email=email)
-    email_data = generate_reset_password_email(
-        email_to=user.email, email=email, token=password_reset_token
-    )
-    send_email(
-        email_to=user.email,
-        subject=email_data.subject,
-        html_content=email_data.html_content,
-    )
+        send_email(
+            email_to=user.email,
+            subject=email_data.subject,
+            html_content=email_data.html_content,
+        )
     return Message(message="Password recovery email sent")
 
 
@@ -156,5 +152,5 @@ def recover_password_html_content(
     )
 
     return HTMLResponse(
-        content=email_data.html_content, headers={"subject:": email_data.subject}
+        content=email_data.html_content, headers={"subject": email_data.subject}
     )

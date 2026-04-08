@@ -25,7 +25,7 @@ export default defineConfig({
         name: "Склад",
         short_name: "Склад",
         description: "Учёт товаров и склада",
-        theme_color: "#2d3748",
+        theme_color: "#ffffff",
         background_color: "#1a202c",
         display: "standalone",
         start_url: "/",

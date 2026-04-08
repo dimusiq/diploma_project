@@ -51,12 +51,29 @@ def _enforce_memory(user_id: uuid.UUID, limit: int) -> None:
         dq.append(now)
 
 
+_redis_pool: redis.ConnectionPool | None = None
+_redis_pool_lock = threading.Lock()
+
+
+def _get_redis_pool() -> redis.ConnectionPool:
+    global _redis_pool
+    if _redis_pool is None:
+        with _redis_pool_lock:
+            if _redis_pool is None:
+                _redis_pool = redis.ConnectionPool.from_url(
+                    settings.REDIS_URL, decode_responses=True  # type: ignore[arg-type]
+                )
+    return _redis_pool
+
+
 def _enforce_redis(user_id: uuid.UUID, limit: int) -> None:
-    assert settings.REDIS_URL
+    if not settings.REDIS_URL:
+        _enforce_memory(user_id, limit)
+        return
     minute_bucket = int(time.time()) // 60
     key = f"agent:chat:rl:{user_id}:{minute_bucket}"
     try:
-        r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+        r = redis.Redis(connection_pool=_get_redis_pool())
         n = r.incr(key)
         if n == 1:
             r.expire(key, 120)

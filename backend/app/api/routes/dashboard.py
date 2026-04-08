@@ -84,7 +84,18 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
         "total_users": total_users,
         "status_distribution": status_counts,
         "top_owners": top_owners,
-        "latest_incoming": [item.model_dump() for item in latest_incoming],
+        "latest_incoming": [
+            {
+                "id": str(item.id),
+                "title": item.title,
+                "sku": item.sku,
+                "quantity": item.quantity,
+                "unit": item.unit,
+                "status": item.status,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+            }
+            for item in latest_incoming
+        ],
     }
 
 

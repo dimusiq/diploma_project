@@ -1,4 +1,6 @@
 import asyncio
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 
 import sentry_sdk
 from fastapi import FastAPI
@@ -11,16 +13,40 @@ from app.core.report_scheduler import report_scheduler_loop
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
-    return f"{route.tags[0]}-{route.name}"
+    tag = route.tags[0] if route.tags else "default"
+    return f"{tag}-{route.name}"
 
 
 if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
 
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    stop_event: asyncio.Event | None = None
+    task: asyncio.Task | None = None  # type: ignore[type-arg]
+    if settings.emails_enabled and settings.RUN_REPORT_SCHEDULER_IN_API:
+        stop_event = asyncio.Event()
+        redis_url = str(settings.REDIS_URL) if settings.REDIS_URL else None
+        task = asyncio.create_task(
+            report_scheduler_loop(stop_event, redis_url=redis_url)
+        )
+    yield
+    if stop_event is not None:
+        stop_event.set()
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
+    lifespan=_lifespan,
 )
 
 # CORS: всегда включаем (иначе при пустом списке из env браузер показывает «generic» CORS error).
@@ -33,30 +59,3 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
-
-_report_stop_event: asyncio.Event | None = None
-_report_task: asyncio.Task | None = None
-
-
-@app.on_event("startup")
-async def _start_report_scheduler() -> None:
-    global _report_stop_event, _report_task
-    if not settings.emails_enabled:
-        return
-    if not settings.RUN_REPORT_SCHEDULER_IN_API:
-        return
-    _report_stop_event = asyncio.Event()
-    redis_url = str(settings.REDIS_URL) if settings.REDIS_URL else None
-    _report_task = asyncio.create_task(
-        report_scheduler_loop(_report_stop_event, redis_url=redis_url)
-    )
-
-
-@app.on_event("shutdown")
-async def _stop_report_scheduler() -> None:
-    global _report_stop_event, _report_task
-    if _report_stop_event is None:
-        return
-    _report_stop_event.set()
-    if _report_task is not None:
-        _report_task.cancel()

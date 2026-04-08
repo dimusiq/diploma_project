@@ -1,7 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { Controller, type SubmitHandler, useForm } from "react-hook-form"
 import { FaPlus } from "react-icons/fa"
+import { z } from "zod"
 import type { ApiError } from "@/client/core/ApiError.ts"
 import { RolesService, type UserCreate, UsersService } from "@/client/index.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
@@ -10,7 +12,7 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
-import { emailPattern, handleError } from "@/utils.ts"
+import { handleError } from "@/utils.ts"
 import {
   DialogActionTrigger,
   DialogBody,
@@ -34,9 +36,22 @@ import {
   SelectValue,
 } from "../ui/select.tsx"
 
-interface UserCreateForm extends UserCreate {
-  confirm_password: string
-}
+const addUserSchema = z
+  .object({
+    email: z.string().email("Некорректный email"),
+    full_name: z.string().min(1, "Имя обязательно"),
+    password: z.string().min(8, "Минимум 8 символов"),
+    confirm_password: z.string(),
+    is_active: z.boolean(),
+    is_superuser: z.boolean(),
+    role_id: z.string().optional(),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    message: "Пароли не совпадают",
+    path: ["confirm_password"],
+  })
+
+type AddUserForm = z.infer<typeof addUserSchema>
 
 const ROLE_EMPTY = ""
 
@@ -53,11 +68,10 @@ const AddUser = () => {
     register,
     handleSubmit,
     reset,
-    getValues,
     setValue,
     watch,
     formState: { errors, isValid, isSubmitting },
-  } = useForm<UserCreateForm>({
+  } = useForm<AddUserForm>({
     mode: "onBlur",
     criteriaMode: "all",
     defaultValues: {
@@ -69,6 +83,7 @@ const AddUser = () => {
       is_active: false,
       role_id: ROLE_EMPTY,
     },
+    resolver: zodResolver(addUserSchema),
   })
 
   const mutation = useMutation({
@@ -89,7 +104,7 @@ const AddUser = () => {
     },
   })
 
-  const onSubmit: SubmitHandler<UserCreateForm> = (data) => {
+  const onSubmit: SubmitHandler<AddUserForm> = (data) => {
     const payload: UserCreate = {
       ...data,
       role_id:
@@ -130,16 +145,14 @@ const AddUser = () => {
               >
                 <Input
                   id="email"
-                  {...register("email", {
-                    required: "Email обязателен",
-                    pattern: emailPattern,
-                  })}
+                  {...register("email")}
                   placeholder="Email"
                   type="email"
                 />
               </Field>
 
               <Field
+                required
                 invalid={!!errors.full_name}
                 errorText={errors.full_name?.message}
                 label="Полное имя"
@@ -185,13 +198,7 @@ const AddUser = () => {
               >
                 <Input
                   id="password"
-                  {...register("password", {
-                    required: "Пароль обязателен",
-                    minLength: {
-                      value: 8,
-                      message: "Пароль должен содержать не менее 8 символов",
-                    },
-                  })}
+                  {...register("password")}
                   placeholder="Пароль"
                   type="password"
                 />
@@ -205,11 +212,7 @@ const AddUser = () => {
               >
                 <Input
                   id="confirm_password"
-                  {...register("confirm_password", {
-                    required: "Пожалуйста, подтвердите пароль",
-                    validate: (value) =>
-                      value === getValues().password || "Пароли не совпадают",
-                  })}
+                  {...register("confirm_password")}
                   placeholder="Пароль"
                   type="password"
                 />

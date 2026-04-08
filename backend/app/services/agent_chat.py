@@ -158,8 +158,7 @@ async def run_agent_chat(
         "LLM_OPENAI_BASE_URL / OLLAMA_BASE_URL, например `http://host.docker.internal:8000` "
         "если vLLM на хосте. Модели: **VLLM_CHAT_MODEL** / LLM_CHAT_MODEL / OLLAMA_MODEL; "
         "для RAG: **LLM_EMBEDDING_API_STYLE** (по умолчанию openai) и **VLLM_EMBED_MODEL** "
-        "(размерность вектора 768 — см. agent_vector).\n\n"
-        f"Доступный контекст по вашим правам:\n\n{context}"
+        "(размерность вектора 768 — см. agent_vector)."
     )
     trace.add_step("finish", detail="fallback_no_llm")
     reasoning.tool_calls.clear()
@@ -218,8 +217,7 @@ async def iter_agent_chat_sse_events(
             "LLM_OPENAI_BASE_URL / OLLAMA_BASE_URL, например `http://host.docker.internal:8000` "
             "если vLLM на хосте. Модели: **VLLM_CHAT_MODEL** / LLM_CHAT_MODEL / OLLAMA_MODEL; "
             "для RAG: **LLM_EMBEDDING_API_STYLE** (по умолчанию openai) и **VLLM_EMBED_MODEL** "
-            "(размерность вектора 768 — см. agent_vector).\n\n"
-            f"Доступный контекст по вашим правам:\n\n{context}"
+            "(размерность вектора 768 — см. agent_vector)."
         )
         trace.add_step("finish", detail="fallback_no_llm")
         reasoning.tool_calls.clear()

@@ -469,6 +469,7 @@ export function AssistantSessionProvider({
 
       let chatId = activeChatIdRef.current
       if (!chatId) {
+        if (isEnsuringChat) return
         setIsEnsuringChat(true)
         try {
           const c = await createUserAssistantChat()

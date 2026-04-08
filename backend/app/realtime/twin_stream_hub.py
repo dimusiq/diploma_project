@@ -298,16 +298,19 @@ def publish_item_movement(
     reason: str = "mutation",
 ) -> None:
     """Движение / изменение товара на складе (coalesce в окне)."""
-    global _item_movement_dirty, _item_movement_timer, _item_movement_ids, _last_item_movement_reason
     loop = _hub_loop
     if loop is None:
         return
-    _item_movement_dirty = True
-    _last_item_movement_reason = reason
-    if item_id is not None:
-        _item_movement_ids.add(str(item_id))
+
+    _id_str = str(item_id) if item_id is not None else None
+    _reason = reason
 
     def _schedule() -> None:
+        global _item_movement_dirty, _item_movement_timer, _item_movement_ids, _last_item_movement_reason
+        _item_movement_dirty = True
+        _last_item_movement_reason = _reason
+        if _id_str is not None:
+            _item_movement_ids.add(_id_str)
         global _item_movement_timer
         _cancel_timer(_item_movement_timer)
 
@@ -338,7 +341,6 @@ def publish_equipment_position_sample(
     payload: dict,
 ) -> None:
     """Позиция техники: coalesce по equipment_id, один flush на окно."""
-    global _equipment_batch, _equipment_timer
     loop = _hub_loop
     if loop is None:
         return

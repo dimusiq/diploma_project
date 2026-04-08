@@ -36,7 +36,8 @@ def send_email(
     subject: str = "",
     html_content: str = "",
 ) -> None:
-    assert settings.emails_enabled, "no provided configuration for email variables"
+    if not settings.emails_enabled:
+        raise RuntimeError("no provided configuration for email variables")
     message = emails.Message(
         subject=subject,
         html=html_content,
@@ -118,6 +119,7 @@ def verify_password_reset_token(token: str) -> str | None:
         decoded_token = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
         )
-        return str(decoded_token["sub"])
-    except InvalidTokenError:
+        sub = decoded_token.get("sub")
+        return str(sub) if sub is not None else None
+    except (InvalidTokenError, KeyError):
         return None

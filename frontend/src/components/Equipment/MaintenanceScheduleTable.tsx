@@ -799,7 +799,7 @@ export function MaintenanceScheduleTable() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link to="/technique" search={{ section: "maintenance-schedule" }}>
+        <Link to="/technique/maintenance-schedule">
           <Button size="sm" variant="outline">
             Перейти к расписанию ТО
           </Button>

@@ -1,7 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { type SubmitHandler, useForm } from "react-hook-form"
 import { FaExchangeAlt } from "react-icons/fa"
+import { z } from "zod"
 
 import {
   type ApiError,
@@ -43,6 +45,24 @@ const STORAGE_ROWS = 12
 const STORAGE_LEVELS = 4
 const STORAGE_CELLS_LENGTH = 20
 
+const editItemSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  quantity: z.number().min(1, "Минимум 1").optional(),
+  sku: z.string().optional(),
+  barcode: z.string().optional(),
+  unit: z.string().optional(),
+  category_id: z.string().nullable().optional(),
+  expires_at: z.string().nullable().optional(),
+  location: z.string().optional(),
+  storage_row: z.number().nullable().optional(),
+  storage_level: z.number().nullable().optional(),
+  storage_cell_x: z.number().nullable().optional(),
+  storage_cell_z: z.number().nullable().optional(),
+})
+
+type EditItemForm = z.infer<typeof editItemSchema>
+
 interface EditItemProps {
   item: ItemPublic
   /** Controlled: open dialog from outside (e.g. from URL ?open=id). */
@@ -74,9 +94,10 @@ const EditItem = ({
     setValue,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<ItemUpdate>({
+  } = useForm<EditItemForm>({
     mode: "onBlur",
     criteriaMode: "all",
+    resolver: zodResolver(editItemSchema),
     defaultValues: {
       title: item.title,
       description: item.description ?? undefined,
@@ -130,7 +151,7 @@ const EditItem = ({
     },
   })
 
-  const onSubmit: SubmitHandler<ItemUpdate> = (data) => {
+  const onSubmit: SubmitHandler<EditItemForm> = (data) => {
     const body: ItemUpdate = {
       ...data,
       quantity:
@@ -169,14 +190,13 @@ const EditItem = ({
             <p className="mb-4 text-sm">Обновите поля ниже.</p>
             <div className="flex flex-col gap-4">
               <Field
-                required
                 invalid={!!errors.title}
                 errorText={errors.title?.message}
                 label="Название"
               >
                 <Input
                   id="title"
-                  {...register("title", { required: "Название обязательно." })}
+                  {...register("title")}
                   placeholder="Название"
                   type="text"
                 />
@@ -200,10 +220,7 @@ const EditItem = ({
               >
                 <Input
                   id="quantity"
-                  {...register("quantity", {
-                    valueAsNumber: true,
-                    min: { value: 1, message: "Минимум 1" },
-                  })}
+                  {...register("quantity", { valueAsNumber: true })}
                   type="number"
                   min={1}
                 />

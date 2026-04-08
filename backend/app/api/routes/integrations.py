@@ -48,7 +48,7 @@ class ConnectorStub(BaseModel):
     id: str
     kind: ConnectorKind
     title: str
-    status: Literal["planned", "beta", "active"] = "planned"
+    status: Literal["planned", "beta", "active", "partial"] = "planned"
 
 
 class ConnectorCatalogResponse(BaseModel):

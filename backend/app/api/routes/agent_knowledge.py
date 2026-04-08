@@ -142,7 +142,8 @@ async def reindex_knowledge_chunk(
             ),
         )
     chunk = session.get(AgentKnowledgeChunk, chunk_id)
-    assert chunk
+    if not chunk:
+        raise HTTPException(status_code=404, detail="Chunk not found after reindex")
     return _to_public(chunk)
 
 

@@ -126,4 +126,5 @@ def delete_category(
         details={"name": name},
         ip_address=get_client_ip(request),
     )
+    session.commit()
     return Message(message="Category deleted")

@@ -22,6 +22,7 @@ import {
   ComposedChart,
   Legend,
   Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -29,7 +30,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { ErrorBoundary } from "react-error-boundary"
 import { getDashboardTrends } from "@/api/dashboard.ts"
+import { getInventorySnapshots } from "@/api/inventorySnapshots.ts"
 import { downloadItemsExport } from "@/api/exportItems.ts"
 import { DashboardService } from "@/client/index.ts"
 import {
@@ -46,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
+import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 interface LatestIncomingItem {
@@ -116,6 +120,24 @@ export function Dashboard() {
         group_by: "day",
       }),
   })
+
+  const { data: snapshots, isLoading: snapshotsLoading } = useQuery({
+    queryKey: ["inventory-snapshots", trendRange.from, trendRange.to],
+    queryFn: () =>
+      getInventorySnapshots({
+        from_date: trendRange.from,
+        to_date: trendRange.to,
+      }),
+  })
+
+  const snapshotChartData = useMemo(() => {
+    if (!snapshots?.length) return []
+    return snapshots.map((s) => ({
+      date: s.taken_at.slice(0, 10),
+      total_items: s.total_items,
+      total_quantity: s.total_quantity,
+    }))
+  }, [snapshots])
 
   const [isExporting, setIsExporting] = useState(false)
   const { showErrorToast } = useCustomToast()
@@ -191,7 +213,13 @@ export function Dashboard() {
     : []
 
   // Colors for pie chart
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"]
+  const COLORS = [
+    "oklch(0.6 0.2 250)",
+    "oklch(0.65 0.18 160)",
+    "oklch(0.75 0.15 85)",
+    "oklch(0.65 0.2 25)",
+    "oklch(0.6 0.15 310)",
+  ]
 
   // Merge trends into one array for chart: { period, incoming, shipped }
   const trendsChartData = (() => {
@@ -406,188 +434,256 @@ export function Dashboard() {
       </div>
 
       {/* Visual Graphics Section */}
-      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Status Distribution Pie Chart */}
-        <Card>
-          <CardContent>
-            <h3 className="mb-4 font-heading text-base font-semibold">
-              Распределение по статусам
-            </h3>
-            {statusData.length > 0 ? (
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) =>
-                        `${name} ${((percent as number) * 100).toFixed(0)}%`
-                      }
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      activeShape={pieHoverActiveShape}
-                      inactiveShape={pieHoverInactiveStyle}
-                    >
-                      {statusData.map((_, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip cursor={false} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Нет данных о статусах
-              </p>
-            )}
-          </CardContent>
-        </Card>
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Status Distribution Pie Chart */}
+          <Card>
+            <CardContent>
+              <h3 className="mb-4 font-heading text-base font-semibold">
+                Распределение по статусам
+              </h3>
+              {statusData.length > 0 ? (
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={statusData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) =>
+                          `${name} ${((percent as number) * 100).toFixed(0)}%`
+                        }
+                        outerRadius={80}
+                        fill="oklch(0.6 0.15 310)"
+                        dataKey="value"
+                        activeShape={pieHoverActiveShape}
+                        inactiveShape={pieHoverInactiveStyle}
+                      >
+                        {statusData.map((_, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip cursor={false} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Нет данных о статусах
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Top Owners Bar Chart */}
-        <Card>
+          {/* Top Owners Bar Chart */}
+          <Card>
+            <CardContent>
+              <h3 className="mb-4 font-heading text-base font-semibold">
+                Топ владельцев по количеству товаров
+              </h3>
+              {topOwnersData.length > 0 ? (
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={topOwnersData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="name"
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        fontSize={12}
+                      />
+                      <YAxis />
+                      <Tooltip cursor={false} />
+                      <Legend />
+                      <Bar
+                        dataKey="items"
+                        fill="oklch(0.6 0.15 310)"
+                        activeBar={{
+                          fill: "oklch(0.6 0.15 310)",
+                          opacity: 0.88,
+                          stroke: "oklch(0.55 0.18 310)",
+                          strokeWidth: 2,
+                        }}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Нет данных о владельцах
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Тренды: поступления и отгрузки по дням */}
+        <Card className="mt-8">
           <CardContent>
-            <h3 className="mb-4 font-heading text-base font-semibold">
-              Топ владельцев по количеству товаров
-            </h3>
-            {topOwnersData.length > 0 ? (
-              <div className="h-[300px]">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h3 className="font-heading text-base font-semibold">
+                Тренды за период
+              </h3>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    {TREND_PERIODS.find((p) => p.days === trendDays)?.label ??
+                      "30 дней"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  {TREND_PERIODS.map((p) => (
+                    <DropdownMenuItem
+                      key={p.days}
+                      onSelect={() => setTrendDays(p.days)}
+                    >
+                      {p.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            <div className="h-[300px]">
+              {trendsLoading ? (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Загрузка...</p>
+                </div>
+              ) : trendsChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={topOwnersData}>
+                  <ComposedChart
+                    data={trendsChartData}
+                    margin={{
+                      top: 8,
+                      right: 8,
+                      left: 0,
+                      bottom: 0,
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
-                      dataKey="name"
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                      fontSize={12}
+                      dataKey="period"
+                      tickFormatter={(v) =>
+                        v
+                          ? new Date(v).toLocaleDateString("ru-RU", {
+                              day: "2-digit",
+                              month: "2-digit",
+                            })
+                          : v
+                      }
+                      fontSize={11}
                     />
-                    <YAxis />
-                    <Tooltip cursor={false} />
+                    <YAxis fontSize={12} />
+                    <Tooltip
+                      cursor={false}
+                      labelFormatter={(v) =>
+                        v ? new Date(v).toLocaleDateString("ru-RU") : v
+                      }
+                    />
                     <Legend />
                     <Bar
-                      dataKey="items"
-                      fill="#8884d8"
+                      dataKey="incoming"
+                      name="Поступления"
+                      fill="oklch(0.65 0.18 160)"
+                      radius={[4, 4, 0, 0]}
                       activeBar={{
-                        fill: "#8884d8",
+                        fill: "oklch(0.65 0.18 160)",
                         opacity: 0.88,
-                        stroke: "#6366f1",
+                        stroke: "oklch(0.55 0.18 160)",
                         strokeWidth: 2,
                       }}
                     />
-                  </BarChart>
+                    <Line
+                      type="monotone"
+                      dataKey="shipped"
+                      name="Отгрузки"
+                      stroke="oklch(0.65 0.2 25)"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </ComposedChart>
                 </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Нет данных о владельцах
-              </p>
-            )}
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-muted-foreground">
+                    Нет данных за выбранный период
+                  </p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Тренды: поступления и отгрузки по дням */}
-      <Card className="mt-8">
-        <CardContent>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-heading text-base font-semibold">
-              Тренды за период
+        {/* Динамика запасов (Inventory Snapshots) */}
+        <Card className="mt-8">
+          <CardContent>
+            <h3 className="mb-4 font-heading text-base font-semibold">
+              Динамика запасов
             </h3>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline">
-                  {TREND_PERIODS.find((p) => p.days === trendDays)?.label ??
-                    "30 дней"}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {TREND_PERIODS.map((p) => (
-                  <DropdownMenuItem
-                    key={p.days}
-                    onSelect={() => setTrendDays(p.days)}
+            <div className="h-[300px]">
+              {snapshotsLoading ? (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Загрузка...</p>
+                </div>
+              ) : snapshotChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={snapshotChartData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                   >
-                    {p.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          <div className="h-[300px]">
-            {trendsLoading ? (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-muted-foreground">Загрузка...</p>
-              </div>
-            ) : trendsChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                  data={trendsChartData}
-                  margin={{
-                    top: 8,
-                    right: 8,
-                    left: 0,
-                    bottom: 0,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="period"
-                    tickFormatter={(v) =>
-                      v
-                        ? new Date(v).toLocaleDateString("ru-RU", {
-                            day: "2-digit",
-                            month: "2-digit",
-                          })
-                        : v
-                    }
-                    fontSize={11}
-                  />
-                  <YAxis fontSize={12} />
-                  <Tooltip
-                    cursor={false}
-                    labelFormatter={(v) =>
-                      v ? new Date(v).toLocaleDateString("ru-RU") : v
-                    }
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="incoming"
-                    name="Поступления"
-                    fill="#00C49F"
-                    radius={[4, 4, 0, 0]}
-                    activeBar={{
-                      fill: "#00C49F",
-                      opacity: 0.88,
-                      stroke: "#009970",
-                      strokeWidth: 2,
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="shipped"
-                    name="Отгрузки"
-                    stroke="#FF8042"
-                    strokeWidth={2}
-                    dot={{ r: 3 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-muted-foreground">
-                  Нет данных за выбранный период
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={(v) =>
+                        v
+                          ? new Date(v).toLocaleDateString("ru-RU", {
+                              day: "2-digit",
+                              month: "2-digit",
+                            })
+                          : v
+                      }
+                      fontSize={11}
+                    />
+                    <YAxis fontSize={12} />
+                    <Tooltip
+                      cursor={false}
+                      labelFormatter={(v) =>
+                        v ? new Date(v).toLocaleDateString("ru-RU") : v
+                      }
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="total_quantity"
+                      name="Количество (шт)"
+                      stroke="oklch(0.6 0.2 250)"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="total_items"
+                      name="Позиций"
+                      stroke="oklch(0.65 0.18 160)"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-muted-foreground">
+                    Нет данных о запасах за выбранный период
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </ErrorBoundary>
 
       <div className="mt-8">
         <h3 className="mb-4 font-heading text-base font-semibold">
@@ -599,7 +695,7 @@ export function Dashboard() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {stats.top_owners.map((owner, index) => (
                   <div
-                    key={owner.owner_email}
+                    key={owner.owner_email ?? `owner-${index}`}
                     className="rounded-md border border-border p-3"
                   >
                     <p className="font-bold">#{index + 1}</p>

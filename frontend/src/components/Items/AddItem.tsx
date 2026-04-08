@@ -1,7 +1,9 @@
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { type SubmitHandler, useForm } from "react-hook-form"
 import { FaPlus } from "react-icons/fa"
+import { z } from "zod"
 import type { ApiError } from "@/client/core/ApiError.ts"
 import {
   CategoriesService,
@@ -41,7 +43,25 @@ const STORAGE_ROWS = 12
 const STORAGE_LEVELS = 4
 const STORAGE_CELLS_LENGTH = 20
 
-const defaultValues: Partial<ItemCreate> = {
+const addItemSchema = z.object({
+  title: z.string().min(1, "Название обязательно"),
+  description: z.string().optional(),
+  quantity: z.number().min(1, "Минимум 1"),
+  sku: z.string().optional(),
+  barcode: z.string().optional(),
+  unit: z.string().optional(),
+  category_id: z.string().nullable().optional(),
+  expires_at: z.string().nullable().optional(),
+  location: z.string().optional(),
+  storage_row: z.number().nullable().optional(),
+  storage_level: z.number().nullable().optional(),
+  storage_cell_x: z.number().nullable().optional(),
+  storage_cell_z: z.number().nullable().optional(),
+})
+
+type AddItemForm = z.infer<typeof addItemSchema>
+
+const defaultValues: Partial<AddItemForm> = {
   title: "",
   description: "",
   quantity: 1,
@@ -72,10 +92,11 @@ const AddItem = () => {
     setValue,
     watch,
     formState: { errors, isValid, isSubmitting },
-  } = useForm<ItemCreate>({
+  } = useForm<AddItemForm>({
     mode: "onBlur",
     criteriaMode: "all",
     defaultValues,
+    resolver: zodResolver(addItemSchema),
   })
 
   const mutation = useMutation({
@@ -94,7 +115,7 @@ const AddItem = () => {
     },
   })
 
-  const onSubmit: SubmitHandler<ItemCreate> = (data) => {
+  const onSubmit: SubmitHandler<AddItemForm> = (data) => {
     const hasStorage =
       data.storage_row != null &&
       data.storage_level != null &&
@@ -148,7 +169,7 @@ const AddItem = () => {
               >
                 <Input
                   id="title"
-                  {...register("title", { required: "Название обязательно" })}
+                  {...register("title")}
                   placeholder="Название"
                   type="text"
                 />
@@ -174,10 +195,7 @@ const AddItem = () => {
               >
                 <Input
                   id="quantity"
-                  {...register("quantity", {
-                    valueAsNumber: true,
-                    min: { value: 1, message: "Минимум 1" },
-                  })}
+                  {...register("quantity", { valueAsNumber: true })}
                   placeholder="1"
                   type="number"
                   min={1}

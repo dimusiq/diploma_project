@@ -193,8 +193,8 @@ def compute_due_reports(now_utc: datetime) -> list[DueReport]:
     now_utc = now_utc.astimezone(timezone.utc)
     due: list[DueReport] = []
 
-    # Weekly: Monday 09:00
-    if now_utc.weekday() == 0 and now_utc.hour == 9:
+    # Weekly: Monday 09:xx (any minute within the hour)
+    if now_utc.weekday() == 0 and now_utc.hour >= 9:
         end = (now_utc.date() - timedelta(days=1))
         start = end - timedelta(days=6)
         due.append(
@@ -206,8 +206,8 @@ def compute_due_reports(now_utc: datetime) -> list[DueReport]:
             )
         )
 
-    # Monthly: day 1 09:00
-    if now_utc.day == 1 and now_utc.hour == 9:
+    # Monthly: day 1 09:xx (any minute within or after the hour)
+    if now_utc.day == 1 and now_utc.hour >= 9:
         first_of_this_month = now_utc.date().replace(day=1)
         last_of_prev_month = first_of_this_month - timedelta(days=1)
         start_prev = last_of_prev_month.replace(day=1)

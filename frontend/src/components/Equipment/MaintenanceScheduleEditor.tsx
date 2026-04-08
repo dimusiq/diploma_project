@@ -533,7 +533,7 @@ export function MaintenanceScheduleEditor() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link to="/technique" search={{ section: "maintenance" }}>
+        <Link to="/technique/maintenance">
           <Button size="sm" variant="outline">
             Перейти к графику ТО
           </Button>

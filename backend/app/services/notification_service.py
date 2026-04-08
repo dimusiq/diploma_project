@@ -5,7 +5,7 @@
 import json
 import math
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 from sqlmodel import select
@@ -15,14 +15,18 @@ from app.models import (
     NOTIFICATION_SEVERITY_CRITICAL,
     NOTIFICATION_SEVERITY_INFO,
     NOTIFICATION_SEVERITY_WARNING,
+    WORK_ORDER_STATUS_CANCELED,
+    WORK_ORDER_STATUS_DONE,
     ChainAssignment,
     Equipment,
     Item,
     MaintenanceChainStep,
     MaintenanceScheduleConfig,
     Notification,
+    SparePart,
     User,
     UserCommunicationPreference,
+    WorkOrder,
 )
 from app.realtime.notification_sse_hub import publish_notifications_updated
 from app.realtime.twin_stream_hub import publish_alert_event
@@ -38,6 +42,10 @@ WAREHOUSE_EXPIRING_DAYS = 14
 
 TWIN_ROW_CONGESTED_TYPE = "twin_row_congested"
 TWIN_HIGH_UTILIZATION_TYPE = "twin_high_utilization"
+
+OVERDUE_WORK_ORDER_TYPE = "overdue_work_order"
+LOW_SPARE_PARTS_TYPE = "low_spare_parts"
+WORK_ORDER_ASSIGNED_TYPE = "work_order_assigned"
 
 
 def _in_app_enabled(session: "Session", user_id: uuid.UUID, notification_type: str) -> bool:
@@ -317,6 +325,146 @@ def ensure_twin_notifications(session: "Session", user_id: uuid.UUID) -> None:
     if created_any:
         session.commit()
         publish_notifications_updated(user_id)
+
+
+def ensure_overdue_work_orders_notification(session: "Session", user_id: uuid.UUID) -> None:
+    """
+    Для каждого наряда с просроченным сроком (due_at < now, статус не done/canceled)
+    создаёт критическое уведомление. Дедупликация по user_id + type + entity_id.
+    """
+    if not _in_app_enabled(session, user_id, OVERDUE_WORK_ORDER_TYPE):
+        return
+    now = datetime.now(timezone.utc)
+    overdue = session.exec(
+        select(WorkOrder).where(
+            WorkOrder.due_at < now,
+            WorkOrder.status.notin_([WORK_ORDER_STATUS_DONE, WORK_ORDER_STATUS_CANCELED]),
+        )
+    ).all()
+    if not overdue:
+        return
+    created_any = False
+    for wo in overdue:
+        existing = session.exec(
+            select(Notification).where(
+                Notification.user_id == user_id,
+                Notification.type == OVERDUE_WORK_ORDER_TYPE,
+                Notification.entity_id == wo.id,
+            )
+        ).first()
+        if existing:
+            continue
+        title = f"Просрочен наряд: {wo.title}"
+        body = f"Срок выполнения истёк {wo.due_at.strftime('%d.%m.%Y %H:%M')}. Откройте «Наряды»."
+        create_notification(
+            session,
+            user_id,
+            type=OVERDUE_WORK_ORDER_TYPE,
+            severity=NOTIFICATION_SEVERITY_CRITICAL,
+            title=title,
+            body=body,
+            source="Наряды",
+            entity_type="work_order",
+            entity_id=wo.id,
+        )
+        created_any = True
+    if created_any:
+        session.commit()
+        publish_notifications_updated(user_id)
+
+
+def ensure_low_spare_parts_notification(session: "Session", user_id: uuid.UUID) -> None:
+    """
+    Для каждой запчасти, у которой quantity < min_quantity (и min_quantity задан),
+    создаёт предупреждающее уведомление. Дедупликация по user_id + type + entity_id.
+    """
+    if not _in_app_enabled(session, user_id, LOW_SPARE_PARTS_TYPE):
+        return
+    low_stock = session.exec(
+        select(SparePart).where(
+            SparePart.min_quantity.is_not(None),
+            SparePart.quantity < SparePart.min_quantity,
+        )
+    ).all()
+    if not low_stock:
+        return
+    created_any = False
+    for sp in low_stock:
+        existing = session.exec(
+            select(Notification).where(
+                Notification.user_id == user_id,
+                Notification.type == LOW_SPARE_PARTS_TYPE,
+                Notification.entity_id == sp.id,
+            )
+        ).first()
+        if existing:
+            continue
+        label = sp.title
+        if sp.sku:
+            label = f"{sp.title} ({sp.sku})"
+        title = f"Низкий остаток: {label}"
+        unit = sp.unit or "шт."
+        body = (
+            f"Остаток {sp.quantity} {unit} при минимуме {sp.min_quantity} {unit}. "
+            "Откройте «Запчасти»."
+        )
+        create_notification(
+            session,
+            user_id,
+            type=LOW_SPARE_PARTS_TYPE,
+            severity=NOTIFICATION_SEVERITY_WARNING,
+            title=title,
+            body=body,
+            source="Запчасти",
+            entity_type="spare_part",
+            entity_id=sp.id,
+        )
+        created_any = True
+    if created_any:
+        session.commit()
+        publish_notifications_updated(user_id)
+
+
+def notify_work_order_assigned(
+    session: "Session", work_order: "WorkOrder", assigned_user_id: uuid.UUID
+) -> None:
+    """
+    Создаёт info-уведомление для назначенного исполнителя наряда.
+    Вызывается из роута work_orders при смене assigned_to_id.
+    Дедупликация по user_id + type + entity_id.
+    """
+    if not _in_app_enabled(session, assigned_user_id, WORK_ORDER_ASSIGNED_TYPE):
+        return
+    existing = session.exec(
+        select(Notification).where(
+            Notification.user_id == assigned_user_id,
+            Notification.type == WORK_ORDER_ASSIGNED_TYPE,
+            Notification.entity_id == work_order.id,
+        )
+    ).first()
+    if existing:
+        return
+    title = f"Вам назначен наряд: {work_order.title}"
+    body = "Откройте «Наряды» для просмотра деталей."
+    create_notification(
+        session,
+        assigned_user_id,
+        type=WORK_ORDER_ASSIGNED_TYPE,
+        severity=NOTIFICATION_SEVERITY_INFO,
+        title=title,
+        body=body,
+        source="Наряды",
+        entity_type="work_order",
+        entity_id=work_order.id,
+    )
+    session.commit()
+    publish_notifications_updated(assigned_user_id)
+
+
+def ensure_system_notifications(session: "Session", user_id: uuid.UUID) -> None:
+    """Запуск всех системных генераторов уведомлений (просроченные наряды, низкие остатки)."""
+    ensure_overdue_work_orders_notification(session, user_id)
+    ensure_low_spare_parts_notification(session, user_id)
 
 
 def create_notification(

@@ -47,16 +47,15 @@ def process_orchestration_jobs_batch(session: Session, *, limit: int = 20) -> in
     jobs = list(session.exec(stmt).all())
     done = 0
     for job in jobs:
-        job.status = "processing"
-        job.updated_at = now
-        session.add(job)
-    session.commit()
-    for job in jobs:
         jid = job.id
         try:
             row = session.get(AgentOrchestrationJob, jid)
-            if row is None or row.status != "processing":
+            if row is None or row.status != "pending":
                 continue
+            row.status = "processing"
+            row.updated_at = datetime.now(timezone.utc)
+            session.add(row)
+            session.flush()
             _process_one(session, row)
             row.status = "completed"
             row.result = {"ok": True}

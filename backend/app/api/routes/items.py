@@ -121,8 +121,8 @@ def _apply_order(statement: Any, sort_by: str | None, sort_order: str | None) ->
 def read_items(
     session: SessionDep,
     current_user: CurrentUser,
-    skip: int = 0,
-    limit: int = 100,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     status: str | None = None,
     search: str | None = None,
     category_id: uuid.UUID | None = None,

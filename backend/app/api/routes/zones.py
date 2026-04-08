@@ -184,4 +184,5 @@ def delete_zone(
         details={"name": name},
         ip_address=get_client_ip(request),
     )
+    session.commit()
     return Message(message="Зона удалена")

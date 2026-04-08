@@ -3,6 +3,8 @@
  */
 
 import {
+  ContactShadows,
+  Environment,
   Html,
   Line,
   OrbitControls,
@@ -335,20 +337,82 @@ function Rack({
 
   return (
     <group position={[baseX, 0, baseZ]}>
+      {/* Vertical uprights */}
       {[
         [-geom.rackLength / 2 - 0.04, rackH / 2, -geom.rackDepth / 2 - 0.04],
         [geom.rackLength / 2 + 0.04, rackH / 2, -geom.rackDepth / 2 - 0.04],
         [-geom.rackLength / 2 - 0.04, rackH / 2, geom.rackDepth / 2 + 0.04],
         [geom.rackLength / 2 + 0.04, rackH / 2, geom.rackDepth / 2 + 0.04],
       ].map(([px, py, pz], i) => (
-        <mesh key={i} position={[px, py, pz]}>
-          <boxGeometry args={[0.08, rackH, 0.08]} />
-          <meshStandardMaterial
-            color={rackFrameColor}
-            metalness={0.3}
-            roughness={0.6}
-          />
-        </mesh>
+        <group key={`upright-${i}`}>
+          <mesh position={[px, py, pz]}>
+            <boxGeometry args={[0.08, rackH, 0.08]} />
+            <meshStandardMaterial
+              color={rackFrameColor}
+              metalness={0.35}
+              roughness={0.55}
+            />
+          </mesh>
+          {/* Upright base plate */}
+          <mesh position={[px, 0.01, pz]}>
+            <boxGeometry args={[0.14, 0.02, 0.14]} />
+            <meshStandardMaterial
+              color={rackFrameColor}
+              metalness={0.35}
+              roughness={0.55}
+            />
+          </mesh>
+        </group>
+      ))}
+      {/* Horizontal beams at each level (orange safety beams) */}
+      {Array.from({ length: geom.levels + 1 }, (_, lvl) => {
+        const beamY = lvl * LEVEL_HEIGHT
+        return (
+          <group key={`beam-level-${lvl}`}>
+            <mesh
+              position={[0, beamY + 0.01, -geom.rackDepth / 2 - 0.04]}
+            >
+              <boxGeometry args={[geom.rackLength + 0.16, 0.05, 0.035]} />
+              <meshStandardMaterial
+                color="#ea580c"
+                metalness={0.3}
+                roughness={0.5}
+              />
+            </mesh>
+            <mesh
+              position={[0, beamY + 0.01, geom.rackDepth / 2 + 0.04]}
+            >
+              <boxGeometry args={[geom.rackLength + 0.16, 0.05, 0.035]} />
+              <meshStandardMaterial
+                color="#ea580c"
+                metalness={0.3}
+                roughness={0.5}
+              />
+            </mesh>
+          </group>
+        )
+      })}
+      {/* Diagonal X-bracing on rack ends */}
+      {[
+        -geom.rackLength / 2 - 0.04,
+        geom.rackLength / 2 + 0.04,
+      ].map((bx, bi) => (
+        <group key={`brace-${bi}`} position={[bx, rackH / 2, 0]}>
+          <mesh rotation={[Math.atan2(rackH, geom.rackDepth + 0.08), 0, 0]}>
+            <boxGeometry
+              args={[
+                0.025,
+                Math.sqrt(rackH * rackH + (geom.rackDepth + 0.08) ** 2),
+                0.015,
+              ]}
+            />
+            <meshStandardMaterial
+              color={rackFrameColor}
+              metalness={0.3}
+              roughness={0.6}
+            />
+          </mesh>
+        </group>
       ))}
       {cells.map(({ level, ix, iz, filled, expiring, expired }, i) => {
         const ox = (ix - (geom.cellsLength - 1) / 2) * (CELL_SIZE + CELL_GAP)
@@ -403,11 +467,51 @@ function Rack({
 function Floor({ darkMode }: { darkMode?: boolean }) {
   const geom = useWarehouseGeometry()
   const color = darkMode ? FLOOR_COLOR_DARK : FLOOR_COLOR_LIGHT
+  const w = geom.floorWidth + 2.5
+  const d = geom.floorDepth + 2.5
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <planeGeometry args={[geom.floorWidth, geom.floorDepth]} />
-      <meshStandardMaterial color={color} metalness={0.05} roughness={0.9} />
-    </mesh>
+    <group>
+      {/* Main concrete floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <planeGeometry args={[w, d]} />
+        <meshStandardMaterial color={color} metalness={0.08} roughness={0.92} />
+      </mesh>
+      {/* Concrete expansion joint grid */}
+      {Array.from(
+        { length: Math.floor(w / 4) + 1 },
+        (_, i) => -w / 2 + i * 4,
+      ).map((x, i) => (
+        <mesh
+          key={`jx-${i}`}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[x, 0.002, 0]}
+        >
+          <planeGeometry args={[0.02, d]} />
+          <meshStandardMaterial
+            color={darkMode ? "#1e293b" : "#9ca3af"}
+            metalness={0.05}
+            roughness={0.95}
+          />
+        </mesh>
+      ))}
+      {Array.from(
+        { length: Math.floor(d / 4) + 1 },
+        (_, i) => -d / 2 + i * 4,
+      ).map((z, i) => (
+        <mesh
+          key={`jz-${i}`}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.002, z]}
+        >
+          <planeGeometry args={[w, 0.02]} />
+          <meshStandardMaterial
+            color={darkMode ? "#1e293b" : "#9ca3af"}
+            metalness={0.05}
+            roughness={0.95}
+          />
+        </mesh>
+      ))}
+    </group>
   )
 }
 
@@ -573,6 +677,242 @@ function FloorMarkings({
         >
           {String(rowIndex)}
         </Text>
+      ))}
+    </group>
+  )
+}
+
+function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
+  const geom = useWarehouseGeometry()
+  const hw = geom.floorWidth / 2 + 1
+  const hd = geom.floorDepth / 2 + 1
+  const wallH = Math.max(geom.levels * LEVEL_HEIGHT + 4, 7)
+  const columnColor = darkMode ? "#334155" : "#64748b"
+  const beamColor = darkMode ? "#374151" : "#6b7280"
+  const wallBaseColor = darkMode ? "#1e293b" : "#cbd5e1"
+  const dockColor = darkMode ? "#334155" : "#475569"
+  const markingColor = "#eab308"
+
+  const columnPositions = useMemo(() => {
+    const cols: [number, number][] = []
+    for (const x of [-hw + 0.3, hw - 0.3]) {
+      for (const z of [-hd + 0.3, hd - 0.3]) {
+        cols.push([x, z])
+      }
+    }
+    const numSide = Math.max(1, Math.floor(geom.floorDepth / 7))
+    for (let i = 1; i < numSide; i++) {
+      const z = -hd + 0.3 + (i * (geom.floorDepth + 2 - 0.6)) / numSide
+      cols.push([-hw + 0.3, z])
+      cols.push([hw - 0.3, z])
+    }
+    return cols
+  }, [hw, hd, geom.floorDepth])
+
+  const trussPositions = useMemo(() => {
+    const n = Math.max(2, Math.floor(geom.floorDepth / 6))
+    return Array.from({ length: n + 1 }, (_, i) => -hd + 1.5 + (i * (2 * hd - 3)) / n)
+  }, [hd, geom.floorDepth])
+
+  const lightPositions = useMemo(() => {
+    const pts: [number, number][] = []
+    for (let i = 0; i < trussPositions.length; i += 2) {
+      const z = trussPositions[i]!
+      const numAcross = Math.max(2, Math.floor(geom.floorWidth / 8))
+      for (let j = 0; j < numAcross; j++) {
+        const x = -hw + 2 + (j * (2 * hw - 4)) / (numAcross - 1)
+        pts.push([x, z])
+      }
+    }
+    return pts
+  }, [trussPositions, hw, geom.floorWidth])
+
+  const aisleMarkings = useMemo(() => {
+    const lines: number[] = []
+    for (let pair = 0; pair < geom.pairs - 1; pair++) {
+      const z1 = geom.getRowZ(pair * 2 + 1)
+      const z2 = geom.getRowZ((pair + 1) * 2)
+      lines.push((z1 + z2) / 2)
+    }
+    return lines
+  }, [geom])
+
+  return (
+    <group>
+      {/* Wall base strips (low wainscoting so view stays open during orbit) */}
+      {(
+        [
+          [0, 1, -hd, geom.floorWidth + 2, 2, 0.12, 0],
+          [0, 1, hd, geom.floorWidth + 2, 2, 0.12, 0],
+          [-hw, 1, 0, 0.12, 2, geom.floorDepth + 2, 0],
+          [hw, 1, 0, 0.12, 2, geom.floorDepth + 2, 0],
+        ] as [number, number, number, number, number, number, number][]
+      ).map(([x, y, z, w, h, d], i) => (
+        <mesh key={`wall-${i}`} position={[x, y, z]}>
+          <boxGeometry args={[w, h, d]} />
+          <meshStandardMaterial
+            color={wallBaseColor}
+            metalness={0.15}
+            roughness={0.85}
+          />
+        </mesh>
+      ))}
+
+      {/* Steel columns */}
+      {columnPositions.map(([x, z], i) => (
+        <group key={`col-${i}`} position={[x, 0, z]}>
+          <mesh position={[0, wallH / 2, 0]}>
+            <boxGeometry args={[0.18, wallH, 0.18]} />
+            <meshStandardMaterial
+              color={columnColor}
+              metalness={0.5}
+              roughness={0.4}
+            />
+          </mesh>
+          {/* Column base plate */}
+          <mesh position={[0, 0.02, 0]}>
+            <boxGeometry args={[0.35, 0.04, 0.35]} />
+            <meshStandardMaterial
+              color={columnColor}
+              metalness={0.45}
+              roughness={0.5}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Ceiling trusses (horizontal beams) */}
+      {trussPositions.map((z, i) => (
+        <group key={`truss-${i}`}>
+          {/* Main beam */}
+          <mesh position={[0, wallH - 0.15, z]}>
+            <boxGeometry args={[geom.floorWidth + 1.5, 0.12, 0.1]} />
+            <meshStandardMaterial
+              color={beamColor}
+              metalness={0.45}
+              roughness={0.45}
+            />
+          </mesh>
+          {/* Bottom flange */}
+          <mesh position={[0, wallH - 0.25, z]}>
+            <boxGeometry args={[geom.floorWidth + 1.5, 0.03, 0.18]} />
+            <meshStandardMaterial
+              color={beamColor}
+              metalness={0.45}
+              roughness={0.45}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Pendant industrial lights */}
+      {lightPositions.map(([x, z], i) => (
+        <group key={`pendant-${i}`} position={[x, wallH - 1.2, z]}>
+          {/* Wire / rod */}
+          <mesh position={[0, 0.45, 0]}>
+            <cylinderGeometry args={[0.008, 0.008, 0.9, 4]} />
+            <meshStandardMaterial color={beamColor} metalness={0.5} roughness={0.4} />
+          </mesh>
+          {/* Light housing */}
+          <mesh>
+            <cylinderGeometry args={[0.15, 0.22, 0.12, 12]} />
+            <meshStandardMaterial
+              color={darkMode ? "#475569" : "#94a3b8"}
+              metalness={0.4}
+              roughness={0.5}
+            />
+          </mesh>
+          {/* Light surface (emissive) */}
+          <mesh position={[0, -0.065, 0]} rotation={[Math.PI, 0, 0]}>
+            <circleGeometry args={[0.2, 12]} />
+            <meshStandardMaterial
+              color="white"
+              emissive="white"
+              emissiveIntensity={darkMode ? 0.5 : 0.3}
+            />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Floor aisle markings (yellow dashed center lines) */}
+      {aisleMarkings.map((z, ai) => {
+        const segments = Math.floor(geom.rackLength / 1.2)
+        return Array.from({ length: segments }, (_, si) => {
+          const x =
+            -geom.rackLength / 2 + 0.3 + si * (geom.rackLength / segments)
+          return (
+            <mesh
+              key={`mark-${ai}-${si}`}
+              position={[x, 0.006, z]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <planeGeometry args={[0.5, 0.06]} />
+              <meshStandardMaterial color={markingColor} />
+            </mesh>
+          )
+        })
+      })}
+
+      {/* Perimeter floor safety lines */}
+      {(
+        [
+          [0, -hd + 0.8, geom.floorWidth, 0.05],
+          [0, hd - 0.8, geom.floorWidth, 0.05],
+          [-hw + 0.8, 0, 0.05, geom.floorDepth],
+          [hw - 0.8, 0, 0.05, geom.floorDepth],
+        ] as [number, number, number, number][]
+      ).map(([x, z, w, d], i) => (
+        <mesh
+          key={`safety-${i}`}
+          position={[x, 0.006, z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[w, d]} />
+          <meshStandardMaterial color={markingColor} opacity={0.7} transparent />
+        </mesh>
+      ))}
+
+      {/* Loading dock bays (front wall) */}
+      {[-4, 0, 4].map((x, i) => (
+        <group key={`dock-${i}`} position={[x, 0, hd - 0.05]}>
+          {/* Dock door panel */}
+          <mesh position={[0, 1.7, 0]}>
+            <boxGeometry args={[2.6, 3.4, 0.08]} />
+            <meshStandardMaterial
+              color={dockColor}
+              metalness={0.3}
+              roughness={0.7}
+            />
+          </mesh>
+          {/* Door horizontal ribs */}
+          {[0.5, 1.2, 1.9, 2.6].map((y, ri) => (
+            <mesh key={ri} position={[0, y, 0.045]}>
+              <boxGeometry args={[2.55, 0.04, 0.01]} />
+              <meshStandardMaterial
+                color={darkMode ? "#1e293b" : "#374151"}
+                metalness={0.35}
+                roughness={0.6}
+              />
+            </mesh>
+          ))}
+          {/* Door frame */}
+          {(
+            [
+              [-1.35, 1.7, 0.08, 3.5],
+              [1.35, 1.7, 0.08, 3.5],
+              [0, 3.45, 2.78, 0.08],
+            ] as [number, number, number, number][]
+          ).map(([fx, fy, fw, fh], fi) => (
+            <mesh key={`frame-${fi}`} position={[fx, fy, 0.05]}>
+              <boxGeometry args={[fw, fh, 0.04]} />
+              <meshStandardMaterial
+                color={markingColor}
+                metalness={0.2}
+                roughness={0.6}
+              />
+            </mesh>
+          ))}
+        </group>
       ))}
     </group>
   )
@@ -805,40 +1145,45 @@ function WarehouseContent({
 
   return (
     <>
-      <ambientLight intensity={0.85} />
+      {/* Primary directional light (sun-like from high angle) */}
+      <directionalLight
+        position={[12, 18, 8]}
+        intensity={1.8}
+        color="#fff5e6"
+      />
+      {/* Hemisphere light (sky/ground ambient) */}
+      <hemisphereLight
+        args={[darkMode ? "#1e293b" : "#bfdbfe", darkMode ? "#0f172a" : "#d4d4d8", 0.6]}
+      />
+      {/* Fill lights from sides */}
       <pointLight
-        position={[0, 6, 0]}
-        intensity={1.5}
-        distance={50}
+        position={[-10, 8, -8]}
+        intensity={0.6}
+        distance={45}
         decay={2}
+        color={darkMode ? "#94a3b8" : "#e2e8f0"}
       />
       <pointLight
-        position={[-8, 5, -6]}
-        intensity={0.9}
-        distance={35}
+        position={[10, 8, 8]}
+        intensity={0.6}
+        distance={45}
         decay={2}
+        color={darkMode ? "#94a3b8" : "#e2e8f0"}
       />
-      <pointLight
-        position={[8, 5, -6]}
-        intensity={0.9}
-        distance={35}
-        decay={2}
-      />
-      <pointLight
-        position={[-8, 5, 6]}
-        intensity={0.9}
-        distance={35}
-        decay={2}
-      />
-      <pointLight
-        position={[8, 5, 6]}
-        intensity={0.9}
-        distance={35}
-        decay={2}
+      {/* Environment map for realistic reflections on metallic surfaces */}
+      <Environment preset="warehouse" environmentIntensity={0.4} />
+      {/* Soft contact shadows on the floor */}
+      <ContactShadows
+        position={[0, 0.005, 0]}
+        opacity={darkMode ? 0.25 : 0.35}
+        scale={50}
+        blur={2.5}
+        far={12}
       />
 
       <Floor darkMode={darkMode} />
       <FloorMarkings rowPositions={rowPositions} darkMode={darkMode} />
+      <WarehouseBuilding darkMode={darkMode} />
       {twinEnrichment && (
         <WarehouseTwinLayers
           topology={twinEnrichment.topology}

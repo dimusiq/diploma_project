@@ -21,6 +21,7 @@ from app.realtime.notification_sse_hub import (
 )
 from app.services.notification_service import (
     ensure_overdue_maintenance_notification,
+    ensure_system_notifications,
     ensure_twin_notifications,
     ensure_warehouse_notifications,
 )
@@ -54,6 +55,7 @@ def ensure_notifications(
         session, current_user.id, can_see_all_items(session, current_user)
     )
     ensure_twin_notifications(session, current_user.id)
+    ensure_system_notifications(session, current_user.id)
     publish_notifications_updated(current_user.id)
     return {"message": "ok"}
 

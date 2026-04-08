@@ -167,6 +167,7 @@ async function readTwinSseBody(
 export function useTwinRealtime(options?: TwinStreamOptions) {
   const queryClient = useQueryClient()
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingTagsRef = useRef<Set<InvalidateTag>>(new Set())
 
   useEffect(() => {
@@ -178,6 +179,10 @@ export function useTwinRealtime(options?: TwinStreamOptions) {
       if (timerRef.current != null) {
         clearTimeout(timerRef.current)
         timerRef.current = null
+      }
+      if (reconnectTimerRef.current != null) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
       }
     }
 
@@ -195,9 +200,12 @@ export function useTwinRealtime(options?: TwinStreamOptions) {
     }
 
     const scheduleReconnect = () => {
-      clearTimer()
+      if (reconnectTimerRef.current != null) {
+        clearTimeout(reconnectTimerRef.current)
+      }
       if (!alive) return
-      setTimeout(() => {
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null
         void loop()
       }, RECONNECT_MS)
     }

@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { UsersService } from "@/client/index.ts"
+import { BottomNav } from "@/components/Common/BottomNav.tsx"
 import { Breadcrumbs } from "@/components/Common/Breadcrumbs.tsx"
 import Navbar from "@/components/Common/Navbar.tsx"
 import { AppSidebar } from "@/components/Common/Sidebar.tsx"
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/_layout")({
 
 function MainColumn() {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto p-4">
+    <div className="flex h-full min-h-0 flex-col overflow-y-auto p-4 pb-20 md:pb-4">
       <Breadcrumbs />
       <Outlet />
     </div>
@@ -57,6 +58,7 @@ function Layout() {
               <main id="main-content" className="flex min-h-0 flex-1 flex-col">
                 <MainColumn />
               </main>
+              <BottomNav />
             </SidebarInset>
           </div>
         </div>
