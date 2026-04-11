@@ -12,16 +12,17 @@ import {
   useCursor,
   useProgress,
 } from "@react-three/drei"
-import { Canvas, useFrame } from "@react-three/fiber"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { Group, MeshStandardMaterial } from "three"
-import { Vector3 } from "three"
+import type { Group } from "three"
+import { Euler, MeshStandardMaterial, Vector3 } from "three"
 import type { EquipmentPublic } from "@/api/equipment.ts"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
 import type { TopologyDocument } from "@/api/warehouseTopology.ts"
 import { Button } from "@/components/ui/button.tsx"
 import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
 import {
+  ConveyorSection,
   type WarehouseEquipmentKind,
   WarehouseEquipmentMesh,
 } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
@@ -262,6 +263,61 @@ function StorageCell({
   )
 }
 
+function RackColumnGuard({
+  position,
+}: {
+  position: [number, number, number]
+}) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.15, 0]} material={_sharedMaterials.guardYellow}>
+        <cylinderGeometry args={[0.065, 0.075, 0.3, 6]} />
+      </mesh>
+      <mesh position={[0, 0.01, 0]} material={_sharedMaterials.guardYellow}>
+        <boxGeometry args={[0.16, 0.02, 0.16]} />
+      </mesh>
+      <mesh position={[0, 0.18, 0]} material={_sharedMaterials.guardBlack}>
+        <cylinderGeometry args={[0.068, 0.068, 0.04, 6]} />
+      </mesh>
+    </group>
+  )
+}
+
+function WireMeshDeck({
+  width,
+  depth,
+  y,
+}: {
+  width: number
+  depth: number
+  y: number
+}) {
+  return (
+    <group>
+      <mesh position={[0, y, 0]} material={_sharedMaterials.deckGray}>
+        <boxGeometry args={[width, 0.008, depth]} />
+      </mesh>
+      {[-width / 4, width / 4].map((x, i) => (
+        <mesh key={i} position={[x, y - 0.006, 0]} material={_sharedMaterials.deckSupport}>
+          <boxGeometry args={[0.015, 0.01, depth]} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+const _sharedMaterials = {
+  beamOrange: new MeshStandardMaterial({ color: "#ea580c", metalness: 0.3, roughness: 0.5 }),
+  clipRed: new MeshStandardMaterial({ color: "#b91c1c", metalness: 0.3, roughness: 0.5 }),
+  guardYellow: new MeshStandardMaterial({ color: "#eab308", metalness: 0.2, roughness: 0.6 }),
+  guardBlack: new MeshStandardMaterial({ color: "#1c1917", metalness: 0.1, roughness: 0.8 }),
+  deckGray: new MeshStandardMaterial({ color: "#9ca3af", metalness: 0.55, roughness: 0.4, transparent: true, opacity: 0.55 }),
+  deckSupport: new MeshStandardMaterial({ color: "#6b7280", metalness: 0.5, roughness: 0.45 }),
+  labelBlue: new MeshStandardMaterial({ color: "#1d4ed8", metalness: 0.15, roughness: 0.6 }),
+  perfDark: new MeshStandardMaterial({ color: "#374151", metalness: 0.3, roughness: 0.7 }),
+  perfDarkDM: new MeshStandardMaterial({ color: "#0f172a", metalness: 0.3, roughness: 0.7 }),
+}
+
 function Rack({
   rackIndex,
   baseX,
@@ -335,9 +391,19 @@ function Rack({
 
   const rackH = geom.levels * LEVEL_HEIGHT
 
+  const intermediateUprightPositions = useMemo(() => {
+    const positions: number[] = []
+    const step = Math.max(3, Math.floor(geom.cellsLength / 5))
+    for (let i = step; i < geom.cellsLength; i += step) {
+      const x = (i - (geom.cellsLength - 1) / 2) * (CELL_SIZE + CELL_GAP)
+      positions.push(x)
+    }
+    return positions
+  }, [geom])
+
   return (
     <group position={[baseX, 0, baseZ]}>
-      {/* Vertical uprights */}
+      {/* Vertical uprights (corners) */}
       {[
         [-geom.rackLength / 2 - 0.04, rackH / 2, -geom.rackDepth / 2 - 0.04],
         [geom.rackLength / 2 + 0.04, rackH / 2, -geom.rackDepth / 2 - 0.04],
@@ -353,7 +419,6 @@ function Rack({
               roughness={0.55}
             />
           </mesh>
-          {/* Upright base plate */}
           <mesh position={[px, 0.01, pz]}>
             <boxGeometry args={[0.14, 0.02, 0.14]} />
             <meshStandardMaterial
@@ -362,8 +427,31 @@ function Rack({
               roughness={0.55}
             />
           </mesh>
+          {/* Perforation marks (simplified — 1 per level) */}
+          {Array.from({ length: geom.levels }, (_, hi) => (
+            <mesh key={hi} position={[px, (hi + 0.5) * LEVEL_HEIGHT, pz]} material={darkMode ? _sharedMaterials.perfDarkDM : _sharedMaterials.perfDark}>
+              <boxGeometry args={[0.09, 0.02, 0.03]} />
+            </mesh>
+          ))}
         </group>
       ))}
+
+      {/* Intermediate uprights for long racks */}
+      {intermediateUprightPositions.map((x, i) =>
+        [-geom.rackDepth / 2 - 0.04, geom.rackDepth / 2 + 0.04].map(
+          (z, zi) => (
+            <mesh key={`int-up-${i}-${zi}`} position={[x, rackH / 2, z]}>
+              <boxGeometry args={[0.06, rackH, 0.06]} />
+              <meshStandardMaterial
+                color={rackFrameColor}
+                metalness={0.35}
+                roughness={0.55}
+              />
+            </mesh>
+          ),
+        ),
+      )}
+
       {/* Horizontal beams at each level (orange safety beams) */}
       {Array.from({ length: geom.levels + 1 }, (_, lvl) => {
         const beamY = lvl * LEVEL_HEIGHT
@@ -371,49 +459,76 @@ function Rack({
           <group key={`beam-level-${lvl}`}>
             <mesh
               position={[0, beamY + 0.01, -geom.rackDepth / 2 - 0.04]}
+              material={_sharedMaterials.beamOrange}
             >
               <boxGeometry args={[geom.rackLength + 0.16, 0.05, 0.035]} />
-              <meshStandardMaterial
-                color="#ea580c"
-                metalness={0.3}
-                roughness={0.5}
-              />
             </mesh>
             <mesh
               position={[0, beamY + 0.01, geom.rackDepth / 2 + 0.04]}
+              material={_sharedMaterials.beamOrange}
             >
               <boxGeometry args={[geom.rackLength + 0.16, 0.05, 0.035]} />
-              <meshStandardMaterial
-                color="#ea580c"
-                metalness={0.3}
-                roughness={0.5}
-              />
             </mesh>
+            {[-geom.rackLength / 2 + 0.15, geom.rackLength / 2 - 0.15].map(
+              (clipX, ci) => (
+                <mesh
+                  key={`clip-${lvl}-${ci}`}
+                  position={[clipX, beamY + 0.035, -geom.rackDepth / 2 - 0.06]}
+                  material={_sharedMaterials.clipRed}
+                >
+                  <boxGeometry args={[0.02, 0.02, 0.015]} />
+                </mesh>
+              ),
+            )}
           </group>
         )
       })}
-      {/* Diagonal X-bracing on rack ends */}
-      {[
-        -geom.rackLength / 2 - 0.04,
-        geom.rackLength / 2 + 0.04,
-      ].map((bx, bi) => (
-        <group key={`brace-${bi}`} position={[bx, rackH / 2, 0]}>
-          <mesh rotation={[Math.atan2(rackH, geom.rackDepth + 0.08), 0, 0]}>
-            <boxGeometry
-              args={[
-                0.025,
-                Math.sqrt(rackH * rackH + (geom.rackDepth + 0.08) ** 2),
-                0.015,
-              ]}
-            />
-            <meshStandardMaterial
-              color={rackFrameColor}
-              metalness={0.3}
-              roughness={0.6}
-            />
-          </mesh>
-        </group>
+
+      {/* Wire mesh decking on each level */}
+      {Array.from({ length: geom.levels }, (_, lvl) => (
+        <WireMeshDeck
+          key={`deck-${lvl}`}
+          width={geom.rackLength}
+          depth={geom.rackDepth}
+          y={lvl * LEVEL_HEIGHT + 0.005}
+        />
       ))}
+
+      {/* Column guards (yellow bollards at rack corners) */}
+      {[
+        [-geom.rackLength / 2 - 0.18, 0, -geom.rackDepth / 2 - 0.18],
+        [geom.rackLength / 2 + 0.18, 0, -geom.rackDepth / 2 - 0.18],
+        [-geom.rackLength / 2 - 0.18, 0, geom.rackDepth / 2 + 0.18],
+        [geom.rackLength / 2 + 0.18, 0, geom.rackDepth / 2 + 0.18],
+      ].map(([gx, gy, gz], gi) => (
+        <RackColumnGuard key={`guard-${gi}`} position={[gx, gy, gz]} />
+      ))}
+
+      {/* Rack end-cap labels (row number on each end) */}
+      {[-geom.rackLength / 2 - 0.06, geom.rackLength / 2 + 0.06].map(
+        (lx, li) => (
+          <group key={`endcap-${li}`}>
+            <mesh position={[lx, rackH - 0.15, 0]} material={_sharedMaterials.labelBlue}>
+              <boxGeometry args={[0.01, 0.22, geom.rackDepth + 0.2]} />
+            </mesh>
+            <Text
+              position={[
+                lx + (li === 0 ? -0.02 : 0.02),
+                rackH - 0.15,
+                0,
+              ]}
+              rotation={[0, li === 0 ? Math.PI / 2 : -Math.PI / 2, 0]}
+              fontSize={0.14}
+              color="white"
+              anchorX="center"
+              anchorY="middle"
+            >
+              {`R${rackIndex + 1}`}
+            </Text>
+          </group>
+        ),
+      )}
+
       {cells.map(({ level, ix, iz, filled, expiring, expired }, i) => {
         const ox = (ix - (geom.cellsLength - 1) / 2) * (CELL_SIZE + CELL_GAP)
         const oz = (iz - (geom.cellsDepth - 1) / 2) * (CELL_SIZE + CELL_GAP)
@@ -508,6 +623,36 @@ function Floor({ darkMode }: { darkMode?: boolean }) {
             color={darkMode ? "#1e293b" : "#9ca3af"}
             metalness={0.05}
             roughness={0.95}
+          />
+        </mesh>
+      ))}
+      {/* Tire scuff marks (subtle wear on high-traffic areas) */}
+      {useMemo(() => {
+        const marks: Array<{ x: number; z: number; rot: number; w: number }> = []
+        const seed = 42
+        for (let i = 0; i < 12; i++) {
+          const h = (seed * (i + 1) * 7919) % 10000
+          marks.push({
+            x: ((h % 200) - 100) / 100 * (w / 3),
+            z: (((h * 3) % 200) - 100) / 100 * (d / 3),
+            rot: (h % 314) / 100,
+            w: 0.15 + (h % 30) / 100,
+          })
+        }
+        return marks
+      }, [w, d]).map((m, i) => (
+        <mesh
+          key={`scuff-${i}`}
+          rotation={[-Math.PI / 2, m.rot, 0]}
+          position={[m.x, 0.003, m.z]}
+        >
+          <planeGeometry args={[m.w, 0.03]} />
+          <meshStandardMaterial
+            color={darkMode ? "#0f172a" : "#52525b"}
+            metalness={0.05}
+            roughness={0.95}
+            transparent
+            opacity={0.3}
           />
         </mesh>
       ))}
@@ -682,6 +827,300 @@ function FloorMarkings({
   )
 }
 
+function SprinklerSystem({
+  wallH,
+  floorWidth,
+  floorDepth,
+  trussPositions,
+  darkMode,
+}: {
+  wallH: number
+  floorWidth: number
+  floorDepth: number
+  trussPositions: number[]
+  darkMode?: boolean
+}) {
+  const pipeColor = darkMode ? "#991b1b" : "#dc2626"
+  const pipeY = wallH - 0.6
+
+  const headPositions = useMemo(() => {
+    const pts: [number, number][] = []
+    const spacing = 6
+    const hw = floorWidth / 2
+    for (let ti = 0; ti < trussPositions.length; ti += 2) {
+      const z = trussPositions[ti]!
+      const count = Math.max(2, Math.floor(floorWidth / spacing))
+      for (let i = 0; i <= count; i++) {
+        pts.push([-hw + 1.5 + i * spacing, z])
+      }
+    }
+    return pts
+  }, [trussPositions, floorWidth])
+
+  return (
+    <group>
+      <mesh position={[0, pipeY, 0]}>
+        <cylinderGeometry args={[0.035, 0.035, floorDepth + 1, 6]} />
+        <meshStandardMaterial color={pipeColor} metalness={0.4} roughness={0.5} />
+      </mesh>
+      {trussPositions.map((z, i) => (
+        <mesh key={i} position={[0, pipeY, z]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.02, 0.02, floorWidth + 1, 4]} />
+          <meshStandardMaterial color={pipeColor} metalness={0.4} roughness={0.5} />
+        </mesh>
+      ))}
+      {headPositions.map(([x, z], i) => (
+        <mesh key={i} position={[x, pipeY - 0.15, z]}>
+          <cylinderGeometry args={[0.02, 0.008, 0.1, 4]} />
+          <meshStandardMaterial color="#b91c1c" metalness={0.5} roughness={0.4} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+
+function ExitSign({
+  position,
+  rotation,
+}: {
+  position: [number, number, number]
+  rotation?: [number, number, number]
+}) {
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh>
+        <boxGeometry args={[0.5, 0.2, 0.03]} />
+        <meshStandardMaterial
+          color="#15803d"
+          emissive="#22c55e"
+          emissiveIntensity={0.6}
+          metalness={0.1}
+          roughness={0.5}
+        />
+      </mesh>
+      <Text
+        position={[0, 0, 0.02]}
+        fontSize={0.08}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+      >
+        ВЫХОД →
+      </Text>
+    </group>
+  )
+}
+
+function VentilationDuct({
+  startX,
+  endX,
+  y,
+  z,
+  darkMode,
+}: {
+  startX: number
+  endX: number
+  y: number
+  z: number
+  darkMode?: boolean
+}) {
+  const length = Math.abs(endX - startX)
+  const cx = (startX + endX) / 2
+  return (
+    <mesh position={[cx, y, z]}>
+      <boxGeometry args={[length, 0.35, 0.4]} />
+      <meshStandardMaterial
+        color={darkMode ? "#475569" : "#94a3b8"}
+        metalness={0.5}
+        roughness={0.35}
+      />
+    </mesh>
+  )
+}
+
+function SafetyBollard({
+  position,
+}: {
+  position: [number, number, number]
+}) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.35, 0]}>
+        <cylinderGeometry args={[0.06, 0.07, 0.7, 6]} />
+        <meshStandardMaterial color="#eab308" metalness={0.3} roughness={0.5} />
+      </mesh>
+      <mesh position={[0, 0.35, 0]}>
+        <cylinderGeometry args={[0.063, 0.063, 0.06, 6]} />
+        <meshStandardMaterial color="#1c1917" metalness={0.1} roughness={0.8} />
+      </mesh>
+    </group>
+  )
+}
+
+function StackedPallets({
+  position,
+  count,
+}: {
+  position: [number, number, number]
+  count: number
+}) {
+  const totalH = count * 0.16
+  return (
+    <group position={position}>
+      <mesh position={[0, totalH / 2, 0]}>
+        <boxGeometry args={[0.8, totalH, 0.55]} />
+        <meshStandardMaterial color="#a16207" metalness={0.05} roughness={0.85} />
+      </mesh>
+      {/* Stringer gaps (dark lines between pallets) */}
+      {Array.from({ length: Math.min(count, 3) }, (_, i) => (
+        <mesh key={i} position={[0, (i + 1) * 0.16 - 0.01, 0]}>
+          <boxGeometry args={[0.82, 0.01, 0.57]} />
+          <meshStandardMaterial color="#78350f" metalness={0.05} roughness={0.9} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function TrafficCone({
+  position,
+}: {
+  position: [number, number, number]
+}) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.01, 0]}>
+        <boxGeometry args={[0.2, 0.02, 0.2]} />
+        <meshStandardMaterial color="#1c1917" roughness={0.9} />
+      </mesh>
+      <mesh position={[0, 0.18, 0]}>
+        <cylinderGeometry args={[0.015, 0.07, 0.32, 6]} />
+        <meshStandardMaterial color="#ea580c" metalness={0.1} roughness={0.6} />
+      </mesh>
+    </group>
+  )
+}
+
+function FirstAidStation({
+  position,
+}: {
+  position: [number, number, number]
+}) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 1.3, 0]}>
+        <boxGeometry args={[0.35, 0.3, 0.12]} />
+        <meshStandardMaterial color="white" metalness={0.15} roughness={0.6} />
+      </mesh>
+      {/* Green cross */}
+      <mesh position={[0, 1.3, 0.065]}>
+        <boxGeometry args={[0.06, 0.18, 0.005]} />
+        <meshStandardMaterial color="#16a34a" emissive="#16a34a" emissiveIntensity={0.2} />
+      </mesh>
+      <mesh position={[0, 1.3, 0.065]}>
+        <boxGeometry args={[0.18, 0.06, 0.005]} />
+        <meshStandardMaterial color="#16a34a" emissive="#16a34a" emissiveIntensity={0.2} />
+      </mesh>
+      <mesh position={[0, 1.3, -0.065]}>
+        <boxGeometry args={[0.06, 0.18, 0.005]} />
+        <meshStandardMaterial color="#16a34a" emissive="#16a34a" emissiveIntensity={0.2} />
+      </mesh>
+      <mesh position={[0, 1.3, -0.065]}>
+        <boxGeometry args={[0.18, 0.06, 0.005]} />
+        <meshStandardMaterial color="#16a34a" emissive="#16a34a" emissiveIntensity={0.2} />
+      </mesh>
+      {/* Sign above */}
+      <mesh position={[0, 1.6, 0]}>
+        <boxGeometry args={[0.3, 0.1, 0.008]} />
+        <meshStandardMaterial color="#16a34a" metalness={0.1} roughness={0.6} />
+      </mesh>
+    </group>
+  )
+}
+
+function ElectricalPanel({
+  position,
+  darkMode,
+}: {
+  position: [number, number, number]
+  darkMode?: boolean
+}) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 1.2, 0]}>
+        <boxGeometry args={[0.5, 0.7, 0.12]} />
+        <meshStandardMaterial color={darkMode ? "#374151" : "#6b7280"} metalness={0.5} roughness={0.4} />
+      </mesh>
+      {/* Handle */}
+      <mesh position={[0.18, 1.2, 0.07]}>
+        <boxGeometry args={[0.025, 0.12, 0.02]} />
+        <meshStandardMaterial color="#1c1917" metalness={0.4} roughness={0.5} />
+      </mesh>
+      {/* Warning sign */}
+      <mesh position={[0, 1.7, 0]}>
+        <boxGeometry args={[0.2, 0.15, 0.008]} />
+        <meshStandardMaterial color="#eab308" metalness={0.1} roughness={0.6} />
+      </mesh>
+      {/* Lightning bolt (triangle approximation) */}
+      <mesh position={[0, 1.7, 0.006]}>
+        <boxGeometry args={[0.03, 0.08, 0.003]} />
+        <meshStandardMaterial color="#1c1917" />
+      </mesh>
+    </group>
+  )
+}
+
+function AisleHangingSign({
+  position,
+  label,
+  darkMode,
+}: {
+  position: [number, number, number]
+  label: string
+  darkMode?: boolean
+}) {
+  return (
+    <group position={position}>
+      {/* Hanging chain/wire */}
+      <mesh position={[0, 0.3, 0]}>
+        <cylinderGeometry args={[0.005, 0.005, 0.6, 4]} />
+        <meshStandardMaterial color="#71717a" metalness={0.6} roughness={0.3} />
+      </mesh>
+      {/* Sign panel (double-sided) */}
+      <mesh>
+        <boxGeometry args={[0.6, 0.35, 0.02]} />
+        <meshStandardMaterial
+          color={darkMode ? "#1e40af" : "#1d4ed8"}
+          metalness={0.15}
+          roughness={0.5}
+        />
+      </mesh>
+      <Text
+        position={[0, 0, 0.015]}
+        fontSize={0.16}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+        fontWeight="bold"
+      >
+        {label}
+      </Text>
+      <Text
+        position={[0, 0, -0.015]}
+        rotation={[0, Math.PI, 0]}
+        fontSize={0.16}
+        color="white"
+        anchorX="center"
+        anchorY="middle"
+        fontWeight="bold"
+      >
+        {label}
+      </Text>
+    </group>
+  )
+}
+
 function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
   const geom = useWarehouseGeometry()
   const hw = geom.floorWidth / 2 + 1
@@ -737,6 +1176,31 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
     return lines
   }, [geom])
 
+
+  const bollardPositions = useMemo(() => {
+    const pts: [number, number, number][] = []
+    for (let pair = 0; pair < geom.pairs; pair++) {
+      const z1 = geom.getRowZ(pair * 2)
+      const z2 = geom.getRowZ(pair * 2 + 1)
+      const midZ = (z1 + z2) / 2
+      for (const xOff of [-geom.rackLength / 2 - 0.5, geom.rackLength / 2 + 0.5]) {
+        pts.push([xOff, 0, midZ])
+      }
+    }
+    return pts
+  }, [geom])
+
+  const pedestrianCrossings = useMemo(() => {
+    const crossings: Array<{ x: number; z: number }> = []
+    if (aisleMarkings.length > 0) {
+      crossings.push({ x: -geom.rackLength / 2 - 1, z: aisleMarkings[0]! })
+      if (aisleMarkings.length > 1) {
+        crossings.push({ x: geom.rackLength / 2 + 1, z: aisleMarkings[aisleMarkings.length - 1]! })
+      }
+    }
+    return crossings
+  }, [aisleMarkings, geom])
+
   return (
     <group>
       {/* Wall base strips (low wainscoting so view stays open during orbit) */}
@@ -763,44 +1227,25 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
         <group key={`col-${i}`} position={[x, 0, z]}>
           <mesh position={[0, wallH / 2, 0]}>
             <boxGeometry args={[0.18, wallH, 0.18]} />
-            <meshStandardMaterial
-              color={columnColor}
-              metalness={0.5}
-              roughness={0.4}
-            />
+            <meshStandardMaterial color={columnColor} metalness={0.5} roughness={0.4} />
           </mesh>
-          {/* Column base plate */}
           <mesh position={[0, 0.02, 0]}>
-            <boxGeometry args={[0.35, 0.04, 0.35]} />
-            <meshStandardMaterial
-              color={columnColor}
-              metalness={0.45}
-              roughness={0.5}
-            />
+            <boxGeometry args={[0.3, 0.04, 0.3]} />
+            <meshStandardMaterial color={columnColor} metalness={0.45} roughness={0.5} />
           </mesh>
         </group>
       ))}
 
-      {/* Ceiling trusses (horizontal beams) */}
+      {/* Ceiling trusses (simplified I-beams) */}
       {trussPositions.map((z, i) => (
         <group key={`truss-${i}`}>
-          {/* Main beam */}
           <mesh position={[0, wallH - 0.15, z]}>
-            <boxGeometry args={[geom.floorWidth + 1.5, 0.12, 0.1]} />
-            <meshStandardMaterial
-              color={beamColor}
-              metalness={0.45}
-              roughness={0.45}
-            />
+            <boxGeometry args={[geom.floorWidth + 1.5, 0.12, 0.06]} />
+            <meshStandardMaterial color={beamColor} metalness={0.45} roughness={0.45} />
           </mesh>
-          {/* Bottom flange */}
           <mesh position={[0, wallH - 0.25, z]}>
-            <boxGeometry args={[geom.floorWidth + 1.5, 0.03, 0.18]} />
-            <meshStandardMaterial
-              color={beamColor}
-              metalness={0.45}
-              roughness={0.45}
-            />
+            <boxGeometry args={[geom.floorWidth + 1.5, 0.03, 0.16]} />
+            <meshStandardMaterial color={beamColor} metalness={0.45} roughness={0.45} />
           </mesh>
         </group>
       ))}
@@ -808,23 +1253,20 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
       {/* Pendant industrial lights */}
       {lightPositions.map(([x, z], i) => (
         <group key={`pendant-${i}`} position={[x, wallH - 1.2, z]}>
-          {/* Wire / rod */}
           <mesh position={[0, 0.45, 0]}>
-            <cylinderGeometry args={[0.008, 0.008, 0.9, 4]} />
+            <cylinderGeometry args={[0.008, 0.008, 0.9, 3]} />
             <meshStandardMaterial color={beamColor} metalness={0.5} roughness={0.4} />
           </mesh>
-          {/* Light housing */}
           <mesh>
-            <cylinderGeometry args={[0.15, 0.22, 0.12, 12]} />
+            <cylinderGeometry args={[0.12, 0.22, 0.14, 6]} />
             <meshStandardMaterial
               color={darkMode ? "#475569" : "#94a3b8"}
-              metalness={0.4}
-              roughness={0.5}
+              metalness={0.5}
+              roughness={0.4}
             />
           </mesh>
-          {/* Light surface (emissive) */}
-          <mesh position={[0, -0.065, 0]} rotation={[Math.PI, 0, 0]}>
-            <circleGeometry args={[0.2, 12]} />
+          <mesh position={[0, -0.08, 0]} rotation={[Math.PI, 0, 0]}>
+            <circleGeometry args={[0.2, 6]} />
             <meshStandardMaterial
               color="white"
               emissive="white"
@@ -834,24 +1276,87 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
         </group>
       ))}
 
+      {/* Sprinkler system */}
+      <SprinklerSystem
+        wallH={wallH}
+        floorWidth={geom.floorWidth}
+        floorDepth={geom.floorDepth}
+        trussPositions={trussPositions}
+        darkMode={darkMode}
+      />
+
+      {/* Ventilation ducts */}
+      <VentilationDuct
+        startX={-hw + 1}
+        endX={hw - 1}
+        y={wallH - 0.9}
+        z={-hd + 1.5}
+        darkMode={darkMode}
+      />
+      <VentilationDuct
+        startX={-hw + 1}
+        endX={hw - 1}
+        y={wallH - 0.9}
+        z={hd - 1.5}
+        darkMode={darkMode}
+      />
+
+      {/* First aid station */}
+      <FirstAidStation position={[-hw + 0.08, 0, 0]} />
+
+      {/* Electrical panel */}
+      <ElectricalPanel position={[hw - 0.08, 0, -hd + 2.5]} darkMode={darkMode} />
+
+      {/* Exit signs */}
+      {[-4, 0, 4].map((x, i) => (
+        <ExitSign
+          key={`exit-${i}`}
+          position={[x, wallH - 0.8, hd - 0.2]}
+          rotation={[0, Math.PI, 0]}
+        />
+      ))}
+      <ExitSign
+        position={[-hw + 0.2, wallH - 0.8, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+      />
+
+      {/* Safety bollards at aisle ends */}
+      {bollardPositions.map((pos, i) => (
+        <SafetyBollard key={`bollard-${i}`} position={pos} />
+      ))}
+
       {/* Floor aisle markings (yellow dashed center lines) */}
       {aisleMarkings.map((z, ai) => {
-        const segments = Math.floor(geom.rackLength / 1.2)
+        const segments = Math.max(3, Math.floor(geom.rackLength / 2.5))
         return Array.from({ length: segments }, (_, si) => {
           const x =
-            -geom.rackLength / 2 + 0.3 + si * (geom.rackLength / segments)
+            -geom.rackLength / 2 + 0.6 + si * (geom.rackLength / segments)
           return (
             <mesh
               key={`mark-${ai}-${si}`}
               position={[x, 0.006, z]}
               rotation={[-Math.PI / 2, 0, 0]}
             >
-              <planeGeometry args={[0.5, 0.06]} />
+              <planeGeometry args={[1.0, 0.06]} />
               <meshStandardMaterial color={markingColor} />
             </mesh>
           )
         })
       })}
+
+      {/* Pedestrian crossing markings (zebra stripes) */}
+      {pedestrianCrossings.map((pc, pi) =>
+        Array.from({ length: 4 }, (_, si) => (
+          <mesh
+            key={`ped-${pi}-${si}`}
+            position={[pc.x, 0.007, pc.z - 0.35 + si * 0.23]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <planeGeometry args={[0.8, 0.1]} />
+            <meshStandardMaterial color="white" />
+          </mesh>
+        )),
+      )}
 
       {/* Perimeter floor safety lines */}
       {(
@@ -872,10 +1377,10 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
         </mesh>
       ))}
 
-      {/* Loading dock bays (front wall) */}
+      {/* Loading dock bays (front wall) with bumpers and levelers */}
       {[-4, 0, 4].map((x, i) => (
         <group key={`dock-${i}`} position={[x, 0, hd - 0.05]}>
-          {/* Dock door panel */}
+          {/* Dock door panel (sectional roller shutter) */}
           <mesh position={[0, 1.7, 0]}>
             <boxGeometry args={[2.6, 3.4, 0.08]} />
             <meshStandardMaterial
@@ -885,9 +1390,9 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
             />
           </mesh>
           {/* Door horizontal ribs */}
-          {[0.5, 1.2, 1.9, 2.6].map((y, ri) => (
-            <mesh key={ri} position={[0, y, 0.045]}>
-              <boxGeometry args={[2.55, 0.04, 0.01]} />
+          {[0.55, 1.2, 1.85, 2.5].map((ry, ri) => (
+            <mesh key={ri} position={[0, ry, 0.045]}>
+              <boxGeometry args={[2.55, 0.03, 0.01]} />
               <meshStandardMaterial
                 color={darkMode ? "#1e293b" : "#374151"}
                 metalness={0.35}
@@ -912,8 +1417,103 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
               />
             </mesh>
           ))}
+          {/* Dock bumpers (rubber pads) */}
+          {[-0.9, 0.9].map((bx, bi) => (
+            <group key={`bumper-${bi}`} position={[bx, 0.45, 0.08]}>
+              <mesh>
+                <boxGeometry args={[0.25, 0.6, 0.12]} />
+                <meshStandardMaterial color="#1c1917" roughness={0.95} />
+              </mesh>
+              <mesh position={[0, 0, 0.065]}>
+                <boxGeometry args={[0.28, 0.65, 0.015]} />
+                <meshStandardMaterial color="#374151" metalness={0.3} roughness={0.7} />
+              </mesh>
+            </group>
+          ))}
+          {/* Dock leveler plate */}
+          <mesh position={[0, 0.01, 0.3]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[2.4, 0.5]} />
+            <meshStandardMaterial
+              color={darkMode ? "#475569" : "#71717a"}
+              metalness={0.45}
+              roughness={0.55}
+            />
+          </mesh>
+          {/* Dock leveler tread lines (simplified) */}
+          {[0.2, 0.4].map((tz, ri) => (
+            <mesh
+              key={`tread-${ri}`}
+              position={[0, 0.012, tz]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            >
+              <planeGeometry args={[2.3, 0.04]} />
+              <meshStandardMaterial color={darkMode ? "#334155" : "#52525b"} metalness={0.5} roughness={0.4} />
+            </mesh>
+          ))}
+          {/* Dock light (green/red status light) */}
+          <mesh position={[1.5, 3.2, 0.06]}>
+            <sphereGeometry args={[0.06, 8, 8]} />
+            <meshStandardMaterial
+              color="#22c55e"
+              emissive="#22c55e"
+              emissiveIntensity={0.5}
+            />
+          </mesh>
+          {/* Dock number */}
+          <Text
+            position={[0, 3.6, 0.06]}
+            fontSize={0.18}
+            color="white"
+            anchorX="center"
+            anchorY="middle"
+            maxWidth={1}
+          >
+            {`DOK ${i + 1}`}
+          </Text>
         </group>
       ))}
+
+      {/* Stacked pallets near dock staging area */}
+      <StackedPallets position={[-2.5, 0, hd - 1.5]} count={4} />
+      <StackedPallets position={[2.5, 0, hd - 1.5]} count={3} />
+      <StackedPallets position={[-hw + 1.5, 0, hd - 2]} count={5} />
+
+      {/* Traffic cones at dock/aisle intersections */}
+      <TrafficCone position={[-geom.rackLength / 2 - 1.2, 0, hd - 2]} />
+      <TrafficCone position={[geom.rackLength / 2 + 1.2, 0, hd - 2]} />
+      <TrafficCone position={[-geom.rackLength / 2 - 1.2, 0, -hd + 2]} />
+
+      {/* Floor drain grates */}
+      {[-3, 3].map((x, i) => (
+        <mesh key={`drain-${i}`} position={[x, 0.005, hd - 1]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[0.4, 0.4]} />
+          <meshStandardMaterial color="#3f3f46" metalness={0.5} roughness={0.4} />
+        </mesh>
+      ))}
+
+      {/* Hanging aisle number signs */}
+      {aisleMarkings.map((z, ai) => (
+        <AisleHangingSign
+          key={`aisle-sign-${ai}`}
+          position={[0, wallH - 1.8, z]}
+          label={`A${ai + 1}`}
+          darkMode={darkMode}
+        />
+      ))}
+
+      {/* Ceiling-hung directional sign (to docks) */}
+      <AisleHangingSign
+        position={[0, wallH - 1.8, hd - 3]}
+        label="ДОКИ →"
+        darkMode={darkMode}
+      />
+
+      {/* Ceiling-hung directional sign (to storage) */}
+      <AisleHangingSign
+        position={[0, wallH - 1.8, -hd + 3]}
+        label="← ЗОНА ХР."
+        darkMode={darkMode}
+      />
     </group>
   )
 }
@@ -1042,7 +1642,7 @@ function SimulationEquipmentAlongRoute({
     <group ref={groupRef}>
       <WarehouseEquipmentMesh
         kind={equipmentKind}
-        showPallet={showCargo && equipmentKind === "forklift"}
+        showPallet={showCargo && (equipmentKind === "forklift" || equipmentKind === "reach_truck")}
       />
     </group>
   )
@@ -1184,6 +1784,15 @@ function WarehouseContent({
       <Floor darkMode={darkMode} />
       <FloorMarkings rowPositions={rowPositions} darkMode={darkMode} />
       <WarehouseBuilding darkMode={darkMode} />
+      {/* Static conveyor in staging/dock area */}
+      <ConveyorSection
+        length={4}
+        position={[
+          geom.rackLength / 2 + 1.5,
+          0,
+          geom.floorDepth / 2 - 1,
+        ]}
+      />
       {twinEnrichment && (
         <WarehouseTwinLayers
           topology={twinEnrichment.topology}
@@ -1346,6 +1955,107 @@ function SceneLoadOverlay() {
   )
 }
 
+const _freeCamSpeed = 8
+const _freeCamKeys = new Set<string>()
+
+function FreeCameraController() {
+  const { camera, gl } = useThree()
+  const yaw = useRef(0)
+  const pitch = useRef(0)
+  const mouseDown = useRef(false)
+  const initialized = useRef(false)
+
+  useEffect(() => {
+    if (!initialized.current) {
+      initialized.current = true
+      const e = new Euler().setFromQuaternion(camera.quaternion, "YXZ")
+      yaw.current = e.y
+      pitch.current = e.x
+    }
+  }, [camera])
+
+  useEffect(() => {
+    const canvas = gl.domElement
+
+    const onPointerDown = (e: PointerEvent) => {
+      mouseDown.current = true
+      canvas.setPointerCapture(e.pointerId)
+    }
+    const onPointerUp = (e: PointerEvent) => {
+      mouseDown.current = false
+      canvas.releasePointerCapture(e.pointerId)
+    }
+    const onPointerMove = (e: PointerEvent) => {
+      if (!mouseDown.current) return
+      yaw.current -= e.movementX * 0.003
+      pitch.current -= e.movementY * 0.003
+      pitch.current = Math.max(
+        -Math.PI / 2 + 0.05,
+        Math.min(Math.PI / 2 - 0.05, pitch.current),
+      )
+    }
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const fwd = new Vector3(0, 0, -1).applyEuler(
+        new Euler(pitch.current, yaw.current, 0, "YXZ"),
+      )
+      camera.position.addScaledVector(fwd, -e.deltaY * 0.02)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      _freeCamKeys.add(e.code)
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      _freeCamKeys.delete(e.code)
+    }
+    const onContextMenu = (e: Event) => e.preventDefault()
+
+    canvas.addEventListener("pointerdown", onPointerDown)
+    canvas.addEventListener("pointerup", onPointerUp)
+    canvas.addEventListener("pointerleave", onPointerUp)
+    canvas.addEventListener("pointermove", onPointerMove)
+    canvas.addEventListener("wheel", onWheel, { passive: false })
+    canvas.addEventListener("contextmenu", onContextMenu)
+    window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("keyup", onKeyUp)
+    return () => {
+      canvas.removeEventListener("pointerdown", onPointerDown)
+      canvas.removeEventListener("pointerup", onPointerUp)
+      canvas.removeEventListener("pointerleave", onPointerUp)
+      canvas.removeEventListener("pointermove", onPointerMove)
+      canvas.removeEventListener("wheel", onWheel)
+      canvas.removeEventListener("contextmenu", onContextMenu)
+      window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("keyup", onKeyUp)
+      _freeCamKeys.clear()
+    }
+  }, [gl, camera])
+
+  useFrame((_, delta) => {
+    const camEuler = new Euler(pitch.current, yaw.current, 0, "YXZ")
+    camera.quaternion.setFromEuler(camEuler)
+
+    const speed = _freeCamSpeed * delta
+
+    const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
+    const right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
+
+    if (_freeCamKeys.has("KeyW") || _freeCamKeys.has("ArrowUp"))
+      camera.position.addScaledVector(forward, speed)
+    if (_freeCamKeys.has("KeyS") || _freeCamKeys.has("ArrowDown"))
+      camera.position.addScaledVector(forward, -speed)
+    if (_freeCamKeys.has("KeyA") || _freeCamKeys.has("ArrowLeft"))
+      camera.position.addScaledVector(right, -speed)
+    if (_freeCamKeys.has("KeyD") || _freeCamKeys.has("ArrowRight"))
+      camera.position.addScaledVector(right, speed)
+
+    if (_freeCamKeys.has("Space")) camera.position.y += speed
+    if (_freeCamKeys.has("ShiftLeft") || _freeCamKeys.has("ShiftRight"))
+      camera.position.y -= speed
+  })
+
+  return null
+}
+
 interface WarehouseSceneProps {
   /** Выбранная ячейка (показ попапа, подсветка). */
   selectedCell?: CellInfo | null
@@ -1376,6 +2086,8 @@ interface WarehouseSceneProps {
   onSimulationComplete?: () => void
   /** Зоны, проходы, граф маршрутов, heatmap по ячейкам — см. страницу 3D. */
   twinEnrichment?: WarehouseTwinEnrichment | null
+  /** Режим свободной камеры (WASD / стрелки + мышь). */
+  freeCameraMode?: boolean
 }
 
 export function WarehouseScene({
@@ -1398,6 +2110,7 @@ export function WarehouseScene({
   simulationShowCargo = true,
   onSimulationComplete,
   twinEnrichment = null,
+  freeCameraMode = false,
 }: WarehouseSceneProps) {
   const [internalCell, setInternalCell] = useState<CellInfo | null>(null)
   const isControlled = selectedCellFromParent !== undefined
@@ -1451,14 +2164,18 @@ export function WarehouseScene({
           onFocusDone={onFocusDone}
         />
       </WarehouseGeometryProvider>
-      <OrbitControls
-        enablePan
-        enableZoom
-        minDistance={14}
-        maxDistance={55}
-        target={[0, 2, 0]}
-        maxPolarAngle={Math.PI / 2 - 0.1}
-      />
+      {freeCameraMode ? (
+        <FreeCameraController />
+      ) : (
+        <OrbitControls
+          enablePan
+          enableZoom
+          minDistance={14}
+          maxDistance={55}
+          target={[0, 2, 0]}
+          maxPolarAngle={Math.PI / 2 - 0.1}
+        />
+      )}
     </Canvas>
   )
 }

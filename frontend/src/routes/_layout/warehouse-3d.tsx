@@ -10,7 +10,12 @@ import {
   useState,
 } from "react"
 import { ErrorBoundary } from "react-error-boundary"
-import { FiChevronRight, FiMaximize2, FiRotateCcw } from "react-icons/fi"
+import {
+  FiChevronRight,
+  FiMaximize2,
+  FiMove,
+  FiRotateCcw,
+} from "react-icons/fi"
 import { useTheme } from "next-themes"
 import { z } from "zod"
 import { equipmentApi } from "@/api/equipment.ts"
@@ -166,6 +171,7 @@ function Warehouse3DPage() {
   const [simulationSpeed, setSimulationSpeed] = useState(1.25)
   const [simulationShowCargo, setSimulationShowCargo] = useState(true)
   const [liveData, setLiveData] = useState(false)
+  const [freeCameraMode, setFreeCameraMode] = useState(false)
   const [overlayMode, setOverlayMode] = useState<TwinOverlayMode>("standard")
   const [heatMetric, setHeatMetric] = useState<HeatMetric>("congestion")
   const [historyIdx, setHistoryIdx] = useState(-1)
@@ -697,17 +703,25 @@ function Warehouse3DPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="forklift">Вилочный погрузчик</SelectItem>
+                <SelectItem value="reach_truck">Ричтрак</SelectItem>
                 <SelectItem value="pallet_jack">
                   Рохля (гидравлическая тележка)
                 </SelectItem>
+                <SelectItem value="electric_pallet_jack">
+                  Электротележка
+                </SelectItem>
+                <SelectItem value="order_picker">Комплектовщик</SelectItem>
               </SelectContent>
             </Select>
             <Checkbox
               checked={simulationShowCargo}
               onCheckedChange={(c) => setSimulationShowCargo(c)}
-              disabled={equipmentKind !== "forklift"}
+              disabled={
+                equipmentKind !== "forklift" &&
+                equipmentKind !== "reach_truck"
+              }
             >
-              Показать груз на вилах (погрузчик)
+              Показать груз на вилах
             </Checkbox>
           </div>
           <div className="flex min-w-[200px] flex-1 flex-col gap-2">
@@ -841,6 +855,7 @@ function Warehouse3DPage() {
                 simulationShowCargo={simulationShowCargo}
                 onSimulationComplete={handleSimulationComplete}
                 twinEnrichment={twinEnrichment}
+                freeCameraMode={freeCameraMode}
               />
             </Suspense>
           </div>
@@ -856,8 +871,23 @@ function Warehouse3DPage() {
             </Button>
             <Button
               size="sm"
+              variant={freeCameraMode ? "default" : "outline"}
+              onClick={() => setFreeCameraMode((f) => !f)}
+              title="Свободная камера (WASD / стрелки + мышь)"
+              aria-label="Свободная камера"
+            >
+              <span className="inline-flex items-center gap-2">
+                <FiMove className="size-4" />
+                {freeCameraMode ? "Орбита" : "Свободная камера"}
+              </span>
+            </Button>
+            <Button
+              size="sm"
               variant="outline"
-              onClick={resetCamera}
+              onClick={() => {
+                setFreeCameraMode(false)
+                resetCamera()
+              }}
               title="Вернуть вид по умолчанию"
               aria-label="Сбросить камеру"
             >
@@ -871,10 +901,19 @@ function Warehouse3DPage() {
       </ErrorBoundary>
 
       <p className="mt-2 text-xs text-muted-foreground">
-        Вращение: ЛКМ · Zoom: колёсико · Панорама: ПКМ или Shift+ЛКМ · Клик по
-        ячейке — информация (режим просмотра); Shift+клик — точка маршрута ·
-        Escape — закрыть окно · Живое обновление подтягивает занятость ячеек с
-        сервера без перезагрузки страницы
+        {freeCameraMode ? (
+          <>
+            Свободная камера: WASD / стрелки — движение · Зажать мышь +
+            двигать — поворот обзора · Колёсико — вперёд/назад · Space — вверх ·
+            Shift — вниз
+          </>
+        ) : (
+          <>
+            Вращение: ЛКМ · Zoom: колёсико · Панорама: ПКМ или Shift+ЛКМ ·
+            Клик по ячейке — информация (режим просмотра); Shift+клик — точка
+            маршрута · Escape — закрыть окно
+          </>
+        )}
       </p>
     </div>
   )

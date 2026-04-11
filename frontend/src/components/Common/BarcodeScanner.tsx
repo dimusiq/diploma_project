@@ -29,8 +29,10 @@ interface BarcodeScannerProps {
 
 const STATUS_LABELS: Record<string, string> = {
   incoming: "Поступление",
+  warehouse: "На складе",
+  shipment: "К отгрузке",
+  shipped: "Отгружено",
   stored: "На складе",
-  shipped: "Отгружен",
   reserved: "Зарезервирован",
   defective: "Брак",
 }

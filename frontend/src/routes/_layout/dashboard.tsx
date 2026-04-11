@@ -1,9 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import {
-  createFileRoute,
-  Link as RouterLink,
-  redirect,
-} from "@tanstack/react-router"
+import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 import { useCallback, useMemo, useState } from "react"
 import {
   FiArrowDownRight,
@@ -71,10 +67,7 @@ interface DashboardStats {
 }
 
 export const Route = createFileRoute("/_layout/dashboard")({
-  beforeLoad: () => {
-    throw redirect({ to: "/" })
-  },
-  component: () => null,
+  component: Dashboard,
 })
 
 function dateRangeDays(days: number): {

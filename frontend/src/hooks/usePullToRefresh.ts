@@ -10,7 +10,8 @@ export function usePullToRefresh({
   threshold = 80,
 }: UsePullToRefreshOptions) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const startYRef = useRef(0)
+  /** `null` — жест не начат; иначе Y в px (в т.ч. 0 — валидная координата). */
+  const startYRef = useRef<number | null>(null)
   const pullDistanceRef = useRef(0)
   const refreshingRef = useRef(false)
   const indicatorRef = useRef<HTMLDivElement>(null)
@@ -24,7 +25,7 @@ export function usePullToRefresh({
 
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
-      if (refreshingRef.current || !startYRef.current) return
+      if (refreshingRef.current || startYRef.current === null) return
       const el = containerRef.current
       if (!el || el.scrollTop > 0) return
 
@@ -69,7 +70,7 @@ export function usePullToRefresh({
       }
     }
 
-    startYRef.current = 0
+    startYRef.current = null
     pullDistanceRef.current = 0
   }, [onRefresh, threshold])
 
