@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
 import { FiShield } from "react-icons/fi"
 
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -18,7 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
 import { request } from "@/lib/apiClient"
 
 export const Route = createFileRoute("/_layout/technique/security")({

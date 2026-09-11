@@ -10,7 +10,7 @@ import { getAccessToken } from "@/lib/authStorage.ts"
 export function useAuthenticatedAvatarObjectUrl(
   userId: string | undefined,
   avatarExt: string | null | undefined,
-  refreshKey: number | undefined,
+  _refreshKey: number | undefined,
 ): string | null {
   const [url, setUrl] = useState<string | null>(null)
   const objectUrlRef = useRef<string | null>(null)
@@ -61,7 +61,7 @@ export function useAuthenticatedAvatarObjectUrl(
         objectUrlRef.current = null
       }
     }
-  }, [userId, avatarExt, refreshKey])
+  }, [userId, avatarExt])
 
   return url
 }

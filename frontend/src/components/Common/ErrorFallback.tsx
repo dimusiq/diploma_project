@@ -1,4 +1,4 @@
-import { type FallbackProps } from "react-error-boundary"
+import type { FallbackProps } from "react-error-boundary"
 import { FiAlertTriangle } from "react-icons/fi"
 import { Button } from "@/components/ui/button.tsx"
 

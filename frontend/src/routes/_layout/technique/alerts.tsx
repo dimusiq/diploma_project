@@ -1,9 +1,16 @@
-import { useEffect, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
+import { useCallback, useEffect, useState } from "react"
 import { FiBell } from "react-icons/fi"
-
+import {
+  NOTIFICATION_SEVERITIES,
+  type NotificationPublic,
+  type NotificationSeverity,
+  notificationsApi,
+  SEVERITY_LABELS,
+} from "@/api/notifications"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -12,14 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  notificationsApi,
-  NOTIFICATION_SEVERITIES,
-  SEVERITY_LABELS,
-  type NotificationPublic,
-  type NotificationSeverity,
-} from "@/api/notifications"
 
 export const Route = createFileRoute("/_layout/technique/alerts")({
   component: AlertsSection,
@@ -61,7 +60,7 @@ function AlertsSection() {
   const [error, setError] = useState<string | null>(null)
   const [severityFilter, setSeverityFilter] = useState<string | null>(null)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
     try {
       await notificationsApi.ensure()
@@ -76,11 +75,11 @@ function AlertsSection() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [severityFilter])
 
   useEffect(() => {
-    load()
-  }, [severityFilter])
+    void load()
+  }, [load])
 
   return (
     <div className="space-y-6">

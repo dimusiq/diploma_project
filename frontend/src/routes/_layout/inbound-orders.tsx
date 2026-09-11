@@ -3,10 +3,10 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { FiPlus, FiTrash2 } from "react-icons/fi"
 import {
-  inboundOrdersApi,
   type InboundOrderCreate,
   type InboundOrderPublic,
   type InboundOrderUpdate,
+  inboundOrdersApi,
 } from "@/api/inboundOrders.ts"
 import { ApiError } from "@/client/index.ts"
 import {

@@ -3,8 +3,9 @@ import {
   isRedirect,
   redirect,
 } from '@tanstack/react-router';
-import { ErrorBoundary } from 'react-error-boundary';
 import { useCallback } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
+import type { IconType } from 'react-icons';
 import {
   FiAlertCircle,
   FiAnchor,
@@ -21,7 +22,7 @@ import {
   FiTool,
   FiTrash2,
 } from 'react-icons/fi';
-import type { IconType } from 'react-icons';
+import { toast } from 'sonner';
 import type { StickToBottomContext } from 'use-stick-to-bottom';
 import { fetchAgentPermissions } from '@/api/agent.ts';
 import {
@@ -56,6 +57,7 @@ import {
   PromptInputTools,
   usePromptInputAttachments,
 } from '@/components/ai-elements/prompt-input.tsx';
+import { ErrorFallback } from '@/components/Common/ErrorFallback.tsx';
 import { Button } from '@/components/ui/button.tsx';
 import {
   DropdownMenu,
@@ -72,15 +74,13 @@ import {
 } from '@/components/ui/sheet.tsx';
 import {
   CHAT_COLUMN_MAX,
-  SKLAD_LOGO_SRC,
   SIDEBAR_W,
+  SKLAD_LOGO_SRC,
   useAssistantSession,
 } from '@/contexts/AssistantSessionContext.tsx';
 import { sanitizeAssistantChatContent } from '@/lib/agentReplySanitize.ts';
 import { getErrorHttpStatus } from '@/lib/apiClient.ts';
-import { ErrorFallback } from '@/components/Common/ErrorFallback.tsx';
 import { cn } from '@/lib/utils.ts';
-import { toast } from 'sonner';
 
 /** Картинки (MIME + расширения) и текстовые файлы; при пустом MIME — по расширению. */
 const ASSISTANT_PROMPT_ACCEPT = [

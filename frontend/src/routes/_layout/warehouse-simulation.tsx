@@ -3,6 +3,15 @@ import { createFileRoute } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import {
+  Legend,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  ResponsiveContainer,
+} from "recharts"
+import {
   fetchKpiSnapshot,
   fetchSimulationScenarios,
   fetchWarehousesForSimulationSeed,
@@ -15,6 +24,11 @@ import {
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
   Select,
@@ -30,20 +44,6 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible.tsx"
-import {
-  Legend,
-  PolarAngleAxis,
-  PolarGrid,
-  PolarRadiusAxis,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-} from "recharts"
 
 export const Route = createFileRoute("/_layout/warehouse-simulation")({
   component: WarehouseSimulationPage,

@@ -1,12 +1,12 @@
-import { useCallback, useRef, useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
+import { useCallback, useRef, useState } from "react"
 import {
+  FiAlertCircle,
   FiBox,
-  FiMapPin,
+  FiExternalLink,
   FiHash,
   FiLoader,
-  FiAlertCircle,
-  FiExternalLink,
+  FiMapPin,
 } from "react-icons/fi"
 
 import type { ScanResult } from "@/api/scan.ts"

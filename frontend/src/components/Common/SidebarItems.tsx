@@ -183,7 +183,7 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
                   const isActive =
                     sub.path === "/technique"
                       ? pathname === "/technique" || pathname === "/technique/"
-                      : pathname === sub.path || pathname.startsWith(sub.path + "/")
+                      : pathname === sub.path || pathname.startsWith(`${sub.path}/`)
                   return (
                     <SidebarMenuSubItem key={sub.path}>
                       <SidebarMenuSubButton

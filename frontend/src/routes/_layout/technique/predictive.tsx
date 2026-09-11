@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
+import { useEffect, useMemo, useState } from "react"
 import { FiActivity } from "react-icons/fi"
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
   CartesianGrid,
-  Tooltip,
+  Legend,
+  Line,
+  LineChart,
   ReferenceLine,
   ResponsiveContainer,
-  Legend,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts"
-
+import {
+  EQUIPMENT_TYPE_LABELS,
+  type EquipmentListResponse,
+  type EquipmentPublic,
+  type MaintenanceRecordListWithEquipmentResponse,
+  type MaintenanceRecordWithEquipmentPublic,
+} from "@/api/equipment"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -23,13 +29,6 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { request } from "@/lib/apiClient"
-import {
-  EQUIPMENT_TYPE_LABELS,
-  type EquipmentPublic,
-  type EquipmentListResponse,
-  type MaintenanceRecordWithEquipmentPublic,
-  type MaintenanceRecordListWithEquipmentResponse,
-} from "@/api/equipment"
 
 export const Route = createFileRoute("/_layout/technique/predictive")({
   component: PredictiveSection,

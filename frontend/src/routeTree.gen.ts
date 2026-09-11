@@ -18,6 +18,7 @@ import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutWarehouseTwinRouteImport } from './routes/_layout/warehouse-twin'
 import { Route as LayoutWarehouseTasksRouteImport } from './routes/_layout/warehouse-tasks'
 import { Route as LayoutWarehouseSimulationRouteImport } from './routes/_layout/warehouse-simulation'
+import { Route as LayoutWarehouse3dHelpRouteImport } from './routes/_layout/warehouse-3d-help'
 import { Route as LayoutWarehouse3dRouteImport } from './routes/_layout/warehouse-3d'
 import { Route as LayoutWarehouseRouteImport } from './routes/_layout/warehouse'
 import { Route as LayoutShippedRouteImport } from './routes/_layout/shipped'
@@ -91,6 +92,11 @@ const LayoutWarehouseSimulationRoute =
     path: '/warehouse-simulation',
     getParentRoute: () => LayoutRoute,
   } as any)
+const LayoutWarehouse3dHelpRoute = LayoutWarehouse3dHelpRouteImport.update({
+  id: '/warehouse-3d-help',
+  path: '/warehouse-3d-help',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutWarehouse3dRoute = LayoutWarehouse3dRouteImport.update({
   id: '/warehouse-3d',
   path: '/warehouse-3d',
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/shipped': typeof LayoutShippedRoute
   '/warehouse': typeof LayoutWarehouseRoute
   '/warehouse-3d': typeof LayoutWarehouse3dRoute
+  '/warehouse-3d-help': typeof LayoutWarehouse3dHelpRoute
   '/warehouse-simulation': typeof LayoutWarehouseSimulationRoute
   '/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/warehouse-twin': typeof LayoutWarehouseTwinRoute
@@ -292,6 +299,7 @@ export interface FileRoutesByTo {
   '/shipped': typeof LayoutShippedRoute
   '/warehouse': typeof LayoutWarehouseRoute
   '/warehouse-3d': typeof LayoutWarehouse3dRoute
+  '/warehouse-3d-help': typeof LayoutWarehouse3dHelpRoute
   '/warehouse-simulation': typeof LayoutWarehouseSimulationRoute
   '/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/warehouse-twin': typeof LayoutWarehouseTwinRoute
@@ -331,6 +339,7 @@ export interface FileRoutesById {
   '/_layout/shipped': typeof LayoutShippedRoute
   '/_layout/warehouse': typeof LayoutWarehouseRoute
   '/_layout/warehouse-3d': typeof LayoutWarehouse3dRoute
+  '/_layout/warehouse-3d-help': typeof LayoutWarehouse3dHelpRoute
   '/_layout/warehouse-simulation': typeof LayoutWarehouseSimulationRoute
   '/_layout/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/_layout/warehouse-twin': typeof LayoutWarehouseTwinRoute
@@ -371,6 +380,7 @@ export interface FileRouteTypes {
     | '/shipped'
     | '/warehouse'
     | '/warehouse-3d'
+    | '/warehouse-3d-help'
     | '/warehouse-simulation'
     | '/warehouse-tasks'
     | '/warehouse-twin'
@@ -406,6 +416,7 @@ export interface FileRouteTypes {
     | '/shipped'
     | '/warehouse'
     | '/warehouse-3d'
+    | '/warehouse-3d-help'
     | '/warehouse-simulation'
     | '/warehouse-tasks'
     | '/warehouse-twin'
@@ -444,6 +455,7 @@ export interface FileRouteTypes {
     | '/_layout/shipped'
     | '/_layout/warehouse'
     | '/_layout/warehouse-3d'
+    | '/_layout/warehouse-3d-help'
     | '/_layout/warehouse-simulation'
     | '/_layout/warehouse-tasks'
     | '/_layout/warehouse-twin'
@@ -535,6 +547,13 @@ declare module '@tanstack/react-router' {
       path: '/warehouse-simulation'
       fullPath: '/warehouse-simulation'
       preLoaderRoute: typeof LayoutWarehouseSimulationRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/warehouse-3d-help': {
+      id: '/_layout/warehouse-3d-help'
+      path: '/warehouse-3d-help'
+      fullPath: '/warehouse-3d-help'
+      preLoaderRoute: typeof LayoutWarehouse3dHelpRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/warehouse-3d': {
@@ -783,6 +802,7 @@ interface LayoutRouteChildren {
   LayoutShippedRoute: typeof LayoutShippedRoute
   LayoutWarehouseRoute: typeof LayoutWarehouseRoute
   LayoutWarehouse3dRoute: typeof LayoutWarehouse3dRoute
+  LayoutWarehouse3dHelpRoute: typeof LayoutWarehouse3dHelpRoute
   LayoutWarehouseSimulationRoute: typeof LayoutWarehouseSimulationRoute
   LayoutWarehouseTasksRoute: typeof LayoutWarehouseTasksRoute
   LayoutWarehouseTwinRoute: typeof LayoutWarehouseTwinRoute
@@ -803,6 +823,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutShippedRoute: LayoutShippedRoute,
   LayoutWarehouseRoute: LayoutWarehouseRoute,
   LayoutWarehouse3dRoute: LayoutWarehouse3dRoute,
+  LayoutWarehouse3dHelpRoute: LayoutWarehouse3dHelpRoute,
   LayoutWarehouseSimulationRoute: LayoutWarehouseSimulationRoute,
   LayoutWarehouseTasksRoute: LayoutWarehouseTasksRoute,
   LayoutWarehouseTwinRoute: LayoutWarehouseTwinRoute,

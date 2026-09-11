@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { FiBox, FiSearch, FiTool, FiClipboard } from "react-icons/fi"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { FiBox, FiClipboard, FiSearch, FiTool } from "react-icons/fi"
+import { OpenAPI } from "@/client/index.ts"
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog.tsx"
 import { Input } from "@/components/ui/input.tsx"
-import { OpenAPI } from "@/client/index.ts"
 
 interface SearchResult {
   items: Array<{ id: string; title: string; sku?: string }>

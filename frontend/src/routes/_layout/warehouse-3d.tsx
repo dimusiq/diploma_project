@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
+import { useTheme } from "next-themes"
 import {
   lazy,
   Suspense,
@@ -15,8 +16,8 @@ import {
   FiMaximize2,
   FiMove,
   FiRotateCcw,
+  FiSliders,
 } from "react-icons/fi"
-import { useTheme } from "next-themes"
 import { z } from "zod"
 import { equipmentApi } from "@/api/equipment.ts"
 import {
@@ -27,16 +28,18 @@ import { fetchWarehouseRouteGraph } from "@/api/warehouseRouteGraph.ts"
 import { warehouseTopologyApi } from "@/api/warehouseTopology.ts"
 import type { ItemPublic } from "@/client/index.ts"
 import { ItemsService } from "@/client/index.ts"
+import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
 import { Button } from "@/components/ui/button.tsx"
-import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select.tsx"
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
+import { Tabs } from "@/components/ui/tabs.tsx"
 import {
   blockedCellKeysFromTopology,
   type CellStripe,
@@ -46,6 +49,10 @@ import {
   slaRiskByCellKey,
   stripeByCellKey,
 } from "@/components/warehouse3d/twin3dDerived.ts"
+import {
+  Warehouse3DToolsPanelContent,
+  type Warehouse3DToolsTab,
+} from "@/components/warehouse3d/Warehouse3dToolsPanels.tsx"
 import type {
   CellInfo,
   CellItemInfo,
@@ -58,8 +65,20 @@ import {
   buildWarehouseGeometry,
   DEFAULT_WAREHOUSE_LAYOUT_SPEC,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
-import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
 import { cn } from "@/lib/utils.ts"
+
+const WAREHOUSE_3D_TOOLS_TAB_KEY = "nebardak.warehouse3d.toolsTab"
+
+function readStoredToolsTab(): Warehouse3DToolsTab {
+  if (typeof window === "undefined") return "scene"
+  try {
+    const v = localStorage.getItem(WAREHOUSE_3D_TOOLS_TAB_KEY)
+    if (v === "scene" || v === "route" || v === "twin") return v
+  } catch {
+    /* ignore */
+  }
+  return "scene"
+}
 
 const WarehouseScene = lazy(() =>
   import("@/components/warehouse3d/WarehouseScene.tsx").then((m) => ({
@@ -231,7 +250,7 @@ function Warehouse3DPage() {
       // Фокус камеры только при смене URL (переход по ссылке из списка), не при клике по ячейке
       setFocusCell(fromUrl)
     }
-  }, [search.row, search.level, search.cellX, search.cellZ])
+  }, [search.row, search.level, search.cellX, search.cellZ, search])
 
   useEffect(() => {
     if (!selectedCell) return
@@ -304,9 +323,12 @@ function Warehouse3DPage() {
     const now = Date.now()
     if (now - snapThrottleRef.current < 12_000) return
     snapThrottleRef.current = now
-    setSnapshots((prev) => [...prev.slice(-35), { at: now, items: [...itemsRef.current] }])
+    setSnapshots((prev) => [
+      ...prev.slice(-35),
+      { at: now, items: [...itemsRef.current] },
+    ])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemsData])
+  }, [items.length])
 
   const displayItems = useMemo(() => {
     if (historyIdx < 0 || historyIdx >= snapshots.length) return items
@@ -321,10 +343,10 @@ function Warehouse3DPage() {
   const geom = useMemo(
     () => buildWarehouseGeometry(layoutSpecResolved),
     [
-      layoutSpecResolved.rows,
-      layoutSpecResolved.levels,
-      layoutSpecResolved.cellX,
-      layoutSpecResolved.cellZ,
+      layoutSpecResolved.rows, 
+      layoutSpecResolved.levels, 
+      layoutSpecResolved.cellX, 
+      layoutSpecResolved.cellZ, layoutSpecResolved
     ],
   )
 
@@ -503,6 +525,74 @@ function Warehouse3DPage() {
     }
   }, [selectedItem])
 
+  const [toolsTab, setToolsTab] = useState<Warehouse3DToolsTab>(() =>
+    readStoredToolsTab(),
+  )
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false)
+
+  const persistToolsTab = useCallback((v: string) => {
+    const t: Warehouse3DToolsTab =
+      v === "route" || v === "twin" ? v : "scene"
+    setToolsTab(t)
+    try {
+      localStorage.setItem(WAREHOUSE_3D_TOOLS_TAB_KEY, t)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const toolsPanelProps = useMemo(
+    () => ({
+      liveData,
+      setLiveData,
+      interactionMode,
+      setInteractionMode,
+      setSelectedCell,
+      equipmentKind,
+      setEquipmentKind,
+      simulationShowCargo,
+      setSimulationShowCargo,
+      simulationSpeed,
+      setSimulationSpeed,
+      routeWaypoints,
+      simulationActive,
+      selectedCell,
+      addSelectedCellToRoute,
+      setDemoRoute,
+      startSimulation,
+      stopSimulation,
+      popRouteWaypoint,
+      clearRoute,
+      overlayMode,
+      setOverlayMode,
+      heatMetric,
+      setHeatMetric,
+      historyIdx,
+      setHistoryIdx,
+      snapshots,
+    }),
+    [
+      liveData,
+      interactionMode,
+      equipmentKind,
+      simulationShowCargo,
+      simulationSpeed,
+      routeWaypoints,
+      simulationActive,
+      selectedCell,
+      addSelectedCellToRoute,
+      setDemoRoute,
+      startSimulation,
+      stopSimulation,
+      popRouteWaypoint,
+      clearRoute,
+      overlayMode,
+      heatMetric,
+      historyIdx,
+      snapshots,
+    ],
+  )
+
   return (
     <div className="mx-auto w-full max-w-full py-4">
       <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
@@ -512,302 +602,83 @@ function Warehouse3DPage() {
         <FiChevronRight className="size-3 shrink-0" aria-hidden />
         <span>Цифровой двойник</span>
       </div>
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="mb-2 font-heading text-2xl font-semibold tracking-tight">
-            3D модель склада
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Ячейки заполняются только при добавлении товара с выбранной ячейкой.
-            Клик по ячейке — всплывающее окно. Красное мигание — срок годности
-            истекает в течение {EXPIRING_DAYS} дн. Симуляция движения техники и
-            маршрут — только визуализация, позиции товаров в БД не меняются.
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              3D модель склада
+            </h1>
             {layoutApi != null && (
-              <>
-                {" "}
-                Layout v{layoutApi.version} ({layoutApi.code}).
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#9ca3af]" />
-          <span>Пусто</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#3b82f6]" />
-          <span>Занято</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#dc2626]" />
-          <span>Срок истекает</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#7f1d1d]" />
-          <span>Просрочено</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#fbbf24]" />
-          <span>Выбрано</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#ea580c]" />
-          <span>Маршрут</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#a855f7]" />
-          <span>Блок / буфер (ряд)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#f59e0b]" />
-          <span>Резерв (отгрузка)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-sm bg-[#7c3aed]" />
-          <span>Карантин / приёмка</span>
-        </div>
-      </div>
-
-      <div className="mb-3 rounded-lg border border-border bg-card p-4">
-        <p className="mb-2 text-sm font-semibold">
-          Digital twin: зоны, маршруты, heatmap
-        </p>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Зоны и проходы — из топологии склада. Граф — из{" "}
-          <code>GET /warehouse/route-graph</code> (нужна синхронизация графа).
-          Heatmap считается в браузере. Слайдер времени — локальные снимки
-          списка товаров (~12 с).
-        </p>
-        <div className="flex flex-wrap items-end gap-3 md:gap-4">
-          <div className="min-w-[200px]">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Режим наложения
-            </p>
-            <Select
-              value={overlayMode}
-              onValueChange={(v) => setOverlayMode(v as TwinOverlayMode)}
-            >
-              <SelectTrigger className="h-9 w-full max-w-[280px] text-sm">
-                <SelectValue placeholder="Режим" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="standard">Стандарт</SelectItem>
-                <SelectItem value="occupancy">
-                  Занятость + зоны / проходы
-                </SelectItem>
-                <SelectItem value="workload">Нагрузка (heatmap)</SelectItem>
-                <SelectItem value="replenishment_need">
-                  Потребность в пополнении
-                </SelectItem>
-                <SelectItem value="anomaly_alerts">
-                  Аномалии (SLA + блок/резерв/карантин)
-                </SelectItem>
-                <SelectItem value="maintenance_safety">
-                  Техника + граф + проходы
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {overlayMode === "workload" && (
-            <div className="min-w-[180px]">
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Метрика heatmap
-              </p>
-              <Select
-                value={heatMetric}
-                onValueChange={(v) => setHeatMetric(v as HeatMetric)}
-              >
-                <SelectTrigger className="h-9 w-full max-w-[260px] text-sm">
-                  <SelectValue placeholder="Метрика" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="congestion">
-                    Загруженность рядов
-                  </SelectItem>
-                  <SelectItem value="pick_density">Остаток в ячейке</SelectItem>
-                  <SelectItem value="sla_risk">
-                    Риск по сроку годности
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <div className="min-w-[220px] flex-1">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Снимок данных (время)
-            </p>
-            <input
-              type="range"
-              min={-1}
-              max={Math.max(-1, snapshots.length - 1)}
-              step={1}
-              value={historyIdx}
-              onChange={(e) => setHistoryIdx(Number(e.target.value))}
-              disabled={snapshots.length === 0}
-              aria-label="Снимок состояния товаров"
-              style={{ width: "100%", maxWidth: 360 }}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {historyIdx < 0 || snapshots.length === 0
-                ? "Текущие данные с сервера"
-                : `Снимок: ${new Date(snapshots[historyIdx]!.at).toLocaleString("ru-RU")}`}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-3 min-h-[108px] rounded-lg border border-border bg-card p-4">
-        <p className="mb-3 text-sm font-semibold">Симуляция и маршрут</p>
-        <div className="flex flex-wrap items-start gap-3 md:gap-4">
-          <div className="flex min-w-[200px] flex-col gap-2">
-            <Checkbox
-              checked={liveData}
-              onCheckedChange={(c) => setLiveData(c)}
-            >
-              Доп. опрос списка (~2,5 с) — помимо SSE по всему приложению
-            </Checkbox>
-            <Checkbox
-              checked={interactionMode === "route"}
-              onCheckedChange={(c) => {
-                const on = c
-                setInteractionMode(on ? "route" : "view")
-                if (on) setSelectedCell(null)
-              }}
-            >
-              Прокладка маршрута (клик по ячейкам по порядку)
-            </Checkbox>
-            {interactionMode === "route" && (
-              <p className="text-xs text-muted-foreground">
-                Попап ячейки в этом режиме отключён; точки — оранжевая линия на
-                полу.
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              В обычном режиме: <strong>Shift+клик</strong> по ячейке добавляет
-              точку маршрута.
-            </p>
-          </div>
-          <div className="flex min-w-[180px] flex-col gap-2">
-            <p className="text-xs font-medium text-muted-foreground">Техника</p>
-            <Select
-              value={equipmentKind}
-              onValueChange={(v) =>
-                setEquipmentKind(v as WarehouseEquipmentKind)
-              }
-            >
-              <SelectTrigger className="h-9 max-w-[220px] text-sm">
-                <SelectValue placeholder="Техника" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="forklift">Вилочный погрузчик</SelectItem>
-                <SelectItem value="reach_truck">Ричтрак</SelectItem>
-                <SelectItem value="pallet_jack">
-                  Рохля (гидравлическая тележка)
-                </SelectItem>
-                <SelectItem value="electric_pallet_jack">
-                  Электротележка
-                </SelectItem>
-                <SelectItem value="order_picker">Комплектовщик</SelectItem>
-              </SelectContent>
-            </Select>
-            <Checkbox
-              checked={simulationShowCargo}
-              onCheckedChange={(c) => setSimulationShowCargo(c)}
-              disabled={
-                equipmentKind !== "forklift" &&
-                equipmentKind !== "reach_truck"
-              }
-            >
-              Показать груз на вилах
-            </Checkbox>
-          </div>
-          <div className="flex min-w-[200px] flex-1 flex-col gap-2">
-            <p className="text-xs font-medium text-muted-foreground">
-              Скорость симуляции
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                min={0.4}
-                max={3}
-                step={0.05}
-                value={simulationSpeed}
-                onChange={(e) =>
-                  setSimulationSpeed(Number.parseFloat(e.target.value))
-                }
-                style={{ flex: 1, maxWidth: 200 }}
-                aria-label="Скорость симуляции"
-              />
-              <span className="w-8 text-xs text-muted-foreground">
-                {simulationSpeed.toFixed(2)}×
+              <span className="text-xs text-muted-foreground tabular-nums">
+                layout v{layoutApi.version} · {layoutApi.code}
               </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Точек маршрута: {routeWaypoints.length}
-            </p>
-            {routeWaypoints.length < 2 && !simulationActive && (
-              <p className="max-w-lg text-xs text-orange-700 dark:text-orange-400">
-                Кнопка «Запустить» станет доступна после{" "}
-                <strong>двух точек</strong>: «Пример маршрута», дважды «В
-                маршрут» (сначала выберите ячейку кликом), режим прокладки или
-                Shift+клик по ячейкам.
-              </p>
             )}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={addSelectedCellToRoute}
-                disabled={!selectedCell || simulationActive}
-              >
-                В маршрут (выбранная ячейка)
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={setDemoRoute}
-                disabled={simulationActive}
-              >
-                Пример маршрута (2 точки)
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={startSimulation}
-                disabled={routeWaypoints.length < 2 || simulationActive}
-              >
-                Запустить симуляцию
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={stopSimulation}
-                disabled={!simulationActive}
-              >
-                Стоп
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={popRouteWaypoint}
-                disabled={routeWaypoints.length === 0 || simulationActive}
-              >
-                Убрать последнюю точку
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={clearRoute}
-                disabled={routeWaypoints.length === 0 && !simulationActive}
-              >
-                Сбросить маршрут
-              </Button>
-            </div>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Клик — карточка ячейки. Shift+клик — точка маршрута. Симуляция не
+            меняет БД.
+          </p>
+          <Button asChild variant="link" size="sm" className="h-auto px-0 text-xs">
+            <RouterLink to="/warehouse-3d-help">
+              Справка: легенда, камера, twin и маршрут
+            </RouterLink>
+          </Button>
         </div>
+      </div>
+
+      <div className="mb-2 flex items-center justify-between gap-2 md:hidden">
+        <Sheet open={mobileToolsOpen} onOpenChange={setMobileToolsOpen}>
+          <SheetTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              aria-label="Открыть панель сцены, маршрута и twin"
+            >
+              <FiSliders className="size-4 shrink-0" aria-hidden />
+              <span className="truncate">
+                Панель:{" "}
+                {toolsTab === "scene"
+                  ? "Сцена"
+                  : toolsTab === "route"
+                    ? "Маршрут"
+                    : "Twin"}
+              </span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="bottom"
+            className="max-h-[88vh] overflow-y-auto rounded-t-xl"
+          >
+            <SheetHeader className="text-left">
+              <SheetTitle>Сцена, маршрут и twin</SheetTitle>
+              <SheetDescription>
+                Вкладка сохраняется в браузере для следующего визита.
+              </SheetDescription>
+            </SheetHeader>
+            <Tabs
+              value={toolsTab}
+              onValueChange={persistToolsTab}
+              className="mt-2 w-full"
+            >
+              <Warehouse3DToolsPanelContent {...toolsPanelProps} />
+            </Tabs>
+          </SheetContent>
+        </Sheet>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <RouterLink to="/warehouse-3d-help">Справка</RouterLink>
+        </Button>
+      </div>
+
+      <div className="mb-3 hidden md:block">
+        <Tabs
+          value={toolsTab}
+          onValueChange={persistToolsTab}
+          className="w-full"
+        >
+          <Warehouse3DToolsPanelContent {...toolsPanelProps} />
+        </Tabs>
       </div>
 
       <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -823,7 +694,7 @@ function Warehouse3DPage() {
               "w-full overflow-hidden bg-muted",
               isFullscreen
                 ? "h-full min-h-0"
-                : "min-h-[480px] h-[calc(100vh-200px)] rounded-lg",
+                : "min-h-[min(520px,70dvh)] h-[calc(100vh-9.5rem)] rounded-lg md:h-[calc(100vh-12rem)]",
             )}
           >
             <Suspense
@@ -859,9 +730,10 @@ function Warehouse3DPage() {
               />
             </Suspense>
           </div>
-          <div className="absolute right-2 top-2 flex gap-2">
+          <div className="absolute right-2 top-2 flex gap-1.5">
             <Button
-              size="sm"
+              size="icon"
+              className="size-9 bg-background/90 shadow-sm backdrop-blur-sm"
               variant="outline"
               onClick={toggleFullscreen}
               title="Полноэкранный режим"
@@ -870,50 +742,49 @@ function Warehouse3DPage() {
               <FiMaximize2 className="size-4" />
             </Button>
             <Button
-              size="sm"
+              size="icon"
+              className="size-9 bg-background/90 shadow-sm backdrop-blur-sm"
               variant={freeCameraMode ? "default" : "outline"}
               onClick={() => setFreeCameraMode((f) => !f)}
-              title="Свободная камера (WASD / стрелки + мышь)"
-              aria-label="Свободная камера"
+              title={
+                freeCameraMode
+                  ? "Включить орбитальную камеру"
+                  : "Свободная камера (WASD, стрелки, мышь, колёсико)"
+              }
+              aria-label={
+                freeCameraMode
+                  ? "Переключить на орбитальную камеру"
+                  : "Свободная камера"
+              }
             >
-              <span className="inline-flex items-center gap-2">
-                <FiMove className="size-4" />
-                {freeCameraMode ? "Орбита" : "Свободная камера"}
-              </span>
+              <FiMove className="size-4" />
             </Button>
             <Button
-              size="sm"
+              size="icon"
+              className="size-9 bg-background/90 shadow-sm backdrop-blur-sm"
               variant="outline"
               onClick={() => {
                 setFreeCameraMode(false)
                 resetCamera()
               }}
-              title="Вернуть вид по умолчанию"
+              title="Сбросить камеру и выйти из свободного режима"
               aria-label="Сбросить камеру"
             >
-              <span className="inline-flex items-center gap-2">
-                <FiRotateCcw className="size-4" />
-                Сбросить камеру
-              </span>
+              <FiRotateCcw className="size-4" />
             </Button>
           </div>
         </div>
       </ErrorBoundary>
 
       <p className="mt-2 text-xs text-muted-foreground">
-        {freeCameraMode ? (
-          <>
-            Свободная камера: WASD / стрелки — движение · Зажать мышь +
-            двигать — поворот обзора · Колёсико — вперёд/назад · Space — вверх ·
-            Shift — вниз
-          </>
-        ) : (
-          <>
-            Вращение: ЛКМ · Zoom: колёсико · Панорама: ПКМ или Shift+ЛКМ ·
-            Клик по ячейке — информация (режим просмотра); Shift+клик — точка
-            маршрута · Escape — закрыть окно
-          </>
-        )}
+        Подсказки по камере и режимам — в{" "}
+        <RouterLink
+          to="/warehouse-3d-help"
+          className="font-medium text-foreground underline-offset-4 hover:underline"
+        >
+          справке 3D
+        </RouterLink>
+        .
       </p>
     </div>
   )

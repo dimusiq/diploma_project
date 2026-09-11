@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
 import { FiUsers } from "react-icons/fi"
 
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -11,7 +12,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
 import { request } from "@/lib/apiClient"
 
 export const Route = createFileRoute("/_layout/technique/technicians")({

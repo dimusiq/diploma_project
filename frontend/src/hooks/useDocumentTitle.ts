@@ -7,6 +7,7 @@ const PATH_TITLES: Record<string, string> = {
   "/items": "Поступления",
   "/warehouse": "Товары",
   "/warehouse-3d": "3D Склад",
+  "/warehouse-3d-help": "Справка 3D",
   "/shipment": "Отгрузка",
   "/shipped": "Отгружено",
   "/technique": "Техника",

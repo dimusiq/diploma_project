@@ -1,4 +1,4 @@
-import { type ReactNode } from "react"
+import type { ReactNode } from "react"
 import { FiRefreshCw } from "react-icons/fi"
 import { usePullToRefresh } from "@/hooks/usePullToRefresh.ts"
 

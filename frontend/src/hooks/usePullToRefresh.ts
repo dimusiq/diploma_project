@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from "react"
+import { useCallback, useEffect, useRef } from "react"
 
 interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void> | void

@@ -21,10 +21,13 @@ export function pickLaneWorldZ(
   const p = Math.floor(rowIndex / 2)
   const inPair = rowIndex % 2
   const blockStart = -geom.totalZ / 2 + p * (geom.blockWidth + PASSAGE_WIDTH)
+  let z: number
   if (inPair === 0) {
-    return blockStart - PASSAGE_WIDTH / 2
+    z = blockStart - PASSAGE_WIDTH / 2
+  } else {
+    z = blockStart + geom.blockWidth + PASSAGE_WIDTH / 2
   }
-  return blockStart + geom.blockWidth + PASSAGE_WIDTH / 2
+  return z + geom.storageZOffset
 }
 
 export type WarehouseRouteWaypoint = {
@@ -61,7 +64,9 @@ export function stagingPointOnFloor(
   return new Vector3(x, floorY, z)
 }
 
-/** Сегмент: проход origin -> торец площадки -> проход dest (без сквозняка). */
+/**
+ * Сегмент по проходам: все точки в коридоре перед рядами (не внутри объёма стеллажа).
+ */
 export function segmentThroughAisles(
   geom: WarehouseGeometry,
   origin: WarehouseRouteWaypoint,
@@ -99,6 +104,9 @@ export function buildAisleRoutePolyline(
   floorY: number,
 ): Vector3[] {
   if (waypoints.length === 0) return []
+  if (waypoints.length === 1) {
+    return [stagingPointOnFloor(geom, waypoints[0], floorY)]
+  }
   const out: Vector3[] = []
   out.push(stagingPointOnFloor(geom, waypoints[0], floorY))
   for (let i = 1; i < waypoints.length; i++) {

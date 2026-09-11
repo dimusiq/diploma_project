@@ -1,15 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
-  RouterProvider,
   createMemoryHistory,
   createRootRoute,
   createRoute,
   createRouter,
+  RouterProvider,
 } from "@tanstack/react-router"
-import { render, screen, act } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { ItemPublic, ItemsPublic } from "@/client/types.gen.ts"
 import { CategoriesService, ItemsService } from "@/client/index.ts"
+import type { ItemPublic, ItemsPublic } from "@/client/types.gen.ts"
 
 import { ItemDataTable, type ItemDataTableProps } from "../ItemDataTable"
 

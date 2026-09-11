@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 import { useCallback, useMemo, useState } from "react"
+import { ErrorBoundary } from "react-error-boundary"
 import {
   FiArrowDownRight,
   FiBox,
@@ -26,15 +27,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { ErrorBoundary } from "react-error-boundary"
 import { getDashboardTrends } from "@/api/dashboard.ts"
-import { getInventorySnapshots } from "@/api/inventorySnapshots.ts"
 import { downloadItemsExport } from "@/api/exportItems.ts"
+import { getInventorySnapshots } from "@/api/inventorySnapshots.ts"
 import { DashboardService } from "@/client/index.ts"
 import {
   pieHoverActiveShape,
   pieHoverInactiveStyle,
 } from "@/components/Charts/pieHoverShapes.tsx"
+import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
 import { DashboardStatCard } from "@/components/Dashboard/DashboardStatCard.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
@@ -45,7 +46,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
-import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 
 interface LatestIncomingItem {

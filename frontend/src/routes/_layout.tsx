@@ -8,6 +8,7 @@ import { SkipLink } from "@/components/Common/SkipLink.tsx"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar.tsx"
 import { AssistantSessionProvider } from "@/contexts/AssistantSessionContext.tsx"
 import { isLoggedIn } from "@/hooks/useAuth.ts"
+import { useItemsRealtime } from "@/hooks/useItemsRealtime.ts"
 import { useTwinRealtime } from "@/hooks/useTwinRealtime.ts"
 import { getErrorHttpStatus } from "@/lib/apiClient.ts"
 import { removeAccessToken } from "@/lib/authStorage.ts"
@@ -46,6 +47,7 @@ function MainColumn() {
 
 function Layout() {
   useTwinRealtime()
+  useItemsRealtime()
   return (
     <AssistantSessionProvider>
       <SidebarProvider>

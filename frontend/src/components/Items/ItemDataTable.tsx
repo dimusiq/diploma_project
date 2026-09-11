@@ -9,13 +9,13 @@ import { FiDownload, FiPrinter, FiSearch } from "react-icons/fi"
 
 import { downloadItemsExport } from "@/api/exportItems.ts"
 import { openShippingNotePdf } from "@/api/printPdf.ts"
-import { CategoriesService, ItemsService } from "@/client/index.ts"
 import type { ItemPublic } from "@/client/index.ts"
+import { CategoriesService, ItemsService } from "@/client/index.ts"
 import { ItemActionsMenu } from "@/components/Common/ItemActionsMenu.tsx"
 import { ItemSelectionToolbar } from "@/components/Common/ItemSelectionToolbar.tsx"
-import { type SortField, SortHeader } from "@/components/Items/SortHeader.tsx"
 import { MassEditItemsDialog } from "@/components/Items/MassEditItemsDialog.tsx"
 import { MoveItemsDialog } from "@/components/Items/MoveItemsDialog.tsx"
+import { type SortField, SortHeader } from "@/components/Items/SortHeader.tsx"
 import PendingItems from "@/components/Pending/PendingItems.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
@@ -165,7 +165,7 @@ export function ItemDataTable({
       }
     }, 300)
     return () => clearTimeout(timer)
-  }, [searchInput]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchInput, search, setSearchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSort = useCallback(
     (field: SortField) => {

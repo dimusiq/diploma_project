@@ -8,6 +8,12 @@ const CELL_GAP = 0.12
 const LEVEL_HEIGHT = 0.82
 const PASSAGE_WIDTH = 2.5
 
+/**
+ * Дополнительная глубина пола со стороны доков: апрон приёмки/отгрузки (как на РЦ),
+ * м вдоль оси Z. Стеллажи смещаются в −Z, зона доков и конвейеров — к +Z.
+ */
+export const DOCK_STAGING_DEPTH = 14
+
 export type WarehouseLayoutSpec = {
   rows: number
   levels: number
@@ -36,6 +42,10 @@ export type WarehouseGeometry = {
   floorMargin: number
   floorWidth: number
   floorDepth: number
+  /** Глубина апронной зоны (доки), м — совпадает с `DOCK_STAGING_DEPTH` при стандартной сборке. */
+  dockStagingDepth: number
+  /** Сдвиг всех рядов/проходов по Z (стеллажи от доков). */
+  storageZOffset: number
   getRowZ: (rowIndex: number) => number
   cellKey: (rackIndex: number, level: number, ix: number, iz: number) => string
   getCellWorldPosition: (
@@ -61,13 +71,15 @@ export function buildWarehouseGeometry(
   const totalZ = pairs * blockWidth + (pairs - 1) * PASSAGE_WIDTH
   const floorMargin = 3
   const floorWidth = rackLength + floorMargin * 2
-  const floorDepth = totalZ + floorMargin * 2
+  const dockStagingDepth = DOCK_STAGING_DEPTH
+  const floorDepth = totalZ + floorMargin * 2 + dockStagingDepth
+  const storageZOffset = -dockStagingDepth / 2
 
   function getRowZ(rowIndex: number): number {
     const pair = Math.floor(rowIndex / 2)
     const inPair = rowIndex % 2
     const blockStart = -totalZ / 2 + pair * (blockWidth + PASSAGE_WIDTH)
-    return blockStart + rackDepth / 2 + inPair * rackDepth
+    return blockStart + rackDepth / 2 + inPair * rackDepth + storageZOffset
   }
 
   function cellKey(
@@ -106,6 +118,8 @@ export function buildWarehouseGeometry(
     floorMargin,
     floorWidth,
     floorDepth,
+    dockStagingDepth,
+    storageZOffset,
     getRowZ,
     cellKey,
     getCellWorldPosition,

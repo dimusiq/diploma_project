@@ -14,8 +14,8 @@
 import { Clone, useGLTF } from "@react-three/drei"
 import { useFrame } from "@react-three/fiber"
 import React, { Suspense, useMemo, useRef } from "react"
-import { Box3, Vector3 } from "three"
 import type { Mesh, MeshStandardMaterial } from "three"
+import { Box3, Vector3 } from "three"
 
 export type WarehouseEquipmentKind =
   | "forklift"
@@ -818,13 +818,15 @@ export function ReachTruckModel() {
 function ConveyorSection({
   length = 3,
   position,
+  rotation,
 }: {
   length?: number
   position?: [number, number, number]
+  rotation?: [number, number, number]
 }) {
   const rollerCount = Math.floor(length / 0.15)
   return (
-    <group position={position}>
+    <group position={position} rotation={rotation}>
       {/* Side rails */}
       {[-0.25, 0.25].map((x, i) => (
         <group key={`rail-${i}`}>

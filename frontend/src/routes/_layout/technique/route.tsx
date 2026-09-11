@@ -31,7 +31,7 @@ function TechniqueLayout() {
           const isActive =
             s.path === "/technique"
               ? pathname === "/technique" || pathname === "/technique/"
-              : pathname === s.path || pathname.startsWith(s.path + "/")
+              : pathname === s.path || pathname.startsWith(`${s.path}/`)
           return (
             <Link
               key={s.id}
