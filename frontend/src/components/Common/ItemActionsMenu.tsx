@@ -5,6 +5,7 @@ import { BsThreeDotsVertical } from "react-icons/bs"
 import { FiBox, FiCopy, FiPrinter } from "react-icons/fi"
 import { openLabelPdf } from "@/api/printPdf.ts"
 import { type ItemPublic, ItemsService } from "@/client/index.ts"
+import { fetchAllItems } from "@/lib/fetchAllItems.ts"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -79,16 +80,15 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
     item.storage_level != null &&
     item.storage_cell_x != null
 
-  const { data: allItemsData } = useQuery({
+  const { data: allItems = [] } = useQuery({
     queryKey: ["items", "all-for-warehouse-3d"],
-    queryFn: () => ItemsService.readItems({ skip: 0, limit: 1000 }),
+    queryFn: () => fetchAllItems(),
     enabled: duplicateDialogOpen,
   })
 
   const occupiedCellKeys = useMemo(() => {
-    const items = allItemsData?.data ?? []
     const set = new Set<string>()
-    items.forEach((i) => {
+    allItems.forEach((i) => {
       const r = i.storage_row
       const l = i.storage_level
       const x = i.storage_cell_x
@@ -98,7 +98,7 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
       }
     })
     return set
-  }, [allItemsData?.data])
+  }, [allItems])
 
   const duplicateCellKey = `${duplicateCell.storage_row}-${duplicateCell.storage_level}-${duplicateCell.storage_cell_x}-${duplicateCell.storage_cell_z ?? 1}`
   const isCellOccupied = occupiedCellKeys.has(duplicateCellKey)

@@ -14,6 +14,8 @@ import {
 } from "@react-three/drei"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { MouseEvent as ReactMouseEvent, RefObject } from "react"
+import { Link as RouterLink } from "@tanstack/react-router"
 import type { Group } from "three"
 import { Euler, MeshStandardMaterial, Vector3 } from "three"
 import type { EquipmentPublic } from "@/api/equipment.ts"
@@ -21,6 +23,7 @@ import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
 import type { TopologyDocument } from "@/api/warehouseTopology.ts"
 import { Button } from "@/components/ui/button.tsx"
 import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
+import { formatExpiredDaysLabel } from "@/components/warehouse3d/twin3dDerived.ts"
 import {
   ConveyorSection,
   type WarehouseEquipmentKind,
@@ -31,7 +34,6 @@ import {
   WarehouseTwinLayers,
 } from "@/components/warehouse3d/WarehouseTwinLayers.tsx"
 import {
-  buildAisleRoutePolyline,
   pickLaneWorldZ,
   stagingPointOnFloor,
 } from "@/components/warehouse3d/warehouseAisleRouting.ts"
@@ -50,6 +52,8 @@ import {
   polylineLength,
   samplePolyline3D,
 } from "@/components/warehouse3d/warehousePathFollow.ts"
+import { buildRoutePolyline } from "@/components/warehouse3d/warehouseRouteGraphPath.ts"
+import type { LiveEquipmentPose } from "@/hooks/useEquipmentPositionsLive.ts"
 
 export type { WarehouseEquipmentKind }
 export type WarehouseInteractionMode = "view" | "route"
@@ -121,6 +125,54 @@ export interface CellItemInfo {
   expiredDays?: number
 }
 
+function cellMatchesFilter(
+  filter: string | undefined,
+  filled: boolean,
+  expiring: boolean,
+  expired: boolean,
+): boolean {
+  switch (filter) {
+    case "empty":
+      return !filled
+    case "occupied":
+      return filled
+    case "expiring":
+      return expiring
+    case "expired":
+      return expired
+    default:
+      return true
+  }
+}
+
+function CellEmissivePulse({
+  materialRef,
+  expired,
+  dimmed,
+}: {
+  materialRef: RefObject<MeshStandardMaterial | null>
+  expired: boolean
+  dimmed?: boolean
+}) {
+  useFrame((state) => {
+    const mat = materialRef.current
+    if (!mat) return
+    mat.opacity = dimmed ? 0.4 : 1
+    mat.transparent = Boolean(dimmed)
+    const t = state.clock.elapsedTime
+    if (expired) {
+      mat.color.setStyle(CELL_EXPIRED_COLOR)
+      mat.emissive.setStyle(CELL_EXPIRED_COLOR)
+      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4)
+      return
+    }
+    mat.color.setStyle(CELL_EXPIRING_COLOR)
+    mat.emissive.setStyle(CELL_EXPIRING_COLOR)
+    mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4)
+  })
+  return null
+}
+
 function StorageCell({
   filled,
   expiring,
@@ -132,6 +184,7 @@ function StorageCell({
   darkMode,
   heatIntensity,
   hazardStripe,
+  dimmed,
   onCellClick,
   onEnter,
   onLeave,
@@ -147,6 +200,7 @@ function StorageCell({
   /** 0…1 — heatmap (congestion / pick / SLA / replenishment). */
   heatIntensity?: number
   hazardStripe?: CellStripe | null
+  dimmed?: boolean
   onCellClick?: (shiftKey: boolean) => void
   onEnter?: () => void
   onLeave?: () => void
@@ -155,23 +209,13 @@ function StorageCell({
   const materialRef = useRef<MeshStandardMaterial>(null)
   useCursor(hover, "pointer", "auto")
 
-  useFrame((state) => {
+  const pulsing = expired || expiring
+
+  useEffect(() => {
     const mat = materialRef.current
-    if (!mat) return
-    if (expired) {
-      const t = state.clock.elapsedTime
-      mat.color.setStyle(CELL_EXPIRED_COLOR)
-      mat.emissive.setStyle(CELL_EXPIRED_COLOR)
-      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4)
-      return
-    }
-    if (expiring) {
-      const t = state.clock.elapsedTime
-      mat.color.setStyle(CELL_EXPIRING_COLOR)
-      mat.emissive.setStyle(CELL_EXPIRING_COLOR)
-      mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4)
-      return
-    }
+    if (!mat || pulsing) return
+    mat.opacity = dimmed ? 0.28 : 1
+    mat.transparent = Boolean(dimmed)
     if (hazardStripe === "blocked") {
       mat.color.setStyle(CELL_BLOCKED_COLOR)
       mat.emissive.setStyle(CELL_BLOCKED_COLOR)
@@ -215,7 +259,16 @@ function StorageCell({
         darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT,
       )
     }
-  })
+  }, [
+    pulsing,
+    dimmed,
+    hazardStripe,
+    heatIntensity,
+    selected,
+    hover,
+    filled,
+    darkMode,
+  ])
 
   const baseColor = expired
     ? CELL_EXPIRED_COLOR
@@ -240,6 +293,7 @@ function StorageCell({
                       : CELL_EMPTY_COLOR_LIGHT
 
   return (
+    <>
     <mesh
       position={[x, y, z]}
       onClick={(e) => {
@@ -263,8 +317,18 @@ function StorageCell({
         color={baseColor}
         metalness={0.1}
         roughness={0.7}
+        transparent={Boolean(dimmed)}
+        opacity={dimmed ? 0.28 : 1}
       />
     </mesh>
+      {pulsing && (
+        <CellEmissivePulse
+          materialRef={materialRef}
+          expired={expired}
+          dimmed={dimmed}
+        />
+      )}
+    </>
   )
 }
 
@@ -339,6 +403,7 @@ function Rack({
   hazardByCellKey,
   routeMode,
   onRouteWaypointAdd,
+  cellFilter,
 }: {
   rackIndex: number
   baseX: number
@@ -355,6 +420,7 @@ function Rack({
   hazardByCellKey?: Map<string, CellStripe> | null
   routeMode?: boolean
   onRouteWaypointAdd?: (info: CellInfo) => void
+  cellFilter?: string
 }) {
   const geom = useWarehouseGeometry()
   const rackFrameColor = darkMode
@@ -539,7 +605,7 @@ function Rack({
         ),
       )}
 
-      {cells.map(({ level, ix, iz, filled, expiring, expired }, i) => {
+      {cells.map(({ level, ix, iz, filled, expiring, expired }) => {
         const ox = (ix - (geom.cellsLength - 1) / 2) * (CELL_SIZE + CELL_GAP)
         const oz = (iz - (geom.cellsDepth - 1) / 2) * (CELL_SIZE + CELL_GAP)
         const oy = level * LEVEL_HEIGHT + CELL_SIZE / 2 + 0.02
@@ -558,7 +624,7 @@ function Rack({
         const ckey = geom.cellKey(rackIndex, level, ix, iz)
         return (
           <StorageCell
-            key={i}
+            key={ckey}
             filled={filled}
             expiring={expiring}
             expired={expired}
@@ -569,6 +635,9 @@ function Rack({
             darkMode={darkMode}
             heatIntensity={heatByCellKey?.get(ckey)}
             hazardStripe={hazardByCellKey?.get(ckey) ?? null}
+            dimmed={
+              !cellMatchesFilter(cellFilter, filled, expiring, expired)
+            }
             onCellClick={(shiftKey) => {
               if (routeMode) {
                 onRouteWaypointAdd?.(info)
@@ -673,12 +742,14 @@ function Floor({ darkMode }: { darkMode?: boolean }) {
 function CellPopup({
   position,
   cellLabel,
-  item,
+  items,
+  occupied,
   onClose,
 }: {
   position: [number, number, number]
   cellLabel: string
-  item: CellItemInfo | null
+  items: CellItemInfo[]
+  occupied?: boolean
   onClose: () => void
 }) {
   // Для нижних уровней поднимаем попап выше ячейки, чтобы не обрезался по краю экрана
@@ -692,18 +763,12 @@ function CellPopup({
   return (
     <Html position={offsetPosition} center style={{ pointerEvents: "auto" }}>
       <div
-        className="cell-popup"
+        className="cell-popup rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md"
         style={{
           minWidth: "220px",
           maxWidth: "320px",
-          padding: "12px 14px",
-          background: "white",
-          borderRadius: "8px",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
           fontFamily: "system-ui, sans-serif",
           fontSize: "13px",
-          color: "#1a1a1a",
-          border: "1px solid #e2e8f0",
           animation: "cellPopupIn 0.18s ease-out",
         }}
       >
@@ -713,62 +778,56 @@ function CellPopup({
             to { opacity: 1; transform: scale(1); }
           }
         `}</style>
-        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "14px" }}>
-          {cellLabel}
-        </div>
-        {item ? (
+        <div className="mb-2 text-sm font-semibold">{cellLabel}</div>
+        {items.length > 0 ? (
           <>
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.title}</div>
-            {item.description && (
+            {items.length > 1 && (
+              <div className="mb-1.5 text-xs text-muted-foreground">
+                В ячейке {items.length} поз.
+              </div>
+            )}
+            {items.slice(0, 4).map((item, idx) => (
               <div
-                style={{ color: "#64748b", marginBottom: 6, fontSize: "12px" }}
+                key={item.id ?? `${item.title}-${idx}`}
+                className={
+                  idx < Math.min(items.length, 4) - 1
+                    ? "mb-2.5 border-b border-border pb-2"
+                    : undefined
+                }
               >
+            <div className="mb-1 font-semibold">{item.title}</div>
+            {item.description && (
+              <div className="mb-1.5 text-xs text-muted-foreground">
                 {item.description}
               </div>
             )}
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                flexWrap: "wrap",
-                marginBottom: 4,
-              }}
-            >
+            <div className="mb-1 flex flex-wrap gap-2.5">
               <span>Кол-во: {item.quantity ?? 1}</span>
               {item.unit && <span>Ед.: {item.unit}</span>}
               {item.sku && <span>Артикул: {item.sku}</span>}
             </div>
             {item.expires_at && (
-              <div style={{ marginBottom: 4 }}>
+              <div className="mb-1">
                 Срок годности:{" "}
                 {new Date(item.expires_at).toLocaleDateString("ru-RU")}
                 {item.isExpired && item.expiredDays != null && (
-                  <span
-                    style={{ marginLeft: 6, color: "#7f1d1d", fontWeight: 600 }}
-                  >
-                    Просрочено на {item.expiredDays}{" "}
-                    {item.expiredDays === 1
-                      ? "день"
-                      : item.expiredDays < 5
-                        ? "дня"
-                        : "дней"}
+                  <span className="ml-1.5 font-semibold text-red-900 dark:text-red-300">
+                    Просрочено на {formatExpiredDaysLabel(item.expiredDays)}
                   </span>
                 )}
                 {item.expiringSoon && !item.isExpired && (
-                  <span
-                    style={{ marginLeft: 6, color: "#dc2626", fontWeight: 600 }}
-                  >
+                  <span className="ml-1.5 font-semibold text-red-600">
                     Скоро истекает
                   </span>
                 )}
               </div>
             )}
             {item.location && (
-              <div style={{ color: "#64748b", fontSize: "12px" }}>
+              <div className="text-xs text-muted-foreground">
                 Место: {item.location}
               </div>
             )}
-            <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: 6 }}>
+            <div className="mt-1.5 text-[11px] text-muted-foreground">
               Статус: {item.status}
             </div>
             {item.id && (
@@ -778,17 +837,29 @@ function CellPopup({
                 variant="outline"
                 className="mt-2 h-7 text-xs"
               >
-                <a
-                  href={`/items?open=${encodeURIComponent(item.id)}`}
-                  onClick={(e) => e.stopPropagation()}
+                <RouterLink
+                  to="/items"
+                  search={{ open: item.id }}
+                  onClick={(e: ReactMouseEvent) => e.stopPropagation()}
                 >
                   Подробнее →
-                </a>
+                </RouterLink>
               </Button>
             )}
+              </div>
+            ))}
+            {items.length > 4 && (
+              <div className="mt-1.5 text-xs text-muted-foreground">
+                Ещё {items.length - 4}…
+              </div>
+            )}
           </>
+        ) : occupied ? (
+          <div className="text-muted-foreground">
+            Ячейка занята (карточка товара ещё не загружена)
+          </div>
         ) : (
-          <div style={{ color: "#64748b" }}>Ячейка свободна</div>
+          <div className="text-muted-foreground">Ячейка свободна</div>
         )}
         <Button
           type="button"
@@ -1482,6 +1553,8 @@ export type WarehouseTwinEnrichment = {
   topology: TopologyDocument | null
   routeGraph: RouteGraphResponse | null
   equipmentList: EquipmentPublic[]
+  liveEquipment?: Map<string, LiveEquipmentPose> | null
+  useRouteGraph?: boolean
   twinHeatByCellKey: Map<string, number>
   twinHazardByCellKey: Map<string, CellStripe>
   twinLayerVisibility: TwinLayersVisibility
@@ -1493,7 +1566,7 @@ function WarehouseContent({
   occupiedCellKeys,
   expiringCellKeys,
   expiredCellKeys,
-  selectedItem,
+  selectedItems,
   darkMode,
   interactionMode = "view",
   routeWaypoints = [],
@@ -1504,13 +1577,14 @@ function WarehouseContent({
   simulationShowCargo = true,
   onSimulationComplete,
   twinEnrichment,
+  cellFilter,
 }: {
   selectedCell: CellInfo | null
   onCellSelect: (info: CellInfo | null) => void
   occupiedCellKeys?: Set<string> | null
   expiringCellKeys?: Set<string> | null
   expiredCellKeys?: Set<string> | null
-  selectedItem?: CellItemInfo | null
+  selectedItems?: CellItemInfo[]
   darkMode?: boolean
   interactionMode?: WarehouseInteractionMode
   routeWaypoints?: CellInfo[]
@@ -1521,6 +1595,7 @@ function WarehouseContent({
   simulationShowCargo?: boolean
   onSimulationComplete?: () => void
   twinEnrichment?: WarehouseTwinEnrichment | null
+  cellFilter?: string
 }) {
   const geom = useWarehouseGeometry()
   const [hoveredCell, setHoveredCell] = useState<CellInfo | null>(null)
@@ -1558,8 +1633,15 @@ function WarehouseContent({
   )
 
   const aislePathPoints = useMemo(
-    () => buildAisleRoutePolyline(geom, routeWaypoints, ROUTE_FLOOR_Y),
-    [geom, routeWaypoints],
+    () =>
+      buildRoutePolyline(
+        geom,
+        routeWaypoints,
+        ROUTE_FLOOR_Y,
+        twinEnrichment?.routeGraph,
+        twinEnrichment?.useRouteGraph !== false,
+      ),
+    [geom, routeWaypoints, twinEnrichment?.routeGraph, twinEnrichment?.useRouteGraph],
   )
 
   const apronMidZ = useMemo(() => dockApronMidpointZ(geom), [geom])
@@ -1640,6 +1722,7 @@ function WarehouseContent({
           topology={twinEnrichment.topology}
           routeGraph={twinEnrichment.routeGraph}
           equipment={twinEnrichment.equipmentList}
+          livePositions={twinEnrichment.liveEquipment}
           visibility={twinEnrichment.twinLayerVisibility}
         />
       )}
@@ -1667,7 +1750,17 @@ function WarehouseContent({
             selectedCell.cellZ,
           )}
           cellLabel={`Ячейка: ряд ${selectedCell.row + 1}, уровень ${selectedCell.level + 1}, позиция ${selectedCell.cellX + 1}`}
-          item={selectedItem ?? null}
+          items={selectedItems ?? []}
+          occupied={Boolean(
+            occupiedCellKeys?.has(
+              geom.cellKey(
+                selectedCell.row,
+                selectedCell.level,
+                selectedCell.cellX,
+                selectedCell.cellZ,
+              ),
+            ),
+          )}
           onClose={() => onCellSelect(null)}
         />
       )}
@@ -1689,6 +1782,7 @@ function WarehouseContent({
           hazardByCellKey={twinEnrichment?.twinHazardByCellKey}
           routeMode={routeClicksEnabled}
           onRouteWaypointAdd={onRouteWaypointAdd}
+          cellFilter={cellFilter}
         />
       ))}
     </>
@@ -1798,7 +1892,30 @@ function SceneLoadOverlay() {
 }
 
 const _freeCamSpeed = 8
-const _freeCamKeys = new Set<string>()
+const FREE_CAM_CODES = new Set([
+  "KeyW",
+  "KeyA",
+  "KeyS",
+  "KeyD",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "Space",
+  "ShiftLeft",
+  "ShiftRight",
+])
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  )
+}
 
 function FreeCameraController() {
   const { camera, gl } = useThree()
@@ -1806,6 +1923,7 @@ function FreeCameraController() {
   const pitch = useRef(0)
   const mouseDown = useRef(false)
   const initialized = useRef(false)
+  const keysRef = useRef(new Set<string>())
 
   useEffect(() => {
     if (!initialized.current) {
@@ -1844,10 +1962,16 @@ function FreeCameraController() {
       camera.position.addScaledVector(fwd, -e.deltaY * 0.02)
     }
     const onKeyDown = (e: KeyboardEvent) => {
-      _freeCamKeys.add(e.code)
+      if (isTypingTarget(e.target)) return
+      if (!FREE_CAM_CODES.has(e.code)) return
+      e.preventDefault()
+      keysRef.current.add(e.code)
     }
     const onKeyUp = (e: KeyboardEvent) => {
-      _freeCamKeys.delete(e.code)
+      keysRef.current.delete(e.code)
+    }
+    const onBlur = () => {
+      keysRef.current.clear()
     }
     const onContextMenu = (e: Event) => e.preventDefault()
 
@@ -1859,6 +1983,7 @@ function FreeCameraController() {
     canvas.addEventListener("contextmenu", onContextMenu)
     window.addEventListener("keydown", onKeyDown)
     window.addEventListener("keyup", onKeyUp)
+    window.addEventListener("blur", onBlur)
     return () => {
       canvas.removeEventListener("pointerdown", onPointerDown)
       canvas.removeEventListener("pointerup", onPointerUp)
@@ -1868,7 +1993,8 @@ function FreeCameraController() {
       canvas.removeEventListener("contextmenu", onContextMenu)
       window.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("keyup", onKeyUp)
-      _freeCamKeys.clear()
+      window.removeEventListener("blur", onBlur)
+      keysRef.current.clear()
     }
   }, [gl, camera])
 
@@ -1881,17 +2007,18 @@ function FreeCameraController() {
     const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
     const right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
 
-    if (_freeCamKeys.has("KeyW") || _freeCamKeys.has("ArrowUp"))
+    const keys = keysRef.current
+    if (keys.has("KeyW") || keys.has("ArrowUp"))
       camera.position.addScaledVector(forward, speed)
-    if (_freeCamKeys.has("KeyS") || _freeCamKeys.has("ArrowDown"))
+    if (keys.has("KeyS") || keys.has("ArrowDown"))
       camera.position.addScaledVector(forward, -speed)
-    if (_freeCamKeys.has("KeyA") || _freeCamKeys.has("ArrowLeft"))
+    if (keys.has("KeyA") || keys.has("ArrowLeft"))
       camera.position.addScaledVector(right, -speed)
-    if (_freeCamKeys.has("KeyD") || _freeCamKeys.has("ArrowRight"))
+    if (keys.has("KeyD") || keys.has("ArrowRight"))
       camera.position.addScaledVector(right, speed)
 
-    if (_freeCamKeys.has("Space")) camera.position.y += speed
-    if (_freeCamKeys.has("ShiftLeft") || _freeCamKeys.has("ShiftRight"))
+    if (keys.has("Space")) camera.position.y += speed
+    if (keys.has("ShiftLeft") || keys.has("ShiftRight"))
       camera.position.y -= speed
   })
 
@@ -1909,8 +2036,9 @@ interface WarehouseSceneProps {
   occupiedCellKeys?: Set<string> | null
   expiringCellKeys?: Set<string> | null
   expiredCellKeys?: Set<string> | null
-  selectedItem?: CellItemInfo | null
+  selectedItems?: CellItemInfo[]
   darkMode?: boolean
+  cellFilter?: string
   /** Spec из GET /api/v1/warehouse/layout (поля rows, levels, cellX, cellZ). */
   layoutSpec?: WarehouseLayoutSpec | null
   /** Просмотр ячеек или прокладка маршрута по клику. */
@@ -1940,7 +2068,7 @@ export function WarehouseScene({
   occupiedCellKeys,
   expiringCellKeys,
   expiredCellKeys,
-  selectedItem,
+  selectedItems,
   darkMode,
   layoutSpec,
   interactionMode = "view",
@@ -1953,6 +2081,7 @@ export function WarehouseScene({
   onSimulationComplete,
   twinEnrichment = null,
   freeCameraMode = false,
+  cellFilter,
 }: WarehouseSceneProps) {
   const [internalCell, setInternalCell] = useState<CellInfo | null>(null)
   const isControlled = selectedCellFromParent !== undefined
@@ -1968,13 +2097,20 @@ export function WarehouseScene({
     [onCellSelect, isControlled],
   )
 
+  const needsContinuousFrames =
+    freeCameraMode ||
+    simulationActive ||
+    (expiredCellKeys?.size ?? 0) > 0 ||
+    (expiringCellKeys?.size ?? 0) > 0
+
   return (
     <Canvas
+      frameloop={needsContinuousFrames ? "always" : "demand"}
       camera={{
         position: [20, 16, 20],
         fov: 45,
         near: 0.1,
-        far: 150,
+        far: 280,
       }}
       gl={{ antialias: true }}
       onPointerMissed={() => {
@@ -1989,7 +2125,7 @@ export function WarehouseScene({
           occupiedCellKeys={occupiedCellKeys}
           expiringCellKeys={expiringCellKeys}
           expiredCellKeys={expiredCellKeys}
-          selectedItem={selectedItem}
+          selectedItems={selectedItems}
           darkMode={darkMode}
           interactionMode={interactionMode}
           routeWaypoints={routeWaypoints}
@@ -2000,6 +2136,7 @@ export function WarehouseScene({
           simulationShowCargo={simulationShowCargo}
           onSimulationComplete={onSimulationComplete}
           twinEnrichment={twinEnrichment}
+          cellFilter={cellFilter}
         />
         <CameraFocusOnCell
           focusCell={focusCell ?? null}
@@ -2013,7 +2150,7 @@ export function WarehouseScene({
           enablePan
           enableZoom
           minDistance={14}
-          maxDistance={55}
+          maxDistance={90}
           target={[0, 2, 0]}
           maxPolarAngle={Math.PI / 2 - 0.1}
         />

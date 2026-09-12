@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router"
 import { z } from "zod"
 
 import { ItemDataTable } from "@/components/Items/ItemDataTable.tsx"
+import { pageNumberSearch } from "@/lib/routeSearch.ts"
 
 const shippedSearchSchema = z.object({
-  page: z.number().catch(1),
+  page: pageNumberSearch,
   search: z.string().catch(""),
   category_id: z.string().catch(""),
   sort_by: z

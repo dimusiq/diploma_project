@@ -15,15 +15,30 @@ export const CELL_FILTER_VALUES = [
 
 export type CellFilter = (typeof CELL_FILTER_VALUES)[number]
 
+const optionalPositiveInt = z.preprocess((v) => {
+  if (v == null || v === "") return undefined
+  const n = Number(v)
+  if (!Number.isFinite(n)) return undefined
+  return n
+}, z.number().int().positive().optional())
+
 export const warehouse3dSearchSchema = z.object({
-  row: z.coerce.number().int().positive().optional(),
-  level: z.coerce.number().int().positive().optional(),
-  cellX: z.coerce.number().int().positive().optional(),
-  cellZ: z.coerce.number().int().positive().optional(),
-  filter: z.enum(CELL_FILTER_VALUES).optional(),
+  row: optionalPositiveInt,
+  level: optionalPositiveInt,
+  cellX: optionalPositiveInt,
+  cellZ: optionalPositiveInt,
+  filter: z.enum(CELL_FILTER_VALUES).optional().catch(undefined),
 })
 
 export type Warehouse3dSearch = z.infer<typeof warehouse3dSearchSchema>
+
+export function validateWarehouse3dSearch(
+  search: Record<string, unknown>,
+): Warehouse3dSearch {
+  const parsed = warehouse3dSearchSchema.safeParse(search)
+  if (parsed.success) return parsed.data
+  return { filter: parseCellFilter(search.filter) }
+}
 
 export function clampSearchToLayout(
   search: Warehouse3dSearch,

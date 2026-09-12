@@ -1,12 +1,11 @@
 import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 import { FiChevronRight } from "react-icons/fi"
 import { Button } from "@/components/ui/button.tsx"
+import { EXPIRING_DAYS } from "@/components/warehouse3d/twin3dDerived.ts"
 
 export const Route = createFileRoute("/_layout/warehouse-3d-help")({
   component: Warehouse3DHelpPage,
 })
-
-const EXPIRING_DAYS = 30
 
 function Warehouse3DHelpPage() {
   return (
@@ -93,8 +92,11 @@ function Warehouse3DHelpPage() {
               GET /warehouse/route-graph
             </code>
             . Heatmap и аномалии считаются в браузере. Слайдер «Снимок данных»
-            переключает локальные снимки списка товаров (обновляются примерно
-            раз в 12 с).
+            переключает локальные снимки списка товаров (после изменения
+            занятости, не чаще чем раз в 12 с). Маршрут может идти по графу
+            склада (вкладка «Маршрут»). Занятость ячеек дополняется лёгким
+            API occupancy, техника в режиме «Техника + граф» берёт живые позы
+            из SSE.
           </p>
         </section>
 

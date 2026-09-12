@@ -5,9 +5,10 @@ import { z } from "zod"
 
 import { PullToRefresh } from "@/components/Common/PullToRefresh.tsx"
 import { ItemDataTable } from "@/components/Items/ItemDataTable.tsx"
+import { pageNumberSearch } from "@/lib/routeSearch.ts"
 
 const warehouseSearchSchema = z.object({
-  page: z.number().catch(1),
+  page: pageNumberSearch,
   search: z.string().catch(""),
   category_id: z.string().catch(""),
   sort_by: z

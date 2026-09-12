@@ -24,6 +24,19 @@ export type WarehouseEquipmentKind =
   | "electric_pallet_jack"
   | "order_picker"
 
+export function equipmentTypeToKind(type: string): WarehouseEquipmentKind {
+  switch (type) {
+    case "richtrak":
+      return "reach_truck"
+    case "komplektovshchik":
+      return "order_picker"
+    case "elektrotelezhka":
+      return "electric_pallet_jack"
+    default:
+      return "forklift"
+  }
+}
+
 /**
  * Реестр GLB-моделей.
  * path  — относительный путь от public/

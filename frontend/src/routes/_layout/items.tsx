@@ -4,13 +4,14 @@ import { useCallback } from "react"
 import { z } from "zod"
 
 import { ItemsService } from "@/client/index.ts"
+import { pageNumberSearch } from "@/lib/routeSearch.ts"
 import { PullToRefresh } from "@/components/Common/PullToRefresh.tsx"
 import AddItem from "@/components/Items/AddItem.tsx"
 import EditItem from "@/components/Items/EditItem.tsx"
 import { ItemDataTable } from "@/components/Items/ItemDataTable.tsx"
 
 const itemsSearchSchema = z.object({
-  page: z.number().catch(1),
+  page: pageNumberSearch,
   search: z.string().catch(""),
   category_id: z.string().catch(""),
   created_at_from: z.string().catch(""),

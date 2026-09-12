@@ -18,6 +18,7 @@ export async function fetchAllItems(
     const batch = page.data ?? []
     all.push(...batch)
     if (batch.length < PAGE_SIZE) break
+    if (typeof page.count === "number" && all.length >= page.count) break
     skip += PAGE_SIZE
     if (skip > 50_000) break
   }

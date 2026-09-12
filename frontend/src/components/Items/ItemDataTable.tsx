@@ -183,6 +183,19 @@ export function ItemDataTable({
   const count = data?.count ?? 0
   const [optimisticItems, addOptimisticRemove] = useOptimisticItems(items)
 
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [
+    page,
+    search,
+    categoryId,
+    status,
+    sortBy,
+    sortOrder,
+    createdAtFrom,
+    createdAtTo,
+  ])
+
   const toggleOne = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)

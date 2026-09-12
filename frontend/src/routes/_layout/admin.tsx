@@ -17,10 +17,11 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs.tsx"
+import { boolQuerySearch, pageNumberSearch } from "@/lib/routeSearch.ts"
 
 const usersSearchSchema = z.object({
-  page: z.number().catch(1),
-  deleted: z.boolean().catch(false),
+  page: pageNumberSearch,
+  deleted: boolQuerySearch,
 })
 
 export const Route = createFileRoute("/_layout/admin")({

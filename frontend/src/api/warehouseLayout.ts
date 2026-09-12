@@ -21,6 +21,21 @@ export async function fetchWarehouseLayout(): Promise<WarehouseLayoutResponse> {
   return request<WarehouseLayoutResponse>("/api/v1/warehouse/layout")
 }
 
+export interface WarehouseSlotOccupancyEntry {
+  slot_key: string
+  item_id: string
+}
+
+export interface WarehouseOccupancyResponse {
+  data: WarehouseSlotOccupancyEntry[]
+  count: number
+}
+
+/** Лёгкая проекция занятости ячеек (без полного списка товаров). */
+export async function fetchWarehouseOccupancy(): Promise<WarehouseOccupancyResponse> {
+  return request<WarehouseOccupancyResponse>("/api/v1/warehouse/occupancy")
+}
+
 export function specToLayoutGeometry(
   spec: Record<string, unknown> | undefined,
 ): WarehouseLayoutSpec | null {

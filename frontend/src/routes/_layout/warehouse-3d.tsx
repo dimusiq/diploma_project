@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
+import { createFileRoute, Link as RouterLink, useNavigate } from "@tanstack/react-router"
 import { useTheme } from "next-themes"
 import {
   lazy,
@@ -18,16 +18,15 @@ import {
   FiRotateCcw,
   FiSliders,
 } from "react-icons/fi"
-import { z } from "zod"
 import { equipmentApi } from "@/api/equipment.ts"
 import {
   fetchWarehouseLayout,
+  fetchWarehouseOccupancy,
   specToLayoutGeometry,
 } from "@/api/warehouseLayout.ts"
 import { fetchWarehouseRouteGraph } from "@/api/warehouseRouteGraph.ts"
 import { warehouseTopologyApi } from "@/api/warehouseTopology.ts"
 import type { ItemPublic } from "@/client/index.ts"
-import { ItemsService } from "@/client/index.ts"
 import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
@@ -43,8 +42,13 @@ import { Tabs } from "@/components/ui/tabs.tsx"
 import {
   blockedCellKeysFromTopology,
   type CellStripe,
+  cellKeysFromItems,
+  getExpiredDays,
   type HeatMetric,
   heatMapForMetric,
+  isExpired,
+  isExpiringSoon,
+  itemsInCell,
   replenishmentNeedByCellKey,
   slaRiskByCellKey,
   stripeByCellKey,
@@ -53,6 +57,7 @@ import {
   Warehouse3DToolsPanelContent,
   type Warehouse3DToolsTab,
 } from "@/components/warehouse3d/Warehouse3dToolsPanels.tsx"
+import { WarehouseMiniMap } from "@/components/warehouse3d/WarehouseMiniMap.tsx"
 import type {
   CellInfo,
   CellItemInfo,
@@ -62,9 +67,19 @@ import type {
   WarehouseTwinEnrichment,
 } from "@/components/warehouse3d/WarehouseScene.tsx"
 import {
+  cellInfoToSearch,
+  clampSearchToLayout,
+  parseCellFilter,
+  searchToCellInfo,
+  validateWarehouse3dSearch,
+} from "@/components/warehouse3d/warehouse3dSearch.ts"
+import {
   buildWarehouseGeometry,
   DEFAULT_WAREHOUSE_LAYOUT_SPEC,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
+import { useEquipmentPositionsLive } from "@/hooks/useEquipmentPositionsLive.ts"
+import { useTwinLivePanelState } from "@/hooks/useTwinLivePanelState.ts"
+import { fetchAllItems, itemsFingerprint } from "@/lib/fetchAllItems.ts"
 import { cn } from "@/lib/utils.ts"
 
 const WAREHOUSE_3D_TOOLS_TAB_KEY = "nebardak.warehouse3d.toolsTab"
@@ -86,98 +101,38 @@ const WarehouseScene = lazy(() =>
   })),
 )
 
-const warehouse3dSearchSchema = z.object({
-  row: z.coerce.number().min(1).max(12).optional(),
-  level: z.coerce.number().min(1).max(4).optional(),
-  cellX: z.coerce.number().min(1).max(20).optional(),
-  cellZ: z.coerce.number().min(1).max(1).optional(),
-})
-
 export const Route = createFileRoute("/_layout/warehouse-3d")({
   component: Warehouse3DPage,
-  validateSearch: (search) => warehouse3dSearchSchema.parse(search),
+  validateSearch: (search) =>
+    validateWarehouse3dSearch(search as Record<string, unknown>),
 })
 
-const EXPIRING_DAYS = 30
-
-function cellKeyFromItem(
-  row: number,
-  level: number,
-  cellX: number,
-  cellZ: number,
-): string {
-  return `${row - 1}-${level - 1}-${cellX - 1}-${cellZ - 1}`
-}
-
-function isExpiringSoon(expiresAt: string | null | undefined): boolean {
-  if (!expiresAt) return false
-  const exp = new Date(expiresAt)
-  const now = new Date()
-  const daysLeft = Math.ceil(
-    (exp.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
-  )
-  return daysLeft >= 0 && daysLeft <= EXPIRING_DAYS
-}
-
-function isExpired(expiresAt: string | null | undefined): boolean {
-  if (!expiresAt) return false
-  const exp = new Date(expiresAt)
-  exp.setHours(0, 0, 0, 0)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return exp.getTime() < today.getTime()
-}
-
-/** Количество дней просрочки (положительное число). 0 если не просрочен. */
-function getExpiredDays(expiresAt: string | null | undefined): number {
-  if (!expiresAt) return 0
-  const exp = new Date(expiresAt)
-  exp.setHours(0, 0, 0, 0)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const diff = Math.ceil(
-    (today.getTime() - exp.getTime()) / (24 * 60 * 60 * 1000),
-  )
-  return diff > 0 ? diff : 0
-}
-
-function findItemInCell(
-  items: ItemPublic[] | undefined,
-  cell: CellInfo,
-): ItemPublic | undefined {
-  if (!items?.length) return undefined
-  return items.find(
-    (i) =>
-      i.storage_row === cell.row + 1 &&
-      i.storage_level === cell.level + 1 &&
-      i.storage_cell_x === cell.cellX + 1 &&
-      (i.storage_cell_z ?? 1) === cell.cellZ + 1,
-  )
-}
-
-function searchToCellInfo(
-  search: z.infer<typeof warehouse3dSearchSchema>,
-): CellInfo | null {
-  if (search.row != null && search.level != null && search.cellX != null) {
-    return {
-      row: search.row - 1,
-      level: search.level - 1,
-      cellX: search.cellX - 1,
-      cellZ: (search.cellZ ?? 1) - 1,
-      filled: false,
-    }
+function toCellItemInfo(item: ItemPublic): CellItemInfo {
+  const expiresAt = item.expires_at ?? null
+  const expired = isExpired(expiresAt)
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description ?? null,
+    quantity: item.quantity ?? 1,
+    unit: item.unit ?? null,
+    sku: item.sku ?? null,
+    expires_at: expiresAt,
+    location: item.location ?? null,
+    status: item.status,
+    expiringSoon: !expired && isExpiringSoon(expiresAt),
+    isExpired: expired,
+    expiredDays: expired ? getExpiredDays(expiresAt) : undefined,
   }
-  return null
 }
 
 function Warehouse3DPage() {
   const { resolvedTheme } = useTheme()
   const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
   const canvasContainerRef = useRef<HTMLDivElement>(null)
-  const [selectedCell, setSelectedCell] = useState<CellInfo | null>(() =>
-    searchToCellInfo(search),
-  )
-  /** Фокус камеры только при переходе по «Показать на складе 3D»; после применения сбрасывается. */
+  const skipFocusFromSelfRef = useRef(false)
+  const [selectedCell, setSelectedCell] = useState<CellInfo | null>(null)
   const [focusCell, setFocusCell] = useState<CellInfo | null>(null)
   const [sceneKey, setSceneKey] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -198,6 +153,12 @@ function Warehouse3DPage() {
     Array<{ at: number; items: ItemPublic[] }>
   >([])
   const snapThrottleRef = useRef(0)
+  const lastFingerprintRef = useRef("")
+  const [useRouteGraph, setUseRouteGraph] = useState(true)
+
+  const cellFilter = parseCellFilter(search.filter)
+  const { status: twinStatus } = useTwinLivePanelState()
+  const liveEquipment = useEquipmentPositionsLive()
 
   const addRouteWaypoint = useCallback((cell: CellInfo) => {
     setRouteWaypoints((prev) => [...prev, { ...cell }])
@@ -243,36 +204,100 @@ function Warehouse3DPage() {
       document.removeEventListener("fullscreenchange", onFullscreenChange)
   }, [])
 
-  useEffect(() => {
-    const fromUrl = searchToCellInfo(search)
-    if (fromUrl) {
-      setSelectedCell(fromUrl)
-      // Фокус камеры только при смене URL (переход по ссылке из списка), не при клике по ячейке
-      setFocusCell(fromUrl)
-    }
-  }, [search.row, search.level, search.cellX, search.cellZ, search])
-
-  useEffect(() => {
-    if (!selectedCell) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelectedCell(null)
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [selectedCell])
-
-  const resetCamera = useCallback(() => setSceneKey((k) => k + 1), [])
-
-  const { data: itemsData } = useQuery({
-    queryKey: ["items", "all-for-warehouse-3d"],
-    queryFn: () => ItemsService.readItems({ skip: 0, limit: 1000 }),
-    refetchInterval: liveData ? 2500 : false,
-  })
-
   const { data: layoutApi } = useQuery({
     queryKey: ["warehouse", "layout"],
     queryFn: fetchWarehouseLayout,
     staleTime: 60_000,
+  })
+
+  const layoutSpec = useMemo(
+    () => specToLayoutGeometry(layoutApi?.spec),
+    [layoutApi?.spec],
+  )
+  const layoutSpecResolved = layoutSpec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC
+
+  useEffect(() => {
+    const clamped = clampSearchToLayout(search, layoutSpecResolved)
+    if (
+      clamped.row !== search.row ||
+      clamped.level !== search.level ||
+      clamped.cellX !== search.cellX ||
+      clamped.cellZ !== search.cellZ
+    ) {
+      skipFocusFromSelfRef.current = true
+      void navigate({ search: clamped, replace: true })
+    }
+  }, [layoutSpecResolved, search, navigate])
+
+  useEffect(() => {
+    const fromUrl = searchToCellInfo(search, layoutSpecResolved)
+    if (fromUrl) {
+      setSelectedCell(fromUrl)
+      if (!skipFocusFromSelfRef.current) {
+        setFocusCell(fromUrl)
+      }
+    } else if (
+      search.row == null &&
+      search.level == null &&
+      search.cellX == null
+    ) {
+      setSelectedCell(null)
+    }
+    skipFocusFromSelfRef.current = false
+  }, [
+    search.row,
+    search.level,
+    search.cellX,
+    search.cellZ,
+    layoutSpecResolved,
+  ])
+
+  const persistCellInUrl = useCallback(
+    (cell: CellInfo | null) => {
+      skipFocusFromSelfRef.current = true
+      setSelectedCell(cell)
+      void navigate({
+        search: cellInfoToSearch(cell, cellFilter),
+        replace: true,
+      })
+    },
+    [navigate, cellFilter],
+  )
+
+  const setCellFilter = useCallback(
+    (filter: typeof cellFilter) => {
+      skipFocusFromSelfRef.current = true
+      void navigate({
+        search: cellInfoToSearch(selectedCell, filter),
+        replace: true,
+      })
+    },
+    [navigate, selectedCell],
+  )
+
+  useEffect(() => {
+    if (!selectedCell) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") persistCellInUrl(null)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [selectedCell, persistCellInUrl])
+
+  const resetCamera = useCallback(() => setSceneKey((k) => k + 1), [])
+
+  const { data: items = [] } = useQuery({
+    queryKey: ["items", "all-for-warehouse-3d"],
+    queryFn: () => fetchAllItems(),
+    refetchInterval: liveData ? 2500 : false,
+    placeholderData: (prev) => prev,
+  })
+
+  const { data: occupancy } = useQuery({
+    queryKey: ["warehouse", "occupancy"],
+    queryFn: fetchWarehouseOccupancy,
+    staleTime: 15_000,
+    refetchInterval: liveData ? 2500 : false,
   })
 
   const { data: topology } = useQuery({
@@ -293,11 +318,6 @@ function Warehouse3DPage() {
     staleTime: 60_000,
   })
 
-  const layoutSpec = useMemo(
-    () => specToLayoutGeometry(layoutApi?.spec),
-    [layoutApi?.spec],
-  )
-
   const addSelectedCellToRoute = useCallback(() => {
     if (!selectedCell || simulationActive) return
     addRouteWaypoint(selectedCell)
@@ -305,30 +325,41 @@ function Warehouse3DPage() {
 
   const setDemoRoute = useCallback(() => {
     if (simulationActive) return
-    const spec = layoutSpec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC
+    const spec = layoutSpecResolved
     const endX = Math.max(0, spec.cellX - 1)
     const z = Math.max(0, spec.cellZ - 1)
     setRouteWaypoints([
       { row: 0, level: 0, cellX: 0, cellZ: z, filled: false },
       { row: 0, level: 0, cellX: endX, cellZ: z, filled: false },
     ])
-  }, [layoutSpec, simulationActive])
+  }, [layoutSpecResolved, simulationActive])
 
-  const items = itemsData?.data ?? []
   const itemsRef = useRef(items)
   itemsRef.current = items
+  const fingerprint = itemsFingerprint(items)
 
   useEffect(() => {
     if (items.length === 0) return
+    if (lastFingerprintRef.current === fingerprint) return
     const now = Date.now()
-    if (now - snapThrottleRef.current < 12_000) return
-    snapThrottleRef.current = now
-    setSnapshots((prev) => [
-      ...prev.slice(-35),
-      { at: now, items: [...itemsRef.current] },
-    ])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length])
+    const wait = lastFingerprintRef.current
+      ? Math.max(0, 12_000 - (now - snapThrottleRef.current))
+      : 0
+    const commit = () => {
+      lastFingerprintRef.current = itemsFingerprint(itemsRef.current)
+      snapThrottleRef.current = Date.now()
+      setSnapshots((prev) => [
+        ...prev.slice(-35),
+        { at: Date.now(), items: [...itemsRef.current] },
+      ])
+    }
+    if (wait === 0) {
+      commit()
+      return
+    }
+    const t = window.setTimeout(commit, wait)
+    return () => window.clearTimeout(t)
+  }, [fingerprint, items.length])
 
   const displayItems = useMemo(() => {
     if (historyIdx < 0 || historyIdx >= snapshots.length) return items
@@ -339,15 +370,9 @@ function Warehouse3DPage() {
     if (historyIdx >= snapshots.length) setHistoryIdx(-1)
   }, [snapshots.length, historyIdx])
 
-  const layoutSpecResolved = layoutSpec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC
   const geom = useMemo(
     () => buildWarehouseGeometry(layoutSpecResolved),
-    [
-      layoutSpecResolved.rows, 
-      layoutSpecResolved.levels, 
-      layoutSpecResolved.cellX, 
-      layoutSpecResolved.cellZ, layoutSpecResolved
-    ],
+    [layoutSpecResolved],
   )
 
   const twinLayerVisibility = useMemo(() => {
@@ -422,12 +447,16 @@ function Warehouse3DPage() {
     return m
   }, [overlayMode, displayItems, geom, topology])
 
+  const viewingHistory = historyIdx >= 0 && historyIdx < snapshots.length
+
   const twinEnrichment: WarehouseTwinEnrichment | null = useMemo(
     () => ({
       overlayMode,
       topology: topology ?? null,
       routeGraph: routeGraph ?? null,
       equipmentList: equipmentResponse?.data ?? [],
+      liveEquipment: viewingHistory ? null : liveEquipment,
+      useRouteGraph,
       twinHeatByCellKey,
       twinHazardByCellKey,
       twinLayerVisibility,
@@ -437,6 +466,9 @@ function Warehouse3DPage() {
       topology,
       routeGraph,
       equipmentResponse?.data,
+      liveEquipment,
+      viewingHistory,
+      useRouteGraph,
       twinHeatByCellKey,
       twinHazardByCellKey,
       twinLayerVisibility,
@@ -444,86 +476,35 @@ function Warehouse3DPage() {
   )
 
   const occupiedCellKeys = useMemo(() => {
-    const set = new Set<string>()
-    displayItems.forEach((item) => {
-      if (item.slot_key) {
-        set.add(item.slot_key)
-        return
+    const set = cellKeysFromItems(displayItems)
+    if (!viewingHistory) {
+      for (const row of occupancy?.data ?? []) {
+        if (row.slot_key) set.add(row.slot_key)
       }
-      const r = item.storage_row
-      const l = item.storage_level
-      const x = item.storage_cell_x
-      const z = item.storage_cell_z
-      if (r != null && l != null && x != null && z != null) {
-        set.add(cellKeyFromItem(r, l, x, z))
-      }
-    })
+    }
     return set
-  }, [displayItems])
+  }, [displayItems, occupancy?.data, viewingHistory])
 
-  const expiringCellKeys = useMemo(() => {
-    const set = new Set<string>()
-    displayItems.forEach((item) => {
-      if (!isExpiringSoon(item.expires_at ?? null)) return
-      if (item.slot_key) {
-        set.add(item.slot_key)
-        return
-      }
-      const r = item.storage_row
-      const l = item.storage_level
-      const x = item.storage_cell_x
-      const z = item.storage_cell_z
-      if (r != null && l != null && x != null && z != null) {
-        set.add(cellKeyFromItem(r, l, x, z))
-      }
-    })
-    return set
-  }, [displayItems])
-
-  const expiredCellKeys = useMemo(() => {
-    const set = new Set<string>()
-    displayItems.forEach((item) => {
-      if (!isExpired(item.expires_at ?? null)) return
-      if (item.slot_key) {
-        set.add(item.slot_key)
-        return
-      }
-      const r = item.storage_row
-      const l = item.storage_level
-      const x = item.storage_cell_x
-      const z = item.storage_cell_z
-      if (r != null && l != null && x != null && z != null) {
-        set.add(cellKeyFromItem(r, l, x, z))
-      }
-    })
-    return set
-  }, [displayItems])
-
-  const selectedItem = useMemo(
+  const expiringCellKeys = useMemo(
     () =>
-      selectedCell ? findItemInCell(displayItems, selectedCell) : undefined,
-    [selectedCell, displayItems],
+      cellKeysFromItems(displayItems, (item) =>
+        isExpiringSoon(item.expires_at ?? null),
+      ),
+    [displayItems],
   )
 
-  const selectedItemForPopup = useMemo((): CellItemInfo | null => {
-    if (!selectedItem) return null
-    const expiresAt = selectedItem.expires_at ?? null
-    const expired = isExpired(expiresAt)
-    return {
-      id: selectedItem.id,
-      title: selectedItem.title,
-      description: selectedItem.description ?? null,
-      quantity: selectedItem.quantity ?? 1,
-      unit: selectedItem.unit ?? null,
-      sku: selectedItem.sku ?? null,
-      expires_at: expiresAt,
-      location: selectedItem.location ?? null,
-      status: selectedItem.status,
-      expiringSoon: !expired && isExpiringSoon(expiresAt),
-      isExpired: expired,
-      expiredDays: expired ? getExpiredDays(expiresAt) : undefined,
-    }
-  }, [selectedItem])
+  const expiredCellKeys = useMemo(
+    () =>
+      cellKeysFromItems(displayItems, (item) =>
+        isExpired(item.expires_at ?? null),
+      ),
+    [displayItems],
+  )
+
+  const selectedItemsForPopup = useMemo((): CellItemInfo[] => {
+    if (!selectedCell) return []
+    return itemsInCell(displayItems, selectedCell).map(toCellItemInfo)
+  }, [selectedCell, displayItems])
 
   const [toolsTab, setToolsTab] = useState<Warehouse3DToolsTab>(() =>
     readStoredToolsTab(),
@@ -547,7 +528,7 @@ function Warehouse3DPage() {
       setLiveData,
       interactionMode,
       setInteractionMode,
-      setSelectedCell,
+      setSelectedCell: persistCellInUrl,
       equipmentKind,
       setEquipmentKind,
       simulationShowCargo,
@@ -570,10 +551,16 @@ function Warehouse3DPage() {
       historyIdx,
       setHistoryIdx,
       snapshots,
+      cellFilter,
+      setCellFilter,
+      twinStatus,
+      useRouteGraph,
+      setUseRouteGraph,
     }),
     [
       liveData,
       interactionMode,
+      persistCellInUrl,
       equipmentKind,
       simulationShowCargo,
       simulationSpeed,
@@ -590,6 +577,10 @@ function Warehouse3DPage() {
       heatMetric,
       historyIdx,
       snapshots,
+      cellFilter,
+      setCellFilter,
+      twinStatus,
+      useRouteGraph,
     ],
   )
 
@@ -681,7 +672,7 @@ function Warehouse3DPage() {
         </Tabs>
       </div>
 
-      <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <ErrorBoundary FallbackComponent={ErrorFallback} resetKeys={[sceneKey]}>
         <div
           ref={canvasContainerRef}
           className={cn(
@@ -710,11 +701,11 @@ function Warehouse3DPage() {
                 selectedCell={selectedCell}
                 focusCell={focusCell}
                 onFocusDone={() => setFocusCell(null)}
-                onCellSelect={setSelectedCell}
+                onCellSelect={persistCellInUrl}
                 occupiedCellKeys={occupiedCellKeys}
                 expiringCellKeys={expiringCellKeys}
                 expiredCellKeys={expiredCellKeys}
-                selectedItem={selectedItemForPopup}
+                selectedItems={selectedItemsForPopup}
                 darkMode={resolvedTheme === "dark"}
                 layoutSpec={layoutSpec ?? undefined}
                 interactionMode={interactionMode}
@@ -727,9 +718,16 @@ function Warehouse3DPage() {
                 onSimulationComplete={handleSimulationComplete}
                 twinEnrichment={twinEnrichment}
                 freeCameraMode={freeCameraMode}
+                cellFilter={cellFilter}
               />
             </Suspense>
           </div>
+          <WarehouseMiniMap
+            geom={geom}
+            selectedCell={selectedCell}
+            routeWaypoints={routeWaypoints}
+            cellFilter={cellFilter}
+          />
           <div className="absolute right-2 top-2 flex gap-1.5">
             <Button
               size="icon"

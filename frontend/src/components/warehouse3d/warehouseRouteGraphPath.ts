@@ -3,7 +3,9 @@
  */
 import { Vector3 } from "three"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
+import type { ItemPublic } from "@/client/index.ts"
 import { routeNodeToWorldFloor } from "@/components/warehouse3d/twin3dCoordinates.ts"
+import { itemCellKey } from "@/components/warehouse3d/twin3dDerived.ts"
 import {
   buildAisleRoutePolyline,
   type WarehouseRouteWaypoint,
@@ -187,23 +189,14 @@ export function buildRoutePolyline(
 
 /** Список ячеек с изменившейся занятостью между двумя снимками. */
 export function diffOccupancyKeys(
-  before: import("@/client/index.ts").ItemPublic[],
-  after: import("@/client/index.ts").ItemPublic[],
+  before: ItemPublic[],
+  after: ItemPublic[],
 ): { gained: Set<string>; lost: Set<string> } {
-  const keysOf = (items: import("@/client/index.ts").ItemPublic[]) => {
+  const keysOf = (items: ItemPublic[]) => {
     const s = new Set<string>()
     for (const item of items) {
-      if (item.slot_key) {
-        s.add(item.slot_key)
-        continue
-      }
-      const r = item.storage_row
-      const l = item.storage_level
-      const x = item.storage_cell_x
-      const z = item.storage_cell_z
-      if (r != null && l != null && x != null && z != null) {
-        s.add(`${r - 1}-${l - 1}-${x - 1}-${(z ?? 1) - 1}`)
-      }
+      const k = itemCellKey(item)
+      if (k) s.add(k)
     }
     return s
   }

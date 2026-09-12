@@ -14,8 +14,11 @@ import {
   normXZToWorldFloor,
   routeNodeToWorldFloor,
 } from "@/components/warehouse3d/twin3dCoordinates.ts"
-import type { WarehouseEquipmentKind } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
-import { WarehouseEquipmentMesh } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
+import {
+  equipmentTypeToKind,
+  WarehouseEquipmentMesh,
+} from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
+import type { LiveEquipmentPose } from "@/hooks/useEquipmentPositionsLive.ts"
 import {
   CELL_SIZE,
   LEVEL_HEIGHT,
@@ -256,38 +259,78 @@ function hashToUnit(s: string): number {
   return (h % 1000) / 1000
 }
 
-/** Псевдо-позиции техники по зоне/ id (до появления vehicle_position в API). */
+function poseToWorld(
+  geom: WarehouseGeometry,
+  pose: LiveEquipmentPose,
+): [number, number, number] | null {
+  if (pose.xNorm != null && pose.zNorm != null) {
+    return normXZToWorldFloor(geom, pose.xNorm, pose.zNorm, pose.y ?? 0.2)
+  }
+  return routeNodeToWorldFloor(geom, {
+    x: pose.x,
+    z: pose.z,
+    y: pose.y ?? 0.2,
+  })
+}
+
 function EquipmentMarkersLayer({
   equipment,
+  livePositions,
   visible,
 }: {
   equipment: EquipmentPublic[]
+  livePositions?: Map<string, LiveEquipmentPose> | null
   visible: boolean
 }) {
   const geom = useWarehouseGeometry()
   const markers = useMemo(() => {
-    if (!equipment.length) return []
+    const byId = new Map(equipment.map((eq) => [eq.id, eq]))
+    const ids = new Set<string>([
+      ...equipment.map((eq) => eq.id),
+      ...(livePositions ? [...livePositions.keys()] : []),
+    ])
     const margin = geom.floorMargin + 0.5
-    const x = -geom.floorWidth / 2 + margin
-    return equipment.slice(0, 24).map((eq, i) => {
-      const t = hashToUnit(eq.id)
-      const zSpan = geom.floorDepth - 2 * margin
-      const z = -zSpan / 2 + t * zSpan + (i % 3) * 0.15
-      return {
-        id: eq.id,
-        pos: [x, 0.2, z] as [number, number, number],
-        label: `${eq.brand_name} ${eq.model}`.slice(0, 32),
-        status: eq.current_status,
-      }
-    })
-  }, [equipment, geom])
+    const fallbackX = -geom.floorWidth / 2 + margin
+    const zSpan = geom.floorDepth - 2 * margin
+    const out: Array<{
+      id: string
+      pos: [number, number, number]
+      label: string
+      status: string
+      kind: ReturnType<typeof equipmentTypeToKind>
+    }> = []
+    let i = 0
+    for (const id of ids) {
+      const eq = byId.get(id)
+      const live = livePositions?.get(id)
+      const liveWorld = live ? poseToWorld(geom, live) : null
+      const t = hashToUnit(id)
+      const fallback: [number, number, number] = [
+        fallbackX,
+        0.2,
+        -zSpan / 2 + t * zSpan + (i % 3) * 0.15,
+      ]
+      i += 1
+      out.push({
+        id,
+        pos: liveWorld ?? fallback,
+        label: eq
+          ? `${eq.brand_name} ${eq.model}`.slice(0, 32)
+          : (live?.externalVehicleId ?? id).slice(0, 32),
+        status: eq?.current_status ?? "live",
+        kind: equipmentTypeToKind(eq?.equipment_type ?? "autopogruzchik"),
+      })
+      if (out.length >= 32) break
+    }
+    return out
+  }, [equipment, geom, livePositions])
 
   if (!visible || markers.length === 0) return null
   return (
     <group>
       {markers.map((m) => (
         <group key={m.id} position={m.pos}>
-          <WarehouseEquipmentMesh kind={"forklift" as WarehouseEquipmentKind} />
+          <WarehouseEquipmentMesh kind={m.kind} />
           <Html
             position={[0.6, 1.1, 0]}
             center
@@ -327,11 +370,13 @@ export function WarehouseTwinLayers({
   topology,
   routeGraph,
   equipment,
+  livePositions,
   visibility,
 }: {
   topology: TopologyDocument | null
   routeGraph: RouteGraphResponse | null
   equipment: EquipmentPublic[]
+  livePositions?: Map<string, LiveEquipmentPose> | null
   visibility: TwinLayersVisibility
 }) {
   return (
@@ -341,6 +386,7 @@ export function WarehouseTwinLayers({
       <RouteGraphLayer graph={routeGraph} visible={visibility.routeGraph} />
       <EquipmentMarkersLayer
         equipment={equipment}
+        livePositions={livePositions}
         visible={visibility.equipment}
       />
     </>

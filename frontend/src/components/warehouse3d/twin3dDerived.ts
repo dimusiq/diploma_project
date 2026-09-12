@@ -1,19 +1,39 @@
 import type { TopologyDocument } from "@/api/warehouseTopology.ts"
 import type { ItemPublic } from "@/client/index.ts"
 import type { WarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
+import { ruPlural } from "@/lib/ruPlural.ts"
 
-const EXPIRING_DAYS = 30
+export const EXPIRING_DAYS = 30
 
-function cellKeyFromItem1Based(
+export function cellKeyZeroBased(
   row: number,
   level: number,
   cellX: number,
   cellZ: number,
 ): string {
-  return `${row - 1}-${level - 1}-${cellX - 1}-${cellZ - 1}`
+  return `${row}-${level}-${cellX}-${cellZ}`
 }
 
-function itemCellKey(item: ItemPublic): string | null {
+export function cellKeyFromItem1Based(
+  row: number,
+  level: number,
+  cellX: number,
+  cellZ: number,
+): string {
+  return cellKeyZeroBased(row - 1, level - 1, cellX - 1, cellZ - 1)
+}
+
+export function parseSlotKeyZeroBased(
+  slotKey: string,
+): [number, number, number, number] | null {
+  const parts = slotKey.trim().split("-")
+  if (parts.length !== 4) return null
+  const nums = parts.map((p) => Number(p))
+  if (nums.some((n) => !Number.isInteger(n))) return null
+  return [nums[0]!, nums[1]!, nums[2]!, nums[3]!]
+}
+
+export function itemCellKey(item: ItemPublic): string | null {
   if (item.slot_key) return item.slot_key
   const r = item.storage_row
   const l = item.storage_level
@@ -23,6 +43,73 @@ function itemCellKey(item: ItemPublic): string | null {
     return cellKeyFromItem1Based(r, l, x, z)
   }
   return null
+}
+
+/** Индекс ряда 0-based: координаты API или slot_key. */
+export function itemRowIndex0(item: ItemPublic): number | null {
+  if (item.storage_row != null && item.storage_row >= 1) {
+    return item.storage_row - 1
+  }
+  if (!item.slot_key) return null
+  const parsed = parseSlotKeyZeroBased(item.slot_key)
+  return parsed ? parsed[0] : null
+}
+
+export function isExpiringSoon(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return false
+  const exp = new Date(expiresAt)
+  const now = new Date()
+  const daysLeft = Math.ceil(
+    (exp.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+  )
+  return daysLeft >= 0 && daysLeft <= EXPIRING_DAYS
+}
+
+export function isExpired(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return false
+  const exp = new Date(expiresAt)
+  exp.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return exp.getTime() < today.getTime()
+}
+
+export function getExpiredDays(expiresAt: string | null | undefined): number {
+  if (!expiresAt) return 0
+  const exp = new Date(expiresAt)
+  exp.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.ceil(
+    (today.getTime() - exp.getTime()) / (24 * 60 * 60 * 1000),
+  )
+  return diff > 0 ? diff : 0
+}
+
+export function formatExpiredDaysLabel(days: number): string {
+  return `${days} ${ruPlural(days, "день", "дня", "дней")}`
+}
+
+export function itemsInCell(
+  items: ItemPublic[] | undefined,
+  cell: { row: number; level: number; cellX: number; cellZ: number },
+): ItemPublic[] {
+  if (!items?.length) return []
+  const key = cellKeyZeroBased(cell.row, cell.level, cell.cellX, cell.cellZ)
+  return items.filter((i) => itemCellKey(i) === key)
+}
+
+export function cellKeysFromItems(
+  items: ItemPublic[],
+  pred?: (item: ItemPublic) => boolean,
+): Set<string> {
+  const set = new Set<string>()
+  for (const item of items) {
+    if (pred && !pred(item)) continue
+    const k = itemCellKey(item)
+    if (k) set.add(k)
+  }
+  return set
 }
 
 function daysToExpiry(expiresAt: string | null | undefined): number | null {
@@ -46,9 +133,8 @@ export function congestionByCellKey(
     perRow.set(r, 0)
   }
   for (const item of items) {
-    const r = item.storage_row
-    if (r != null && r >= 1 && r <= geom.rackRows) {
-      const idx = r - 1
+    const idx = itemRowIndex0(item)
+    if (idx != null && idx >= 0 && idx < geom.rackRows) {
       perRow.set(idx, (perRow.get(idx) ?? 0) + 1)
     }
   }
