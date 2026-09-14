@@ -147,11 +147,20 @@ export const ItemActionsMenu = ({ item }: ItemActionsMenuProps) => {
   }
 
   const move = useMutation({
-    mutationFn: (status: string) =>
-      ItemsService.updateItem({
+    mutationFn: (status: string) => {
+      const body: Parameters<typeof ItemsService.updateItem>[0]["requestBody"] =
+        { status }
+      if (status === "warehouse") {
+        body.storage_row = item.storage_row
+        body.storage_level = item.storage_level
+        body.storage_cell_x = item.storage_cell_x
+        body.storage_cell_z = item.storage_cell_z ?? 1
+      }
+      return ItemsService.updateItem({
         id: item.id,
-        requestBody: { status },
-      }),
+        requestBody: body,
+      })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["items"],

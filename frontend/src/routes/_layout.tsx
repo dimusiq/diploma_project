@@ -38,9 +38,14 @@ export const Route = createFileRoute("/_layout")({
 
 function MainColumn() {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-y-auto p-4 pb-20 md:pb-4">
+    <div
+      data-main-scroll
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-20 md:pb-4"
+    >
       <Breadcrumbs />
-      <Outlet />
+      <div className="flex min-h-0 flex-1 flex-col">
+        <Outlet />
+      </div>
     </div>
   )
 }
@@ -50,14 +55,14 @@ function Layout() {
   useItemsRealtime()
   return (
     <AssistantSessionProvider>
-      <SidebarProvider>
+      <SidebarProvider className="h-svh max-h-svh min-h-0 overflow-hidden">
         <SkipLink />
-        <div className="flex min-h-screen w-full flex-col">
-          <div className="flex min-h-0 flex-1">
+        <div className="flex h-svh max-h-svh min-h-0 w-full flex-col overflow-hidden">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
             <AppSidebar />
             <SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <Navbar />
-              <main id="main-content" className="flex min-h-0 flex-1 flex-col">
+              <main id="main-content" className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 <MainColumn />
               </main>
               <BottomNav />

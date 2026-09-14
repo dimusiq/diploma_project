@@ -97,6 +97,44 @@ def test_update_item(
     assert content["owner_id"] == str(item.owner_id)
 
 
+def test_update_item_storage_defaults_cell_z(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    item = create_random_item(db)
+    response = client.put(
+        f"{settings.API_V1_STR}/items/{item.id}",
+        headers=superuser_token_headers,
+        json={"storage_row": 1, "storage_level": 1, "storage_cell_x": 3},
+    )
+    assert response.status_code == 200, response.text
+    content = response.json()
+    assert content["storage_row"] == 1
+    assert content["storage_level"] == 1
+    assert content["storage_cell_x"] == 3
+    assert content["storage_cell_z"] == 1
+
+
+def test_move_to_warehouse_with_cell_without_z(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    item = create_random_item(db)
+    put_cell = client.put(
+        f"{settings.API_V1_STR}/items/{item.id}",
+        headers=superuser_token_headers,
+        json={"storage_row": 2, "storage_level": 1, "storage_cell_x": 5},
+    )
+    assert put_cell.status_code == 200, put_cell.text
+    response = client.put(
+        f"{settings.API_V1_STR}/items/{item.id}",
+        headers=superuser_token_headers,
+        json={"status": "warehouse"},
+    )
+    assert response.status_code == 200, response.text
+    content = response.json()
+    assert content["status"] == "warehouse"
+    assert content["storage_cell_z"] == 1
+
+
 def test_update_item_not_found(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:

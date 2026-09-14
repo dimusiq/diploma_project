@@ -20,7 +20,7 @@ const itemsSearchSchema = z.object({
     .enum(["title", "created_at", "quantity", "sku", "description", "unit"])
     .catch("created_at"),
   sort_order: z.enum(["asc", "desc"]).catch("desc"),
-  open: z.string().optional(),
+  open: z.string().uuid().optional().catch(undefined),
 })
 
 type ItemsSearch = z.infer<typeof itemsSearchSchema>

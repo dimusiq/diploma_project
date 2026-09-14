@@ -39,7 +39,27 @@ def storage_coordinates_partial(
     storage_cell_z: int | None,
 ) -> bool:
     """True, если задана только часть координат ячейки (недопустимо)."""
+    storage_cell_z = default_storage_cell_z(
+        storage_row, storage_level, storage_cell_x, storage_cell_z
+    )
     coords = (storage_row, storage_level, storage_cell_x, storage_cell_z)
     any_set = any(c is not None for c in coords)
     all_set = all(c is not None for c in coords)
     return any_set and not all_set
+
+
+def default_storage_cell_z(
+    storage_row: int | None,
+    storage_level: int | None,
+    storage_cell_x: int | None,
+    storage_cell_z: int | None,
+) -> int | None:
+    """В сетке склада глубина ячейки всегда 1: ряд+уровень+X без Z → Z=1."""
+    if (
+        storage_row is not None
+        and storage_level is not None
+        and storage_cell_x is not None
+        and storage_cell_z is None
+    ):
+        return 1
+    return storage_cell_z

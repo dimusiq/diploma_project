@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils"
 
 const baseNavItems = [
   { icon: FiBarChart2, label: "Дашборд", path: "/", requiresAssistant: false },
-  { icon: FiBox, label: "Товары", path: "/items", requiresAssistant: false },
+  { icon: FiBox, label: "Склад", path: "/warehouse", requiresAssistant: false },
   { icon: FiList, label: "Задания", path: "/warehouse-tasks", requiresAssistant: false },
   { icon: FiMessageCircle, label: "Ассистент", path: "/assistant", requiresAssistant: true },
   { icon: FiMoreHorizontal, label: "Ещё", path: "/settings", requiresAssistant: false },

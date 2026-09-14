@@ -1,4 +1,4 @@
-import type { CellInfo } from "@/components/warehouse3d/WarehouseScene.tsx"
+import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
 import type { CellFilter } from "@/components/warehouse3d/warehouse3dSearch.ts"
 import type { WarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import { cn } from "@/lib/utils.ts"
@@ -9,6 +9,7 @@ type WarehouseMiniMapProps = {
   routeWaypoints: CellInfo[]
   cellFilter: CellFilter
   className?: string
+  onSelectRow?: (rowZeroBased: number) => void
 }
 
 /** План сверху: ряды, выбранная ячейка и точки маршрута. */
@@ -18,6 +19,7 @@ export function WarehouseMiniMap({
   routeWaypoints,
   cellFilter,
   className,
+  onSelectRow,
 }: WarehouseMiniMapProps) {
   const w = geom.floorWidth
   const d = geom.floorDepth
@@ -39,10 +41,11 @@ export function WarehouseMiniMap({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute bottom-2 left-2 z-10 overflow-hidden rounded-md border border-border/80 bg-background/90 shadow-sm backdrop-blur-sm",
+        "absolute bottom-2 left-2 z-10 overflow-hidden rounded-md border border-border/80 bg-background/90 shadow-sm backdrop-blur-sm",
+        onSelectRow ? "pointer-events-auto" : "pointer-events-none",
         className,
       )}
-      aria-hidden
+      aria-hidden={!onSelectRow}
     >
       <svg
         viewBox={`${-pad * viewW} ${-pad * viewH} ${viewW * (1 + 2 * pad)} ${viewH * (1 + 2 * pad)}`}
@@ -65,8 +68,21 @@ export function WarehouseMiniMap({
             y={y - 0.6}
             width={viewW * 0.76}
             height={1.2}
-            className="fill-muted-foreground/25"
+            className={cn(
+              "fill-muted-foreground/25",
+              onSelectRow && "cursor-pointer hover:fill-primary/50",
+            )}
             rx={0.3}
+            onClick={
+              onSelectRow
+                ? (e) => {
+                    e.stopPropagation()
+                    onSelectRow(row)
+                  }
+                : undefined
+            }
+            role={onSelectRow ? "button" : undefined}
+            aria-label={onSelectRow ? `Ряд ${row + 1}` : undefined}
           />
         ))}
         {routeWaypoints.map((wp, i) => {

@@ -19,6 +19,10 @@ import { GlobalSearch } from "./GlobalSearch.tsx"
 import { NotificationCenter } from "./NotificationCenter.tsx"
 import UserMenu from "./UserMenu.tsx"
 
+/** Иконки шапки: акцент `--primary`, без серого ghost / hover:bg-white/10. */
+const navIconClass =
+  "rounded-md text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/15 dark:hover:text-primary"
+
 function Navbar() {
   const [scanOpen, setScanOpen] = useState(false)
   const { data: agentPerm, isPending: agentPermPending } = useQuery({
@@ -34,7 +38,7 @@ function Navbar() {
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <SidebarTrigger className="-ml-1" />
+        <SidebarTrigger className={cn("-ml-1", navIconClass)} />
         <GlobalSearch />
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -43,7 +47,7 @@ function Navbar() {
             <Button
               variant="ghost"
               size="sm"
-              className="rounded-md hover:bg-white/10"
+              className={navIconClass}
               aria-label="Сканировать штрихкод"
               onClick={() => setScanOpen(true)}
             >
@@ -57,7 +61,7 @@ function Navbar() {
             variant="ghost"
             size="sm"
             asChild
-            className="rounded-md hover:bg-white/10"
+            className={navIconClass}
           >
             <Link to="/assistant" aria-label="Ассистент склада">
               <FaRobot className="size-5" aria-hidden />
@@ -65,7 +69,7 @@ function Navbar() {
           </Button>
         ) : null}
         <NotificationCenter />
-        <ColorModeButton className="hover:bg-white/10" />
+        <ColorModeButton className={navIconClass} />
         <UserMenu />
       </div>
       <BarcodeScanner open={scanOpen} onOpenChange={setScanOpen} />

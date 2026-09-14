@@ -16,6 +16,8 @@ def test_catalog_contains_core_read_tools() -> None:
 
 def test_catalog_contains_act_and_admin_tools() -> None:
     assert "create_transfer_task" in CATALOG_BY_NAME
+    assert "slot_key" in CATALOG_BY_NAME["create_transfer_task"].parameters
+    assert "item_id" in CATALOG_BY_NAME["create_transfer_task"].parameters
     assert "publish_layout_version" in CATALOG_BY_NAME
 
 

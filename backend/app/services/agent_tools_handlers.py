@@ -667,6 +667,8 @@ def handle_create_transfer_task(session: Session, user: User, args: dict[str, An
         "note": str(args.get("note") or ""),
         "priority": prio,
         "requested_by": str(user.id),
+        "slot_key": str(args.get("slot_key") or "").strip() or None,
+        "item_id": str(args.get("item_id") or "").strip() or None,
     }
     gated = _act_gate(ctx, tool_name="create_transfer_task", payload=payload)
     if gated:
@@ -678,7 +680,11 @@ def handle_create_transfer_task(session: Session, user: User, args: dict[str, An
         task_type=payload["task_type"][:32],
         status="pending",
         priority=prio,
-        payload={"agent_note": payload["note"], "created_via": "agent"},
+        payload={
+            "agent_note": payload["note"],
+            "created_via": "agent",
+            **({k: v for k, v in (("slot_key", payload["slot_key"]), ("item_id", payload["item_id"])) if v}),
+        },
     )
     session.add(task)
     session.commit()

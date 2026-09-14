@@ -13,6 +13,7 @@ import {
 import { fetchTwinSummary, postTwinWhatIf } from "@/api/warehouseTwin.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
+import { WarehouseHubNav } from "@/components/Common/WarehouseHubNav.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
@@ -61,6 +62,7 @@ function WarehouseTwinPage() {
       <h1 className="font-heading mb-2 text-2xl font-semibold tracking-tight">
         Аналитика цифрового двойника
       </h1>
+      <WarehouseHubNav />
       <p className="mb-8 text-sm text-muted-foreground">
         Сводка по вашим правам на товары и ячейки. События домена за 7 дней —
         только при праве просмотра аудита. Уведомления по порогам (ряд,

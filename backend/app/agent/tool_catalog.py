@@ -275,6 +275,11 @@ def _catalog() -> list[CatalogTool]:
                 "task_type": {"type": "string", "description": "move|putaway|pick|…"},
                 "note": {"type": "string", "description": "Комментарий / детали для оператора"},
                 "priority": {"type": "integer"},
+                "slot_key": {
+                    "type": "string",
+                    "description": "Ячейка 0-based, например 0-0-0-0",
+                },
+                "item_id": {"type": "string", "description": "UUID товара для отбора"},
             },
         ),
         CatalogTool(

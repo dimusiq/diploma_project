@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { CellInfo } from "@/components/warehouse3d/WarehouseScene.tsx"
+import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
 import {
   DEFAULT_WAREHOUSE_LAYOUT_SPEC,
   type WarehouseLayoutSpec,
@@ -28,6 +28,11 @@ export const warehouse3dSearchSchema = z.object({
   cellX: optionalPositiveInt,
   cellZ: optionalPositiveInt,
   filter: z.enum(CELL_FILTER_VALUES).optional().catch(undefined),
+  taskId: z.preprocess((v) => {
+    if (v == null || v === "") return undefined
+    if (typeof v === "string") return v
+    return undefined
+  }, z.string().uuid().optional().catch(undefined)),
 })
 
 export type Warehouse3dSearch = z.infer<typeof warehouse3dSearchSchema>
@@ -83,9 +88,14 @@ export function searchToCellInfo(
 export function cellInfoToSearch(
   cell: CellInfo | null,
   filter: CellFilter,
+  extras?: { taskId?: string },
 ): Warehouse3dSearch {
+  const taskId = extras?.taskId
   if (!cell) {
-    return filter === "all" ? {} : { filter }
+    return {
+      ...(filter === "all" ? {} : { filter }),
+      ...(taskId ? { taskId } : {}),
+    }
   }
   return {
     row: cell.row + 1,
@@ -93,6 +103,7 @@ export function cellInfoToSearch(
     cellX: cell.cellX + 1,
     cellZ: cell.cellZ + 1,
     ...(filter !== "all" ? { filter } : {}),
+    ...(taskId ? { taskId } : {}),
   }
 }
 
@@ -104,4 +115,24 @@ export function parseCellFilter(raw: unknown): CellFilter {
     return raw as CellFilter
   }
   return "all"
+}
+
+export function cellMatchesFilter(
+  filter: string | undefined,
+  filled: boolean,
+  expiring: boolean,
+  expired: boolean,
+): boolean {
+  switch (filter) {
+    case "empty":
+      return !filled
+    case "occupied":
+      return filled
+    case "expiring":
+      return expiring
+    case "expired":
+      return expired
+    default:
+      return true
+  }
 }

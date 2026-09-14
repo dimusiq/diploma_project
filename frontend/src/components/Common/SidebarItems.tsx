@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query"
 import { Link as RouterLink, useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import {
-  FiActivity,
   FiArrowDownRight,
   FiBarChart2,
   FiBox,
@@ -10,8 +9,6 @@ import {
   FiChevronDown,
   FiCpu,
   FiDownload,
-  FiLayers,
-  FiList,
   FiMessageCircle,
   FiSettings,
   FiTarget,
@@ -64,8 +61,17 @@ type Item = ItemLink | ItemExpandable
 const operationsItems: Item[] = [
   { icon: FiArrowDownRight, title: "Поступления", path: "/items" },
   { icon: FiDownload, title: "Входящие заказы", path: "/inbound-orders" },
-  { icon: FiBox, title: "Склад", path: "/warehouse" },
-  { icon: FiList, title: "Задания склада", path: "/warehouse-tasks" },
+  {
+    icon: FiBox,
+    title: "Склад",
+    path: null,
+    children: [
+      { path: "/warehouse", title: "Остатки" },
+      { path: "/warehouse-tasks", title: "Задания" },
+      { path: "/warehouse-3d", title: "3D модель" },
+      { path: "/warehouse-twin", title: "Twin" },
+    ],
+  },
   { icon: FiUpload, title: "Исходящие заказы", path: "/outbound-orders" },
   { icon: FiTruck, title: "Отгрузка", path: "/shipment" },
   { icon: FiCheckCircle, title: "Отгружено", path: "/shipped" },
@@ -74,33 +80,23 @@ const operationsItems: Item[] = [
 const analyticsItems: Item[] = [
   { icon: FiBarChart2, title: "Дашборд", path: "/" },
   { icon: FiTarget, title: "Control Tower", path: "/control-tower" },
-  { icon: FiActivity, title: "Аналитика двойника", path: "/warehouse-twin" },
   {
     icon: FiCpu,
-    title: "Симуляция и аналитика",
+    title: "Симуляция",
     path: "/warehouse-simulation",
   },
-  { icon: FiLayers, title: "3D Склад", path: "/warehouse-3d" },
 ]
 
 const managementItemsBase: Item[] = [
   {
     icon: TbForklift,
     title: "Техника",
-    path: null as null,
+    path: null,
     children: [
-      { path: "/technique", title: "Список техники" },
-      { path: "/technique/maintenance", title: "График ТО" },
-      { path: "/technique/maintenance-schedule", title: "Календарь ТО" },
-      { path: "/technique/maintenance-settings", title: "Настройка ТО" },
-      { path: "/technique/work-orders", title: "Обслуживание и ремонт техники" },
-      { path: "/technique/technicians", title: "Управление задачами техников" },
-      { path: "/technique/alerts", title: "Мониторинг и уведомления" },
-      { path: "/technique/spare-parts", title: "Запасные части" },
+      { path: "/technique", title: "Парк" },
+      { path: "/technique/maintenance", title: "ТО" },
+      { path: "/technique/work-orders", title: "Наряды" },
       { path: "/technique/analytics", title: "Аналитика" },
-      { path: "/technique/integrations", title: "Интеграции" },
-      { path: "/technique/security", title: "Безопасность" },
-      { path: "/technique/predictive", title: "Прогнозирование" },
     ],
   },
   { icon: FiMessageCircle, title: "Ассистент", path: "/assistant" },
@@ -115,14 +111,30 @@ function isExpandable(item: Item): item is ItemExpandable {
   return item.path === null && "children" in item && item.children != null
 }
 
+function groupShouldOpen(item: ItemExpandable, pathname: string): boolean {
+  return item.children.some((sub) =>
+    sub.path === "/technique"
+      ? pathname === "/technique" || pathname.startsWith("/technique/")
+      : pathname === sub.path || pathname.startsWith(`${sub.path}/`),
+  )
+}
+
 function SidebarItems({ onNavigate }: SidebarItemsProps) {
   const currentUser = useCurrentUser()
   const location = useLocation()
   const pathname = location.pathname
-  const [techniqueExpanded, setTechniqueExpanded] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    if (pathname.startsWith("/technique")) setTechniqueExpanded(true)
+    setOpenGroups((prev) => {
+      const next = { ...prev }
+      for (const item of [...operationsItems, ...managementItemsBase]) {
+        if (isExpandable(item) && groupShouldOpen(item, pathname)) {
+          next[item.title] = true
+        }
+      }
+      return next
+    })
   }, [pathname])
 
   const { data: agentPerm, isPending: agentPermPending } = useQuery({
@@ -150,11 +162,14 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
   const renderItem = (item: Item) => {
     if (isExpandable(item)) {
       const Icon = item.icon
+      const expanded = Boolean(openGroups[item.title])
       return (
         <SidebarMenuItem key={item.title}>
           <Collapsible
-            open={techniqueExpanded}
-            onOpenChange={setTechniqueExpanded}
+            open={expanded}
+            onOpenChange={(open) =>
+              setOpenGroups((prev) => ({ ...prev, [item.title]: open }))
+            }
             className="group/collapsible w-full min-w-0"
           >
             <CollapsibleTrigger
@@ -172,7 +187,7 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
               <FiChevronDown
                 className={cn(
                   "ml-auto size-4 shrink-0 transition-transform",
-                  techniqueExpanded ? "rotate-0" : "-rotate-90",
+                  expanded ? "rotate-0" : "-rotate-90",
                 )}
                 aria-hidden
               />
@@ -183,7 +198,8 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
                   const isActive =
                     sub.path === "/technique"
                       ? pathname === "/technique" || pathname === "/technique/"
-                      : pathname === sub.path || pathname.startsWith(`${sub.path}/`)
+                      : pathname === sub.path ||
+                        pathname.startsWith(`${sub.path}/`)
                   return (
                     <SidebarMenuSubItem key={sub.path}>
                       <SidebarMenuSubButton

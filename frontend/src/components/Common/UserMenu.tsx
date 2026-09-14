@@ -43,7 +43,7 @@ const UserMenu = () => {
             {avatarObjectUrl ? (
               <AvatarImage src={avatarObjectUrl} alt="" />
             ) : null}
-            <AvatarFallback className="text-xs font-medium">
+            <AvatarFallback className="bg-primary text-xs font-medium text-primary-foreground">
               {user
                 ? initialsFromUser(user.full_name, user.email)
                 : "?"}

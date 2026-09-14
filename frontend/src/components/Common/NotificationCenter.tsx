@@ -166,7 +166,7 @@ export function NotificationCenter() {
         <Button
           variant="ghost"
           size="sm"
-          className="relative rounded-md hover:bg-white/10"
+          className="relative rounded-md text-primary hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/15 dark:hover:text-primary"
           aria-label="Уведомления"
         >
           <FiBell className="size-5" />

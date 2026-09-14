@@ -13,6 +13,8 @@ import {
   parseCellFilter,
   searchToCellInfo,
   validateWarehouse3dSearch,
+  cellInfoToSearch,
+  cellMatchesFilter,
 } from "@/components/warehouse3d/warehouse3dSearch.ts"
 import {
   buildWarehouseGeometry,
@@ -66,6 +68,31 @@ describe("warehouse3dSearch", () => {
   it("parses cell filter", () => {
     expect(parseCellFilter("expired")).toBe("expired")
     expect(parseCellFilter("x")).toBe("all")
+  })
+
+  it("keeps taskId uuid and drops invalid", () => {
+    const ok = validateWarehouse3dSearch({
+      taskId: "11111111-1111-4111-8111-111111111111",
+    })
+    expect(ok.taskId).toBe("11111111-1111-4111-8111-111111111111")
+    const bad = validateWarehouse3dSearch({ taskId: "not-a-uuid" })
+    expect(bad.taskId).toBeUndefined()
+  })
+
+  it("serializes cell and taskId into search", () => {
+    const s = cellInfoToSearch(
+      { row: 0, level: 0, cellX: 1, cellZ: 0, filled: false },
+      "expired",
+      { taskId: "11111111-1111-4111-8111-111111111111" },
+    )
+    expect(s).toEqual({
+      row: 1,
+      level: 1,
+      cellX: 2,
+      cellZ: 1,
+      filter: "expired",
+      taskId: "11111111-1111-4111-8111-111111111111",
+    })
   })
 })
 
@@ -123,5 +150,16 @@ describe("item cell keys", () => {
 
   it("formats expired days", () => {
     expect(formatExpiredDaysLabel(21)).toBe("21 день")
+  })
+})
+
+describe("cellMatchesFilter", () => {
+  it("filters empty occupied expiring expired", () => {
+    expect(cellMatchesFilter("empty", false, false, false)).toBe(true)
+    expect(cellMatchesFilter("empty", true, false, false)).toBe(false)
+    expect(cellMatchesFilter("occupied", true, false, false)).toBe(true)
+    expect(cellMatchesFilter("expiring", true, true, false)).toBe(true)
+    expect(cellMatchesFilter("expired", true, false, true)).toBe(true)
+    expect(cellMatchesFilter("all", false, false, false)).toBe(true)
   })
 })

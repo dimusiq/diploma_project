@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 import { useCallback, useState } from "react"
 import { FiColumns, FiList } from "react-icons/fi"
 import {
@@ -9,6 +9,7 @@ import {
 } from "@/api/warehouseTasks.ts"
 import { ApiError } from "@/client/index.ts"
 import { PullToRefresh } from "@/components/Common/PullToRefresh.tsx"
+import { WarehouseHubNav } from "@/components/Common/WarehouseHubNav.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
   Select,
@@ -33,10 +34,26 @@ import {
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
 import { cn } from "@/lib/utils.ts"
+import {
+  parseWarehouseTaskTarget,
+  taskTargetToSearch,
+} from "@/lib/warehouseTaskTarget.ts"
 
 export const Route = createFileRoute("/_layout/warehouse-tasks")({
   component: WarehouseTasksPage,
 })
+
+function Task3dLink({ task }: { task: WarehouseTask }) {
+  const target = parseWarehouseTaskTarget(task.payload)
+  const search = taskTargetToSearch(task.id, target)
+  return (
+    <Button asChild size="xs" variant="outline">
+      <RouterLink to="/warehouse-3d" search={search}>
+        В 3D
+      </RouterLink>
+    </Button>
+  )
+}
 
 const STATUS_OPTIONS = [
   { value: SELECT_ALL_VALUE, label: "Все статусы" },
@@ -87,6 +104,7 @@ function WarehouseTasksPage() {
       <h1 className="font-heading mb-2 text-2xl font-semibold">
         Складские задания
       </h1>
+      <WarehouseHubNav />
       <p className="mb-6 text-sm text-muted-foreground">
         Назначение и смена статуса (нужны права warehouse.tasks.*).
       </p>
@@ -188,6 +206,7 @@ function WarehouseTasksPage() {
                       >
                         Готово
                       </Button>
+                      <Task3dLink task={t} />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -319,6 +338,7 @@ function KanbanCard({
             Готово
           </Button>
         )}
+        <Task3dLink task={task} />
       </div>
     </div>
   )

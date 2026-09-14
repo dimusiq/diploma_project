@@ -334,6 +334,7 @@ function EquipmentMarkersLayer({
           <Html
             position={[0.6, 1.1, 0]}
             center
+            wrapperClass="warehouse-3d-html"
             style={{ pointerEvents: "none" }}
           >
             <div

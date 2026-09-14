@@ -1,29 +1,18 @@
 # Security Policy
 
-Security is very important for this project and its community. 🔒
+Security is important for this project.
 
-Learn more about it below. 👇
+## Supported versions
 
-## Versions
+The latest revision of this repository is supported. Update dependencies after tests pass so you pick up security fixes.
 
-The latest version or release is supported.
+## Reporting a vulnerability
 
-You are encouraged to write tests for your application and update your versions frequently after ensuring that your tests are passing. This way you will benefit from the latest features, bug fixes, and **security fixes**.
+If you think you found a vulnerability, report it privately — do not open a public issue with exploit details.
 
-## Reporting a Vulnerability
+- Open a **private** security advisory on the GitHub repository, or
+- Email the maintainers listed in the repository (owner of this fork / course project).
 
-If you think you found a vulnerability, and even if you are not sure about it, please report it right away by sending an email to: security@tiangolo.com. Please try to be as explicit as possible, describing all the steps and example code to reproduce the security issue.
+Include steps to reproduce, affected routes, and whether authentication is required.
 
-I (the author, [@tiangolo](https://twitter.com/tiangolo)) will review it thoroughly and get back to you.
-
-## Public Discussions
-
-Please restrain from publicly discussing a potential security vulnerability. 🙊
-
-It's better to discuss privately and try to find a solution first, to limit the potential impact as much as possible.
-
----
-
-Thanks for your help!
-
-The community and I thank you for that. 🙇
+Do not discuss suspected vulnerabilities in public issues or chats until a fix is available.

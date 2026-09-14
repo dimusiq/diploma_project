@@ -266,6 +266,41 @@ export function Dashboard() {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Button asChild variant="outline" className="h-auto justify-start py-3">
+          <RouterLink to="/warehouse-tasks">
+            <FiPackage className="mr-2 size-4 shrink-0" />
+            <span className="text-left">
+              <span className="block font-medium">Задания склада</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                В работу → маршрут в 3D → подтверждение
+              </span>
+            </span>
+          </RouterLink>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start py-3">
+          <RouterLink to="/warehouse-3d" search={{ filter: "expired" }}>
+            <FiBox className="mr-2 size-4 shrink-0" />
+            <span className="text-left">
+              <span className="block font-medium">Просрочка на 3D</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                Открыть ячейки с истёкшим сроком
+              </span>
+            </span>
+          </RouterLink>
+        </Button>
+        <Button asChild variant="outline" className="h-auto justify-start py-3">
+          <RouterLink to="/warehouse">
+            <FiCheckCircle className="mr-2 size-4 shrink-0" />
+            <span className="text-left">
+              <span className="block font-medium">Остатки</span>
+              <span className="block text-xs font-normal text-muted-foreground">
+                На складе: {stats.status_distribution?.warehouse ?? "—"}
+              </span>
+            </span>
+          </RouterLink>
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         <DashboardStatCard

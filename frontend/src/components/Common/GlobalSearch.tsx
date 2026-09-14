@@ -69,11 +69,11 @@ export function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex h-8 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-muted"
+        className="flex h-8 items-center gap-2 rounded-md border border-primary/35 bg-background px-3 text-sm text-primary transition-colors hover:border-primary/60 hover:bg-primary/10"
       >
         <FiSearch className="size-4" />
         <span className="hidden sm:inline">Поиск...</span>
-        <kbd className="pointer-events-none hidden select-none rounded border bg-muted px-1.5 font-mono text-xs sm:inline-block">
+        <kbd className="pointer-events-none hidden select-none rounded border border-primary/25 bg-primary/10 px-1.5 font-mono text-xs text-primary sm:inline-block">
           ⌘K
         </kbd>
       </button>

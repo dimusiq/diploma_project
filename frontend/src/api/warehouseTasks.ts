@@ -34,6 +34,10 @@ export async function fetchWarehouseTasks(params?: {
   )
 }
 
+export async function fetchWarehouseTask(taskId: string): Promise<WarehouseTask> {
+  return request<WarehouseTask>(`/api/v1/warehouse/tasks/${taskId}`)
+}
+
 export async function patchWarehouseTask(
   taskId: string,
   body: {

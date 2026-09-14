@@ -18,6 +18,7 @@ from app.api.deps import CurrentUser, SessionDep, get_user_from_token_string
 from app.core.db import engine
 from app.core.permissions import can_change_status, can_see_all_items
 from app.core.storage_slot import (
+    default_storage_cell_z,
     format_storage_slot_key,
     storage_coordinates_partial,
 )
@@ -357,6 +358,17 @@ def _get_item_or_404(
     return item
 
 
+def _fill_default_storage_cell_z(item: Item) -> None:
+    z = default_storage_cell_z(
+        item.storage_row,
+        item.storage_level,
+        item.storage_cell_x,
+        item.storage_cell_z,
+    )
+    if z is not None:
+        item.storage_cell_z = z
+
+
 def _validate_item_storage_coordinates(item: Item) -> None:
     if storage_coordinates_partial(
         item.storage_row,
@@ -518,6 +530,7 @@ def create_item(
     Create new item.
     """
     item = Item.model_validate(item_in, update={"owner_id": current_user.id})
+    _fill_default_storage_cell_z(item)
     if item.barcode and _barcode_exists(session, item.barcode):
         raise HTTPException(
             status_code=400,
@@ -600,11 +613,15 @@ def update_item(
                 detail=f"Invalid status transition: {item.status} → {new_status}. Allowed: {allowed}",
             )
         if new_status == "warehouse":
-            # При переводе на склад обязательна полная ячейка хранения
             storage_row = update_dict.get("storage_row", item.storage_row)
             storage_level = update_dict.get("storage_level", item.storage_level)
             storage_cell_x = update_dict.get("storage_cell_x", item.storage_cell_x)
-            storage_cell_z = update_dict.get("storage_cell_z", item.storage_cell_z)
+            storage_cell_z = default_storage_cell_z(
+                storage_row,
+                storage_level,
+                storage_cell_x,
+                update_dict.get("storage_cell_z", item.storage_cell_z),
+            )
             if (
                 storage_row is None
                 or storage_level is None
@@ -641,6 +658,7 @@ def update_item(
             )
         )
     item.sqlmodel_update(update_dict)
+    _fill_default_storage_cell_z(item)
     session.add(item)
     if item.barcode and _barcode_exists(session, item.barcode, exclude_item_id=item.id):
         raise HTTPException(

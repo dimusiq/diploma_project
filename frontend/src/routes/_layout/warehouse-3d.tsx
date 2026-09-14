@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link as RouterLink, useNavigate } from "@tanstack/react-router"
 import { useTheme } from "next-themes"
 import {
@@ -6,6 +6,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -26,8 +27,14 @@ import {
 } from "@/api/warehouseLayout.ts"
 import { fetchWarehouseRouteGraph } from "@/api/warehouseRouteGraph.ts"
 import { warehouseTopologyApi } from "@/api/warehouseTopology.ts"
+import {
+  fetchWarehouseTask,
+  patchWarehouseTask,
+} from "@/api/warehouseTasks.ts"
 import type { ItemPublic } from "@/client/index.ts"
+import { ItemsService } from "@/client/index.ts"
 import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
+import { WarehouseHubNav } from "@/components/Common/WarehouseHubNav.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
   Sheet,
@@ -72,6 +79,7 @@ import {
   parseCellFilter,
   searchToCellInfo,
   validateWarehouse3dSearch,
+  type Warehouse3dSearch,
 } from "@/components/warehouse3d/warehouse3dSearch.ts"
 import {
   buildWarehouseGeometry,
@@ -80,7 +88,9 @@ import {
 import { useEquipmentPositionsLive } from "@/hooks/useEquipmentPositionsLive.ts"
 import { useTwinLivePanelState } from "@/hooks/useTwinLivePanelState.ts"
 import { fetchAllItems, itemsFingerprint } from "@/lib/fetchAllItems.ts"
+import { parseWarehouseTaskTarget } from "@/lib/warehouseTaskTarget.ts"
 import { cn } from "@/lib/utils.ts"
+import useCustomToast from "@/hooks/useCustomToast.ts"
 
 const WAREHOUSE_3D_TOOLS_TAB_KEY = "nebardak.warehouse3d.toolsTab"
 
@@ -93,6 +103,20 @@ function readStoredToolsTab(): Warehouse3DToolsTab {
     /* ignore */
   }
   return "scene"
+}
+
+function warehouse3dSearchEqual(
+  a: Warehouse3dSearch,
+  b: Warehouse3dSearch,
+): boolean {
+  return (
+    a.row === b.row &&
+    a.level === b.level &&
+    a.cellX === b.cellX &&
+    a.cellZ === b.cellZ &&
+    (a.filter ?? "all") === (b.filter ?? "all") &&
+    a.taskId === b.taskId
+  )
 }
 
 const WarehouseScene = lazy(() =>
@@ -130,6 +154,8 @@ function Warehouse3DPage() {
   const { resolvedTheme } = useTheme()
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+  const qc = useQueryClient()
+  const { showErrorToast, showSuccessToast } = useCustomToast()
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const skipFocusFromSelfRef = useRef(false)
   const [selectedCell, setSelectedCell] = useState<CellInfo | null>(null)
@@ -204,6 +230,31 @@ function Warehouse3DPage() {
       document.removeEventListener("fullscreenchange", onFullscreenChange)
   }, [])
 
+  useLayoutEffect(() => {
+    const scroller = document.querySelector("[data-main-scroll]")
+    const html = document.documentElement
+    const prevHtmlOverflow = html.style.overflow
+    const prevBodyOverflow = document.body.style.overflow
+    const prevHist =
+      "scrollRestoration" in history ? history.scrollRestoration : null
+    html.style.overflow = "hidden"
+    document.body.style.overflow = "hidden"
+    if (prevHist != null) history.scrollRestoration = "manual"
+    let prevScrollerOverflow = ""
+    if (scroller instanceof HTMLElement) {
+      prevScrollerOverflow = scroller.style.overflowY
+      scroller.style.overflowY = "hidden"
+    }
+    return () => {
+      html.style.overflow = prevHtmlOverflow
+      document.body.style.overflow = prevBodyOverflow
+      if (prevHist != null) history.scrollRestoration = prevHist
+      if (scroller instanceof HTMLElement) {
+        scroller.style.overflowY = prevScrollerOverflow
+      }
+    }
+  }, [])
+
   const { data: layoutApi } = useQuery({
     queryKey: ["warehouse", "layout"],
     queryFn: fetchWarehouseLayout,
@@ -216,6 +267,27 @@ function Warehouse3DPage() {
   )
   const layoutSpecResolved = layoutSpec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC
 
+  const navigateSearch = useCallback(
+    (next: Warehouse3dSearch) => {
+      if (warehouse3dSearchEqual(next, search)) return
+      const scroller = document.querySelector("[data-main-scroll]")
+      const colY =
+        scroller instanceof HTMLElement ? scroller.scrollTop : 0
+      const winY = window.scrollY
+      void navigate({
+        search: next,
+        replace: true,
+        resetScroll: false,
+      }).then(() => {
+        window.scrollTo(0, winY)
+        if (scroller instanceof HTMLElement) {
+          scroller.scrollTop = colY
+        }
+      })
+    },
+    [navigate, search],
+  )
+
   useEffect(() => {
     const clamped = clampSearchToLayout(search, layoutSpecResolved)
     if (
@@ -225,9 +297,9 @@ function Warehouse3DPage() {
       clamped.cellZ !== search.cellZ
     ) {
       skipFocusFromSelfRef.current = true
-      void navigate({ search: clamped, replace: true })
+      navigateSearch(clamped)
     }
-  }, [layoutSpecResolved, search, navigate])
+  }, [layoutSpecResolved, search, navigateSearch])
 
   useEffect(() => {
     const fromUrl = searchToCellInfo(search, layoutSpecResolved)
@@ -256,23 +328,23 @@ function Warehouse3DPage() {
     (cell: CellInfo | null) => {
       skipFocusFromSelfRef.current = true
       setSelectedCell(cell)
-      void navigate({
-        search: cellInfoToSearch(cell, cellFilter),
-        replace: true,
-      })
+      navigateSearch(
+        cellInfoToSearch(cell, cellFilter, { taskId: search.taskId }),
+      )
     },
-    [navigate, cellFilter],
+    [navigateSearch, cellFilter, search.taskId],
   )
 
   const setCellFilter = useCallback(
     (filter: typeof cellFilter) => {
       skipFocusFromSelfRef.current = true
-      void navigate({
-        search: cellInfoToSearch(selectedCell, filter),
-        replace: true,
-      })
+      navigateSearch(
+        cellInfoToSearch(selectedCell, filter, {
+          taskId: search.taskId,
+        }),
+      )
     },
-    [navigate, selectedCell],
+    [navigateSearch, selectedCell, search.taskId],
   )
 
   useEffect(() => {
@@ -317,6 +389,60 @@ function Warehouse3DPage() {
     queryFn: () => equipmentApi.list({ limit: 200, skip: 0 }),
     staleTime: 60_000,
   })
+
+  const taskId = search.taskId
+  const { data: activeTask } = useQuery({
+    queryKey: ["warehouse-tasks", taskId],
+    queryFn: () => fetchWarehouseTask(taskId!),
+    enabled: Boolean(taskId),
+  })
+  const taskTarget = useMemo(
+    () => parseWarehouseTaskTarget(activeTask?.payload ?? null),
+    [activeTask],
+  )
+
+  const confirmPickMut = useMutation({
+    mutationFn: async () => {
+      if (!taskId) return
+      const itemId = taskTarget.itemId
+      if (itemId) {
+        const item = await ItemsService.readItem({ id: itemId })
+        if (item.status === "warehouse") {
+          await ItemsService.updateItem({
+            id: itemId,
+            requestBody: { status: "shipment" },
+          })
+        }
+      }
+      await patchWarehouseTask(taskId, { status: "completed" })
+    },
+    onSuccess: () => {
+      showSuccessToast("Отбор подтверждён: задание закрыто")
+      void qc.invalidateQueries({ queryKey: ["items"] })
+      void qc.invalidateQueries({ queryKey: ["warehouse"] })
+      void qc.invalidateQueries({ queryKey: ["warehouse-tasks"] })
+      skipFocusFromSelfRef.current = true
+      navigateSearch(cellInfoToSearch(selectedCell, cellFilter))
+    },
+    onError: (e: unknown) => {
+      showErrorToast(e instanceof Error ? e.message : "Не удалось подтвердить")
+    },
+  })
+
+  useEffect(() => {
+    if (!taskTarget.cell || simulationActive) return
+    setRouteWaypoints([
+      { row: 0, level: 0, cellX: 0, cellZ: 0, filled: false },
+      { ...taskTarget.cell },
+    ])
+  }, [
+    taskId,
+    taskTarget.cell?.row,
+    taskTarget.cell?.level,
+    taskTarget.cell?.cellX,
+    taskTarget.cell?.cellZ,
+    simulationActive,
+  ])
 
   const addSelectedCellToRoute = useCallback(() => {
     if (!selectedCell || simulationActive) return
@@ -585,7 +711,8 @@ function Warehouse3DPage() {
   )
 
   return (
-    <div className="mx-auto w-full max-w-full py-4">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0">
       <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
         <Button asChild size="xs" variant="outline" className="font-medium">
           <RouterLink to="/warehouse">Склад</RouterLink>
@@ -606,8 +733,8 @@ function Warehouse3DPage() {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Клик — карточка ячейки. Shift+клик — точка маршрута. Симуляция не
-            меняет БД.
+            Клик — карточка ячейки. Shift+клик — точка маршрута. Подтверждение
+            задания меняет статус товара; «Запустить» симуляцию БД не трогает.
           </p>
           <Button asChild variant="link" size="sm" className="h-auto px-0 text-xs">
             <RouterLink to="/warehouse-3d-help">
@@ -616,6 +743,33 @@ function Warehouse3DPage() {
           </Button>
         </div>
       </div>
+
+      <WarehouseHubNav />
+
+      {twinStatus === "offline" || twinStatus === "no_token" ? (
+        <p className="mb-2 text-xs text-amber-700 dark:text-amber-400">
+          Twin SSE офлайн — занятость и техника могут быть старше нескольких
+          секунд. Включите опрос списка на вкладке «Маршрут», если нужно
+          обновить без SSE.
+        </p>
+      ) : null}
+
+      {activeTask && activeTask.status !== "completed" ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-300/70 bg-orange-50 px-3 py-2 text-sm dark:border-orange-800 dark:bg-orange-950/40">
+          <p>
+            Задание {activeTask.task_type} #{activeTask.id.slice(0, 8)}
+            {taskTarget.slotKey ? ` · ячейка ${taskTarget.slotKey}` : ""}
+            {taskTarget.itemId ? " · товар привязан" : ""}
+          </p>
+          <Button
+            size="sm"
+            onClick={() => confirmPickMut.mutate()}
+            disabled={confirmPickMut.isPending}
+          >
+            Подтвердить отбор
+          </Button>
+        </div>
+      ) : null}
 
       <div className="mb-2 flex items-center justify-between gap-2 md:hidden">
         <Sheet open={mobileToolsOpen} onOpenChange={setMobileToolsOpen}>
@@ -662,7 +816,7 @@ function Warehouse3DPage() {
         </Button>
       </div>
 
-      <div className="mb-3 hidden md:block">
+      <div className="mb-3 hidden max-h-[36vh] overflow-y-auto md:block">
         <Tabs
           value={toolsTab}
           onValueChange={persistToolsTab}
@@ -671,21 +825,20 @@ function Warehouse3DPage() {
           <Warehouse3DToolsPanelContent {...toolsPanelProps} />
         </Tabs>
       </div>
+      </div>
 
       <ErrorBoundary FallbackComponent={ErrorFallback} resetKeys={[sceneKey]}>
         <div
           ref={canvasContainerRef}
           className={cn(
-            "relative w-full",
+            "relative min-h-0 w-full flex-1 overflow-hidden",
             isFullscreen && "min-h-screen h-screen w-screen bg-muted",
           )}
         >
           <div
             className={cn(
-              "w-full overflow-hidden bg-muted",
-              isFullscreen
-                ? "h-full min-h-0"
-                : "min-h-[min(520px,70dvh)] h-[calc(100vh-9.5rem)] rounded-lg md:h-[calc(100vh-12rem)]",
+              "h-full min-h-0 w-full overflow-hidden bg-muted",
+              isFullscreen ? "h-full" : "rounded-lg",
             )}
           >
             <Suspense
@@ -727,6 +880,22 @@ function Warehouse3DPage() {
             selectedCell={selectedCell}
             routeWaypoints={routeWaypoints}
             cellFilter={cellFilter}
+            onSelectRow={(row) => {
+              persistCellInUrl({
+                row,
+                level: selectedCell?.level ?? 0,
+                cellX: 0,
+                cellZ: 0,
+                filled: false,
+              })
+              setFocusCell({
+                row,
+                level: selectedCell?.level ?? 0,
+                cellX: 0,
+                cellZ: 0,
+                filled: false,
+              })
+            }}
           />
           <div className="absolute right-2 top-2 flex gap-1.5">
             <Button

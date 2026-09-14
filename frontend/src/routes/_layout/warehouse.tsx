@@ -4,6 +4,7 @@ import { useCallback } from "react"
 import { z } from "zod"
 
 import { PullToRefresh } from "@/components/Common/PullToRefresh.tsx"
+import { WarehouseHubNav } from "@/components/Common/WarehouseHubNav.tsx"
 import { ItemDataTable } from "@/components/Items/ItemDataTable.tsx"
 import { pageNumberSearch } from "@/lib/routeSearch.ts"
 
@@ -36,6 +37,7 @@ function Warehouse() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="mx-auto w-full max-w-full px-4">
         <h1 className="font-heading pt-12 text-2xl font-semibold">Склад</h1>
+        <WarehouseHubNav />
         <ItemDataTable
           status="warehouse"
           showCheckboxes

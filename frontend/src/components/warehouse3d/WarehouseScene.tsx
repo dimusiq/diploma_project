@@ -4,39 +4,36 @@
 
 import {
   ContactShadows,
-  Environment,
   Html,
-  Line,
   OrbitControls,
   Text,
-  useCursor,
   useProgress,
 } from "@react-three/drei"
-import { Canvas, useFrame, useThree } from "@react-three/fiber"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { MouseEvent as ReactMouseEvent, RefObject } from "react"
-import { Link as RouterLink } from "@tanstack/react-router"
-import type { Group } from "three"
-import { Euler, MeshStandardMaterial, Vector3 } from "three"
+import { Canvas, useFrame } from "@react-three/fiber"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { MeshStandardMaterial } from "three"
 import type { EquipmentPublic } from "@/api/equipment.ts"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
 import type { TopologyDocument } from "@/api/warehouseTopology.ts"
-import { Button } from "@/components/ui/button.tsx"
 import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
-import { formatExpiredDaysLabel } from "@/components/warehouse3d/twin3dDerived.ts"
+import { cellMatchesFilter } from "@/components/warehouse3d/warehouse3dSearch.ts"
+import { CellPopup } from "@/components/warehouse3d/WarehouseCellPopup.tsx"
+import { FreeCameraController } from "@/components/warehouse3d/WarehouseFreeCamera.tsx"
+import {
+  ROUTE_FLOOR_Y,
+  RoutePathLayer,
+  SimulationEquipmentAlongRoute,
+} from "@/components/warehouse3d/WarehouseRouteLayer.tsx"
+import { StorageCell } from "@/components/warehouse3d/WarehouseStorageCell.tsx"
 import {
   ConveyorSection,
   type WarehouseEquipmentKind,
-  WarehouseEquipmentMesh,
 } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
 import {
   type TwinLayersVisibility,
   WarehouseTwinLayers,
 } from "@/components/warehouse3d/WarehouseTwinLayers.tsx"
-import {
-  pickLaneWorldZ,
-  stagingPointOnFloor,
-} from "@/components/warehouse3d/warehouseAisleRouting.ts"
+import { pickLaneWorldZ } from "@/components/warehouse3d/warehouseAisleRouting.ts"
 import {
   buildWarehouseGeometry,
   CELL_GAP,
@@ -48,34 +45,30 @@ import {
   WarehouseGeometryProvider,
   type WarehouseLayoutSpec,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
-import {
-  polylineLength,
-  samplePolyline3D,
-} from "@/components/warehouse3d/warehousePathFollow.ts"
 import { buildRoutePolyline } from "@/components/warehouse3d/warehouseRouteGraphPath.ts"
+import type {
+  CellInfo,
+  CellItemInfo,
+  TwinOverlayMode,
+  WarehouseInteractionMode,
+} from "@/components/warehouse3d/warehouse3dTypes.ts"
 import type { LiveEquipmentPose } from "@/hooks/useEquipmentPositionsLive.ts"
 
 export type { WarehouseEquipmentKind }
-export type WarehouseInteractionMode = "view" | "route"
-
 export type { WarehouseLayoutSpec }
+export type {
+  CellInfo,
+  CellItemInfo,
+  TwinOverlayMode,
+  WarehouseInteractionMode,
+} from "@/components/warehouse3d/warehouse3dTypes.ts"
 
 const FLOOR_COLOR_LIGHT = "#6b7280"
-const FLOOR_COLOR_DARK = "#374151"
+const FLOOR_COLOR_DARK = "#4b5563"
 const RACK_FRAME_COLOR_LIGHT = "#4b5563"
-const RACK_FRAME_COLOR_DARK = "#1f2937"
-const CELL_EMPTY_COLOR_LIGHT = "#9ca3af"
-const CELL_EMPTY_COLOR_DARK = "#4b5563"
-const CELL_FILLED_COLOR = "#3b82f6"
-const CELL_HOVER_COLOR = "#93c5fd"
-const CELL_SELECTED_COLOR = "#fbbf24"
-const CELL_EXPIRING_COLOR = "#dc2626"
-const CELL_EXPIRED_COLOR = "#7f1d1d"
-const CELL_BLOCKED_COLOR = "#a855f7"
-const CELL_RESERVED_COLOR = "#f59e0b"
-const CELL_QUARANTINE_COLOR = "#7c3aed"
+const RACK_FRAME_COLOR_DARK = "#64748b"
 const FLOOR_LABEL_COLOR_LIGHT = "#e5e7eb"
-const FLOOR_LABEL_COLOR_DARK = "#6b7280"
+const FLOOR_LABEL_COLOR_DARK = "#e2e8f0"
 /** Вылет номеров рядов за торец стеллажа по X (см. `FloorMarkings`, зебра не должна заходить сюда). */
 const FLOOR_ROW_LABEL_X_MARGIN = 1.05
 
@@ -90,14 +83,6 @@ function isCellFilled(
   return Boolean(occupiedCellKeys?.has(geom.cellKey(rackIndex, level, ix, iz)))
 }
 
-export interface CellInfo {
-  row: number
-  level: number
-  cellX: number
-  cellZ: number
-  filled: boolean
-}
-
 /** Мировые координаты центра ячейки (дефолтная геометрия; внутри Canvas используйте geom из контекста). */
 export function getCellWorldPosition(
   row: number,
@@ -110,227 +95,6 @@ export function getCellWorldPosition(
   ).getCellWorldPosition(row, level, cellX, cellZ)
 }
 
-export interface CellItemInfo {
-  id?: string
-  title: string
-  description?: string | null
-  quantity?: number
-  unit?: string | null
-  sku?: string | null
-  expires_at?: string | null
-  location?: string | null
-  status: string
-  expiringSoon?: boolean
-  isExpired?: boolean
-  expiredDays?: number
-}
-
-function cellMatchesFilter(
-  filter: string | undefined,
-  filled: boolean,
-  expiring: boolean,
-  expired: boolean,
-): boolean {
-  switch (filter) {
-    case "empty":
-      return !filled
-    case "occupied":
-      return filled
-    case "expiring":
-      return expiring
-    case "expired":
-      return expired
-    default:
-      return true
-  }
-}
-
-function CellEmissivePulse({
-  materialRef,
-  expired,
-  dimmed,
-}: {
-  materialRef: RefObject<MeshStandardMaterial | null>
-  expired: boolean
-  dimmed?: boolean
-}) {
-  useFrame((state) => {
-    const mat = materialRef.current
-    if (!mat) return
-    mat.opacity = dimmed ? 0.4 : 1
-    mat.transparent = Boolean(dimmed)
-    const t = state.clock.elapsedTime
-    if (expired) {
-      mat.color.setStyle(CELL_EXPIRED_COLOR)
-      mat.emissive.setStyle(CELL_EXPIRED_COLOR)
-      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4)
-      return
-    }
-    mat.color.setStyle(CELL_EXPIRING_COLOR)
-    mat.emissive.setStyle(CELL_EXPIRING_COLOR)
-    mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4)
-  })
-  return null
-}
-
-function StorageCell({
-  filled,
-  expiring,
-  expired,
-  x,
-  y,
-  z,
-  selected,
-  darkMode,
-  heatIntensity,
-  hazardStripe,
-  dimmed,
-  onCellClick,
-  onEnter,
-  onLeave,
-}: {
-  filled: boolean
-  expiring: boolean
-  expired: boolean
-  x: number
-  y: number
-  z: number
-  selected?: boolean
-  darkMode?: boolean
-  /** 0…1 — heatmap (congestion / pick / SLA / replenishment). */
-  heatIntensity?: number
-  hazardStripe?: CellStripe | null
-  dimmed?: boolean
-  onCellClick?: (shiftKey: boolean) => void
-  onEnter?: () => void
-  onLeave?: () => void
-}) {
-  const [hover, setHover] = useState(false)
-  const materialRef = useRef<MeshStandardMaterial>(null)
-  useCursor(hover, "pointer", "auto")
-
-  const pulsing = expired || expiring
-
-  useEffect(() => {
-    const mat = materialRef.current
-    if (!mat || pulsing) return
-    mat.opacity = dimmed ? 0.28 : 1
-    mat.transparent = Boolean(dimmed)
-    if (hazardStripe === "blocked") {
-      mat.color.setStyle(CELL_BLOCKED_COLOR)
-      mat.emissive.setStyle(CELL_BLOCKED_COLOR)
-      mat.emissiveIntensity = 0.12
-      return
-    }
-    if (hazardStripe === "reserved") {
-      mat.color.setStyle(CELL_RESERVED_COLOR)
-      mat.emissive.setStyle("#b45309")
-      mat.emissiveIntensity = 0.12
-      return
-    }
-    if (hazardStripe === "quarantine") {
-      mat.color.setStyle(CELL_QUARANTINE_COLOR)
-      mat.emissive.setStyle(CELL_QUARANTINE_COLOR)
-      mat.emissiveIntensity = 0.15
-      return
-    }
-    const hi = heatIntensity ?? 0
-    if (hi > 0.02) {
-      const r = 0.55 + hi * 0.42
-      const g = 0.55 - hi * 0.35
-      const b = 0.65 - hi * 0.45
-      mat.color.setRGB(r, Math.max(0.2, g), Math.max(0.15, b))
-      mat.emissive.setRGB(r * 0.4, g * 0.2, 0.05)
-      mat.emissiveIntensity = 0.08 + hi * 0.22
-      return
-    }
-    mat.emissiveIntensity = 0
-    mat.emissive.setStyle("#000000")
-    if (selected) {
-      mat.color.setStyle(CELL_SELECTED_COLOR)
-      mat.emissive.setStyle("#b45309")
-      mat.emissiveIntensity = 0.15
-    } else if (hover) {
-      mat.color.setStyle(CELL_HOVER_COLOR)
-    } else if (filled) {
-      mat.color.setStyle(CELL_FILLED_COLOR)
-    } else {
-      mat.color.setStyle(
-        darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT,
-      )
-    }
-  }, [
-    pulsing,
-    dimmed,
-    hazardStripe,
-    heatIntensity,
-    selected,
-    hover,
-    filled,
-    darkMode,
-  ])
-
-  const baseColor = expired
-    ? CELL_EXPIRED_COLOR
-    : expiring
-      ? CELL_EXPIRING_COLOR
-      : hazardStripe === "blocked"
-        ? CELL_BLOCKED_COLOR
-        : hazardStripe === "reserved"
-          ? CELL_RESERVED_COLOR
-          : hazardStripe === "quarantine"
-            ? CELL_QUARANTINE_COLOR
-            : (heatIntensity ?? 0) > 0.02
-              ? `rgb(${Math.round(55 + (heatIntensity ?? 0) * 200)}, ${Math.round(140 - (heatIntensity ?? 0) * 90)}, ${Math.round(165 - (heatIntensity ?? 0) * 120)})`
-              : selected
-                ? CELL_SELECTED_COLOR
-                : hover
-                  ? CELL_HOVER_COLOR
-                  : filled
-                    ? CELL_FILLED_COLOR
-                    : darkMode
-                      ? CELL_EMPTY_COLOR_DARK
-                      : CELL_EMPTY_COLOR_LIGHT
-
-  return (
-    <>
-    <mesh
-      position={[x, y, z]}
-      onClick={(e) => {
-        e.stopPropagation()
-        onCellClick?.(e.shiftKey)
-      }}
-      onPointerOver={(e) => {
-        e.stopPropagation()
-        setHover(true)
-        onEnter?.()
-      }}
-      onPointerOut={() => {
-        setHover(false)
-        onLeave?.()
-      }}
-      onPointerDown={(e) => e.stopPropagation()}
-    >
-      <boxGeometry args={[CELL_SIZE, CELL_SIZE, CELL_SIZE]} />
-      <meshStandardMaterial
-        ref={materialRef}
-        color={baseColor}
-        metalness={0.1}
-        roughness={0.7}
-        transparent={Boolean(dimmed)}
-        opacity={dimmed ? 0.28 : 1}
-      />
-    </mesh>
-      {pulsing && (
-        <CellEmissivePulse
-          materialRef={materialRef}
-          expired={expired}
-          dimmed={dimmed}
-        />
-      )}
-    </>
-  )
-}
 
 function RackColumnGuard({
   position,
@@ -622,6 +386,10 @@ function Rack({
           filled,
         }
         const ckey = geom.cellKey(rackIndex, level, ix, iz)
+        const matches = cellMatchesFilter(cellFilter, filled, expiring, expired)
+        if (!matches && cellFilter && cellFilter !== "all" && !isSelected) {
+          return null
+        }
         return (
           <StorageCell
             key={ckey}
@@ -739,144 +507,6 @@ function Floor({ darkMode }: { darkMode?: boolean }) {
   )
 }
 
-function CellPopup({
-  position,
-  cellLabel,
-  items,
-  occupied,
-  onClose,
-}: {
-  position: [number, number, number]
-  cellLabel: string
-  items: CellItemInfo[]
-  occupied?: boolean
-  onClose: () => void
-}) {
-  // Для нижних уровней поднимаем попап выше ячейки, чтобы не обрезался по краю экрана
-  const cellY = position[1]
-  const liftY = cellY < 1.4 ? 1.1 : 0
-  const offsetPosition: [number, number, number] = [
-    position[0] + 1.2,
-    cellY + liftY,
-    position[2],
-  ]
-  return (
-    <Html position={offsetPosition} center style={{ pointerEvents: "auto" }}>
-      <div
-        className="cell-popup rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md"
-        style={{
-          minWidth: "220px",
-          maxWidth: "320px",
-          fontFamily: "system-ui, sans-serif",
-          fontSize: "13px",
-          animation: "cellPopupIn 0.18s ease-out",
-        }}
-      >
-        <style>{`
-          @keyframes cellPopupIn {
-            from { opacity: 0; transform: scale(0.96); }
-            to { opacity: 1; transform: scale(1); }
-          }
-        `}</style>
-        <div className="mb-2 text-sm font-semibold">{cellLabel}</div>
-        {items.length > 0 ? (
-          <>
-            {items.length > 1 && (
-              <div className="mb-1.5 text-xs text-muted-foreground">
-                В ячейке {items.length} поз.
-              </div>
-            )}
-            {items.slice(0, 4).map((item, idx) => (
-              <div
-                key={item.id ?? `${item.title}-${idx}`}
-                className={
-                  idx < Math.min(items.length, 4) - 1
-                    ? "mb-2.5 border-b border-border pb-2"
-                    : undefined
-                }
-              >
-            <div className="mb-1 font-semibold">{item.title}</div>
-            {item.description && (
-              <div className="mb-1.5 text-xs text-muted-foreground">
-                {item.description}
-              </div>
-            )}
-            <div className="mb-1 flex flex-wrap gap-2.5">
-              <span>Кол-во: {item.quantity ?? 1}</span>
-              {item.unit && <span>Ед.: {item.unit}</span>}
-              {item.sku && <span>Артикул: {item.sku}</span>}
-            </div>
-            {item.expires_at && (
-              <div className="mb-1">
-                Срок годности:{" "}
-                {new Date(item.expires_at).toLocaleDateString("ru-RU")}
-                {item.isExpired && item.expiredDays != null && (
-                  <span className="ml-1.5 font-semibold text-red-900 dark:text-red-300">
-                    Просрочено на {formatExpiredDaysLabel(item.expiredDays)}
-                  </span>
-                )}
-                {item.expiringSoon && !item.isExpired && (
-                  <span className="ml-1.5 font-semibold text-red-600">
-                    Скоро истекает
-                  </span>
-                )}
-              </div>
-            )}
-            {item.location && (
-              <div className="text-xs text-muted-foreground">
-                Место: {item.location}
-              </div>
-            )}
-            <div className="mt-1.5 text-[11px] text-muted-foreground">
-              Статус: {item.status}
-            </div>
-            {item.id && (
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="mt-2 h-7 text-xs"
-              >
-                <RouterLink
-                  to="/items"
-                  search={{ open: item.id }}
-                  onClick={(e: ReactMouseEvent) => e.stopPropagation()}
-                >
-                  Подробнее →
-                </RouterLink>
-              </Button>
-            )}
-              </div>
-            ))}
-            {items.length > 4 && (
-              <div className="mt-1.5 text-xs text-muted-foreground">
-                Ещё {items.length - 4}…
-              </div>
-            )}
-          </>
-        ) : occupied ? (
-          <div className="text-muted-foreground">
-            Ячейка занята (карточка товара ещё не загружена)
-          </div>
-        ) : (
-          <div className="text-muted-foreground">Ячейка свободна</div>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-2.5 h-7 text-xs"
-          onClick={(e) => {
-            e.stopPropagation()
-            onClose()
-          }}
-        >
-          Закрыть
-        </Button>
-      </div>
-    </Html>
-  )
-}
 
 function FloorMarkings({
   rowPositions,
@@ -917,43 +547,6 @@ function FloorMarkings({
             {String(rowIndex)}
           </Text>
         </group>
-      ))}
-    </group>
-  )
-}
-
-function SprinklerSystem({
-  wallH,
-  floorWidth,
-  trussPositions,
-}: {
-  wallH: number
-  floorWidth: number
-  trussPositions: number[]
-}) {
-  const pipeY = wallH - 0.6
-
-  const headPositions = useMemo(() => {
-    const pts: [number, number][] = []
-    const spacing = 6
-    const hw = floorWidth / 2
-    for (let ti = 0; ti < trussPositions.length; ti += 2) {
-      const z = trussPositions[ti]!
-      const count = Math.max(2, Math.floor(floorWidth / spacing))
-      for (let i = 0; i <= count; i++) {
-        pts.push([-hw + 1.5 + i * spacing, z])
-      }
-    }
-    return pts
-  }, [trussPositions, floorWidth])
-
-  return (
-    <group>
-      {headPositions.map(([x, z], i) => (
-        <mesh key={i} position={[x, pipeY - 0.15, z]}>
-          <cylinderGeometry args={[0.02, 0.008, 0.1, 4]} />
-          <meshStandardMaterial color="#b91c1c" metalness={0.5} roughness={0.4} />
-        </mesh>
       ))}
     </group>
   )
@@ -1054,56 +647,6 @@ function ElectricalPanel({
   )
 }
 
-function AisleHangingSign({
-  position,
-  label,
-  darkMode,
-}: {
-  position: [number, number, number]
-  label: string
-  darkMode?: boolean
-}) {
-  return (
-    <group position={position}>
-      {/* Hanging chain/wire */}
-      <mesh position={[0, 0.3, 0]}>
-        <cylinderGeometry args={[0.005, 0.005, 0.6, 4]} />
-        <meshStandardMaterial color="#71717a" metalness={0.6} roughness={0.3} />
-      </mesh>
-      {/* Sign panel (double-sided) */}
-      <mesh>
-        <boxGeometry args={[0.6, 0.35, 0.02]} />
-        <meshStandardMaterial
-          color={darkMode ? "#1e40af" : "#1d4ed8"}
-          metalness={0.15}
-          roughness={0.5}
-        />
-      </mesh>
-      <Text
-        position={[0, 0, 0.015]}
-        fontSize={0.16}
-        color="white"
-        anchorX="center"
-        anchorY="middle"
-        fontWeight="bold"
-      >
-        {label}
-      </Text>
-      <Text
-        position={[0, 0, -0.015]}
-        rotation={[0, Math.PI, 0]}
-        fontSize={0.16}
-        color="white"
-        anchorX="center"
-        anchorY="middle"
-        fontWeight="bold"
-      >
-        {label}
-      </Text>
-    </group>
-  )
-}
-
 /** Центры ворот доков по X (согласовано с группами `dock-*` ниже). */
 const DOCK_CENTER_X = [-4, 0, 4] as const
 
@@ -1124,8 +667,7 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
   const geom = useWarehouseGeometry()
   const hw = geom.floorWidth / 2 + 1
   const hd = geom.floorDepth / 2 + 1
-  const wallH = Math.max(geom.levels * LEVEL_HEIGHT + 4, 7)
-  const wallBaseColor = darkMode ? "#1e293b" : "#cbd5e1"
+  const wallBaseColor = darkMode ? "#334155" : "#cbd5e1"
   const dockColor = darkMode ? "#334155" : "#475569"
   const markingColor = "#eab308"
 
@@ -1153,11 +695,6 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
 
   /** Плоскость доков чуть снаружи задней стены, чтобы створки не уходили внутрь здания. */
   const dockFaceZ = hd + 0.06
-
-  const trussPositions = useMemo(() => {
-    const n = Math.max(2, Math.floor(geom.floorDepth / 6))
-    return Array.from({ length: n + 1 }, (_, i) => -hd + 1.5 + (i * (2 * hd - 3)) / n)
-  }, [hd, geom.floorDepth])
 
   const aisleMarkings = useMemo(() => {
     const lines: number[] = []
@@ -1218,13 +755,6 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
           />
         </mesh>
       ))}
-
-      {/* Sprinkler system */}
-      <SprinklerSystem
-        wallH={wallH}
-        floorWidth={geom.floorWidth}
-        trussPositions={trussPositions}
-      />
 
       {/* Electrical panel */}
       <ElectricalPanel position={[hw - 0.08, 0, -hd + 2.5]} darkMode={darkMode} />
@@ -1363,7 +893,7 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
             anchorY="middle"
             maxWidth={1}
           >
-            {`DOK ${i + 1}`}
+            {`ВОРОТА ${i + 1}`}
           </Text>
         </group>
       ))}
@@ -1385,30 +915,6 @@ function WarehouseBuilding({ darkMode }: { darkMode?: boolean }) {
           <meshStandardMaterial color="#3f3f46" metalness={0.5} roughness={0.4} />
         </mesh>
       ))}
-
-      {/* Hanging aisle number signs */}
-      {aisleMarkings.map((z, ai) => (
-        <AisleHangingSign
-          key={`aisle-sign-${ai}`}
-          position={[0, wallH - 1.8, z]}
-          label={`A${ai + 1}`}
-          darkMode={darkMode}
-        />
-      ))}
-
-      {/* Ceiling-hung directional sign (to docks / зона ПР) */}
-      <AisleHangingSign
-        position={[0, wallH - 1.8, apronMidZ]}
-        label="ДОКИ →"
-        darkMode={darkMode}
-      />
-
-      {/* Ceiling-hung directional sign (to storage) */}
-      <AisleHangingSign
-        position={[0, wallH - 1.8, -hd + 3]}
-        label="← ЗОНА ХР."
-        darkMode={darkMode}
-      />
     </group>
   )
 }
@@ -1427,7 +933,12 @@ function HoverLabel({ cell }: { cell: CellInfo }) {
     position[2],
   ]
   return (
-    <Html position={labelPosition} center style={{ pointerEvents: "none" }}>
+    <Html
+      position={labelPosition}
+      center
+      wrapperClass="warehouse-3d-html"
+      style={{ pointerEvents: "none" }}
+    >
       <div
         style={{
           padding: "4px 8px",
@@ -1445,108 +956,6 @@ function HoverLabel({ cell }: { cell: CellInfo }) {
   )
 }
 
-const ROUTE_LINE_COLOR = "#ea580c"
-const ROUTE_FLOOR_Y = 0.22
-
-function RoutePathLayer({
-  pathPoints,
-  cellWaypoints,
-}: {
-  pathPoints: Vector3[]
-  cellWaypoints: CellInfo[]
-}) {
-  const geom = useWarehouseGeometry()
-  const cellMarkers = useMemo(() => {
-    return cellWaypoints.map((w) =>
-      stagingPointOnFloor(geom, w, ROUTE_FLOOR_Y),
-    )
-  }, [geom, cellWaypoints])
-  if (cellWaypoints.length === 0) return null
-  return (
-    <group>
-      {cellMarkers.map((p, i) => (
-        <mesh key={i} position={[p.x, p.y + 0.04, p.z]}>
-          <sphereGeometry args={[0.11, 10, 10]} />
-          <meshStandardMaterial
-            color="#fb923c"
-            emissive="#c2410c"
-            emissiveIntensity={0.25}
-          />
-        </mesh>
-      ))}
-      {pathPoints.length >= 2 && (
-        <Line points={pathPoints} color={ROUTE_LINE_COLOR} lineWidth={2.5} />
-      )}
-    </group>
-  )
-}
-
-function SimulationEquipmentAlongRoute({
-  pathPoints,
-  active,
-  speed,
-  equipmentKind,
-  showCargo,
-  onComplete,
-}: {
-  pathPoints: Vector3[]
-  active: boolean
-  speed: number
-  equipmentKind: WarehouseEquipmentKind
-  showCargo: boolean
-  onComplete?: () => void
-}) {
-  const groupRef = useRef<Group>(null)
-  const tRef = useRef(0)
-  const doneRef = useRef(false)
-  const lengthRef = useRef(1)
-
-  useEffect(() => {
-    lengthRef.current = Math.max(polylineLength(pathPoints), 0.05)
-  }, [pathPoints])
-
-  useEffect(() => {
-    if (active) {
-      tRef.current = 0
-      doneRef.current = false
-    }
-  }, [active])
-
-  useFrame((state, delta) => {
-    if (!active || pathPoints.length < 2 || !groupRef.current) return
-    const len = lengthRef.current
-    tRef.current += (speed * delta) / len
-    state.invalidate()
-    if (tRef.current >= 1) {
-      tRef.current = 1
-      if (!doneRef.current) {
-        doneRef.current = true
-        onComplete?.()
-      }
-    }
-    const { position, headingY } = samplePolyline3D(pathPoints, tRef.current)
-    groupRef.current.position.copy(position)
-    groupRef.current.rotation.set(0, headingY, 0)
-  })
-
-  if (pathPoints.length < 2) return null
-  return (
-    <group ref={groupRef}>
-      <WarehouseEquipmentMesh
-        kind={equipmentKind}
-        showPallet={showCargo && (equipmentKind === "forklift" || equipmentKind === "reach_truck")}
-      />
-    </group>
-  )
-}
-
-export type TwinOverlayMode =
-  | "standard"
-  | "occupancy"
-  | "workload"
-  | "replenishment_need"
-  | "anomaly_alerts"
-  | "maintenance_safety"
 
 export type WarehouseTwinEnrichment = {
   overlayMode: TwinOverlayMode
@@ -1654,37 +1063,53 @@ function WarehouseContent({
 
   return (
     <>
-      {/* Primary directional light (sun-like from high angle) */}
+      <color attach="background" args={[darkMode ? "#243044" : "#e5e7eb"]} />
+      <ambientLight
+        intensity={darkMode ? 0.55 : 0.28}
+        color={darkMode ? "#dbeafe" : "#ffffff"}
+      />
+      <hemisphereLight
+        args={[
+          darkMode ? "#94a3b8" : "#bfdbfe",
+          darkMode ? "#475569" : "#d4d4d8",
+          darkMode ? 1.15 : 0.6,
+        ]}
+      />
       <directionalLight
         position={[12, 18, 8]}
-        intensity={1.8}
-        color="#fff5e6"
+        intensity={darkMode ? 2.4 : 1.8}
+        color={darkMode ? "#fff7ed" : "#fff5e6"}
       />
-      {/* Hemisphere light (sky/ground ambient) */}
-      <hemisphereLight
-        args={[darkMode ? "#1e293b" : "#bfdbfe", darkMode ? "#0f172a" : "#d4d4d8", 0.6]}
+      <directionalLight
+        position={[-8, 14, -10]}
+        intensity={darkMode ? 1.1 : 0.35}
+        color={darkMode ? "#e0f2fe" : "#e2e8f0"}
       />
-      {/* Fill lights from sides */}
+      <pointLight
+        position={[0, 14, 0]}
+        intensity={darkMode ? 2.2 : 0.5}
+        distance={80}
+        decay={1.4}
+        color={darkMode ? "#f8fafc" : "#e2e8f0"}
+      />
       <pointLight
         position={[-10, 8, -8]}
-        intensity={0.6}
-        distance={45}
-        decay={2}
-        color={darkMode ? "#94a3b8" : "#e2e8f0"}
+        intensity={darkMode ? 1.4 : 0.6}
+        distance={55}
+        decay={1.6}
+        color={darkMode ? "#bfdbfe" : "#e2e8f0"}
       />
       <pointLight
         position={[10, 8, 8]}
-        intensity={0.6}
-        distance={45}
-        decay={2}
-        color={darkMode ? "#94a3b8" : "#e2e8f0"}
+        intensity={darkMode ? 1.4 : 0.6}
+        distance={55}
+        decay={1.6}
+        color={darkMode ? "#fed7aa" : "#e2e8f0"}
       />
-      {/* Environment map for realistic reflections on metallic surfaces */}
-      <Environment preset="warehouse" environmentIntensity={0.4} />
       {/* Soft contact shadows on the floor */}
       <ContactShadows
         position={[0, 0.005, 0]}
-        opacity={darkMode ? 0.25 : 0.35}
+        opacity={darkMode ? 0.12 : 0.35}
         scale={50}
         blur={2.5}
         far={12}
@@ -1850,7 +1275,7 @@ function SceneLoadOverlay() {
   const { active, progress } = useProgress()
   if (!active) return null
   return (
-    <Html fullscreen center>
+    <Html fullscreen center wrapperClass="warehouse-3d-html">
       <div
         style={{
           display: "flex",
@@ -1891,139 +1316,6 @@ function SceneLoadOverlay() {
   )
 }
 
-const _freeCamSpeed = 8
-const FREE_CAM_CODES = new Set([
-  "KeyW",
-  "KeyA",
-  "KeyS",
-  "KeyD",
-  "ArrowUp",
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-  "Space",
-  "ShiftLeft",
-  "ShiftRight",
-])
-
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  const tag = target.tagName
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    target.isContentEditable
-  )
-}
-
-function FreeCameraController() {
-  const { camera, gl } = useThree()
-  const yaw = useRef(0)
-  const pitch = useRef(0)
-  const mouseDown = useRef(false)
-  const initialized = useRef(false)
-  const keysRef = useRef(new Set<string>())
-
-  useEffect(() => {
-    if (!initialized.current) {
-      initialized.current = true
-      const e = new Euler().setFromQuaternion(camera.quaternion, "YXZ")
-      yaw.current = e.y
-      pitch.current = e.x
-    }
-  }, [camera])
-
-  useEffect(() => {
-    const canvas = gl.domElement
-
-    const onPointerDown = (e: PointerEvent) => {
-      mouseDown.current = true
-      canvas.setPointerCapture(e.pointerId)
-    }
-    const onPointerUp = (e: PointerEvent) => {
-      mouseDown.current = false
-      canvas.releasePointerCapture(e.pointerId)
-    }
-    const onPointerMove = (e: PointerEvent) => {
-      if (!mouseDown.current) return
-      yaw.current -= e.movementX * 0.003
-      pitch.current -= e.movementY * 0.003
-      pitch.current = Math.max(
-        -Math.PI / 2 + 0.05,
-        Math.min(Math.PI / 2 - 0.05, pitch.current),
-      )
-    }
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const fwd = new Vector3(0, 0, -1).applyEuler(
-        new Euler(pitch.current, yaw.current, 0, "YXZ"),
-      )
-      camera.position.addScaledVector(fwd, -e.deltaY * 0.02)
-    }
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target)) return
-      if (!FREE_CAM_CODES.has(e.code)) return
-      e.preventDefault()
-      keysRef.current.add(e.code)
-    }
-    const onKeyUp = (e: KeyboardEvent) => {
-      keysRef.current.delete(e.code)
-    }
-    const onBlur = () => {
-      keysRef.current.clear()
-    }
-    const onContextMenu = (e: Event) => e.preventDefault()
-
-    canvas.addEventListener("pointerdown", onPointerDown)
-    canvas.addEventListener("pointerup", onPointerUp)
-    canvas.addEventListener("pointerleave", onPointerUp)
-    canvas.addEventListener("pointermove", onPointerMove)
-    canvas.addEventListener("wheel", onWheel, { passive: false })
-    canvas.addEventListener("contextmenu", onContextMenu)
-    window.addEventListener("keydown", onKeyDown)
-    window.addEventListener("keyup", onKeyUp)
-    window.addEventListener("blur", onBlur)
-    return () => {
-      canvas.removeEventListener("pointerdown", onPointerDown)
-      canvas.removeEventListener("pointerup", onPointerUp)
-      canvas.removeEventListener("pointerleave", onPointerUp)
-      canvas.removeEventListener("pointermove", onPointerMove)
-      canvas.removeEventListener("wheel", onWheel)
-      canvas.removeEventListener("contextmenu", onContextMenu)
-      window.removeEventListener("keydown", onKeyDown)
-      window.removeEventListener("keyup", onKeyUp)
-      window.removeEventListener("blur", onBlur)
-      keysRef.current.clear()
-    }
-  }, [gl, camera])
-
-  useFrame((_, delta) => {
-    const camEuler = new Euler(pitch.current, yaw.current, 0, "YXZ")
-    camera.quaternion.setFromEuler(camEuler)
-
-    const speed = _freeCamSpeed * delta
-
-    const forward = new Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
-    const right = new Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
-
-    const keys = keysRef.current
-    if (keys.has("KeyW") || keys.has("ArrowUp"))
-      camera.position.addScaledVector(forward, speed)
-    if (keys.has("KeyS") || keys.has("ArrowDown"))
-      camera.position.addScaledVector(forward, -speed)
-    if (keys.has("KeyA") || keys.has("ArrowLeft"))
-      camera.position.addScaledVector(right, -speed)
-    if (keys.has("KeyD") || keys.has("ArrowRight"))
-      camera.position.addScaledVector(right, speed)
-
-    if (keys.has("Space")) camera.position.y += speed
-    if (keys.has("ShiftLeft") || keys.has("ShiftRight"))
-      camera.position.y -= speed
-  })
-
-  return null
-}
 
 interface WarehouseSceneProps {
   /** Выбранная ячейка (показ попапа, подсветка). */
@@ -2102,9 +1394,22 @@ export function WarehouseScene({
     simulationActive ||
     (expiredCellKeys?.size ?? 0) > 0 ||
     (expiringCellKeys?.size ?? 0) > 0
+  const [glEpoch, setGlEpoch] = useState(0)
+  const glLostCount = useRef(0)
 
   return (
+    <div
+      className="h-full w-full touch-none outline-none"
+      onPointerDownCapture={(e) => {
+        const t = e.target
+        if (t instanceof HTMLCanvasElement) {
+          e.preventDefault()
+        }
+      }}
+    >
     <Canvas
+      key={glEpoch}
+      className="h-full w-full outline-none"
       frameloop={needsContinuousFrames ? "always" : "demand"}
       camera={{
         position: [20, 16, 20],
@@ -2112,9 +1417,40 @@ export function WarehouseScene({
         near: 0.1,
         far: 280,
       }}
-      gl={{ antialias: true }}
+      gl={{
+        antialias: true,
+        powerPreference: "default",
+        failIfMajorPerformanceCaveat: false,
+      }}
+      onCreated={({ gl }) => {
+        const el = gl.domElement
+        el.removeAttribute("tabindex")
+        el.addEventListener(
+          "pointerdown",
+          (ev) => {
+            ev.preventDefault()
+          },
+          { capture: true },
+        )
+        el.addEventListener(
+          "mousedown",
+          (ev) => {
+            ev.preventDefault()
+          },
+          { capture: true },
+        )
+        const onLost = (ev: Event) => {
+          ev.preventDefault()
+          if (glLostCount.current >= 2) return
+          glLostCount.current += 1
+          setGlEpoch((n) => n + 1)
+        }
+        el.addEventListener("webglcontextlost", onLost)
+      }}
       onPointerMissed={() => {
-        if (interactionMode === "view") handleCellSelect(null)
+        if (interactionMode !== "view") return
+        if (!selectedCell) return
+        handleCellSelect(null)
       }}
     >
       <WarehouseGeometryProvider spec={layoutSpec}>
@@ -2156,5 +1492,6 @@ export function WarehouseScene({
         />
       )}
     </Canvas>
+    </div>
   )
 }

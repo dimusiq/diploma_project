@@ -17,6 +17,7 @@ import { MassEditItemsDialog } from "@/components/Items/MassEditItemsDialog.tsx"
 import { MoveItemsDialog } from "@/components/Items/MoveItemsDialog.tsx"
 import { type SortField, SortHeader } from "@/components/Items/SortHeader.tsx"
 import PendingItems from "@/components/Pending/PendingItems.tsx"
+import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
@@ -129,7 +130,7 @@ export function ItemDataTable({
     queryFn: () => CategoriesService.readCategories(),
   })
 
-  const { data, isLoading, isError, refetch, isPlaceholderData } = useQuery({
+  const { data, isLoading, isError, refetch, isPlaceholderData, isFetching } = useQuery({
     queryFn: () =>
       ItemsService.readItems({
         skip: (page - 1) * PER_PAGE,
@@ -361,6 +362,7 @@ export function ItemDataTable({
 
   return (
     <>
+      <FetchingIndicator active={isFetching && !!data && !isLoading} />
       {showToolbar && (
         <ItemSelectionToolbar
           selectedCount={selectedIds.size}

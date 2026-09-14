@@ -1,21 +1,13 @@
 /**
- * Складская техника: загрузка GLB-моделей (если есть) + процедурные фоллбэки.
+ * Складская техника: процедурные модели (без GLB).
+ * GLB из public/models/ не грузим: KHR_materials_pbrSpecularGlossiness и THREE.Clock
+ * в лоадере Three r18x дают предупреждения и лишнюю нагрузку на GPU.
  * Ось +Z — направление «вперёд» модели.
- *
- * Чтобы добавить новую GLB-модель, положите файл в public/models/
- * и добавьте запись в GLB_MODEL_REGISTRY ниже.
- *
- * Авторство (CC Attribution):
- *  - forklift-yellow.glb — Ricardo Sanchez via Get3DModels.com
- *  - warehouse_reach_truck_3d_scan.glb — 3D-скан ричтрака (локальный файл; проверьте лицензию источника)
- *  - electric-pallet-jack.glb — локальный файл в public/models/
  */
 
-import { Clone, useGLTF } from "@react-three/drei"
 import { useFrame } from "@react-three/fiber"
-import React, { Suspense, useMemo, useRef } from "react"
+import { useRef } from "react"
 import type { Mesh, MeshStandardMaterial } from "three"
-import { Box3, Vector3 } from "three"
 
 export type WarehouseEquipmentKind =
   | "forklift"
@@ -34,102 +26,6 @@ export function equipmentTypeToKind(type: string): WarehouseEquipmentKind {
       return "electric_pallet_jack"
     default:
       return "forklift"
-  }
-}
-
-/**
- * Реестр GLB-моделей.
- * path  — относительный путь от public/
- * scale — масштаб к сцене (ячейка ≈ 0.72 ед.)
- * rotY  — поворот вокруг Y, чтобы +Z смотрел вперёд
- */
-interface GlbEntry {
-  path: string
-  scale: number
-  rotY?: number
-  offsetY?: number
-  autoCenter?: boolean
-  targetHeight?: number
-}
-
-const GLB_MODEL_REGISTRY: Partial<Record<WarehouseEquipmentKind, GlbEntry>> = {
-  forklift: { path: "/models/forklift-yellow.glb", scale: 0.0065, rotY: 0 },
-  reach_truck: {
-    path: "/models/warehouse_reach_truck_3d_scan.glb",
-    autoCenter: true,
-    targetHeight: 2.35,
-    scale: 1,
-    rotY: 0,
-  },
-  electric_pallet_jack: {
-    path: "/models/electric-pallet-jack.glb",
-    autoCenter: true,
-    targetHeight: 1.0,
-    scale: 1,
-    rotY: 0,
-  },
-}
-
-function GlbEquipment({
-  kind,
-  fallback,
-}: {
-  kind: WarehouseEquipmentKind
-  fallback: React.ReactNode
-}) {
-  const entry = GLB_MODEL_REGISTRY[kind]
-  if (!entry) return <>{fallback}</>
-  return (
-    <GlbErrorBoundary fallback={fallback}>
-      <Suspense fallback={fallback}>
-        <GlbLoader entry={entry} />
-      </Suspense>
-    </GlbErrorBoundary>
-  )
-}
-
-function GlbLoader({ entry }: { entry: GlbEntry }) {
-  const { scene } = useGLTF(entry.path)
-
-  const { finalScale, offset } = useMemo(() => {
-    if (entry.autoCenter && entry.targetHeight) {
-      const box = new Box3().setFromObject(scene)
-      const size = box.getSize(new Vector3())
-      const center = box.getCenter(new Vector3())
-      const h = Math.max(size.x, size.y, size.z, 0.01)
-      const s = entry.targetHeight / h
-      return {
-        finalScale: s,
-        offset: new Vector3(-center.x * s, -box.min.y * s, -center.z * s),
-      }
-    }
-    return {
-      finalScale: entry.scale,
-      offset: new Vector3(0, entry.offsetY ?? 0, 0),
-    }
-  }, [scene, entry])
-
-  return (
-    <group position={[offset.x, offset.y, offset.z]} scale={finalScale} rotation={[0, entry.rotY ?? 0, 0]}>
-      <Clone object={scene} />
-    </group>
-  )
-}
-
-class GlbErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
-    super(props)
-    this.state = { hasError: false }
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true }
-  }
-  render() {
-    if (this.state.hasError) return <>{this.props.fallback}</>
-    return this.props.children
   }
 }
 
@@ -1171,11 +1067,5 @@ export function WarehouseEquipmentMesh({
   kind: WarehouseEquipmentKind
   showPallet?: boolean
 }) {
-  const procedural = <ProceduralModel kind={kind} showPallet={showPallet} />
-  return <GlbEquipment kind={kind} fallback={procedural} />
-}
-
-/* Preload GLB models that are registered */
-for (const entry of Object.values(GLB_MODEL_REGISTRY)) {
-  if (entry) useGLTF.preload(entry.path)
+  return <ProceduralModel kind={kind} showPallet={showPallet} />
 }

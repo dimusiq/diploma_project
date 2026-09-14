@@ -79,6 +79,7 @@ import {
   useAssistantSession,
 } from '@/contexts/AssistantSessionContext.tsx';
 import { sanitizeAssistantChatContent } from '@/lib/agentReplySanitize.ts';
+import { AssistantRichText } from '@/components/Common/AssistantRichText.tsx';
 import { getErrorHttpStatus } from '@/lib/apiClient.ts';
 import { cn } from '@/lib/utils.ts';
 
@@ -649,15 +650,18 @@ function AssistantPage() {
                                 </p>
                               ) : null}
                               <MessageResponse>
-                                {sanitizeAssistantChatContent(
-                                  m.content,
-                                )}
+                                <AssistantRichText
+                                  text={sanitizeAssistantChatContent(
+                                    m.content,
+                                  )}
+                                >
                                 {streamingMessageId ===
                                 m.id ? (
                                   <span className='ml-0.5 inline-block align-text-bottom text-muted-foreground motion-safe:animate-pulse'>
                                     ▍
                                   </span>
                                 ) : null}
+                                </AssistantRichText>
                               </MessageResponse>
                               {m.publicReasoning &&
                               streamingMessageId !==

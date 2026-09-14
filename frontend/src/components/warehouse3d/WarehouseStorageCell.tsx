@@ -1,0 +1,204 @@
+import { useCursor } from "@react-three/drei"
+import { useFrame } from "@react-three/fiber"
+import { useEffect, useRef, useState } from "react"
+import type { RefObject } from "react"
+import { MeshStandardMaterial } from "three"
+import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
+import {
+  CELL_BLOCKED_COLOR,
+  CELL_EMPTY_COLOR_DARK,
+  CELL_EMPTY_COLOR_LIGHT,
+  CELL_EXPIRED_COLOR,
+  CELL_EXPIRING_COLOR,
+  CELL_FILLED_COLOR,
+  CELL_HOVER_COLOR,
+  CELL_QUARANTINE_COLOR,
+  CELL_RESERVED_COLOR,
+  CELL_SELECTED_COLOR,
+} from "@/components/warehouse3d/warehouse3dColors.ts"
+import { CELL_SIZE } from "@/components/warehouse3d/warehouseGeometry.tsx"
+
+function CellEmissivePulse({
+  materialRef,
+  expired,
+  dimmed,
+}: {
+  materialRef: RefObject<MeshStandardMaterial | null>
+  expired: boolean
+  dimmed?: boolean
+}) {
+  useFrame((state) => {
+    const mat = materialRef.current
+    if (!mat) return
+    mat.opacity = dimmed ? 0.4 : 1
+    mat.transparent = Boolean(dimmed)
+    const t = state.clock.elapsedTime
+    if (expired) {
+      mat.color.setStyle(CELL_EXPIRED_COLOR)
+      mat.emissive.setStyle(CELL_EXPIRED_COLOR)
+      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4)
+      return
+    }
+    mat.color.setStyle(CELL_EXPIRING_COLOR)
+    mat.emissive.setStyle(CELL_EXPIRING_COLOR)
+    mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4)
+  })
+  return null
+}
+
+export function StorageCell({
+  filled,
+  expiring,
+  expired,
+  x,
+  y,
+  z,
+  selected,
+  darkMode,
+  heatIntensity,
+  hazardStripe,
+  dimmed,
+  onCellClick,
+  onEnter,
+  onLeave,
+}: {
+  filled: boolean
+  expiring: boolean
+  expired: boolean
+  x: number
+  y: number
+  z: number
+  selected?: boolean
+  darkMode?: boolean
+  heatIntensity?: number
+  hazardStripe?: CellStripe | null
+  dimmed?: boolean
+  onCellClick?: (shiftKey: boolean) => void
+  onEnter?: () => void
+  onLeave?: () => void
+}) {
+  const [hover, setHover] = useState(false)
+  const materialRef = useRef<MeshStandardMaterial>(null)
+  useCursor(hover, "pointer", "auto")
+  const pulsing = expired || expiring
+
+  useEffect(() => {
+    const mat = materialRef.current
+    if (!mat || pulsing) return
+    mat.opacity = dimmed ? 0.28 : 1
+    mat.transparent = Boolean(dimmed)
+    if (hazardStripe === "blocked") {
+      mat.color.setStyle(CELL_BLOCKED_COLOR)
+      mat.emissive.setStyle(CELL_BLOCKED_COLOR)
+      mat.emissiveIntensity = 0.12
+      return
+    }
+    if (hazardStripe === "reserved") {
+      mat.color.setStyle(CELL_RESERVED_COLOR)
+      mat.emissive.setStyle("#b45309")
+      mat.emissiveIntensity = 0.12
+      return
+    }
+    if (hazardStripe === "quarantine") {
+      mat.color.setStyle(CELL_QUARANTINE_COLOR)
+      mat.emissive.setStyle(CELL_QUARANTINE_COLOR)
+      mat.emissiveIntensity = 0.15
+      return
+    }
+    const hi = heatIntensity ?? 0
+    if (hi > 0.02) {
+      const r = 0.55 + hi * 0.42
+      const g = 0.55 - hi * 0.35
+      const b = 0.65 - hi * 0.45
+      mat.color.setRGB(r, Math.max(0.2, g), Math.max(0.15, b))
+      mat.emissive.setRGB(r * 0.4, g * 0.2, 0.05)
+      mat.emissiveIntensity = 0.08 + hi * 0.22
+      return
+    }
+    mat.emissiveIntensity = 0
+    mat.emissive.setStyle("#000000")
+    if (selected) {
+      mat.color.setStyle(CELL_SELECTED_COLOR)
+      mat.emissive.setStyle("#b45309")
+      mat.emissiveIntensity = 0.15
+    } else if (hover) {
+      mat.color.setStyle(CELL_HOVER_COLOR)
+    } else if (filled) {
+      mat.color.setStyle(CELL_FILLED_COLOR)
+    } else {
+      mat.color.setStyle(
+        darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT,
+      )
+    }
+  }, [
+    pulsing,
+    dimmed,
+    hazardStripe,
+    heatIntensity,
+    selected,
+    hover,
+    filled,
+    darkMode,
+  ])
+
+  const baseColor = expired
+    ? CELL_EXPIRED_COLOR
+    : expiring
+      ? CELL_EXPIRING_COLOR
+      : hazardStripe === "blocked"
+        ? CELL_BLOCKED_COLOR
+        : hazardStripe === "reserved"
+          ? CELL_RESERVED_COLOR
+          : hazardStripe === "quarantine"
+            ? CELL_QUARANTINE_COLOR
+            : (heatIntensity ?? 0) > 0.02
+              ? `rgb(${Math.round(55 + (heatIntensity ?? 0) * 200)}, ${Math.round(140 - (heatIntensity ?? 0) * 90)}, ${Math.round(165 - (heatIntensity ?? 0) * 120)})`
+              : selected
+                ? CELL_SELECTED_COLOR
+                : hover
+                  ? CELL_HOVER_COLOR
+                  : filled
+                    ? CELL_FILLED_COLOR
+                    : darkMode
+                      ? CELL_EMPTY_COLOR_DARK
+                      : CELL_EMPTY_COLOR_LIGHT
+
+  return (
+    <>
+      <mesh
+        position={[x, y, z]}
+        onClick={(e) => {
+          e.stopPropagation()
+          onCellClick?.(e.shiftKey)
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation()
+          setHover(true)
+          onEnter?.()
+        }}
+        onPointerOut={() => {
+          setHover(false)
+          onLeave?.()
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <boxGeometry args={[CELL_SIZE, CELL_SIZE, CELL_SIZE]} />
+        <meshStandardMaterial
+          ref={materialRef}
+          color={baseColor}
+          metalness={0.1}
+          roughness={0.7}
+          transparent={Boolean(dimmed)}
+          opacity={dimmed ? 0.28 : 1}
+        />
+      </mesh>
+      {pulsing && (
+        <CellEmissivePulse
+          materialRef={materialRef}
+          expired={expired}
+          dimmed={dimmed}
+        />
+      )}
+    </>
+  )
+}

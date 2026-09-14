@@ -91,7 +91,7 @@ async def notification_sse_stream(user_id: uuid.UUID) -> AsyncIterator[bytes]:
         yield _format_sse(comment="ok")
         while True:
             try:
-                msg = await asyncio.wait_for(q.get(), timeout=25.0)
+                msg = await asyncio.wait_for(q.get(), timeout=15.0)
                 yield _format_sse(msg)
             except TimeoutError:
                 yield _format_sse(comment="ping")

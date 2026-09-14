@@ -152,6 +152,10 @@ const EditItem = ({
   })
 
   const onSubmit: SubmitHandler<EditItemForm> = (data) => {
+    const hasStorage =
+      data.storage_row != null &&
+      data.storage_level != null &&
+      data.storage_cell_x != null
     const body: ItemUpdate = {
       ...data,
       quantity:
@@ -162,6 +166,10 @@ const EditItem = ({
         data.category_id && data.category_id !== "" ? data.category_id : null,
       expires_at:
         data.expires_at && data.expires_at !== "" ? data.expires_at : null,
+      storage_row: hasStorage ? data.storage_row : null,
+      storage_level: hasStorage ? data.storage_level : null,
+      storage_cell_x: hasStorage ? data.storage_cell_x : null,
+      storage_cell_z: hasStorage ? (data.storage_cell_z ?? 1) : null,
     }
     mutation.mutate(body)
   }
@@ -301,6 +309,9 @@ const EditItem = ({
               </Field>
               <p className="mt-2 text-sm font-medium">
                 Ячейка хранения (склад)
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Достаточно ряда, уровня и позиции. Глубина ячейки (Z) всегда 1.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Field label="Ряд (1–12)">

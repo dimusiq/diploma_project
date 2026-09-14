@@ -87,6 +87,11 @@
     line-height: 1.5;
     margin: 0;
     padding: 0;
+    overflow-anchor: none;
+  }
+  /* drei Html: фокус внутри оверлея не должен якорить прокрутку к transform:translate(0,0) */
+  .warehouse-3d-html {
+    overflow-anchor: none;
   }
   /* Как в full-stack-fastapi-template: явный курсор на «кнопках» */
   button:not(:disabled),

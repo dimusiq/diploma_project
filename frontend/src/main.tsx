@@ -76,7 +76,11 @@ const queryClient = new QueryClient({
   mutationCache: new MutationCache({ onError: handleApiError }),
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        const st = getErrorHttpStatus(error)
+        if (st != null && st >= 400 && st < 500) return false
+        return failureCount < 1
+      },
       refetchOnWindowFocus: false,
     },
   },
@@ -85,6 +89,16 @@ const queryClient = new QueryClient({
 router = createRouter({
   routeTree,
   context: { queryClient },
+  scrollRestoration: false,
+  defaultHashScrollIntoView: false,
+  getScrollRestorationKey: (location) => location.pathname,
+  scrollToTopSelectors: [],
+})
+
+window.addEventListener("unhandledrejection", (event) => {
+  if (isLikelyBrowserExtensionRejection(event.reason)) {
+    event.preventDefault()
+  }
 })
 
 const rootElement = document.getElementById("root")
