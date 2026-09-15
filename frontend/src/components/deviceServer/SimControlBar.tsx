@@ -8,6 +8,7 @@ import {
   FiPlay,
   FiPlus,
   FiRotateCcw,
+  FiSquare,
   FiTruck,
 } from "react-icons/fi"
 import { Badge } from "@/components/ui/badge.tsx"
@@ -26,6 +27,13 @@ export function SimControlBar() {
   const alarms = data.devices.filter((device) => device.alarm).length
   const offline = data.devices.filter((device) => !device.online).length
 
+  const stateLabel =
+    data.state === "RUNNING"
+      ? "RUNNING"
+      : data.state === "PAUSED"
+        ? "PAUSED"
+        : "STOPPED"
+
   return (
     <div className="sticky top-0 z-20 mb-4 rounded-lg border bg-card/95 p-3 backdrop-blur">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -33,42 +41,71 @@ export function SimControlBar() {
           <span
             className={cn(
               "size-2.5 rounded-full",
-              data.running
+              data.state === "RUNNING"
                 ? "animate-pulse bg-emerald-500"
-                : "bg-muted-foreground",
+                : data.state === "PAUSED"
+                  ? "bg-amber-500"
+                  : "bg-muted-foreground",
             )}
           />
-          <span className="text-sm font-medium">
-            {data.running ? "Симуляция идёт" : "Остановлена"}
-          </span>
+          <span className="text-sm font-medium">{stateLabel}</span>
         </div>
 
         <span className="font-mono text-sm tabular-nums text-muted-foreground">
           {formatSimClock(data.timeSec, deviceSimulation.dayStartSec)}
         </span>
+        {data.realTime && (
+          <span className="text-xs text-muted-foreground">
+            реальное {new Date(data.realTime).toLocaleTimeString("ru-RU")}
+          </span>
+        )}
 
         <div className="flex items-center gap-1">
           <Button
             size="sm"
-            variant={data.running ? "outline" : "default"}
-            onClick={() => deviceSimulation.toggle()}
+            variant={data.state === "RUNNING" ? "outline" : "default"}
+            onClick={() => deviceSimulation.start()}
+            disabled={data.state === "RUNNING"}
           >
-            {data.running ? (
-              <>
-                <FiPause aria-hidden /> Пауза
-              </>
-            ) : (
-              <>
-                <FiPlay aria-hidden /> Запустить
-              </>
-            )}
+            <FiPlay aria-hidden /> START
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => deviceSimulation.pause()}
+            disabled={data.state !== "RUNNING"}
+          >
+            <FiPause aria-hidden /> PAUSE
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => deviceSimulation.stop()}
+            disabled={data.state === "STOPPED"}
+          >
+            <FiSquare aria-hidden /> STOP
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={() => deviceSimulation.reset()}
           >
-            <FiRotateCcw aria-hidden /> Сброс
+            <FiRotateCcw aria-hidden /> RESET
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => deviceSimulation.startDemo()}
+            title="Полный складской цикл на реальных заказах, товарах и заданиях"
+          >
+            <FiPlay aria-hidden /> Start Demo
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => deviceSimulation.resetDemo()}
+            title="Сбросить симуляцию и связанные заказы, остатки, задания и отгрузки"
+          >
+            <FiRotateCcw aria-hidden /> Reset Demo
           </Button>
         </div>
 

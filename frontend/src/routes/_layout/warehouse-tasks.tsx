@@ -59,6 +59,7 @@ const STATUS_OPTIONS = [
   { value: SELECT_ALL_VALUE, label: "Все статусы" },
   { value: "pending", label: "pending" },
   { value: "in_progress", label: "in_progress" },
+  { value: "blocked", label: "blocked" },
   { value: "completed", label: "completed" },
   { value: "cancelled", label: "cancelled" },
 ] as const
@@ -234,6 +235,7 @@ function WarehouseTasksPage() {
 const KANBAN_COLUMNS = [
   { id: "pending", title: "Ожидают", statuses: ["pending"] },
   { id: "in_progress", title: "В работе", statuses: ["in_progress"] },
+  { id: "blocked", title: "Заблокированы", statuses: ["blocked"] },
   { id: "done", title: "Выполнены", statuses: ["completed"] },
   { id: "cancelled", title: "Отменены", statuses: ["cancelled"] },
 ] as const
@@ -255,7 +257,7 @@ function KanbanBoard({
   isPending: boolean
 }) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
       {KANBAN_COLUMNS.map((col) => {
         const colTasks = tasks.filter((t) =>
           (col.statuses as readonly string[]).includes(t.status),

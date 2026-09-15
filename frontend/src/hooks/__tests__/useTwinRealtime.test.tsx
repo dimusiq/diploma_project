@@ -6,7 +6,7 @@ import {
   subscribeTwinConnectionStatus,
   type TwinConnectionStatus,
 } from "@/lib/twinRealtimeBus.ts"
-import { TWIN_CHANNELS_ALL, type TwinChannel, useTwinRealtime } from "../useTwinRealtime"
+import { tagsForTwinMessage, TWIN_CHANNELS_ALL, type TwinChannel, useTwinRealtime } from "../useTwinRealtime"
 
 function HookRunner({ options }: { options?: Parameters<typeof useTwinRealtime>[0] }) {
   useTwinRealtime(options)
@@ -54,6 +54,16 @@ describe("useTwinRealtime", () => {
     expect(TWIN_CHANNELS_ALL).toContain("telemetry")
     expect(TWIN_CHANNELS_ALL).toContain("equipment_positions")
     expect(TWIN_CHANNELS_ALL).toHaveLength(7)
+  })
+
+  it("invalidates warehouse-tasks and orders on task_updates and telemetry", () => {
+    const taskTags = tagsForTwinMessage({ channel: "task_updates" }, undefined)
+    expect(taskTags).toContain("warehouse-tasks")
+    expect(taskTags).toContain("inbound-orders")
+    expect(taskTags).toContain("outbound-orders")
+    const tel = tagsForTwinMessage({ channel: "telemetry" }, undefined)
+    expect(tel).toContain("items")
+    expect(tel).toContain("warehouse-tasks")
   })
 
   it("sets status to no_token when there is no access token", async () => {

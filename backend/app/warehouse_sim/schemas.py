@@ -1,0 +1,61 @@
+"""Pydantic-схемы команд Device Server."""
+
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+from app.warehouse_sim.models import SIM_SPEEDS
+
+
+class SimControlBody(BaseModel):
+    action: Literal["start", "pause", "stop", "reset"]
+    config: dict[str, Any] | None = None
+
+
+class SimSpeedBody(BaseModel):
+    speed: float
+
+    def validated_speed(self) -> float:
+        if self.speed not in SIM_SPEEDS:
+            raise ValueError("speed must be one of 0.5, 1, 2, 5, 10, 50")
+        return float(self.speed)
+
+
+class SimConfigPatch(BaseModel):
+    truckArrivalsPerHour: float | None = Field(default=None, ge=0, le=80)
+    ordersPerHour: float | None = Field(default=None, ge=0, le=120)
+    faultRatePerHour: float | None = Field(default=None, ge=0, le=20)
+    scanErrorRate: float | None = Field(default=None, ge=0, le=1)
+    jamRatePerHour: float | None = Field(default=None, ge=0, le=20)
+    batteryDrainPerMin: float | None = Field(default=None, ge=0, le=10)
+    autoRepair: bool | None = None
+    forklifts: int | None = Field(default=None, ge=1, le=20)
+    agvs: int | None = Field(default=None, ge=1, le=20)
+    amrs: int | None = Field(default=None, ge=1, le=20)
+
+
+class SimCommandBody(BaseModel):
+    type: str
+    deviceId: str | None = None
+    urgent: bool | None = None
+
+
+class DeviceCommandBody(BaseModel):
+    command: Literal["START", "STOP", "RESET", "MOVE", "CHARGE", "LOAD", "UNLOAD", "FAIL", "RECOVER"]
+    payload: dict[str, Any] | None = None
+
+
+class ManualEventBody(BaseModel):
+    event_type: str = Field(min_length=1, max_length=48)
+    device_id: str | None = None
+    message: str | None = Field(default=None, max_length=512)
+
+
+class FastForwardBody(BaseModel):
+    seconds: float = Field(gt=0, le=3600)
+
+
+class ApplyScenarioBody(BaseModel):
+    code: str = Field(min_length=1, max_length=48)

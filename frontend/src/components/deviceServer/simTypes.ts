@@ -13,6 +13,7 @@ export interface Vec2 {
 export type ZoneKind =
   | "receiving"
   | "storage"
+  | "picking"
   | "packing"
   | "shipping"
   | "charging"
@@ -77,6 +78,7 @@ export type DeviceKind =
 export type DeviceStatus =
   | "idle"
   | "moving"
+  | "waiting"
   | "loading"
   | "unloading"
   | "charging"

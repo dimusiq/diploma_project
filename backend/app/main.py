@@ -10,6 +10,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.main import api_router
 from app.core.config import settings
 from app.core.report_scheduler import report_scheduler_loop
+from app.warehouse_sim.runtime import ensure_seed_layout, start_runtime, stop_runtime
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -31,7 +32,14 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         task = asyncio.create_task(
             report_scheduler_loop(stop_event, redis_url=redis_url)
         )
+    try:
+        ensure_seed_layout()
+    except Exception:
+        # Миграции могут ещё не быть применены (тесты без alembic на пустой БД).
+        pass
+    await start_runtime()
     yield
+    await stop_runtime()
     if stop_event is not None:
         stop_event.set()
     if task is not None:

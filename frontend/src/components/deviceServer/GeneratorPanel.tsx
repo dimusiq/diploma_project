@@ -3,7 +3,8 @@
  * состав парка устройств и ручная инъекция событий.
  */
 
-import { type ReactNode, useState } from "react"
+import { fetchSimScenarios } from "@/api/deviceServer.ts"
+import { type ReactNode, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
@@ -76,6 +77,13 @@ function LiveNumberField({
 export function GeneratorPanel() {
   const data = useSimData()
   const config = data.config
+  const [scenarios, setScenarios] = useState<
+    Array<{ code: string; name: string; description: string }>
+  >([])
+
+  useEffect(() => {
+    void fetchSimScenarios().then(setScenarios).catch(() => undefined)
+  }, [])
 
   const [draft, setDraft] = useState({
     forklifts: String(config.forklifts),
@@ -117,6 +125,43 @@ export function GeneratorPanel() {
 
   return (
     <div className="space-y-4">
+      <Card className="ring-foreground/5">
+        <CardContent className="px-4 py-4">
+          <h3 className="font-heading mb-1 text-sm font-semibold">Сценарии</h3>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Start Demo запускает полный цикл на реальных заказах и остатках.
+            Сценарий ниже меняет интенсивность потоков и может сразу ввести отказ
+            техники или конвейера.
+          </p>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button size="xs" onClick={() => deviceSimulation.startDemo()}>
+              Start Demo
+            </Button>
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => deviceSimulation.resetDemo()}
+            >
+              Reset Demo
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {scenarios.map((scenario) => (
+              <Button
+                key={scenario.code}
+                size="xs"
+                variant={
+                  data.scenario === scenario.code ? "default" : "outline"
+                }
+                title={scenario.description}
+                onClick={() => deviceSimulation.applyScenario(scenario.code)}
+              >
+                {scenario.name}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
       <Card className="bg-muted/30 ring-foreground/5">
         <CardContent className="px-4 py-4">
           <h3 className="font-heading mb-1 text-sm font-semibold">

@@ -74,8 +74,11 @@ type InvalidateTag =
   | "equipment"
   | "notifications"
   | "tasks"
+  | "warehouse-tasks"
+  | "inbound-orders"
+  | "outbound-orders"
 
-function tagsForMessage(
+export function tagsForTwinMessage(
   msg: TwinEnvelope,
   currentUserId: string | undefined,
 ): InvalidateTag[] {
@@ -90,10 +93,15 @@ function tagsForMessage(
       break
     case "item_movement":
       out.add("items")
+      out.add("inbound-orders")
+      out.add("outbound-orders")
       break
     case "task_updates":
       out.add("tasks")
+      out.add("warehouse-tasks")
       out.add("warehouse")
+      out.add("inbound-orders")
+      out.add("outbound-orders")
       break
     case "equipment_positions":
       out.add("equipment")
@@ -102,6 +110,10 @@ function tagsForMessage(
       out.add("warehouse")
       out.add("warehouse-twin-summary")
       out.add("equipment")
+      out.add("items")
+      out.add("warehouse-tasks")
+      out.add("inbound-orders")
+      out.add("outbound-orders")
       break
     case "alerts":
       if (currentUserId == null || uid == null || uid === currentUserId) {
@@ -140,6 +152,15 @@ function flushInvalidations(
   }
   if (tags.has("tasks")) {
     safeInvalidateQueries(queryClient, { queryKey: ["tasks"] })
+  }
+  if (tags.has("warehouse-tasks")) {
+    safeInvalidateQueries(queryClient, { queryKey: ["warehouse-tasks"] })
+  }
+  if (tags.has("inbound-orders")) {
+    safeInvalidateQueries(queryClient, { queryKey: ["inbound-orders"] })
+  }
+  if (tags.has("outbound-orders")) {
+    safeInvalidateQueries(queryClient, { queryKey: ["outbound-orders"] })
   }
 }
 
@@ -223,7 +244,7 @@ export function useTwinRealtime(options?: TwinStreamOptions) {
         emitTwinStreamMessage(msg)
         const me = queryClient.getQueryData<{ id?: string }>(["currentUser"])
         const uid = me?.id
-        for (const t of tagsForMessage(msg, uid)) {
+        for (const t of tagsForTwinMessage(msg, uid)) {
           pendingTagsRef.current.add(t)
         }
         scheduleFlush()

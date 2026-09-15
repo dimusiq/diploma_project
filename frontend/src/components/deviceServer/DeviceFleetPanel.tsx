@@ -385,53 +385,51 @@ export function DeviceInspector({ deviceId }: DeviceInspectorProps) {
           <Button
             size="xs"
             variant="outline"
-            onClick={() =>
-              deviceSimulation.command({
-                type: "toggleDeviceOnline",
-                deviceId: device.id,
-              })
-            }
+            onClick={() => deviceSimulation.deviceCommand(device.id, "START")}
           >
-            {device.online ? "Отключить" : "Включить"}
+            START
           </Button>
           <Button
             size="xs"
             variant="outline"
-            onClick={() =>
-              deviceSimulation.command({
-                type: "injectFault",
-                deviceId: device.id,
-              })
-            }
+            onClick={() => deviceSimulation.deviceCommand(device.id, "STOP")}
           >
-            Смоделировать отказ
+            STOP
           </Button>
           <Button
             size="xs"
             variant="outline"
-            onClick={() =>
-              deviceSimulation.command({
-                type: "repairDevice",
-                deviceId: device.id,
-              })
-            }
+            onClick={() => deviceSimulation.deviceCommand(device.id, "RESET")}
           >
-            Восстановить
+            RESET
           </Button>
           {isMobileKind(device.kind) && (
             <Button
               size="xs"
               variant="outline"
               onClick={() =>
-                deviceSimulation.command({
-                  type: "recallToCharge",
-                  deviceId: device.id,
-                })
+                deviceSimulation.deviceCommand(device.id, "CHARGE")
               }
             >
-              На зарядку
+              CHARGE
             </Button>
           )}
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() => deviceSimulation.deviceCommand(device.id, "FAIL")}
+          >
+            FAIL
+          </Button>
+          <Button
+            size="xs"
+            variant="outline"
+            onClick={() =>
+              deviceSimulation.deviceCommand(device.id, "RECOVER")
+            }
+          >
+            RECOVER
+          </Button>
         </div>
 
         <div>

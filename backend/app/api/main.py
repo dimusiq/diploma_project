@@ -40,6 +40,7 @@ from app.api.routes import (
     work_orders,
     zones,
 )
+from app.warehouse_sim.router import router as warehouse_sim_router
 from app.core.config import settings
 
 api_router = APIRouter()
@@ -57,6 +58,7 @@ api_router.include_router(warehouse_simulation.router)
 api_router.include_router(warehouse_simulations.router)
 api_router.include_router(warehouse_live.router)
 api_router.include_router(warehouse_tasks.router)
+api_router.include_router(warehouse_sim_router)
 api_router.include_router(equipment_telemetry.router)
 api_router.include_router(integrations.router)
 api_router.include_router(items.router)

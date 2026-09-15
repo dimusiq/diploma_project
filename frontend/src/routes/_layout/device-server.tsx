@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import {
   DeviceFleetPanel,
@@ -20,6 +20,14 @@ import {
 } from "@/components/ui/tabs.tsx"
 
 export const Route = createFileRoute("/_layout/device-server")({
+  beforeLoad: ({ context }) => {
+    const user = context.queryClient.getQueryData<{ is_superuser?: boolean }>([
+      "currentUser",
+    ])
+    if (!user?.is_superuser) {
+      throw redirect({ to: "/" })
+    }
+  },
   component: DeviceServerPage,
 })
 
@@ -35,15 +43,13 @@ function DeviceServerPage() {
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:py-8">
       <h1 className="font-heading mb-2 text-2xl font-semibold tracking-tight">
-        Сервер устройств и генератор событий
+        Warehouse Device Server
       </h1>
       <p className="mb-6 max-w-4xl text-sm text-muted-foreground">
-        Симулятор автоматизированного склада в реальном времени. Виртуальные
-        устройства — погрузчики, AGV и AMR-роботы, конвейеры, сканеры, датчики,
-        терминалы, ворота и зарядные станции — живут собственным состоянием,
-        получают задания и порождают поток событий: приёмка транспорта,
-        размещение в ячейки, отбор и упаковка заказов, отгрузка, отказы техники
-        и аварии датчиков. Симуляция идёт непрерывно, пока вы её не остановите.
+        Warehouse Simulation &amp; Event Generator — сервер устройств и
+        генератор событий. Состояние склада считается на backend: техника едет
+        по проездам, задания назначаются, товар принимается и отгружается.
+        Эта страница только отображает снимок и отправляет команды.
       </p>
 
       <SimControlBar />

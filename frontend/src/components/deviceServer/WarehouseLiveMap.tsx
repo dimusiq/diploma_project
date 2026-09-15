@@ -20,6 +20,7 @@ import { useSimMotion } from "./useDeviceSimulation.ts"
 const ZONE_TONE: Record<ZoneKind, string> = {
   receiving: "fill-sky-500/10 stroke-sky-500/40",
   storage: "fill-foreground/[0.03] stroke-border",
+  picking: "fill-orange-500/10 stroke-orange-500/40",
   packing: "fill-violet-500/10 stroke-violet-500/40",
   shipping: "fill-emerald-500/10 stroke-emerald-500/40",
   charging: "fill-amber-500/10 stroke-amber-500/40",

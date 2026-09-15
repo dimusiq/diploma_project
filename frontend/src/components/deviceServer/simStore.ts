@@ -1,14 +1,22 @@
 /**
- * Сервер устройств: непрерывный цикл симуляции и публикация снимков состояния.
- *
- * Модель живёт вне React (модульный синглтон), поэтому продолжает работать при
- * переходах между вкладками и останавливается только по команде пользователя.
- * Снимки публикуются с двумя частотами: движение техники — 20 Гц (плавная
- * анимация на плане), таблицы и журнал — 4 Гц (чтобы не перегружать рендер).
+ * Клиент симулятора: состояние приходит с backend (SSE), команды уходят HTTP.
  */
-
-import { advanceWorld, applyCommand, isMobileKind } from "./simEngine.ts"
-import { ZONE_PACKING, ZONE_RECEIVING, ZONE_SHIPPING } from "./simLayout.ts"
+import { getApiUrl } from "@/lib/apiClient.ts"
+import { getAccessToken } from "@/lib/authStorage.ts"
+import {
+  fetchSimSnapshot,
+  patchSimConfig,
+  postApplyScenario,
+  postDemoReset,
+  postDemoStart,
+  postDeviceCommand,
+  postFastForward,
+  postSimCommand,
+  postSimControl,
+  postSimSpeed,
+  simStreamUrl,
+} from "@/api/deviceServer.ts"
+import { buildTopology } from "./simLayout.ts"
 import type {
   DeviceKind,
   DeviceStatus,
@@ -23,17 +31,12 @@ import type {
   SimTopology,
   SimTruck,
   SimWorker,
-  SimWorld,
 } from "./simTypes.ts"
-import { createWorld, DEFAULT_CONFIG } from "./simWorld.ts"
 
-const TICK_MS = 50
-const DATA_PUBLISH_SEC = 0.25
-/** Ограничение на «догон» после сворачивания вкладки, сек реального времени. */
-const MAX_WALL_STEP_SEC = 0.25
-
-export const SPEED_OPTIONS = [1, 2, 5, 10, 30, 60] as const
+export const SPEED_OPTIONS = [0.5, 1, 2, 5, 10, 50] as const
 export type SimSpeed = (typeof SPEED_OPTIONS)[number]
+
+export type SimRunState = "STOPPED" | "RUNNING" | "PAUSED"
 
 export interface DeviceMotion {
   id: string
@@ -73,12 +76,31 @@ export interface MotionSnapshot {
   zonePallets: Record<string, number>
 }
 
+export interface SimKpi {
+  state: SimRunState
+  activeDevices: number
+  activeTasks: number
+  orders: number
+  inventoryItems: number
+  inboundTrucks: number
+  outboundShipments: number
+  eventsPerMin: number
+  errors: number
+  warnings: number
+  faults: number
+}
+
 export interface DataSnapshot {
   version: number
   timeSec: number
+  dayStartSec: number
+  realTime?: string
+  state: SimRunState
   running: boolean
   speed: SimSpeed
+  scenario?: string
   config: SimConfig
+  topology?: SimTopology
   devices: SimDevice[]
   trucks: SimTruck[]
   inbound: SimInbound[]
@@ -92,272 +114,285 @@ export interface DataSnapshot {
   palletsTotal: number
   eventCounts: Array<{ type: string; count: number }>
   skuLabels: Record<string, string>
+  kpi?: SimKpi
 }
 
-function cloneDevice(device: SimDevice): SimDevice {
+const EMPTY_METRICS: SimMetrics = {
+  trucksArrived: 0,
+  trucksDeparted: 0,
+  palletsReceived: 0,
+  palletsPutaway: 0,
+  palletsPicked: 0,
+  palletsShipped: 0,
+  ordersCreated: 0,
+  ordersShipped: 0,
+  ordersLate: 0,
+  scans: 0,
+  scanFailures: 0,
+  faults: 0,
+  jams: 0,
+  alarms: 0,
+  chargeCycles: 0,
+  tasksCreated: 0,
+  tasksDone: 0,
+  eventsTotal: 0,
+  orderCycleSumSec: 0,
+  orderCycleCount: 0,
+  dockBusySec: 0,
+  dockSec: 0,
+}
+
+function emptyData(): DataSnapshot {
   return {
-    ...device,
-    pos: { ...device.pos },
-    homePos: { ...device.homePos },
-    path: [],
-    history: [...device.history],
+    version: 0,
+    timeSec: 0,
+    dayStartSec: 8 * 3600,
+    state: "STOPPED",
+    running: false,
+    speed: 1,
+    config: {
+      seed: 20260914,
+      forklifts: 5,
+      agvs: 4,
+      amrs: 3,
+      workers: 10,
+      truckArrivalsPerHour: 6,
+      ordersPerHour: 14,
+      faultRatePerHour: 0.2,
+      scanErrorRate: 0.04,
+      jamRatePerHour: 0.8,
+      batteryDrainPerMin: 0.35,
+      initialFillRatio: 0.55,
+      autoRepair: true,
+    },
+    topology: buildTopology(),
+    devices: [],
+    trucks: [],
+    inbound: [],
+    outbound: [],
+    tasks: [],
+    workers: [],
+    events: [],
+    metrics: { ...EMPTY_METRICS },
+    cellsTotal: 0,
+    cellsOccupied: 0,
+    palletsTotal: 0,
+    eventCounts: [],
+    skuLabels: {},
   }
 }
 
-function buildMotion(
-  world: SimWorld,
-  running: boolean,
-  version: number,
-): MotionSnapshot {
-  const rackFill: RackFill[] = world.topology.racks.map((rack) => ({
-    rackId: rack.id,
-    occupied: 0,
-    total: rack.bays * rack.levels,
-  }))
-  const rackIndex = new Map(rackFill.map((item, index) => [item.rackId, index]))
-  for (const cell of world.cells) {
-    if (cell.palletId === null) continue
-    const index = rackIndex.get(cell.rackId)
-    if (index !== undefined) rackFill[index].occupied += 1
-  }
-
-  const zonePallets: Record<string, number> = {
-    [ZONE_RECEIVING]: 0,
-    [ZONE_PACKING]: 0,
-    [ZONE_SHIPPING]: 0,
-  }
-  for (const pallet of world.pallets.values()) {
-    if (pallet.locationKind !== "zone") continue
-    if (pallet.locationId in zonePallets) zonePallets[pallet.locationId] += 1
-  }
-
+function emptyMotion(): MotionSnapshot {
   return {
-    version,
-    timeSec: world.timeSec,
-    running,
-    devices: world.devices.map((device) => ({
-      id: device.id,
-      kind: device.kind,
-      name: device.name,
-      status: device.status,
-      x: device.pos.x,
-      z: device.pos.z,
-      battery: device.battery,
-      alarm: device.alarm,
-      online: device.online,
-      carrying: device.palletId !== null,
-    })),
-    trucks: world.trucks.map((truck) => ({
-      id: truck.id,
-      plate: truck.plate,
-      direction: truck.direction,
-      x: truck.pos.x,
-      z: truck.pos.z,
-      docked: truck.status === "docked",
-    })),
-    rackFill,
-    zonePallets,
+    version: 0,
+    timeSec: 0,
+    running: false,
+    devices: [],
+    trucks: [],
+    rackFill: [],
+    zonePallets: {},
   }
 }
 
-function buildData(
-  world: SimWorld,
-  running: boolean,
-  speed: SimSpeed,
-  version: number,
-): DataSnapshot {
-  let cellsOccupied = 0
-  for (const cell of world.cells) {
-    if (cell.palletId !== null) cellsOccupied += 1
+function parseSseBlocks(buffer: string): { events: string[]; rest: string } {
+  const blocks = buffer.split("\n\n")
+  const rest = blocks.pop() ?? ""
+  const events: string[] = []
+  for (const block of blocks) {
+    for (const line of block.split("\n")) {
+      if (line.startsWith("data:")) events.push(line.slice(5).trim())
+    }
   }
-  const eventCounts = [...world.eventCountsByType.entries()]
-    .map(([type, count]) => ({ type, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 14)
-
-  return {
-    version,
-    timeSec: world.timeSec,
-    running,
-    speed,
-    config: { ...world.config },
-    devices: world.devices.map(cloneDevice),
-    trucks: world.trucks.map((truck) => ({ ...truck, pos: { ...truck.pos } })),
-    inbound: world.inbound.slice(-40).map((item) => ({ ...item })),
-    outbound: world.outbound.slice(-60).map((order) => ({
-      ...order,
-      lines: order.lines.map((line) => ({ ...line })),
-      palletIds: [...order.palletIds],
-    })),
-    tasks: world.tasks.map((task) => ({
-      ...task,
-      from: { ...task.from },
-      to: { ...task.to },
-    })),
-    workers: world.workers.map((worker) => ({ ...worker })),
-    events: world.events.slice(0, 200),
-    metrics: { ...world.metrics },
-    cellsTotal: world.cells.length,
-    cellsOccupied,
-    palletsTotal: world.pallets.size,
-    eventCounts,
-    skuLabels: Object.fromEntries(world.skus.map((sku) => [sku.id, sku.code])),
-  }
+  return { events, rest }
 }
 
-class DeviceSimulationStore {
-  private world: SimWorld
-  private running = false
-  private everStarted = false
-  private speed: SimSpeed = 5
-  private timer: ReturnType<typeof setInterval> | null = null
-  private lastWallMs = 0
-  private dataAccumSec = 0
-  private version = 0
-
-  private motionSnapshot: MotionSnapshot
-  private dataSnapshot: DataSnapshot
+class DeviceSimulationClient {
+  private motionSnapshot: MotionSnapshot = emptyMotion()
+  private dataSnapshot: DataSnapshot = emptyData()
   private motionListeners = new Set<() => void>()
   private dataListeners = new Set<() => void>()
-
-  constructor() {
-    this.world = createWorld()
-    this.motionSnapshot = buildMotion(this.world, false, 0)
-    this.dataSnapshot = buildData(this.world, false, this.speed, 0)
-  }
+  private started = false
+  private abort: AbortController | null = null
 
   get topology(): SimTopology {
-    return this.world.topology
+    return this.dataSnapshot.topology ?? buildTopology()
   }
 
   get dayStartSec(): number {
-    return this.world.dayStartSec
+    return this.dataSnapshot.dayStartSec
   }
 
   getMotionSnapshot = (): MotionSnapshot => this.motionSnapshot
-
   getDataSnapshot = (): DataSnapshot => this.dataSnapshot
 
   subscribeMotion = (listener: () => void): (() => void) => {
     this.motionListeners.add(listener)
+    void this.ensureStarted()
     return () => this.motionListeners.delete(listener)
   }
 
   subscribeData = (listener: () => void): (() => void) => {
     this.dataListeners.add(listener)
+    void this.ensureStarted()
     return () => this.dataListeners.delete(listener)
   }
 
-  /** Автозапуск при первом открытии вкладки; повторный вход не перезапускает. */
   autoStart(): void {
-    if (this.everStarted) return
-    this.everStarted = true
-    this.start()
+    void this.ensureStarted()
+  }
+
+  private notifyMotion(): void {
+    for (const listener of this.motionListeners) listener()
+  }
+
+  private notifyData(): void {
+    for (const listener of this.dataListeners) listener()
+  }
+
+  private applyData(data: DataSnapshot): void {
+    this.dataSnapshot = {
+      ...data,
+      topology: data.topology ?? this.dataSnapshot.topology ?? buildTopology(),
+      speed: data.speed as SimSpeed,
+      state: data.state ?? (data.running ? "RUNNING" : "STOPPED"),
+    }
+    this.notifyData()
+  }
+
+  private applyMotion(motion: MotionSnapshot): void {
+    this.motionSnapshot = motion
+    this.notifyMotion()
+  }
+
+  private async ensureStarted(): Promise<void> {
+    if (this.started) return
+    this.started = true
+    try {
+      const snap = await fetchSimSnapshot<DataSnapshot>()
+      this.applyData(snap)
+    } catch {
+      this.started = false
+      return
+    }
+    void this.streamLoop()
+  }
+
+  private async streamLoop(): Promise<void> {
+    while (this.started) {
+      const token = getAccessToken()
+      if (!token) {
+        await new Promise((r) => setTimeout(r, 4000))
+        continue
+      }
+      this.abort?.abort()
+      this.abort = new AbortController()
+      try {
+        const res = await fetch(getApiUrl(simStreamUrl()), {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: this.abort.signal,
+        })
+        if (!res.ok || !res.body) {
+          await new Promise((r) => setTimeout(r, 4000))
+          continue
+        }
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = ""
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += decoder.decode(value, { stream: true })
+          const { events, rest } = parseSseBlocks(buf)
+          buf = rest
+          for (const raw of events) {
+            if (!raw) continue
+            try {
+              const msg = JSON.parse(raw) as {
+                type?: string
+                payload?: DataSnapshot | MotionSnapshot
+              }
+              if (msg.type === "data" && msg.payload) {
+                this.applyData(msg.payload as DataSnapshot)
+              } else if (msg.type === "motion" && msg.payload) {
+                this.applyMotion(msg.payload as MotionSnapshot)
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      } catch {
+        /* reconnect */
+      }
+      await new Promise((r) => setTimeout(r, 3000))
+    }
   }
 
   start(): void {
-    if (this.running) return
-    this.running = true
-    this.lastWallMs =
-      typeof performance !== "undefined" ? performance.now() : Date.now()
-    this.timer = setInterval(this.tick, TICK_MS)
-    this.publishAll()
+    void postSimControl<DataSnapshot>("start").then((d) => this.applyData(d))
   }
 
   pause(): void {
-    if (!this.running) return
-    this.running = false
-    if (this.timer !== null) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
-    this.publishAll()
+    void postSimControl<DataSnapshot>("pause").then((d) => this.applyData(d))
+  }
+
+  stop(): void {
+    void postSimControl<DataSnapshot>("stop").then((d) => this.applyData(d))
   }
 
   toggle(): void {
-    if (this.running) this.pause()
+    if (this.dataSnapshot.state === "RUNNING") this.pause()
     else this.start()
   }
 
-  /** Полный сброс модели: новый парк устройств и пустая история. */
   reset(config: Partial<SimConfig> = {}): void {
-    const wasRunning = this.running
-    this.pause()
-    this.world = createWorld({ ...this.world.config, ...config })
-    this.dataAccumSec = 0
-    this.publishAll()
-    if (wasRunning) this.start()
+    void postSimControl<DataSnapshot>("reset", config).then((d) => this.applyData(d))
   }
 
   setSpeed(speed: SimSpeed): void {
-    this.speed = speed
-    this.publishAll()
+    void postSimSpeed<DataSnapshot>(speed).then((d) => this.applyData(d))
   }
 
-  /** Изменение параметров генератора на ходу, без пересборки парка. */
   setConfig(patch: Partial<SimConfig>): void {
-    Object.assign(this.world.config, patch)
-    this.publishAll()
+    void patchSimConfig<DataSnapshot>(patch).then((d) => this.applyData(d))
   }
 
   command(command: SimCommand): void {
-    applyCommand(this.world, command)
-    this.publishAll()
+    void postSimCommand<DataSnapshot>(command).then((d) => this.applyData(d))
   }
 
-  /** Прокрутить модель вперёд без ожидания реального времени. */
+  deviceCommand(deviceId: string, command: string): void {
+    void postDeviceCommand(deviceId, command).then(() =>
+      fetchSimSnapshot<DataSnapshot>().then((d) => this.applyData(d)),
+    )
+  }
+
+  applyScenario(code: string): void {
+    void postApplyScenario<DataSnapshot>(code).then((d) => this.applyData(d))
+  }
+
+  startDemo(): void {
+    void postDemoStart<DataSnapshot>().then((d) => this.applyData(d))
+  }
+
+  resetDemo(): void {
+    void postDemoReset<DataSnapshot>().then((d) => this.applyData(d))
+  }
+
   fastForward(seconds: number): void {
-    advanceWorld(this.world, seconds)
-    this.publishAll()
+    void postFastForward<DataSnapshot>(seconds).then((d) => this.applyData(d))
   }
 
-  /** Сводка по устройствам для заголовка вкладки. */
   countFaults(): number {
-    return this.world.devices.filter(
+    return this.dataSnapshot.devices.filter(
       (device) =>
         device.status === "fault" || device.status === "jam" || device.alarm,
     ).length
   }
-
-  private tick = (): void => {
-    const now =
-      typeof performance !== "undefined" ? performance.now() : Date.now()
-    const wallDt = Math.min(MAX_WALL_STEP_SEC, (now - this.lastWallMs) / 1000)
-    this.lastWallMs = now
-    if (wallDt <= 0) return
-
-    advanceWorld(this.world, wallDt * this.speed)
-    this.publishMotion()
-
-    this.dataAccumSec += wallDt
-    if (this.dataAccumSec >= DATA_PUBLISH_SEC) {
-      this.dataAccumSec = 0
-      this.publishData()
-    }
-  }
-
-  private publishMotion(): void {
-    this.version += 1
-    this.motionSnapshot = buildMotion(this.world, this.running, this.version)
-    for (const listener of this.motionListeners) listener()
-  }
-
-  private publishData(): void {
-    this.version += 1
-    this.dataSnapshot = buildData(
-      this.world,
-      this.running,
-      this.speed,
-      this.version,
-    )
-    for (const listener of this.dataListeners) listener()
-  }
-
-  private publishAll(): void {
-    this.publishMotion()
-    this.publishData()
-  }
 }
 
-export const deviceSimulation = new DeviceSimulationStore()
-export { DEFAULT_CONFIG, isMobileKind }
+export const deviceSimulation = new DeviceSimulationClient()
+
+export function isMobileKind(kind: DeviceKind): boolean {
+  return kind === "forklift" || kind === "agv" || kind === "amr"
+}

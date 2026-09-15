@@ -28,6 +28,7 @@ const DEVICE_KIND_LABELS: Record<DeviceKind, string> = {
 const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
   idle: "Ожидание",
   moving: "В движении",
+  waiting: "Ждёт разъезда",
   loading: "Захват груза",
   unloading: "Выгрузка",
   charging: "Заряд",
@@ -155,6 +156,8 @@ export function deviceStatusTone(status: DeviceStatus): string {
       return "bg-amber-500/15 text-amber-700 dark:text-amber-400"
     case "offline":
       return "bg-muted text-muted-foreground"
+    case "waiting":
+      return "bg-amber-500/15 text-amber-700 dark:text-amber-400"
     case "charging":
       return "bg-sky-500/15 text-sky-700 dark:text-sky-400"
     case "idle":

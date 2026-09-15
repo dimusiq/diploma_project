@@ -42,7 +42,7 @@ export function StatCard({
 export function computeKpis(data: DataSnapshot) {
   const mobile = data.devices.filter((device) => isMobileKind(device.kind))
   const working = mobile.filter((device) =>
-    ["moving", "loading", "unloading"].includes(device.status),
+    ["moving", "waiting", "loading", "unloading"].includes(device.status),
   ).length
   const online = data.devices.filter((device) => device.online).length
   const faults = data.devices.filter(

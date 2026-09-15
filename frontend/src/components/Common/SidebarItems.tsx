@@ -86,11 +86,6 @@ const analyticsItems: Item[] = [
     title: "Симуляция",
     path: "/warehouse-simulation",
   },
-  {
-    icon: FiRadio,
-    title: "Сервер устройств",
-    path: "/device-server",
-  },
 ]
 
 const managementItemsBase: Item[] = [
@@ -159,6 +154,11 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
     if (currentUser?.is_superuser) {
       return [
         ...base,
+        {
+          icon: FiRadio,
+          title: "Warehouse Device Server",
+          path: "/device-server" as const,
+        },
         { icon: FiUsers, title: "Администрирование", path: "/admin" as const },
       ]
     }
