@@ -1,5 +1,13 @@
 import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
 import type { CellFilter } from "@/components/warehouse3d/warehouse3dSearch.ts"
+import {
+  getFloorPlanRacks,
+  planToWorldX,
+  planToWorldZ,
+  WAREHOUSE_DEPTH,
+  WAREHOUSE_WIDTH,
+  ZONES,
+} from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 import type { WarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import { cn } from "@/lib/utils.ts"
 
@@ -32,11 +40,33 @@ export function WarehouseMiniMap({
     sy: ((z + d / 2) / d) * viewH,
   })
 
-  const rows = Array.from({ length: geom.rackRows }, (_, row) => {
-    const z = geom.getRowZ(row)
-    const p = toSvg(0, z)
-    return { row, y: p.sy }
-  })
+  const rows = geom.floorPlanMode
+    ? getFloorPlanRacks().map((rack, row) => {
+        const wx = planToWorldX(rack.x + rack.w / 2)
+        const wz = planToWorldZ(rack.z + rack.d / 2)
+        const p = toSvg(wx, wz)
+        return { row, y: p.sy, x: p.sx, rw: (rack.w / w) * viewW, rd: (rack.d / d) * viewH }
+      })
+    : Array.from({ length: geom.rackRows }, (_, row) => {
+        const z = geom.getRowZ(row)
+        const p = toSvg(0, z)
+        return { row, y: p.sy, x: p.sx, rw: viewW * 0.76, rd: 1.2 }
+      })
+
+  const zoneRects = geom.floorPlanMode
+    ? ZONES.map((zone) => {
+        const cx = planToWorldX(zone.x + zone.w / 2)
+        const cz = planToWorldZ(zone.z + zone.d / 2)
+        const p = toSvg(cx, cz)
+        return {
+          id: zone.id,
+          x: p.sx - (zone.w / w) * viewW * 0.5,
+          y: p.sy - (zone.d / d) * viewH * 0.5,
+          rw: (zone.w / w) * viewW,
+          rh: (zone.d / d) * viewH,
+        }
+      })
+    : []
 
   return (
     <div
@@ -61,13 +91,24 @@ export function WarehouseMiniMap({
           className="text-muted/40"
           rx={1}
         />
-        {rows.map(({ row, y }) => (
+        {zoneRects.map((z) => (
+          <rect
+            key={z.id}
+            x={z.x}
+            y={z.y}
+            width={z.rw}
+            height={z.rh}
+            className="fill-primary/5 stroke-border/50"
+            rx={0.3}
+          />
+        ))}
+        {rows.map(({ row, y, x, rw, rd }) => (
           <rect
             key={row}
-            x={viewW * 0.12}
-            y={y - 0.6}
-            width={viewW * 0.76}
-            height={1.2}
+            x={geom.floorPlanMode ? x - rw / 2 : viewW * 0.12}
+            y={y - rd / 2}
+            width={geom.floorPlanMode ? rw : viewW * 0.76}
+            height={geom.floorPlanMode ? Math.max(rd, 1) : 1.2}
             className={cn(
               "fill-muted-foreground/25",
               onSelectRow && "cursor-pointer hover:fill-primary/50",
@@ -103,7 +144,7 @@ export function WarehouseMiniMap({
             />
           )
         })}
-        {selectedCell && (
+        {selectedCell &&
           (() => {
             const [x, , z] = geom.getCellWorldPosition(
               selectedCell.row,
@@ -123,12 +164,12 @@ export function WarehouseMiniMap({
                 rx={0.4}
               />
             )
-          })()
-        )}
+          })()}
       </svg>
       {cellFilter !== "all" && (
         <p className="border-t border-border/60 px-1.5 py-0.5 text-[9px] text-muted-foreground">
           Фильтр: {cellFilter}
+          {geom.floorPlanMode ? ` · ${WAREHOUSE_WIDTH}×${WAREHOUSE_DEPTH} м` : ""}
         </p>
       )}
     </div>

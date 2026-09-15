@@ -49,8 +49,8 @@ describe("warehouse3dSearch", () => {
       { row: 99, level: 1, cellX: 50, cellZ: 9 },
       DEFAULT_WAREHOUSE_LAYOUT_SPEC,
     )
-    expect(clamped.row).toBe(12)
-    expect(clamped.cellX).toBe(20)
+    expect(clamped.row).toBe(8)
+    expect(clamped.cellX).toBe(12)
     expect(clamped.cellZ).toBe(1)
   })
 
@@ -128,6 +128,18 @@ describe("item cell keys", () => {
       cellZ: 0,
     })
     expect(found.map((i) => i.id)).toEqual(["a", "b"])
+  })
+
+  it("normalizes sim-format slot_key Rxx-yy-zz", () => {
+    const simItem = item({ id: "sim", slot_key: "R01-01-1", title: "Sim" })
+    expect(itemCellKey(simItem)).toBe("0-0-0-0")
+    const found = itemsInCell([simItem], {
+      row: 0,
+      level: 0,
+      cellX: 0,
+      cellZ: 0,
+    })
+    expect(found.map((i) => i.id)).toEqual(["sim"])
   })
 
   it("counts congestion from slot_key when coordinates are missing", () => {

@@ -20,8 +20,6 @@ import type {
   WarehouseEquipmentKind,
   WarehouseInteractionMode,
 } from "@/components/warehouse3d/WarehouseScene.tsx"
-import type { CellFilter } from "@/components/warehouse3d/warehouse3dSearch.ts"
-import type { TwinConnectionStatus } from "@/lib/twinRealtimeBus.ts"
 
 export type Warehouse3DToolsTab = "scene" | "route" | "twin"
 
@@ -53,11 +51,6 @@ export type Warehouse3DToolsPanelContentProps = {
   historyIdx: number
   setHistoryIdx: (n: number) => void
   snapshots: Array<{ at: number; items: ItemPublic[] }>
-  cellFilter: CellFilter
-  setCellFilter: (f: CellFilter) => void
-  twinStatus: TwinConnectionStatus
-  useRouteGraph: boolean
-  setUseRouteGraph: (v: boolean) => void
 }
 
 export function Warehouse3DToolsPanelContent(
@@ -107,42 +100,6 @@ export function Warehouse3DToolsPanelContent(
             </div>
           ))}
         </div>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <div className="min-w-[160px]">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Фильтр ячеек
-            </p>
-            <Select
-              value={p.cellFilter}
-              onValueChange={(v) => p.setCellFilter(v as CellFilter)}
-            >
-              <SelectTrigger className="h-9 max-w-[220px] text-sm">
-                <SelectValue placeholder="Фильтр" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
-                <SelectItem value="empty">Пустые</SelectItem>
-                <SelectItem value="occupied">Занятые</SelectItem>
-                <SelectItem value="expiring">Срок истекает</SelectItem>
-                <SelectItem value="expired">Просрочено</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Twin SSE:{" "}
-            <span className="font-medium text-foreground">
-              {p.twinStatus === "live"
-                ? "live"
-                : p.twinStatus === "connecting"
-                  ? "подключение…"
-                  : p.twinStatus === "offline"
-                    ? "офлайн"
-                    : p.twinStatus === "no_token"
-                      ? "нет сессии"
-                      : "ожидание"}
-            </span>
-          </p>
-        </div>
       </TabsContent>
 
       <TabsContent
@@ -175,12 +132,6 @@ export function Warehouse3DToolsPanelContent(
             <p className="text-xs text-muted-foreground">
               В обычном режиме: <strong>Shift+клик</strong> — добавить точку.
             </p>
-            <Checkbox
-              checked={p.useRouteGraph}
-              onCheckedChange={(c) => p.setUseRouteGraph(Boolean(c))}
-            >
-              Маршрут по графу склада (иначе только проходы)
-            </Checkbox>
           </div>
           <div className="flex min-w-[180px] flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground">Техника</p>

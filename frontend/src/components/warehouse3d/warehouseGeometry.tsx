@@ -1,16 +1,31 @@
 /**
- * Геометрия склада для 3D: вычисляется из spec API (или дефолт совпадает с legacy константами).
+ * Геометрия склада для 3D: сетка из spec API или план «Сервера устройств» (8×3×12).
  */
 import { createContext, type ReactNode, useContext, useMemo } from "react"
+import {
+  FLOOR_PLAN_LAYOUT_SPEC,
+  getFloorPlanRacks,
+  isFloorPlanLayoutSpec,
+  planToWorldX,
+  planToWorldZ,
+  WAREHOUSE_DEPTH,
+  WAREHOUSE_WIDTH,
+} from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 
 const CELL_SIZE = 0.72
 const CELL_GAP = 0.12
 const LEVEL_HEIGHT = 0.82
 const PASSAGE_WIDTH = 2.5
 
+/** Метры на ячейку в режиме плана симулятора (48 м / 12 ячеек). */
+const FLOOR_PLAN_BAY_WIDTH = 4
+const FLOOR_PLAN_CELL_GAP = 0
+const FLOOR_PLAN_LEVEL_HEIGHT = 1.35
+const FLOOR_PLAN_CELL_HEIGHT = 1.05
+const FLOOR_PLAN_CELL_DEPTH = 2.6
+
 /**
- * Дополнительная глубина пола со стороны доков: апрон приёмки/отгрузки (как на РЦ),
- * м вдоль оси Z. Стеллажи смещаются в −Z, зона доков и конвейеров — к +Z.
+ * Дополнительная глубина пола со стороны доков (legacy-сетка).
  */
 export const DOCK_STAGING_DEPTH = 14
 
@@ -21,12 +36,8 @@ export type WarehouseLayoutSpec = {
   cellZ: number
 }
 
-export const DEFAULT_WAREHOUSE_LAYOUT_SPEC: WarehouseLayoutSpec = {
-  rows: 12,
-  levels: 4,
-  cellX: 20,
-  cellZ: 1,
-}
+export const DEFAULT_WAREHOUSE_LAYOUT_SPEC: WarehouseLayoutSpec =
+  FLOOR_PLAN_LAYOUT_SPEC
 
 export type WarehouseGeometry = {
   spec: WarehouseLayoutSpec
@@ -42,11 +53,19 @@ export type WarehouseGeometry = {
   floorMargin: number
   floorWidth: number
   floorDepth: number
-  /** Глубина апронной зоны (доки), м — совпадает с `DOCK_STAGING_DEPTH` при стандартной сборке. */
   dockStagingDepth: number
-  /** Сдвиг всех рядов/проходов по Z (стеллажи от доков). */
   storageZOffset: number
+  /** План симулятора устройств (8 стеллажей, зоны 104×64 м). */
+  floorPlanMode: boolean
+  cellSize: number
+  cellGap: number
+  levelHeight: number
+  /** Высота и глубина бокса ячейки (для floor plan ≠ cellSize). */
+  cellHeight: number
+  cellDepth: number
   getRowZ: (rowIndex: number) => number
+  /** Центр стеллажа по X (для floor plan — смещение группы Rack). */
+  getRackBaseX: (rowIndex: number) => number
   cellKey: (rackIndex: number, level: number, ix: number, iz: number) => string
   getCellWorldPosition: (
     row: number,
@@ -56,7 +75,7 @@ export type WarehouseGeometry = {
   ) => [number, number, number]
 }
 
-export function buildWarehouseGeometry(
+function buildLegacyWarehouseGeometry(
   spec: WarehouseLayoutSpec,
 ): WarehouseGeometry {
   const rackRows = spec.rows
@@ -80,6 +99,10 @@ export function buildWarehouseGeometry(
     const inPair = rowIndex % 2
     const blockStart = -totalZ / 2 + pair * (blockWidth + PASSAGE_WIDTH)
     return blockStart + rackDepth / 2 + inPair * rackDepth + storageZOffset
+  }
+
+  function getRackBaseX(_rowIndex: number): number {
+    return 0
   }
 
   function cellKey(
@@ -120,10 +143,116 @@ export function buildWarehouseGeometry(
     floorDepth,
     dockStagingDepth,
     storageZOffset,
+    floorPlanMode: false,
+    cellSize: CELL_SIZE,
+    cellGap: CELL_GAP,
+    levelHeight: LEVEL_HEIGHT,
+    cellHeight: CELL_SIZE,
+    cellDepth: CELL_SIZE,
     getRowZ,
+    getRackBaseX,
     cellKey,
     getCellWorldPosition,
   }
+}
+
+function buildFloorPlanWarehouseGeometry(
+  spec: WarehouseLayoutSpec,
+): WarehouseGeometry {
+  const racks = getFloorPlanRacks()
+  const rackRows = racks.length
+  const cellsLength = spec.cellX
+  const cellsDepth = spec.cellZ
+  const levels = spec.levels
+  const rackLength =
+    cellsLength * (FLOOR_PLAN_BAY_WIDTH + FLOOR_PLAN_CELL_GAP) -
+    FLOOR_PLAN_CELL_GAP
+  const rackDepth = racks[0]?.d ?? 3
+  const pairs = Math.max(1, Math.floor(rackRows / 2))
+  const blockWidth = rackDepth
+  const totalZ = WAREHOUSE_DEPTH
+  const floorMargin = 6
+  const yardExtra = 12
+  const floorWidth = WAREHOUSE_WIDTH + yardExtra * 2
+  const floorDepth = WAREHOUSE_DEPTH + floorMargin * 2
+  const dockStagingDepth = yardExtra
+
+  function getRowZ(rowIndex: number): number {
+    const rack = racks[rowIndex]
+    if (!rack) return 0
+    return planToWorldZ(rack.z + rack.d / 2)
+  }
+
+  function getRackBaseX(rowIndex: number): number {
+    const rack = racks[rowIndex]
+    if (!rack) return 0
+    return planToWorldX(rack.x + rack.w / 2)
+  }
+
+  function cellKey(
+    rackIndex: number,
+    level: number,
+    ix: number,
+    iz: number,
+  ): string {
+    return `${rackIndex}-${level}-${ix}-${iz}`
+  }
+
+  function getCellWorldPosition(
+    row: number,
+    level: number,
+    cellX: number,
+    cellZ: number,
+  ): [number, number, number] {
+    const rack = racks[row]
+    if (!rack) return [0, 0, 0]
+    const bayWidth = rack.w / rack.bays
+    const planX = rack.x + (cellX + 0.5) * bayWidth
+    const planZ = rack.z + rack.d / 2
+    const oy =
+      level * FLOOR_PLAN_LEVEL_HEIGHT + FLOOR_PLAN_CELL_HEIGHT / 2 + 0.02
+    const oz =
+      (cellZ - (cellsDepth - 1) / 2) *
+      (FLOOR_PLAN_CELL_DEPTH + FLOOR_PLAN_CELL_GAP)
+    return [planToWorldX(planX), oy, planToWorldZ(planZ) + oz]
+  }
+
+  return {
+    spec,
+    rackRows,
+    pairs,
+    cellsLength,
+    cellsDepth,
+    levels,
+    rackLength,
+    rackDepth,
+    blockWidth,
+    totalZ,
+    floorMargin,
+    floorWidth,
+    floorDepth,
+    dockStagingDepth,
+    storageZOffset: 0,
+    floorPlanMode: true,
+    cellSize: FLOOR_PLAN_BAY_WIDTH,
+    cellGap: FLOOR_PLAN_CELL_GAP,
+    levelHeight: FLOOR_PLAN_LEVEL_HEIGHT,
+    cellHeight: FLOOR_PLAN_CELL_HEIGHT,
+    cellDepth: FLOOR_PLAN_CELL_DEPTH,
+    getRowZ,
+    getRackBaseX,
+    cellKey,
+    getCellWorldPosition,
+  }
+}
+
+export function buildWarehouseGeometry(
+  spec: WarehouseLayoutSpec,
+): WarehouseGeometry {
+  if (isFloorPlanLayoutSpec(spec)) {
+    return buildFloorPlanWarehouseGeometry(spec)
+  }
+  return buildLegacyWarehouseGeometry(spec)
 }
 
 const GeometryContext = createContext<WarehouseGeometry>(
@@ -138,7 +267,8 @@ export function WarehouseGeometryProvider({
   children: ReactNode
 }) {
   const geom = useMemo(
-    () => buildWarehouseGeometry(spec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC),
+    () =>
+      buildWarehouseGeometry(spec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC),
     [spec],
   )
   return (
@@ -163,4 +293,11 @@ export function cellWorldOnFloor(
   return [x, floorY, z]
 }
 
-export { CELL_SIZE, CELL_GAP, LEVEL_HEIGHT, PASSAGE_WIDTH }
+export {
+  CELL_SIZE,
+  CELL_GAP,
+  LEVEL_HEIGHT,
+  PASSAGE_WIDTH,
+  FLOOR_PLAN_BAY_WIDTH,
+  FLOOR_PLAN_LEVEL_HEIGHT,
+}

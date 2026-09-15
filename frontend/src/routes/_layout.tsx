@@ -1,68 +1,88 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import { UsersService } from "@/client/index.ts"
-import { BottomNav } from "@/components/Common/BottomNav.tsx"
-import { Breadcrumbs } from "@/components/Common/Breadcrumbs.tsx"
-import Navbar from "@/components/Common/Navbar.tsx"
-import { AppSidebar } from "@/components/Common/Sidebar.tsx"
-import { SkipLink } from "@/components/Common/SkipLink.tsx"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar.tsx"
-import { AssistantSessionProvider } from "@/contexts/AssistantSessionContext.tsx"
-import { isLoggedIn } from "@/hooks/useAuth.ts"
-import { useItemsRealtime } from "@/hooks/useItemsRealtime.ts"
-import { useTwinRealtime } from "@/hooks/useTwinRealtime.ts"
-import { getErrorHttpStatus } from "@/lib/apiClient.ts"
-import { removeAccessToken } from "@/lib/authStorage.ts"
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useLocation,
+} from '@tanstack/react-router';
+import { UsersService } from '@/client/index.ts';
+import { BottomNav } from '@/components/Common/BottomNav.tsx';
+import { Breadcrumbs } from '@/components/Common/Breadcrumbs.tsx';
+import Navbar from '@/components/Common/Navbar.tsx';
+import { AppSidebar } from '@/components/Common/Sidebar.tsx';
+import { SkipLink } from '@/components/Common/SkipLink.tsx';
+import {
+  SidebarInset,
+  SidebarProvider,
+} from '@/components/ui/sidebar.tsx';
+import { AssistantSessionProvider } from '@/contexts/AssistantSessionContext.tsx';
+import { isLoggedIn } from '@/hooks/useAuth.ts';
+import { useItemsRealtime } from '@/hooks/useItemsRealtime.ts';
+import { useTwinRealtime } from '@/hooks/useTwinRealtime.ts';
+import { getErrorHttpStatus } from '@/lib/apiClient.ts';
+import { removeAccessToken } from '@/lib/authStorage.ts';
+import { cn } from '@/lib/utils';
 
-export const Route = createFileRoute("/_layout")({
+export const Route = createFileRoute('/_layout')({
   component: Layout,
   beforeLoad: async ({ context }) => {
     if (!isLoggedIn()) {
-      throw redirect({ to: "/login" })
+      throw redirect({ to: '/login' });
     }
     try {
       const user = await context.queryClient.fetchQuery({
-        queryKey: ["currentUser"],
+        queryKey: ['currentUser'],
         queryFn: UsersService.readUserMe,
-      })
-      return { user }
+      });
+      return { user };
     } catch (err) {
-      const st = getErrorHttpStatus(err)
+      const st = getErrorHttpStatus(err);
       if (st === 401 || st === 403 || st === 404) {
-        removeAccessToken()
-        throw redirect({ to: "/login" })
+        removeAccessToken();
+        throw redirect({ to: '/login' });
       }
-      throw err
+      throw err;
     }
   },
-})
+});
 
 function MainColumn() {
+  const isWarehouse3d = useLocation({
+    select: (loc) => loc.pathname === '/warehouse-3d',
+  });
   return (
     <div
       data-main-scroll
-      className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 pb-20 md:pb-4"
+      className='flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-4 pb-20 md:pb-4'
     >
       <Breadcrumbs />
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        className={cn(
+          'flex flex-col',
+          isWarehouse3d ? 'min-h-min' : 'min-h-0 flex-1',
+        )}
+      >
         <Outlet />
       </div>
     </div>
-  )
+  );
 }
 
 function Layout() {
-  useTwinRealtime()
-  useItemsRealtime()
+  useTwinRealtime();
+  useItemsRealtime();
   return (
     <AssistantSessionProvider>
-      <SidebarProvider className="h-svh max-h-svh min-h-0 overflow-hidden">
+      <SidebarProvider className='h-svh max-h-svh min-h-0 overflow-hidden'>
         <SkipLink />
-        <div className="flex h-svh max-h-svh min-h-0 w-full flex-col overflow-hidden">
-          <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className='flex h-svh max-h-svh min-h-0 w-full flex-col overflow-hidden'>
+          <div className='flex min-h-0 flex-1 overflow-hidden'>
             <AppSidebar />
-            <SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <SidebarInset className='flex min-h-0 flex-1 flex-col overflow-hidden'>
               <Navbar />
-              <main id="main-content" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <main
+                id='main-content'
+                className='flex min-h-0 flex-1 flex-col overflow-hidden'
+              >
                 <MainColumn />
               </main>
               <BottomNav />
@@ -71,7 +91,7 @@ function Layout() {
         </div>
       </SidebarProvider>
     </AssistantSessionProvider>
-  )
+  );
 }
 
-export default Layout
+export default Layout;

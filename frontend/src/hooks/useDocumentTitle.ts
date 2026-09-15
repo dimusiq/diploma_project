@@ -11,6 +11,7 @@ const PATH_TITLES: Record<string, string> = {
   "/shipment": "Отгрузка",
   "/shipped": "Отгружено",
   "/technique": "Техника",
+  "/device-server": "Сервер устройств",
   "/settings": "Настройки",
   "/admin": "Администрирование",
   "/login": "Вход",

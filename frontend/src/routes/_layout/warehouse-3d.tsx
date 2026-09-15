@@ -1,41 +1,48 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, Link as RouterLink, useNavigate } from "@tanstack/react-router"
-import { useTheme } from "next-themes"
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import {
+  createFileRoute,
+  Link as RouterLink,
+  useNavigate,
+} from '@tanstack/react-router';
+import { useTheme } from 'next-themes';
 import {
   lazy,
   Suspense,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-} from "react"
-import { ErrorBoundary } from "react-error-boundary"
+} from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import {
   FiChevronRight,
   FiMaximize2,
   FiMove,
   FiRotateCcw,
   FiSliders,
-} from "react-icons/fi"
-import { equipmentApi } from "@/api/equipment.ts"
+} from 'react-icons/fi';
+import { equipmentApi } from '@/api/equipment.ts';
 import {
   fetchWarehouseLayout,
   fetchWarehouseOccupancy,
   specToLayoutGeometry,
-} from "@/api/warehouseLayout.ts"
-import { fetchWarehouseRouteGraph } from "@/api/warehouseRouteGraph.ts"
-import { warehouseTopologyApi } from "@/api/warehouseTopology.ts"
+} from '@/api/warehouseLayout.ts';
+import { fetchWarehouseRouteGraph } from '@/api/warehouseRouteGraph.ts';
+import { warehouseTopologyApi } from '@/api/warehouseTopology.ts';
 import {
   fetchWarehouseTask,
   patchWarehouseTask,
-} from "@/api/warehouseTasks.ts"
-import type { ItemPublic } from "@/client/index.ts"
-import { ItemsService } from "@/client/index.ts"
-import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
-import { WarehouseHubNav } from "@/components/Common/WarehouseHubNav.tsx"
-import { Button } from "@/components/ui/button.tsx"
+} from '@/api/warehouseTasks.ts';
+import type { ItemPublic } from '@/client/index.ts';
+import { ItemsService } from '@/client/index.ts';
+import { ErrorFallback } from '@/components/Common/ErrorFallback.tsx';
+import { WarehouseHubNav } from '@/components/Common/WarehouseHubNav.tsx';
+import { Button } from '@/components/ui/button.tsx';
 import {
   Sheet,
   SheetContent,
@@ -43,9 +50,9 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/sheet.tsx"
-import { Skeleton } from "@/components/ui/skeleton.tsx"
-import { Tabs } from "@/components/ui/tabs.tsx"
+} from '@/components/ui/sheet.tsx';
+import { Skeleton } from '@/components/ui/skeleton.tsx';
+import { Tabs } from '@/components/ui/tabs.tsx';
 import {
   blockedCellKeysFromTopology,
   type CellStripe,
@@ -59,12 +66,13 @@ import {
   replenishmentNeedByCellKey,
   slaRiskByCellKey,
   stripeByCellKey,
-} from "@/components/warehouse3d/twin3dDerived.ts"
+} from '@/components/warehouse3d/twin3dDerived.ts';
 import {
   Warehouse3DToolsPanelContent,
   type Warehouse3DToolsTab,
-} from "@/components/warehouse3d/Warehouse3dToolsPanels.tsx"
-import { WarehouseMiniMap } from "@/components/warehouse3d/WarehouseMiniMap.tsx"
+} from '@/components/warehouse3d/Warehouse3dToolsPanels.tsx';
+import { CellPopup } from '@/components/warehouse3d/WarehouseCellPopup.tsx';
+import { WarehouseMiniMap } from '@/components/warehouse3d/WarehouseMiniMap.tsx';
 import type {
   CellInfo,
   CellItemInfo,
@@ -72,7 +80,7 @@ import type {
   WarehouseEquipmentKind,
   WarehouseInteractionMode,
   WarehouseTwinEnrichment,
-} from "@/components/warehouse3d/WarehouseScene.tsx"
+} from '@/components/warehouse3d/WarehouseScene.tsx';
 import {
   cellInfoToSearch,
   clampSearchToLayout,
@@ -80,29 +88,35 @@ import {
   searchToCellInfo,
   validateWarehouse3dSearch,
   type Warehouse3dSearch,
-} from "@/components/warehouse3d/warehouse3dSearch.ts"
+} from '@/components/warehouse3d/warehouse3dSearch.ts';
+import { deviceSimulation } from '@/components/deviceServer/simStore.ts';
+import { resolveFloorPlanLayoutSpec } from '@/components/warehouse3d/warehouseFloorPlanAdapter.ts';
+import { buildWarehouseGeometry } from '@/components/warehouse3d/warehouseGeometry.tsx';
+import { useEquipmentPositionsLive } from '@/hooks/useEquipmentPositionsLive.ts';
+import { useTwinLivePanelState } from '@/hooks/useTwinLivePanelState.ts';
 import {
-  buildWarehouseGeometry,
-  DEFAULT_WAREHOUSE_LAYOUT_SPEC,
-} from "@/components/warehouse3d/warehouseGeometry.tsx"
-import { useEquipmentPositionsLive } from "@/hooks/useEquipmentPositionsLive.ts"
-import { useTwinLivePanelState } from "@/hooks/useTwinLivePanelState.ts"
-import { fetchAllItems, itemsFingerprint } from "@/lib/fetchAllItems.ts"
-import { parseWarehouseTaskTarget } from "@/lib/warehouseTaskTarget.ts"
-import { cn } from "@/lib/utils.ts"
-import useCustomToast from "@/hooks/useCustomToast.ts"
+  fetchAllItems,
+  itemsFingerprint,
+} from '@/lib/fetchAllItems.ts';
+import { parseWarehouseTaskTarget } from '@/lib/warehouseTaskTarget.ts';
+import { cn } from '@/lib/utils.ts';
+import useCustomToast from '@/hooks/useCustomToast.ts';
 
-const WAREHOUSE_3D_TOOLS_TAB_KEY = "nebardak.warehouse3d.toolsTab"
+const WAREHOUSE_3D_TOOLS_TAB_KEY =
+  'nebardak.warehouse3d.toolsTab';
 
 function readStoredToolsTab(): Warehouse3DToolsTab {
-  if (typeof window === "undefined") return "scene"
+  if (typeof window === 'undefined') return 'scene';
   try {
-    const v = localStorage.getItem(WAREHOUSE_3D_TOOLS_TAB_KEY)
-    if (v === "scene" || v === "route" || v === "twin") return v
+    const v = localStorage.getItem(
+      WAREHOUSE_3D_TOOLS_TAB_KEY,
+    );
+    if (v === 'scene' || v === 'route' || v === 'twin')
+      return v;
   } catch {
     /* ignore */
   }
-  return "scene"
+  return 'scene';
 }
 
 function warehouse3dSearchEqual(
@@ -114,26 +128,32 @@ function warehouse3dSearchEqual(
     a.level === b.level &&
     a.cellX === b.cellX &&
     a.cellZ === b.cellZ &&
-    (a.filter ?? "all") === (b.filter ?? "all") &&
+    (a.filter ?? 'all') === (b.filter ?? 'all') &&
     a.taskId === b.taskId
-  )
+  );
 }
 
 const WarehouseScene = lazy(() =>
-  import("@/components/warehouse3d/WarehouseScene.tsx").then((m) => ({
-    default: m.WarehouseScene,
-  })),
-)
+  import('@/components/warehouse3d/WarehouseScene.tsx').then(
+    (m) => ({
+      default: m.WarehouseScene,
+    }),
+  ),
+);
 
-export const Route = createFileRoute("/_layout/warehouse-3d")({
+export const Route = createFileRoute(
+  '/_layout/warehouse-3d',
+)({
   component: Warehouse3DPage,
   validateSearch: (search) =>
-    validateWarehouse3dSearch(search as Record<string, unknown>),
-})
+    validateWarehouse3dSearch(
+      search as Record<string, unknown>,
+    ),
+});
 
 function toCellItemInfo(item: ItemPublic): CellItemInfo {
-  const expiresAt = item.expires_at ?? null
-  const expired = isExpired(expiresAt)
+  const expiresAt = item.expires_at ?? null;
+  const expired = isExpired(expiresAt);
   return {
     id: item.id,
     title: item.title,
@@ -146,295 +166,343 @@ function toCellItemInfo(item: ItemPublic): CellItemInfo {
     status: item.status,
     expiringSoon: !expired && isExpiringSoon(expiresAt),
     isExpired: expired,
-    expiredDays: expired ? getExpiredDays(expiresAt) : undefined,
-  }
+    expiredDays: expired
+      ? getExpiredDays(expiresAt)
+      : undefined,
+  };
 }
 
 function Warehouse3DPage() {
-  const { resolvedTheme } = useTheme()
-  const search = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
-  const qc = useQueryClient()
-  const { showErrorToast, showSuccessToast } = useCustomToast()
-  const canvasContainerRef = useRef<HTMLDivElement>(null)
-  const skipFocusFromSelfRef = useRef(false)
-  const [selectedCell, setSelectedCell] = useState<CellInfo | null>(null)
-  const [focusCell, setFocusCell] = useState<CellInfo | null>(null)
-  const [sceneKey, setSceneKey] = useState(0)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const { resolvedTheme } = useTheme();
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const qc = useQueryClient();
+  const { showErrorToast, showSuccessToast } =
+    useCustomToast();
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const skipFocusFromSelfRef = useRef(false);
+  const [selectedCell, setSelectedCell] =
+    useState<CellInfo | null>(null);
+  const [focusCell, setFocusCell] =
+    useState<CellInfo | null>(null);
+  const [sceneKey, setSceneKey] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [interactionMode, setInteractionMode] =
-    useState<WarehouseInteractionMode>("view")
-  const [routeWaypoints, setRouteWaypoints] = useState<CellInfo[]>([])
-  const [simulationActive, setSimulationActive] = useState(false)
+    useState<WarehouseInteractionMode>('view');
+  const [routeWaypoints, setRouteWaypoints] = useState<
+    CellInfo[]
+  >([]);
+  const [simulationActive, setSimulationActive] =
+    useState(false);
   const [equipmentKind, setEquipmentKind] =
-    useState<WarehouseEquipmentKind>("forklift")
-  const [simulationSpeed, setSimulationSpeed] = useState(1.25)
-  const [simulationShowCargo, setSimulationShowCargo] = useState(true)
-  const [liveData, setLiveData] = useState(false)
-  const [freeCameraMode, setFreeCameraMode] = useState(false)
-  const [overlayMode, setOverlayMode] = useState<TwinOverlayMode>("standard")
-  const [heatMetric, setHeatMetric] = useState<HeatMetric>("congestion")
-  const [historyIdx, setHistoryIdx] = useState(-1)
+    useState<WarehouseEquipmentKind>('forklift');
+  const [simulationSpeed, setSimulationSpeed] =
+    useState(1.25);
+  const [simulationShowCargo, setSimulationShowCargo] =
+    useState(true);
+  const [liveData, setLiveData] = useState(false);
+  const [freeCameraMode, setFreeCameraMode] =
+    useState(false);
+  const [overlayMode, setOverlayMode] =
+    useState<TwinOverlayMode>('standard');
+  const [heatMetric, setHeatMetric] =
+    useState<HeatMetric>('congestion');
+  const [historyIdx, setHistoryIdx] = useState(-1);
   const [snapshots, setSnapshots] = useState<
     Array<{ at: number; items: ItemPublic[] }>
-  >([])
-  const snapThrottleRef = useRef(0)
-  const lastFingerprintRef = useRef("")
-  const [useRouteGraph, setUseRouteGraph] = useState(true)
+  >([]);
+  const snapThrottleRef = useRef(0);
+  const lastFingerprintRef = useRef('');
+  const [useRouteGraph, setUseRouteGraph] = useState(true);
 
-  const cellFilter = parseCellFilter(search.filter)
-  const { status: twinStatus } = useTwinLivePanelState()
-  const liveEquipment = useEquipmentPositionsLive()
+  const cellFilter = parseCellFilter(search.filter);
+  const { status: twinStatus } = useTwinLivePanelState();
+  const liveEquipment = useEquipmentPositionsLive();
 
   const addRouteWaypoint = useCallback((cell: CellInfo) => {
-    setRouteWaypoints((prev) => [...prev, { ...cell }])
-  }, [])
+    setRouteWaypoints((prev) => [...prev, { ...cell }]);
+  }, []);
 
   const clearRoute = useCallback(() => {
-    setRouteWaypoints([])
-    setSimulationActive(false)
-  }, [])
+    setRouteWaypoints([]);
+    setSimulationActive(false);
+  }, []);
 
   const popRouteWaypoint = useCallback(() => {
-    setRouteWaypoints((prev) => prev.slice(0, -1))
-  }, [])
+    setRouteWaypoints((prev) => prev.slice(0, -1));
+  }, []);
 
   const handleSimulationComplete = useCallback(() => {
-    setSimulationActive(false)
-  }, [])
+    setSimulationActive(false);
+  }, []);
 
   const startSimulation = useCallback(() => {
-    if (routeWaypoints.length < 2) return
-    setSimulationActive(true)
-  }, [routeWaypoints.length])
+    if (routeWaypoints.length < 2) return;
+    setSimulationActive(true);
+  }, [routeWaypoints.length]);
 
   const stopSimulation = useCallback(() => {
-    setSimulationActive(false)
-  }, [])
+    setSimulationActive(false);
+  }, []);
 
   const toggleFullscreen = useCallback(() => {
-    const el = canvasContainerRef.current
-    if (!el) return
+    const el = canvasContainerRef.current;
+    if (!el) return;
     if (!document.fullscreenElement) {
-      el.requestFullscreen?.()
+      el.requestFullscreen?.();
     } else {
-      document.exitFullscreen?.()
+      document.exitFullscreen?.();
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     const onFullscreenChange = () =>
-      setIsFullscreen(Boolean(document.fullscreenElement))
-    document.addEventListener("fullscreenchange", onFullscreenChange)
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener(
+      'fullscreenchange',
+      onFullscreenChange,
+    );
     return () =>
-      document.removeEventListener("fullscreenchange", onFullscreenChange)
-  }, [])
-
-  useLayoutEffect(() => {
-    const scroller = document.querySelector("[data-main-scroll]")
-    const html = document.documentElement
-    const prevHtmlOverflow = html.style.overflow
-    const prevBodyOverflow = document.body.style.overflow
-    const prevHist =
-      "scrollRestoration" in history ? history.scrollRestoration : null
-    html.style.overflow = "hidden"
-    document.body.style.overflow = "hidden"
-    if (prevHist != null) history.scrollRestoration = "manual"
-    let prevScrollerOverflow = ""
-    if (scroller instanceof HTMLElement) {
-      prevScrollerOverflow = scroller.style.overflowY
-      scroller.style.overflowY = "hidden"
-    }
-    return () => {
-      html.style.overflow = prevHtmlOverflow
-      document.body.style.overflow = prevBodyOverflow
-      if (prevHist != null) history.scrollRestoration = prevHist
-      if (scroller instanceof HTMLElement) {
-        scroller.style.overflowY = prevScrollerOverflow
-      }
-    }
-  }, [])
+      document.removeEventListener(
+        'fullscreenchange',
+        onFullscreenChange,
+      );
+  }, []);
 
   const { data: layoutApi } = useQuery({
-    queryKey: ["warehouse", "layout"],
+    queryKey: ['warehouse', 'layout'],
     queryFn: fetchWarehouseLayout,
     staleTime: 60_000,
-  })
+  });
 
   const layoutSpec = useMemo(
     () => specToLayoutGeometry(layoutApi?.spec),
     [layoutApi?.spec],
-  )
-  const layoutSpecResolved = layoutSpec ?? DEFAULT_WAREHOUSE_LAYOUT_SPEC
+  );
+  const layoutSpecResolved = useMemo(
+    () => resolveFloorPlanLayoutSpec(layoutSpec),
+    [layoutSpec],
+  );
+
+  useEffect(() => {
+    deviceSimulation.autoStart();
+  }, []);
 
   const navigateSearch = useCallback(
     (next: Warehouse3dSearch) => {
-      if (warehouse3dSearchEqual(next, search)) return
-      const scroller = document.querySelector("[data-main-scroll]")
+      if (warehouse3dSearchEqual(next, search)) return;
+      const scroller = document.querySelector(
+        '[data-main-scroll]',
+      );
       const colY =
-        scroller instanceof HTMLElement ? scroller.scrollTop : 0
-      const winY = window.scrollY
+        scroller instanceof HTMLElement
+          ? scroller.scrollTop
+          : 0;
+      const winY = window.scrollY;
       void navigate({
         search: next,
         replace: true,
         resetScroll: false,
       }).then(() => {
-        window.scrollTo(0, winY)
-        if (scroller instanceof HTMLElement) {
-          scroller.scrollTop = colY
-        }
-      })
+        const restore = () => {
+          window.scrollTo(0, winY);
+          if (scroller instanceof HTMLElement) {
+            scroller.scrollTop = colY;
+          }
+        };
+        restore();
+        requestAnimationFrame(() => {
+          restore();
+          requestAnimationFrame(restore);
+        });
+      });
     },
     [navigate, search],
-  )
+  );
 
   useEffect(() => {
-    const clamped = clampSearchToLayout(search, layoutSpecResolved)
+    const clamped = clampSearchToLayout(
+      search,
+      layoutSpecResolved,
+    );
     if (
       clamped.row !== search.row ||
       clamped.level !== search.level ||
       clamped.cellX !== search.cellX ||
       clamped.cellZ !== search.cellZ
     ) {
-      skipFocusFromSelfRef.current = true
-      navigateSearch(clamped)
+      skipFocusFromSelfRef.current = true;
+      navigateSearch(clamped);
     }
-  }, [layoutSpecResolved, search, navigateSearch])
+  }, [layoutSpecResolved, search, navigateSearch]);
 
   useEffect(() => {
-    const fromUrl = searchToCellInfo(search, layoutSpecResolved)
+    const fromUrl = searchToCellInfo(
+      search,
+      layoutSpecResolved,
+    );
     if (fromUrl) {
-      setSelectedCell(fromUrl)
+      setSelectedCell(fromUrl);
       if (!skipFocusFromSelfRef.current) {
-        setFocusCell(fromUrl)
+        setFocusCell(fromUrl);
       }
     } else if (
       search.row == null &&
       search.level == null &&
       search.cellX == null
     ) {
-      setSelectedCell(null)
+      setSelectedCell(null);
     }
-    skipFocusFromSelfRef.current = false
+    skipFocusFromSelfRef.current = false;
   }, [
     search.row,
     search.level,
     search.cellX,
     search.cellZ,
     layoutSpecResolved,
-  ])
+  ]);
 
   const persistCellInUrl = useCallback(
     (cell: CellInfo | null) => {
-      skipFocusFromSelfRef.current = true
-      setSelectedCell(cell)
+      skipFocusFromSelfRef.current = true;
+      setSelectedCell(cell);
       navigateSearch(
-        cellInfoToSearch(cell, cellFilter, { taskId: search.taskId }),
-      )
+        cellInfoToSearch(cell, cellFilter, {
+          taskId: search.taskId,
+        }),
+      );
     },
     [navigateSearch, cellFilter, search.taskId],
-  )
+  );
 
   const setCellFilter = useCallback(
     (filter: typeof cellFilter) => {
-      skipFocusFromSelfRef.current = true
+      skipFocusFromSelfRef.current = true;
       navigateSearch(
         cellInfoToSearch(selectedCell, filter, {
           taskId: search.taskId,
         }),
-      )
+      );
     },
     [navigateSearch, selectedCell, search.taskId],
-  )
+  );
 
   useEffect(() => {
-    if (!selectedCell) return
+    if (!selectedCell) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") persistCellInUrl(null)
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [selectedCell, persistCellInUrl])
+      if (e.key === 'Escape') persistCellInUrl(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () =>
+      window.removeEventListener('keydown', onKeyDown);
+  }, [selectedCell, persistCellInUrl]);
 
-  const resetCamera = useCallback(() => setSceneKey((k) => k + 1), [])
+  const resetCamera = useCallback(
+    () => setSceneKey((k) => k + 1),
+    [],
+  );
 
   const { data: items = [] } = useQuery({
-    queryKey: ["items", "all-for-warehouse-3d"],
+    queryKey: ['items', 'all-for-warehouse-3d'],
     queryFn: () => fetchAllItems(),
     refetchInterval: liveData ? 2500 : false,
     placeholderData: (prev) => prev,
-  })
+  });
 
   const { data: occupancy } = useQuery({
-    queryKey: ["warehouse", "occupancy"],
+    queryKey: ['warehouse', 'occupancy'],
     queryFn: fetchWarehouseOccupancy,
     staleTime: 15_000,
     refetchInterval: liveData ? 2500 : false,
-  })
+  });
 
   const { data: topology } = useQuery({
-    queryKey: ["warehouse", "topology"],
+    queryKey: ['warehouse', 'topology'],
     queryFn: warehouseTopologyApi.get,
     staleTime: 60_000,
-  })
+  });
 
   const { data: routeGraph } = useQuery({
-    queryKey: ["warehouse", "route-graph"],
+    queryKey: ['warehouse', 'route-graph'],
     queryFn: fetchWarehouseRouteGraph,
     staleTime: 60_000,
-  })
+  });
 
   const { data: equipmentResponse } = useQuery({
-    queryKey: ["equipment", "all-warehouse-3d"],
-    queryFn: () => equipmentApi.list({ limit: 200, skip: 0 }),
+    queryKey: ['equipment', 'all-warehouse-3d'],
+    queryFn: () =>
+      equipmentApi.list({ limit: 200, skip: 0 }),
     staleTime: 60_000,
-  })
+  });
 
-  const taskId = search.taskId
+  const taskId = search.taskId;
   const { data: activeTask } = useQuery({
-    queryKey: ["warehouse-tasks", taskId],
+    queryKey: ['warehouse-tasks', taskId],
     queryFn: () => fetchWarehouseTask(taskId!),
     enabled: Boolean(taskId),
-  })
+  });
   const taskTarget = useMemo(
-    () => parseWarehouseTaskTarget(activeTask?.payload ?? null),
+    () =>
+      parseWarehouseTaskTarget(activeTask?.payload ?? null),
     [activeTask],
-  )
+  );
 
   const confirmPickMut = useMutation({
     mutationFn: async () => {
-      if (!taskId) return
-      const itemId = taskTarget.itemId
+      if (!taskId) return;
+      const itemId = taskTarget.itemId;
       if (itemId) {
-        const item = await ItemsService.readItem({ id: itemId })
-        if (item.status === "warehouse") {
+        const item = await ItemsService.readItem({
+          id: itemId,
+        });
+        if (item.status === 'warehouse') {
           await ItemsService.updateItem({
             id: itemId,
-            requestBody: { status: "shipment" },
-          })
+            requestBody: { status: 'shipment' },
+          });
         }
       }
-      await patchWarehouseTask(taskId, { status: "completed" })
+      await patchWarehouseTask(taskId, {
+        status: 'completed',
+      });
     },
     onSuccess: () => {
-      showSuccessToast("Отбор подтверждён: задание закрыто")
-      void qc.invalidateQueries({ queryKey: ["items"] })
-      void qc.invalidateQueries({ queryKey: ["warehouse"] })
-      void qc.invalidateQueries({ queryKey: ["warehouse-tasks"] })
-      skipFocusFromSelfRef.current = true
-      navigateSearch(cellInfoToSearch(selectedCell, cellFilter))
+      showSuccessToast(
+        'Отбор подтверждён: задание закрыто',
+      );
+      void qc.invalidateQueries({ queryKey: ['items'] });
+      void qc.invalidateQueries({
+        queryKey: ['warehouse'],
+      });
+      void qc.invalidateQueries({
+        queryKey: ['warehouse-tasks'],
+      });
+      skipFocusFromSelfRef.current = true;
+      navigateSearch(
+        cellInfoToSearch(selectedCell, cellFilter),
+      );
     },
     onError: (e: unknown) => {
-      showErrorToast(e instanceof Error ? e.message : "Не удалось подтвердить")
+      showErrorToast(
+        e instanceof Error
+          ? e.message
+          : 'Не удалось подтвердить',
+      );
     },
-  })
+  });
 
   useEffect(() => {
-    if (!taskTarget.cell || simulationActive) return
+    if (!taskTarget.cell || simulationActive) return;
     setRouteWaypoints([
-      { row: 0, level: 0, cellX: 0, cellZ: 0, filled: false },
+      {
+        row: 0,
+        level: 0,
+        cellX: 0,
+        cellZ: 0,
+        filled: false,
+      },
       { ...taskTarget.cell },
-    ])
+    ]);
   }, [
     taskId,
     taskTarget.cell?.row,
@@ -442,174 +510,206 @@ function Warehouse3DPage() {
     taskTarget.cell?.cellX,
     taskTarget.cell?.cellZ,
     simulationActive,
-  ])
+  ]);
 
   const addSelectedCellToRoute = useCallback(() => {
-    if (!selectedCell || simulationActive) return
-    addRouteWaypoint(selectedCell)
-  }, [selectedCell, simulationActive, addRouteWaypoint])
+    if (!selectedCell || simulationActive) return;
+    addRouteWaypoint(selectedCell);
+  }, [selectedCell, simulationActive, addRouteWaypoint]);
 
   const setDemoRoute = useCallback(() => {
-    if (simulationActive) return
-    const spec = layoutSpecResolved
-    const endX = Math.max(0, spec.cellX - 1)
-    const z = Math.max(0, spec.cellZ - 1)
+    if (simulationActive) return;
+    const spec = layoutSpecResolved;
+    const endX = Math.max(0, spec.cellX - 1);
+    const z = Math.max(0, spec.cellZ - 1);
     setRouteWaypoints([
-      { row: 0, level: 0, cellX: 0, cellZ: z, filled: false },
-      { row: 0, level: 0, cellX: endX, cellZ: z, filled: false },
-    ])
-  }, [layoutSpecResolved, simulationActive])
+      {
+        row: 0,
+        level: 0,
+        cellX: 0,
+        cellZ: z,
+        filled: false,
+      },
+      {
+        row: 0,
+        level: 0,
+        cellX: endX,
+        cellZ: z,
+        filled: false,
+      },
+    ]);
+  }, [layoutSpecResolved, simulationActive]);
 
-  const itemsRef = useRef(items)
-  itemsRef.current = items
-  const fingerprint = itemsFingerprint(items)
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const fingerprint = itemsFingerprint(items);
 
   useEffect(() => {
-    if (items.length === 0) return
-    if (lastFingerprintRef.current === fingerprint) return
-    const now = Date.now()
+    if (items.length === 0) return;
+    if (lastFingerprintRef.current === fingerprint) return;
+    const now = Date.now();
     const wait = lastFingerprintRef.current
-      ? Math.max(0, 12_000 - (now - snapThrottleRef.current))
-      : 0
+      ? Math.max(
+          0,
+          12_000 - (now - snapThrottleRef.current),
+        )
+      : 0;
     const commit = () => {
-      lastFingerprintRef.current = itemsFingerprint(itemsRef.current)
-      snapThrottleRef.current = Date.now()
+      lastFingerprintRef.current = itemsFingerprint(
+        itemsRef.current,
+      );
+      snapThrottleRef.current = Date.now();
       setSnapshots((prev) => [
         ...prev.slice(-35),
         { at: Date.now(), items: [...itemsRef.current] },
-      ])
-    }
+      ]);
+    };
     if (wait === 0) {
-      commit()
-      return
+      commit();
+      return;
     }
-    const t = window.setTimeout(commit, wait)
-    return () => window.clearTimeout(t)
-  }, [fingerprint, items.length])
+    const t = window.setTimeout(commit, wait);
+    return () => window.clearTimeout(t);
+  }, [fingerprint, items.length]);
 
   const displayItems = useMemo(() => {
-    if (historyIdx < 0 || historyIdx >= snapshots.length) return items
-    return snapshots[historyIdx]?.items ?? items
-  }, [items, snapshots, historyIdx])
+    if (historyIdx < 0 || historyIdx >= snapshots.length)
+      return items;
+    return snapshots[historyIdx]?.items ?? items;
+  }, [items, snapshots, historyIdx]);
 
   useEffect(() => {
-    if (historyIdx >= snapshots.length) setHistoryIdx(-1)
-  }, [snapshots.length, historyIdx])
+    if (historyIdx >= snapshots.length) setHistoryIdx(-1);
+  }, [snapshots.length, historyIdx]);
 
   const geom = useMemo(
     () => buildWarehouseGeometry(layoutSpecResolved),
     [layoutSpecResolved],
-  )
+  );
 
   const twinLayerVisibility = useMemo(() => {
     switch (overlayMode) {
-      case "occupancy":
+      case 'occupancy':
         return {
           zones: true,
           aisles: true,
           routeGraph: false,
           equipment: false,
-        }
-      case "workload":
+        };
+      case 'workload':
         return {
           zones: true,
           aisles: false,
           routeGraph: false,
           equipment: false,
-        }
-      case "replenishment_need":
+        };
+      case 'replenishment_need':
         return {
           zones: false,
           aisles: false,
           routeGraph: false,
           equipment: false,
-        }
-      case "anomaly_alerts":
+        };
+      case 'anomaly_alerts':
         return {
           zones: true,
           aisles: true,
           routeGraph: true,
           equipment: false,
-        }
-      case "maintenance_safety":
+        };
+      case 'maintenance_safety':
         return {
           zones: false,
           aisles: true,
           routeGraph: true,
           equipment: true,
-        }
+        };
       default:
         return {
           zones: false,
           aisles: false,
           routeGraph: false,
           equipment: false,
-        }
+        };
     }
-  }, [overlayMode])
+  }, [overlayMode]);
 
   const twinHeatByCellKey = useMemo(() => {
-    if (overlayMode === "workload") {
-      return heatMapForMetric(heatMetric, displayItems, geom)
+    if (overlayMode === 'workload') {
+      return heatMapForMetric(
+        heatMetric,
+        displayItems,
+        geom,
+      );
     }
-    if (overlayMode === "replenishment_need") {
-      return replenishmentNeedByCellKey(displayItems)
+    if (overlayMode === 'replenishment_need') {
+      return replenishmentNeedByCellKey(displayItems);
     }
-    if (overlayMode === "anomaly_alerts") {
-      return slaRiskByCellKey(displayItems)
+    if (overlayMode === 'anomaly_alerts') {
+      return slaRiskByCellKey(displayItems);
     }
-    return new Map<string, number>()
-  }, [overlayMode, heatMetric, displayItems, geom])
+    return new Map<string, number>();
+  }, [overlayMode, heatMetric, displayItems, geom]);
 
-  const twinHazardByCellKey = useMemo((): Map<string, CellStripe> => {
-    const m = new Map<string, CellStripe>()
-    if (overlayMode !== "anomaly_alerts") return m
-    const st = stripeByCellKey(displayItems)
-    for (const [k, v] of st) m.set(k, v)
-    const blocked = blockedCellKeysFromTopology(geom, topology ?? null)
+  const twinHazardByCellKey = useMemo((): Map<
+    string,
+    CellStripe
+  > => {
+    const m = new Map<string, CellStripe>();
+    if (overlayMode !== 'anomaly_alerts') return m;
+    const st = stripeByCellKey(displayItems);
+    for (const [k, v] of st) m.set(k, v);
+    const blocked = blockedCellKeysFromTopology(
+      geom,
+      topology ?? null,
+    );
     for (const k of blocked) {
-      if (!m.has(k)) m.set(k, "blocked")
+      if (!m.has(k)) m.set(k, 'blocked');
     }
-    return m
-  }, [overlayMode, displayItems, geom, topology])
+    return m;
+  }, [overlayMode, displayItems, geom, topology]);
 
-  const viewingHistory = historyIdx >= 0 && historyIdx < snapshots.length
+  const viewingHistory =
+    historyIdx >= 0 && historyIdx < snapshots.length;
 
-  const twinEnrichment: WarehouseTwinEnrichment | null = useMemo(
-    () => ({
-      overlayMode,
-      topology: topology ?? null,
-      routeGraph: routeGraph ?? null,
-      equipmentList: equipmentResponse?.data ?? [],
-      liveEquipment: viewingHistory ? null : liveEquipment,
-      useRouteGraph,
-      twinHeatByCellKey,
-      twinHazardByCellKey,
-      twinLayerVisibility,
-    }),
-    [
-      overlayMode,
-      topology,
-      routeGraph,
-      equipmentResponse?.data,
-      liveEquipment,
-      viewingHistory,
-      useRouteGraph,
-      twinHeatByCellKey,
-      twinHazardByCellKey,
-      twinLayerVisibility,
-    ],
-  )
+  const twinEnrichment: WarehouseTwinEnrichment | null =
+    useMemo(
+      () => ({
+        overlayMode,
+        topology: topology ?? null,
+        routeGraph: routeGraph ?? null,
+        equipmentList: equipmentResponse?.data ?? [],
+        liveEquipment: viewingHistory
+          ? null
+          : liveEquipment,
+        useRouteGraph,
+        twinHeatByCellKey,
+        twinHazardByCellKey,
+        twinLayerVisibility,
+      }),
+      [
+        overlayMode,
+        topology,
+        routeGraph,
+        equipmentResponse?.data,
+        liveEquipment,
+        viewingHistory,
+        useRouteGraph,
+        twinHeatByCellKey,
+        twinHazardByCellKey,
+        twinLayerVisibility,
+      ],
+    );
 
   const occupiedCellKeys = useMemo(() => {
-    const set = cellKeysFromItems(displayItems)
+    const set = cellKeysFromItems(displayItems);
     if (!viewingHistory) {
       for (const row of occupancy?.data ?? []) {
-        if (row.slot_key) set.add(row.slot_key)
+        if (row.slot_key) set.add(row.slot_key);
       }
     }
-    return set
-  }, [displayItems, occupancy?.data, viewingHistory])
+    return set;
+  }, [displayItems, occupancy?.data, viewingHistory]);
 
   const expiringCellKeys = useMemo(
     () =>
@@ -617,7 +717,7 @@ function Warehouse3DPage() {
         isExpiringSoon(item.expires_at ?? null),
       ),
     [displayItems],
-  )
+  );
 
   const expiredCellKeys = useMemo(
     () =>
@@ -625,28 +725,45 @@ function Warehouse3DPage() {
         isExpired(item.expires_at ?? null),
       ),
     [displayItems],
-  )
+  );
 
-  const selectedItemsForPopup = useMemo((): CellItemInfo[] => {
-    if (!selectedCell) return []
-    return itemsInCell(displayItems, selectedCell).map(toCellItemInfo)
-  }, [selectedCell, displayItems])
+  const selectedItemsForPopup =
+    useMemo((): CellItemInfo[] => {
+      if (!selectedCell) return [];
+      return itemsInCell(displayItems, selectedCell).map(
+        toCellItemInfo,
+      );
+    }, [selectedCell, displayItems]);
 
-  const [toolsTab, setToolsTab] = useState<Warehouse3DToolsTab>(() =>
-    readStoredToolsTab(),
-  )
-  const [mobileToolsOpen, setMobileToolsOpen] = useState(false)
+  const selectedCellOccupied = useMemo(() => {
+    if (!selectedCell) return false;
+    return occupiedCellKeys.has(
+      geom.cellKey(
+        selectedCell.row,
+        selectedCell.level,
+        selectedCell.cellX,
+        selectedCell.cellZ,
+      ),
+    );
+  }, [selectedCell, occupiedCellKeys, geom]);
+
+  const [toolsTab, setToolsTab] =
+    useState<Warehouse3DToolsTab>(() =>
+      readStoredToolsTab(),
+    );
+  const [mobileToolsOpen, setMobileToolsOpen] =
+    useState(false);
 
   const persistToolsTab = useCallback((v: string) => {
     const t: Warehouse3DToolsTab =
-      v === "route" || v === "twin" ? v : "scene"
-    setToolsTab(t)
+      v === 'route' || v === 'twin' ? v : 'scene';
+    setToolsTab(t);
     try {
-      localStorage.setItem(WAREHOUSE_3D_TOOLS_TAB_KEY, t)
+      localStorage.setItem(WAREHOUSE_3D_TOOLS_TAB_KEY, t);
     } catch {
       /* ignore */
     }
-  }, [])
+  }, []);
 
   const toolsPanelProps = useMemo(
     () => ({
@@ -708,144 +825,162 @@ function Warehouse3DPage() {
       twinStatus,
       useRouteGraph,
     ],
-  )
+  );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0">
-      <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-        <Button asChild size="xs" variant="outline" className="font-medium">
-          <RouterLink to="/warehouse">Склад</RouterLink>
-        </Button>
-        <FiChevronRight className="size-3 shrink-0" aria-hidden />
-        <span>Цифровой двойник</span>
-      </div>
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="mb-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+    <div className='flex flex-col'>
+      <div className='shrink-0'>
+        <div className='mb-3 flex items-center gap-2 text-sm text-muted-foreground'>
+          <Button
+            asChild
+            size='xs'
+            variant='outline'
+            className='font-medium'
+          >
+            <RouterLink to='/warehouse'>Склад</RouterLink>
+          </Button>
+          <FiChevronRight
+            className='size-3 shrink-0'
+            aria-hidden
+          />
+          <span>Цифровой двойник</span>
+        </div>
+        <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
+          <div className='min-w-0 flex-1'>
+            <h1 className='font-heading text-2xl font-semibold tracking-tight'>
               3D модель склада
             </h1>
-            {layoutApi != null && (
-              <span className="text-xs text-muted-foreground tabular-nums">
-                layout v{layoutApi.version} · {layoutApi.code}
-              </span>
-            )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            Клик — карточка ячейки. Shift+клик — точка маршрута. Подтверждение
-            задания меняет статус товара; «Запустить» симуляцию БД не трогает.
-          </p>
-          <Button asChild variant="link" size="sm" className="h-auto px-0 text-xs">
-            <RouterLink to="/warehouse-3d-help">
-              Справка: легенда, камера, twin и маршрут
+        </div>
+
+        <WarehouseHubNav />
+
+        {activeTask && activeTask.status !== 'completed' ? (
+          <div className='mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-300/70 bg-orange-50 px-3 py-2 text-sm dark:border-orange-800 dark:bg-orange-950/40'>
+            <p>
+              Задание {activeTask.task_type} #
+              {activeTask.id.slice(0, 8)}
+              {taskTarget.slotKey
+                ? ` · ячейка ${taskTarget.slotKey}`
+                : ''}
+              {taskTarget.itemId ? ' · товар привязан' : ''}
+            </p>
+            <Button
+              size='sm'
+              onClick={() => confirmPickMut.mutate()}
+              disabled={confirmPickMut.isPending}
+            >
+              Подтвердить отбор
+            </Button>
+          </div>
+        ) : null}
+
+        <div className='mb-2 flex items-center justify-between gap-2 md:hidden'>
+          <Sheet
+            open={mobileToolsOpen}
+            onOpenChange={setMobileToolsOpen}
+          >
+            <SheetTrigger asChild>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                className='gap-2'
+                aria-label='Открыть панель сцены, маршрута и twin'
+              >
+                <FiSliders
+                  className='size-4 shrink-0'
+                  aria-hidden
+                />
+                <span className='truncate'>
+                  Панель:{' '}
+                  {toolsTab === 'scene'
+                    ? 'Сцена'
+                    : toolsTab === 'route'
+                      ? 'Маршрут'
+                      : 'Twin'}
+                </span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side='bottom'
+              className='max-h-[88vh] overflow-y-auto rounded-t-xl'
+            >
+              <SheetHeader className='text-left'>
+                <SheetTitle>
+                  Сцена, маршрут и twin
+                </SheetTitle>
+                <SheetDescription>
+                  Вкладка сохраняется в браузере для
+                  следующего визита.
+                </SheetDescription>
+              </SheetHeader>
+              <Tabs
+                value={toolsTab}
+                onValueChange={persistToolsTab}
+                className='mt-2 w-full'
+              >
+                <Warehouse3DToolsPanelContent
+                  {...toolsPanelProps}
+                />
+              </Tabs>
+            </SheetContent>
+          </Sheet>
+          <Button
+            asChild
+            variant='outline'
+            size='sm'
+            className='shrink-0'
+          >
+            <RouterLink to='/warehouse-3d-help'>
+              Справка
             </RouterLink>
           </Button>
         </div>
-      </div>
 
-      <WarehouseHubNav />
-
-      {twinStatus === "offline" || twinStatus === "no_token" ? (
-        <p className="mb-2 text-xs text-amber-700 dark:text-amber-400">
-          Twin SSE офлайн — занятость и техника могут быть старше нескольких
-          секунд. Включите опрос списка на вкладке «Маршрут», если нужно
-          обновить без SSE.
-        </p>
-      ) : null}
-
-      {activeTask && activeTask.status !== "completed" ? (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-orange-300/70 bg-orange-50 px-3 py-2 text-sm dark:border-orange-800 dark:bg-orange-950/40">
-          <p>
-            Задание {activeTask.task_type} #{activeTask.id.slice(0, 8)}
-            {taskTarget.slotKey ? ` · ячейка ${taskTarget.slotKey}` : ""}
-            {taskTarget.itemId ? " · товар привязан" : ""}
-          </p>
-          <Button
-            size="sm"
-            onClick={() => confirmPickMut.mutate()}
-            disabled={confirmPickMut.isPending}
+        <div className='mb-3 hidden max-h-[36vh] overflow-y-auto md:block'>
+          <Tabs
+            value={toolsTab}
+            onValueChange={persistToolsTab}
+            className='w-full'
           >
-            Подтвердить отбор
-          </Button>
+            <Warehouse3DToolsPanelContent
+              {...toolsPanelProps}
+            />
+          </Tabs>
         </div>
-      ) : null}
-
-      <div className="mb-2 flex items-center justify-between gap-2 md:hidden">
-        <Sheet open={mobileToolsOpen} onOpenChange={setMobileToolsOpen}>
-          <SheetTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              aria-label="Открыть панель сцены, маршрута и twin"
-            >
-              <FiSliders className="size-4 shrink-0" aria-hidden />
-              <span className="truncate">
-                Панель:{" "}
-                {toolsTab === "scene"
-                  ? "Сцена"
-                  : toolsTab === "route"
-                    ? "Маршрут"
-                    : "Twin"}
-              </span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent
-            side="bottom"
-            className="max-h-[88vh] overflow-y-auto rounded-t-xl"
-          >
-            <SheetHeader className="text-left">
-              <SheetTitle>Сцена, маршрут и twin</SheetTitle>
-              <SheetDescription>
-                Вкладка сохраняется в браузере для следующего визита.
-              </SheetDescription>
-            </SheetHeader>
-            <Tabs
-              value={toolsTab}
-              onValueChange={persistToolsTab}
-              className="mt-2 w-full"
-            >
-              <Warehouse3DToolsPanelContent {...toolsPanelProps} />
-            </Tabs>
-          </SheetContent>
-        </Sheet>
-        <Button asChild variant="outline" size="sm" className="shrink-0">
-          <RouterLink to="/warehouse-3d-help">Справка</RouterLink>
-        </Button>
       </div>
 
-      <div className="mb-3 hidden max-h-[36vh] overflow-y-auto md:block">
-        <Tabs
-          value={toolsTab}
-          onValueChange={persistToolsTab}
-          className="w-full"
-        >
-          <Warehouse3DToolsPanelContent {...toolsPanelProps} />
-        </Tabs>
-      </div>
-      </div>
-
-      <ErrorBoundary FallbackComponent={ErrorFallback} resetKeys={[sceneKey]}>
+      <ErrorBoundary
+        FallbackComponent={ErrorFallback}
+        resetKeys={[sceneKey]}
+      >
         <div
           ref={canvasContainerRef}
           className={cn(
-            "relative min-h-0 w-full flex-1 overflow-hidden",
-            isFullscreen && "min-h-screen h-screen w-screen bg-muted",
+            'relative w-full min-h-[300px] h-[min(60svh,700px)] overflow-hidden',
+            isFullscreen &&
+              'min-h-screen h-screen w-screen bg-muted',
           )}
         >
           <div
             className={cn(
-              "h-full min-h-0 w-full overflow-hidden bg-muted",
-              isFullscreen ? "h-full" : "rounded-lg",
+              'h-full min-h-0 w-full overflow-hidden bg-muted',
+              isFullscreen ? 'h-full' : 'rounded-lg',
             )}
           >
             <Suspense
               fallback={
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3">
-                  <Skeleton w="100%" h="100%" minH="200px" borderRadius="lg" />
-                  <p className="text-sm text-muted-foreground">Загрузка 3D…</p>
+                <div className='flex h-full w-full flex-col items-center justify-center gap-3'>
+                  <Skeleton
+                    w='100%'
+                    h='100%'
+                    minH='200px'
+                    borderRadius='lg'
+                  />
+                  <p className='text-sm text-muted-foreground'>
+                    Загрузка 3D…
+                  </p>
                 </div>
               }
             >
@@ -858,9 +993,8 @@ function Warehouse3DPage() {
                 occupiedCellKeys={occupiedCellKeys}
                 expiringCellKeys={expiringCellKeys}
                 expiredCellKeys={expiredCellKeys}
-                selectedItems={selectedItemsForPopup}
-                darkMode={resolvedTheme === "dark"}
-                layoutSpec={layoutSpec ?? undefined}
+                darkMode={resolvedTheme === 'dark'}
+                layoutSpec={layoutSpecResolved}
                 interactionMode={interactionMode}
                 routeWaypoints={routeWaypoints}
                 onRouteWaypointAdd={addRouteWaypoint}
@@ -868,13 +1002,25 @@ function Warehouse3DPage() {
                 simulationEquipment={equipmentKind}
                 simulationSpeed={simulationSpeed}
                 simulationShowCargo={simulationShowCargo}
-                onSimulationComplete={handleSimulationComplete}
+                onSimulationComplete={
+                  handleSimulationComplete
+                }
                 twinEnrichment={twinEnrichment}
                 freeCameraMode={freeCameraMode}
                 cellFilter={cellFilter}
               />
             </Suspense>
           </div>
+          {selectedCell && (
+            <div className='pointer-events-auto absolute left-2 top-14 z-30 max-w-[min(320px,calc(100%-1rem))]'>
+              <CellPopup
+                cellLabel={`Ячейка: ряд ${selectedCell.row + 1}, уровень ${selectedCell.level + 1}, позиция ${selectedCell.cellX + 1}`}
+                items={selectedItemsForPopup}
+                occupied={selectedCellOccupied}
+                onClose={() => persistCellInUrl(null)}
+              />
+            </div>
+          )}
           <WarehouseMiniMap
             geom={geom}
             selectedCell={selectedCell}
@@ -887,72 +1033,74 @@ function Warehouse3DPage() {
                 cellX: 0,
                 cellZ: 0,
                 filled: false,
-              })
+              });
               setFocusCell({
                 row,
                 level: selectedCell?.level ?? 0,
                 cellX: 0,
                 cellZ: 0,
                 filled: false,
-              })
+              });
             }}
           />
-          <div className="absolute right-2 top-2 flex gap-1.5">
+          <div className='absolute right-2 top-2 flex gap-1.5'>
             <Button
-              size="icon"
-              className="size-9 bg-background/90 shadow-sm backdrop-blur-sm"
-              variant="outline"
+              size='icon'
+              className='size-9 bg-background/90 shadow-sm backdrop-blur-sm'
+              variant='outline'
               onClick={toggleFullscreen}
-              title="Полноэкранный режим"
-              aria-label="Полноэкранный режим"
+              title='Полноэкранный режим'
+              aria-label='Полноэкранный режим'
             >
-              <FiMaximize2 className="size-4" />
+              <FiMaximize2 className='size-4' />
             </Button>
             <Button
-              size="icon"
-              className="size-9 bg-background/90 shadow-sm backdrop-blur-sm"
-              variant={freeCameraMode ? "default" : "outline"}
+              size='icon'
+              className='size-9 bg-background/90 shadow-sm backdrop-blur-sm'
+              variant={
+                freeCameraMode ? 'default' : 'outline'
+              }
               onClick={() => setFreeCameraMode((f) => !f)}
               title={
                 freeCameraMode
-                  ? "Включить орбитальную камеру"
-                  : "Свободная камера (WASD, стрелки, мышь, колёсико)"
+                  ? 'Включить орбитальную камеру'
+                  : 'Свободная камера (WASD, стрелки, мышь, колёсико)'
               }
               aria-label={
                 freeCameraMode
-                  ? "Переключить на орбитальную камеру"
-                  : "Свободная камера"
+                  ? 'Переключить на орбитальную камеру'
+                  : 'Свободная камера'
               }
             >
-              <FiMove className="size-4" />
+              <FiMove className='size-4' />
             </Button>
             <Button
-              size="icon"
-              className="size-9 bg-background/90 shadow-sm backdrop-blur-sm"
-              variant="outline"
+              size='icon'
+              className='size-9 bg-background/90 shadow-sm backdrop-blur-sm'
+              variant='outline'
               onClick={() => {
-                setFreeCameraMode(false)
-                resetCamera()
+                setFreeCameraMode(false);
+                resetCamera();
               }}
-              title="Сбросить камеру и выйти из свободного режима"
-              aria-label="Сбросить камеру"
+              title='Сбросить камеру и выйти из свободного режима'
+              aria-label='Сбросить камеру'
             >
-              <FiRotateCcw className="size-4" />
+              <FiRotateCcw className='size-4' />
             </Button>
           </div>
         </div>
       </ErrorBoundary>
 
-      <p className="mt-2 text-xs text-muted-foreground">
-        Подсказки по камере и режимам — в{" "}
+      <p className='mt-2 text-xs text-muted-foreground'>
+        Подсказки по камере и режимам — в{' '}
         <RouterLink
-          to="/warehouse-3d-help"
-          className="font-medium text-foreground underline-offset-4 hover:underline"
+          to='/warehouse-3d-help'
+          className='font-medium text-foreground underline-offset-4 hover:underline'
         >
           справке 3D
         </RouterLink>
         .
       </p>
     </div>
-  )
+  );
 }

@@ -10,6 +10,7 @@ import {
   FiCpu,
   FiDownload,
   FiMessageCircle,
+  FiRadio,
   FiSettings,
   FiTarget,
   FiTruck,
@@ -84,6 +85,11 @@ const analyticsItems: Item[] = [
     icon: FiCpu,
     title: "Симуляция",
     path: "/warehouse-simulation",
+  },
+  {
+    icon: FiRadio,
+    title: "Сервер устройств",
+    path: "/device-server",
   },
 ]
 

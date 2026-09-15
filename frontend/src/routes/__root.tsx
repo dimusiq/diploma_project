@@ -1,7 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import {
   createRootRouteWithContext,
-  ErrorComponent,
   Outlet,
   useLocation,
 } from "@tanstack/react-router"
@@ -10,6 +9,8 @@ import React, { Suspense, useEffect } from "react"
 
 import NotFound from "@/components/Common/NotFound.tsx"
 import { OfflineBanner } from "@/components/Common/OfflineBanner.tsx"
+import { RouterErrorDetails } from "@/components/Common/RouterErrorDetails.tsx"
+import { Button } from "@/components/ui/button.tsx"
 import { useDocumentTitle } from "@/hooks/useDocumentTitle.ts"
 
 function useThemeColor() {
@@ -64,19 +65,19 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   notFoundComponent: () => <NotFound />,
   errorComponent: ({ error }) => (
     <div className="flex min-h-screen items-center justify-center p-8">
-      <div className="max-w-md text-center">
-        <h1 className="mb-4 text-2xl font-bold">Произошла ошибка</h1>
-        <p className="mb-4 text-muted-foreground">
-          Что-то пошло не так. Попробуйте обновить страницу.
+      <div className="flex max-w-md flex-col items-center text-center">
+        <h1 className="mb-4 text-2xl font-bold">Страница недоступна</h1>
+        <p className="text-muted-foreground">
+          Не удалось загрузить страницу. Попробуйте обновить или вернитесь позже.
         </p>
-        <ErrorComponent error={error} />
-        <button
+        <RouterErrorDetails error={error} />
+        <Button
           type="button"
-          className="mt-4 rounded bg-primary px-4 py-2 text-primary-foreground"
+          className="mt-6"
           onClick={() => window.location.reload()}
         >
           Обновить страницу
-        </button>
+        </Button>
       </div>
     </div>
   ),

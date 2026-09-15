@@ -12,9 +12,9 @@ from app.schemas.warehouse_topology import TopologyDocument
 class LayoutGeometryV1(BaseModel):
     """Числовая сетка склада (ключи cellX/cellZ как в API и 3D-клиенте)."""
 
-    rows: int = Field(default=12, ge=1, le=512)
-    levels: int = Field(default=4, ge=1, le=128)
-    cellX: int = Field(default=20, ge=1, le=1024)
+    rows: int = Field(default=8, ge=1, le=512)
+    levels: int = Field(default=3, ge=1, le=128)
+    cellX: int = Field(default=12, ge=1, le=1024)
     cellZ: int = Field(default=1, ge=1, le=512)
     coordinateSystem: str = Field(default="1-based", max_length=64)
     cellKeyFormat: str = Field(default="zeroBasedDashSeparated", max_length=64)

@@ -9,57 +9,47 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
-import { Route as LayoutWarehouseTwinRouteImport } from './routes/_layout/warehouse-twin'
-import { Route as LayoutWarehouseTasksRouteImport } from './routes/_layout/warehouse-tasks'
-import { Route as LayoutWarehouseSimulationRouteImport } from './routes/_layout/warehouse-simulation'
-import { Route as LayoutWarehouse3dHelpRouteImport } from './routes/_layout/warehouse-3d-help'
-import { Route as LayoutWarehouse3dRouteImport } from './routes/_layout/warehouse-3d'
-import { Route as LayoutWarehouseRouteImport } from './routes/_layout/warehouse'
-import { Route as LayoutShippedRouteImport } from './routes/_layout/shipped'
-import { Route as LayoutShipmentRouteImport } from './routes/_layout/shipment'
-import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
-import { Route as LayoutOutboundOrdersRouteImport } from './routes/_layout/outbound-orders'
-import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
-import { Route as LayoutInboundOrdersRouteImport } from './routes/_layout/inbound-orders'
-import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
-import { Route as LayoutControlTowerRouteImport } from './routes/_layout/control-tower'
-import { Route as LayoutAssistantRouteImport } from './routes/_layout/assistant'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutAssistantRouteImport } from './routes/_layout/assistant'
+import { Route as LayoutControlTowerRouteImport } from './routes/_layout/control-tower'
+import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
+import { Route as LayoutDeviceServerRouteImport } from './routes/_layout/device-server'
+import { Route as LayoutInboundOrdersRouteImport } from './routes/_layout/inbound-orders'
+import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
+import { Route as LayoutOutboundOrdersRouteImport } from './routes/_layout/outbound-orders'
+import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutShipmentRouteImport } from './routes/_layout/shipment'
+import { Route as LayoutShippedRouteImport } from './routes/_layout/shipped'
 import { Route as LayoutTechniqueRouteRouteImport } from './routes/_layout/technique/route'
+import { Route as LayoutWarehouseRouteImport } from './routes/_layout/warehouse'
+import { Route as LayoutWarehouse3dRouteImport } from './routes/_layout/warehouse-3d'
+import { Route as LayoutWarehouse3dHelpRouteImport } from './routes/_layout/warehouse-3d-help'
+import { Route as LayoutWarehouseSimulationRouteImport } from './routes/_layout/warehouse-simulation'
+import { Route as LayoutWarehouseTasksRouteImport } from './routes/_layout/warehouse-tasks'
+import { Route as LayoutWarehouseTwinRouteImport } from './routes/_layout/warehouse-twin'
 import { Route as LayoutTechniqueIndexRouteImport } from './routes/_layout/technique/index'
-import { Route as LayoutTechniqueWorkOrdersRouteImport } from './routes/_layout/technique/work-orders'
-import { Route as LayoutTechniqueTechniciansRouteImport } from './routes/_layout/technique/technicians'
-import { Route as LayoutTechniqueSparePartsRouteImport } from './routes/_layout/technique/spare-parts'
-import { Route as LayoutTechniqueSecurityRouteImport } from './routes/_layout/technique/security'
-import { Route as LayoutTechniquePredictiveRouteImport } from './routes/_layout/technique/predictive'
-import { Route as LayoutTechniqueMaintenanceSettingsRouteImport } from './routes/_layout/technique/maintenance-settings'
-import { Route as LayoutTechniqueMaintenanceScheduleRouteImport } from './routes/_layout/technique/maintenance-schedule'
-import { Route as LayoutTechniqueMaintenanceRouteImport } from './routes/_layout/technique/maintenance'
-import { Route as LayoutTechniqueIntegrationsRouteImport } from './routes/_layout/technique/integrations'
-import { Route as LayoutTechniqueAnalyticsRouteImport } from './routes/_layout/technique/analytics'
 import { Route as LayoutTechniqueAlertsRouteImport } from './routes/_layout/technique/alerts'
-import { Route as LayoutTechniqueEquipmentNewRouteImport } from './routes/_layout/technique/equipment.new'
+import { Route as LayoutTechniqueAnalyticsRouteImport } from './routes/_layout/technique/analytics'
+import { Route as LayoutTechniqueIntegrationsRouteImport } from './routes/_layout/technique/integrations'
+import { Route as LayoutTechniqueMaintenanceRouteImport } from './routes/_layout/technique/maintenance'
+import { Route as LayoutTechniqueMaintenanceScheduleRouteImport } from './routes/_layout/technique/maintenance-schedule'
+import { Route as LayoutTechniqueMaintenanceSettingsRouteImport } from './routes/_layout/technique/maintenance-settings'
+import { Route as LayoutTechniquePredictiveRouteImport } from './routes/_layout/technique/predictive'
+import { Route as LayoutTechniqueSecurityRouteImport } from './routes/_layout/technique/security'
+import { Route as LayoutTechniqueSparePartsRouteImport } from './routes/_layout/technique/spare-parts'
+import { Route as LayoutTechniqueTechniciansRouteImport } from './routes/_layout/technique/technicians'
+import { Route as LayoutTechniqueWorkOrdersRouteImport } from './routes/_layout/technique/work-orders'
 import { Route as LayoutTechniqueEquipmentEquipmentIdRouteImport } from './routes/_layout/technique/equipment.$equipmentId'
+import { Route as LayoutTechniqueEquipmentNewRouteImport } from './routes/_layout/technique/equipment.new'
 
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RecoverPasswordRoute = RecoverPasswordRouteImport.update({
-  id: '/recover-password',
-  path: '/recover-password',
+const LayoutRoute = LayoutRouteImport.update({
+  id: '/_layout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -67,8 +57,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LayoutRoute = LayoutRouteImport.update({
-  id: '/_layout',
+const RecoverPasswordRoute = RecoverPasswordRouteImport.update({
+  id: '/recover-password',
+  path: '/recover-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LayoutIndexRoute = LayoutIndexRouteImport.update({
@@ -76,14 +77,79 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutWarehouseTwinRoute = LayoutWarehouseTwinRouteImport.update({
-  id: '/warehouse-twin',
-  path: '/warehouse-twin',
+const LayoutAdminRoute = LayoutAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutWarehouseTasksRoute = LayoutWarehouseTasksRouteImport.update({
-  id: '/warehouse-tasks',
-  path: '/warehouse-tasks',
+const LayoutAssistantRoute = LayoutAssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutControlTowerRoute = LayoutControlTowerRouteImport.update({
+  id: '/control-tower',
+  path: '/control-tower',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutDeviceServerRoute = LayoutDeviceServerRouteImport.update({
+  id: '/device-server',
+  path: '/device-server',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutInboundOrdersRoute = LayoutInboundOrdersRouteImport.update({
+  id: '/inbound-orders',
+  path: '/inbound-orders',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutItemsRoute = LayoutItemsRouteImport.update({
+  id: '/items',
+  path: '/items',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutOutboundOrdersRoute = LayoutOutboundOrdersRouteImport.update({
+  id: '/outbound-orders',
+  path: '/outbound-orders',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutShipmentRoute = LayoutShipmentRouteImport.update({
+  id: '/shipment',
+  path: '/shipment',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutShippedRoute = LayoutShippedRouteImport.update({
+  id: '/shipped',
+  path: '/shipped',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutTechniqueRouteRoute = LayoutTechniqueRouteRouteImport.update({
+  id: '/technique',
+  path: '/technique',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutWarehouseRoute = LayoutWarehouseRouteImport.update({
+  id: '/warehouse',
+  path: '/warehouse',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutWarehouse3dRoute = LayoutWarehouse3dRouteImport.update({
+  id: '/warehouse-3d',
+  path: '/warehouse-3d',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutWarehouse3dHelpRoute = LayoutWarehouse3dHelpRouteImport.update({
+  id: '/warehouse-3d-help',
+  path: '/warehouse-3d-help',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutWarehouseSimulationRoute =
@@ -92,74 +158,14 @@ const LayoutWarehouseSimulationRoute =
     path: '/warehouse-simulation',
     getParentRoute: () => LayoutRoute,
   } as any)
-const LayoutWarehouse3dHelpRoute = LayoutWarehouse3dHelpRouteImport.update({
-  id: '/warehouse-3d-help',
-  path: '/warehouse-3d-help',
+const LayoutWarehouseTasksRoute = LayoutWarehouseTasksRouteImport.update({
+  id: '/warehouse-tasks',
+  path: '/warehouse-tasks',
   getParentRoute: () => LayoutRoute,
 } as any)
-const LayoutWarehouse3dRoute = LayoutWarehouse3dRouteImport.update({
-  id: '/warehouse-3d',
-  path: '/warehouse-3d',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutWarehouseRoute = LayoutWarehouseRouteImport.update({
-  id: '/warehouse',
-  path: '/warehouse',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutShippedRoute = LayoutShippedRouteImport.update({
-  id: '/shipped',
-  path: '/shipped',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutShipmentRoute = LayoutShipmentRouteImport.update({
-  id: '/shipment',
-  path: '/shipment',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutOutboundOrdersRoute = LayoutOutboundOrdersRouteImport.update({
-  id: '/outbound-orders',
-  path: '/outbound-orders',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutItemsRoute = LayoutItemsRouteImport.update({
-  id: '/items',
-  path: '/items',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutInboundOrdersRoute = LayoutInboundOrdersRouteImport.update({
-  id: '/inbound-orders',
-  path: '/inbound-orders',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutControlTowerRoute = LayoutControlTowerRouteImport.update({
-  id: '/control-tower',
-  path: '/control-tower',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutAssistantRoute = LayoutAssistantRouteImport.update({
-  id: '/assistant',
-  path: '/assistant',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutAdminRoute = LayoutAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
-  getParentRoute: () => LayoutRoute,
-} as any)
-const LayoutTechniqueRouteRoute = LayoutTechniqueRouteRouteImport.update({
-  id: '/technique',
-  path: '/technique',
+const LayoutWarehouseTwinRoute = LayoutWarehouseTwinRouteImport.update({
+  id: '/warehouse-twin',
+  path: '/warehouse-twin',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutTechniqueIndexRoute = LayoutTechniqueIndexRouteImport.update({
@@ -167,51 +173,15 @@ const LayoutTechniqueIndexRoute = LayoutTechniqueIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LayoutTechniqueRouteRoute,
 } as any)
-const LayoutTechniqueWorkOrdersRoute =
-  LayoutTechniqueWorkOrdersRouteImport.update({
-    id: '/work-orders',
-    path: '/work-orders',
-    getParentRoute: () => LayoutTechniqueRouteRoute,
-  } as any)
-const LayoutTechniqueTechniciansRoute =
-  LayoutTechniqueTechniciansRouteImport.update({
-    id: '/technicians',
-    path: '/technicians',
-    getParentRoute: () => LayoutTechniqueRouteRoute,
-  } as any)
-const LayoutTechniqueSparePartsRoute =
-  LayoutTechniqueSparePartsRouteImport.update({
-    id: '/spare-parts',
-    path: '/spare-parts',
-    getParentRoute: () => LayoutTechniqueRouteRoute,
-  } as any)
-const LayoutTechniqueSecurityRoute = LayoutTechniqueSecurityRouteImport.update({
-  id: '/security',
-  path: '/security',
+const LayoutTechniqueAlertsRoute = LayoutTechniqueAlertsRouteImport.update({
+  id: '/alerts',
+  path: '/alerts',
   getParentRoute: () => LayoutTechniqueRouteRoute,
 } as any)
-const LayoutTechniquePredictiveRoute =
-  LayoutTechniquePredictiveRouteImport.update({
-    id: '/predictive',
-    path: '/predictive',
-    getParentRoute: () => LayoutTechniqueRouteRoute,
-  } as any)
-const LayoutTechniqueMaintenanceSettingsRoute =
-  LayoutTechniqueMaintenanceSettingsRouteImport.update({
-    id: '/maintenance-settings',
-    path: '/maintenance-settings',
-    getParentRoute: () => LayoutTechniqueRouteRoute,
-  } as any)
-const LayoutTechniqueMaintenanceScheduleRoute =
-  LayoutTechniqueMaintenanceScheduleRouteImport.update({
-    id: '/maintenance-schedule',
-    path: '/maintenance-schedule',
-    getParentRoute: () => LayoutTechniqueRouteRoute,
-  } as any)
-const LayoutTechniqueMaintenanceRoute =
-  LayoutTechniqueMaintenanceRouteImport.update({
-    id: '/maintenance',
-    path: '/maintenance',
+const LayoutTechniqueAnalyticsRoute =
+  LayoutTechniqueAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
     getParentRoute: () => LayoutTechniqueRouteRoute,
   } as any)
 const LayoutTechniqueIntegrationsRoute =
@@ -220,27 +190,63 @@ const LayoutTechniqueIntegrationsRoute =
     path: '/integrations',
     getParentRoute: () => LayoutTechniqueRouteRoute,
   } as any)
-const LayoutTechniqueAnalyticsRoute =
-  LayoutTechniqueAnalyticsRouteImport.update({
-    id: '/analytics',
-    path: '/analytics',
+const LayoutTechniqueMaintenanceRoute =
+  LayoutTechniqueMaintenanceRouteImport.update({
+    id: '/maintenance',
+    path: '/maintenance',
     getParentRoute: () => LayoutTechniqueRouteRoute,
   } as any)
-const LayoutTechniqueAlertsRoute = LayoutTechniqueAlertsRouteImport.update({
-  id: '/alerts',
-  path: '/alerts',
+const LayoutTechniqueMaintenanceScheduleRoute =
+  LayoutTechniqueMaintenanceScheduleRouteImport.update({
+    id: '/maintenance-schedule',
+    path: '/maintenance-schedule',
+    getParentRoute: () => LayoutTechniqueRouteRoute,
+  } as any)
+const LayoutTechniqueMaintenanceSettingsRoute =
+  LayoutTechniqueMaintenanceSettingsRouteImport.update({
+    id: '/maintenance-settings',
+    path: '/maintenance-settings',
+    getParentRoute: () => LayoutTechniqueRouteRoute,
+  } as any)
+const LayoutTechniquePredictiveRoute =
+  LayoutTechniquePredictiveRouteImport.update({
+    id: '/predictive',
+    path: '/predictive',
+    getParentRoute: () => LayoutTechniqueRouteRoute,
+  } as any)
+const LayoutTechniqueSecurityRoute = LayoutTechniqueSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => LayoutTechniqueRouteRoute,
 } as any)
-const LayoutTechniqueEquipmentNewRoute =
-  LayoutTechniqueEquipmentNewRouteImport.update({
-    id: '/equipment/new',
-    path: '/equipment/new',
+const LayoutTechniqueSparePartsRoute =
+  LayoutTechniqueSparePartsRouteImport.update({
+    id: '/spare-parts',
+    path: '/spare-parts',
+    getParentRoute: () => LayoutTechniqueRouteRoute,
+  } as any)
+const LayoutTechniqueTechniciansRoute =
+  LayoutTechniqueTechniciansRouteImport.update({
+    id: '/technicians',
+    path: '/technicians',
+    getParentRoute: () => LayoutTechniqueRouteRoute,
+  } as any)
+const LayoutTechniqueWorkOrdersRoute =
+  LayoutTechniqueWorkOrdersRouteImport.update({
+    id: '/work-orders',
+    path: '/work-orders',
     getParentRoute: () => LayoutTechniqueRouteRoute,
   } as any)
 const LayoutTechniqueEquipmentEquipmentIdRoute =
   LayoutTechniqueEquipmentEquipmentIdRouteImport.update({
     id: '/equipment/$equipmentId',
     path: '/equipment/$equipmentId',
+    getParentRoute: () => LayoutTechniqueRouteRoute,
+  } as any)
+const LayoutTechniqueEquipmentNewRoute =
+  LayoutTechniqueEquipmentNewRouteImport.update({
+    id: '/equipment/new',
+    path: '/equipment/new',
     getParentRoute: () => LayoutTechniqueRouteRoute,
   } as any)
 
@@ -255,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/assistant': typeof LayoutAssistantRoute
   '/control-tower': typeof LayoutControlTowerRoute
   '/dashboard': typeof LayoutDashboardRoute
+  '/device-server': typeof LayoutDeviceServerRoute
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
   '/outbound-orders': typeof LayoutOutboundOrdersRoute
@@ -291,6 +298,7 @@ export interface FileRoutesByTo {
   '/assistant': typeof LayoutAssistantRoute
   '/control-tower': typeof LayoutControlTowerRoute
   '/dashboard': typeof LayoutDashboardRoute
+  '/device-server': typeof LayoutDeviceServerRoute
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
   '/outbound-orders': typeof LayoutOutboundOrdersRoute
@@ -331,6 +339,7 @@ export interface FileRoutesById {
   '/_layout/assistant': typeof LayoutAssistantRoute
   '/_layout/control-tower': typeof LayoutControlTowerRoute
   '/_layout/dashboard': typeof LayoutDashboardRoute
+  '/_layout/device-server': typeof LayoutDeviceServerRoute
   '/_layout/inbound-orders': typeof LayoutInboundOrdersRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/outbound-orders': typeof LayoutOutboundOrdersRoute
@@ -372,6 +381,7 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/control-tower'
     | '/dashboard'
+    | '/device-server'
     | '/inbound-orders'
     | '/items'
     | '/outbound-orders'
@@ -408,6 +418,7 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/control-tower'
     | '/dashboard'
+    | '/device-server'
     | '/inbound-orders'
     | '/items'
     | '/outbound-orders'
@@ -447,6 +458,7 @@ export interface FileRouteTypes {
     | '/_layout/assistant'
     | '/_layout/control-tower'
     | '/_layout/dashboard'
+    | '/_layout/device-server'
     | '/_layout/inbound-orders'
     | '/_layout/items'
     | '/_layout/outbound-orders'
@@ -486,25 +498,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/recover-password': {
-      id: '/recover-password'
-      path: '/recover-password'
-      fullPath: '/recover-password'
-      preLoaderRoute: typeof RecoverPasswordRouteImport
+    '/_layout': {
+      id: '/_layout'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof LayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -514,11 +512,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_layout': {
-      id: '/_layout'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof LayoutRouteImport
+    '/recover-password': {
+      id: '/recover-password'
+      path: '/recover-password'
+      fullPath: '/recover-password'
+      preLoaderRoute: typeof RecoverPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_layout/': {
@@ -528,102 +540,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/warehouse-twin': {
-      id: '/_layout/warehouse-twin'
-      path: '/warehouse-twin'
-      fullPath: '/warehouse-twin'
-      preLoaderRoute: typeof LayoutWarehouseTwinRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/warehouse-tasks': {
-      id: '/_layout/warehouse-tasks'
-      path: '/warehouse-tasks'
-      fullPath: '/warehouse-tasks'
-      preLoaderRoute: typeof LayoutWarehouseTasksRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/warehouse-simulation': {
-      id: '/_layout/warehouse-simulation'
-      path: '/warehouse-simulation'
-      fullPath: '/warehouse-simulation'
-      preLoaderRoute: typeof LayoutWarehouseSimulationRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/warehouse-3d-help': {
-      id: '/_layout/warehouse-3d-help'
-      path: '/warehouse-3d-help'
-      fullPath: '/warehouse-3d-help'
-      preLoaderRoute: typeof LayoutWarehouse3dHelpRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/warehouse-3d': {
-      id: '/_layout/warehouse-3d'
-      path: '/warehouse-3d'
-      fullPath: '/warehouse-3d'
-      preLoaderRoute: typeof LayoutWarehouse3dRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/warehouse': {
-      id: '/_layout/warehouse'
-      path: '/warehouse'
-      fullPath: '/warehouse'
-      preLoaderRoute: typeof LayoutWarehouseRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/shipped': {
-      id: '/_layout/shipped'
-      path: '/shipped'
-      fullPath: '/shipped'
-      preLoaderRoute: typeof LayoutShippedRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/shipment': {
-      id: '/_layout/shipment'
-      path: '/shipment'
-      fullPath: '/shipment'
-      preLoaderRoute: typeof LayoutShipmentRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/settings': {
-      id: '/_layout/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof LayoutSettingsRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/outbound-orders': {
-      id: '/_layout/outbound-orders'
-      path: '/outbound-orders'
-      fullPath: '/outbound-orders'
-      preLoaderRoute: typeof LayoutOutboundOrdersRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/items': {
-      id: '/_layout/items'
-      path: '/items'
-      fullPath: '/items'
-      preLoaderRoute: typeof LayoutItemsRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/inbound-orders': {
-      id: '/_layout/inbound-orders'
-      path: '/inbound-orders'
-      fullPath: '/inbound-orders'
-      preLoaderRoute: typeof LayoutInboundOrdersRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/dashboard': {
-      id: '/_layout/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof LayoutDashboardRouteImport
-      parentRoute: typeof LayoutRoute
-    }
-    '/_layout/control-tower': {
-      id: '/_layout/control-tower'
-      path: '/control-tower'
-      fullPath: '/control-tower'
-      preLoaderRoute: typeof LayoutControlTowerRouteImport
+    '/_layout/admin': {
+      id: '/_layout/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/assistant': {
@@ -633,11 +554,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAssistantRouteImport
       parentRoute: typeof LayoutRoute
     }
-    '/_layout/admin': {
-      id: '/_layout/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof LayoutAdminRouteImport
+    '/_layout/control-tower': {
+      id: '/_layout/control-tower'
+      path: '/control-tower'
+      fullPath: '/control-tower'
+      preLoaderRoute: typeof LayoutControlTowerRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/dashboard': {
+      id: '/_layout/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof LayoutDashboardRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/device-server': {
+      id: '/_layout/device-server'
+      path: '/device-server'
+      fullPath: '/device-server'
+      preLoaderRoute: typeof LayoutDeviceServerRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/inbound-orders': {
+      id: '/_layout/inbound-orders'
+      path: '/inbound-orders'
+      fullPath: '/inbound-orders'
+      preLoaderRoute: typeof LayoutInboundOrdersRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/items': {
+      id: '/_layout/items'
+      path: '/items'
+      fullPath: '/items'
+      preLoaderRoute: typeof LayoutItemsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/outbound-orders': {
+      id: '/_layout/outbound-orders'
+      path: '/outbound-orders'
+      fullPath: '/outbound-orders'
+      preLoaderRoute: typeof LayoutOutboundOrdersRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/settings': {
+      id: '/_layout/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof LayoutSettingsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/shipment': {
+      id: '/_layout/shipment'
+      path: '/shipment'
+      fullPath: '/shipment'
+      preLoaderRoute: typeof LayoutShipmentRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/shipped': {
+      id: '/_layout/shipped'
+      path: '/shipped'
+      fullPath: '/shipped'
+      preLoaderRoute: typeof LayoutShippedRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/technique': {
@@ -647,81 +624,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutTechniqueRouteRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/warehouse': {
+      id: '/_layout/warehouse'
+      path: '/warehouse'
+      fullPath: '/warehouse'
+      preLoaderRoute: typeof LayoutWarehouseRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/warehouse-3d': {
+      id: '/_layout/warehouse-3d'
+      path: '/warehouse-3d'
+      fullPath: '/warehouse-3d'
+      preLoaderRoute: typeof LayoutWarehouse3dRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/warehouse-3d-help': {
+      id: '/_layout/warehouse-3d-help'
+      path: '/warehouse-3d-help'
+      fullPath: '/warehouse-3d-help'
+      preLoaderRoute: typeof LayoutWarehouse3dHelpRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/warehouse-simulation': {
+      id: '/_layout/warehouse-simulation'
+      path: '/warehouse-simulation'
+      fullPath: '/warehouse-simulation'
+      preLoaderRoute: typeof LayoutWarehouseSimulationRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/warehouse-tasks': {
+      id: '/_layout/warehouse-tasks'
+      path: '/warehouse-tasks'
+      fullPath: '/warehouse-tasks'
+      preLoaderRoute: typeof LayoutWarehouseTasksRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/warehouse-twin': {
+      id: '/_layout/warehouse-twin'
+      path: '/warehouse-twin'
+      fullPath: '/warehouse-twin'
+      preLoaderRoute: typeof LayoutWarehouseTwinRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/technique/': {
       id: '/_layout/technique/'
       path: '/'
       fullPath: '/technique/'
       preLoaderRoute: typeof LayoutTechniqueIndexRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/work-orders': {
-      id: '/_layout/technique/work-orders'
-      path: '/work-orders'
-      fullPath: '/technique/work-orders'
-      preLoaderRoute: typeof LayoutTechniqueWorkOrdersRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/technicians': {
-      id: '/_layout/technique/technicians'
-      path: '/technicians'
-      fullPath: '/technique/technicians'
-      preLoaderRoute: typeof LayoutTechniqueTechniciansRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/spare-parts': {
-      id: '/_layout/technique/spare-parts'
-      path: '/spare-parts'
-      fullPath: '/technique/spare-parts'
-      preLoaderRoute: typeof LayoutTechniqueSparePartsRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/security': {
-      id: '/_layout/technique/security'
-      path: '/security'
-      fullPath: '/technique/security'
-      preLoaderRoute: typeof LayoutTechniqueSecurityRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/predictive': {
-      id: '/_layout/technique/predictive'
-      path: '/predictive'
-      fullPath: '/technique/predictive'
-      preLoaderRoute: typeof LayoutTechniquePredictiveRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/maintenance-settings': {
-      id: '/_layout/technique/maintenance-settings'
-      path: '/maintenance-settings'
-      fullPath: '/technique/maintenance-settings'
-      preLoaderRoute: typeof LayoutTechniqueMaintenanceSettingsRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/maintenance-schedule': {
-      id: '/_layout/technique/maintenance-schedule'
-      path: '/maintenance-schedule'
-      fullPath: '/technique/maintenance-schedule'
-      preLoaderRoute: typeof LayoutTechniqueMaintenanceScheduleRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/maintenance': {
-      id: '/_layout/technique/maintenance'
-      path: '/maintenance'
-      fullPath: '/technique/maintenance'
-      preLoaderRoute: typeof LayoutTechniqueMaintenanceRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/integrations': {
-      id: '/_layout/technique/integrations'
-      path: '/integrations'
-      fullPath: '/technique/integrations'
-      preLoaderRoute: typeof LayoutTechniqueIntegrationsRouteImport
-      parentRoute: typeof LayoutTechniqueRouteRoute
-    }
-    '/_layout/technique/analytics': {
-      id: '/_layout/technique/analytics'
-      path: '/analytics'
-      fullPath: '/technique/analytics'
-      preLoaderRoute: typeof LayoutTechniqueAnalyticsRouteImport
       parentRoute: typeof LayoutTechniqueRouteRoute
     }
     '/_layout/technique/alerts': {
@@ -731,11 +680,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutTechniqueAlertsRouteImport
       parentRoute: typeof LayoutTechniqueRouteRoute
     }
-    '/_layout/technique/equipment/new': {
-      id: '/_layout/technique/equipment/new'
-      path: '/equipment/new'
-      fullPath: '/technique/equipment/new'
-      preLoaderRoute: typeof LayoutTechniqueEquipmentNewRouteImport
+    '/_layout/technique/analytics': {
+      id: '/_layout/technique/analytics'
+      path: '/analytics'
+      fullPath: '/technique/analytics'
+      preLoaderRoute: typeof LayoutTechniqueAnalyticsRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/integrations': {
+      id: '/_layout/technique/integrations'
+      path: '/integrations'
+      fullPath: '/technique/integrations'
+      preLoaderRoute: typeof LayoutTechniqueIntegrationsRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/maintenance': {
+      id: '/_layout/technique/maintenance'
+      path: '/maintenance'
+      fullPath: '/technique/maintenance'
+      preLoaderRoute: typeof LayoutTechniqueMaintenanceRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/maintenance-schedule': {
+      id: '/_layout/technique/maintenance-schedule'
+      path: '/maintenance-schedule'
+      fullPath: '/technique/maintenance-schedule'
+      preLoaderRoute: typeof LayoutTechniqueMaintenanceScheduleRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/maintenance-settings': {
+      id: '/_layout/technique/maintenance-settings'
+      path: '/maintenance-settings'
+      fullPath: '/technique/maintenance-settings'
+      preLoaderRoute: typeof LayoutTechniqueMaintenanceSettingsRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/predictive': {
+      id: '/_layout/technique/predictive'
+      path: '/predictive'
+      fullPath: '/technique/predictive'
+      preLoaderRoute: typeof LayoutTechniquePredictiveRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/security': {
+      id: '/_layout/technique/security'
+      path: '/security'
+      fullPath: '/technique/security'
+      preLoaderRoute: typeof LayoutTechniqueSecurityRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/spare-parts': {
+      id: '/_layout/technique/spare-parts'
+      path: '/spare-parts'
+      fullPath: '/technique/spare-parts'
+      preLoaderRoute: typeof LayoutTechniqueSparePartsRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/technicians': {
+      id: '/_layout/technique/technicians'
+      path: '/technicians'
+      fullPath: '/technique/technicians'
+      preLoaderRoute: typeof LayoutTechniqueTechniciansRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/work-orders': {
+      id: '/_layout/technique/work-orders'
+      path: '/work-orders'
+      fullPath: '/technique/work-orders'
+      preLoaderRoute: typeof LayoutTechniqueWorkOrdersRouteImport
       parentRoute: typeof LayoutTechniqueRouteRoute
     }
     '/_layout/technique/equipment/$equipmentId': {
@@ -743,6 +755,13 @@ declare module '@tanstack/react-router' {
       path: '/equipment/$equipmentId'
       fullPath: '/technique/equipment/$equipmentId'
       preLoaderRoute: typeof LayoutTechniqueEquipmentEquipmentIdRouteImport
+      parentRoute: typeof LayoutTechniqueRouteRoute
+    }
+    '/_layout/technique/equipment/new': {
+      id: '/_layout/technique/equipment/new'
+      path: '/equipment/new'
+      fullPath: '/technique/equipment/new'
+      preLoaderRoute: typeof LayoutTechniqueEquipmentNewRouteImport
       parentRoute: typeof LayoutTechniqueRouteRoute
     }
   }
@@ -794,6 +813,7 @@ interface LayoutRouteChildren {
   LayoutAssistantRoute: typeof LayoutAssistantRoute
   LayoutControlTowerRoute: typeof LayoutControlTowerRoute
   LayoutDashboardRoute: typeof LayoutDashboardRoute
+  LayoutDeviceServerRoute: typeof LayoutDeviceServerRoute
   LayoutInboundOrdersRoute: typeof LayoutInboundOrdersRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutOutboundOrdersRoute: typeof LayoutOutboundOrdersRoute
@@ -815,6 +835,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAssistantRoute: LayoutAssistantRoute,
   LayoutControlTowerRoute: LayoutControlTowerRoute,
   LayoutDashboardRoute: LayoutDashboardRoute,
+  LayoutDeviceServerRoute: LayoutDeviceServerRoute,
   LayoutInboundOrdersRoute: LayoutInboundOrdersRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutOutboundOrdersRoute: LayoutOutboundOrdersRoute,

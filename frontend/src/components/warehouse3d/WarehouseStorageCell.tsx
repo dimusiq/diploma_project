@@ -1,9 +1,9 @@
-import { useCursor } from "@react-three/drei"
-import { useFrame } from "@react-three/fiber"
-import { useEffect, useRef, useState } from "react"
-import type { RefObject } from "react"
-import { MeshStandardMaterial } from "three"
-import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
+import { useCursor } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import { useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { MeshStandardMaterial } from 'three';
+import type { CellStripe } from '@/components/warehouse3d/twin3dDerived.ts';
 import {
   CELL_BLOCKED_COLOR,
   CELL_EMPTY_COLOR_DARK,
@@ -15,35 +15,35 @@ import {
   CELL_QUARANTINE_COLOR,
   CELL_RESERVED_COLOR,
   CELL_SELECTED_COLOR,
-} from "@/components/warehouse3d/warehouse3dColors.ts"
-import { CELL_SIZE } from "@/components/warehouse3d/warehouseGeometry.tsx"
+} from '@/components/warehouse3d/warehouse3dColors.ts';
+import { CELL_SIZE } from '@/components/warehouse3d/warehouseGeometry.tsx';
 
 function CellEmissivePulse({
   materialRef,
   expired,
   dimmed,
 }: {
-  materialRef: RefObject<MeshStandardMaterial | null>
-  expired: boolean
-  dimmed?: boolean
+  materialRef: RefObject<MeshStandardMaterial | null>;
+  expired: boolean;
+  dimmed?: boolean;
 }) {
   useFrame((state) => {
-    const mat = materialRef.current
-    if (!mat) return
-    mat.opacity = dimmed ? 0.4 : 1
-    mat.transparent = Boolean(dimmed)
-    const t = state.clock.elapsedTime
+    const mat = materialRef.current;
+    if (!mat) return;
+    mat.opacity = dimmed ? 0.4 : 1;
+    mat.transparent = Boolean(dimmed);
+    const t = state.clock.elapsedTime;
     if (expired) {
-      mat.color.setStyle(CELL_EXPIRED_COLOR)
-      mat.emissive.setStyle(CELL_EXPIRED_COLOR)
-      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4)
-      return
+      mat.color.setStyle(CELL_EXPIRED_COLOR);
+      mat.emissive.setStyle(CELL_EXPIRED_COLOR);
+      mat.emissiveIntensity = 0.15 + 0.3 * Math.sin(t * 4);
+      return;
     }
-    mat.color.setStyle(CELL_EXPIRING_COLOR)
-    mat.emissive.setStyle(CELL_EXPIRING_COLOR)
-    mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4)
-  })
-  return null
+    mat.color.setStyle(CELL_EXPIRING_COLOR);
+    mat.emissive.setStyle(CELL_EXPIRING_COLOR);
+    mat.emissiveIntensity = 0.2 + 0.35 * Math.sin(t * 4);
+  });
+  return null;
 }
 
 export function StorageCell({
@@ -58,77 +58,96 @@ export function StorageCell({
   heatIntensity,
   hazardStripe,
   dimmed,
+  cellSize,
+  cellHeight,
+  cellDepth,
   onCellClick,
   onEnter,
   onLeave,
 }: {
-  filled: boolean
-  expiring: boolean
-  expired: boolean
-  x: number
-  y: number
-  z: number
-  selected?: boolean
-  darkMode?: boolean
-  heatIntensity?: number
-  hazardStripe?: CellStripe | null
-  dimmed?: boolean
-  onCellClick?: (shiftKey: boolean) => void
-  onEnter?: () => void
-  onLeave?: () => void
+  filled: boolean;
+  expiring: boolean;
+  expired: boolean;
+  x: number;
+  y: number;
+  z: number;
+  selected?: boolean;
+  darkMode?: boolean;
+  heatIntensity?: number;
+  hazardStripe?: CellStripe | null;
+  dimmed?: boolean;
+  cellSize?: number;
+  cellHeight?: number;
+  cellDepth?: number;
+  onCellClick?: (shiftKey: boolean) => void;
+  onEnter?: () => void;
+  onLeave?: () => void;
 }) {
-  const [hover, setHover] = useState(false)
-  const materialRef = useRef<MeshStandardMaterial>(null)
-  useCursor(hover, "pointer", "auto")
-  const pulsing = expired || expiring
+  const [hover, setHover] = useState(false);
+  const materialRef = useRef<MeshStandardMaterial>(null);
+  const pointerDownRef = useRef<{
+    x: number;
+    y: number;
+  } | null>(null);
+  useCursor(hover, 'pointer', 'auto');
+  const pulsing = expired || expiring;
+  const boxW = cellSize ?? CELL_SIZE;
+  const boxH = cellHeight ?? boxW;
+  const boxD = cellDepth ?? boxW;
 
   useEffect(() => {
-    const mat = materialRef.current
-    if (!mat || pulsing) return
-    mat.opacity = dimmed ? 0.28 : 1
-    mat.transparent = Boolean(dimmed)
-    if (hazardStripe === "blocked") {
-      mat.color.setStyle(CELL_BLOCKED_COLOR)
-      mat.emissive.setStyle(CELL_BLOCKED_COLOR)
-      mat.emissiveIntensity = 0.12
-      return
+    const mat = materialRef.current;
+    if (!mat || pulsing) return;
+    mat.opacity = dimmed ? 0.28 : 1;
+    mat.transparent = Boolean(dimmed);
+    if (hazardStripe === 'blocked') {
+      mat.color.setStyle(CELL_BLOCKED_COLOR);
+      mat.emissive.setStyle(CELL_BLOCKED_COLOR);
+      mat.emissiveIntensity = 0.12;
+      return;
     }
-    if (hazardStripe === "reserved") {
-      mat.color.setStyle(CELL_RESERVED_COLOR)
-      mat.emissive.setStyle("#b45309")
-      mat.emissiveIntensity = 0.12
-      return
+    if (hazardStripe === 'reserved') {
+      mat.color.setStyle(CELL_RESERVED_COLOR);
+      mat.emissive.setStyle('#b45309');
+      mat.emissiveIntensity = 0.12;
+      return;
     }
-    if (hazardStripe === "quarantine") {
-      mat.color.setStyle(CELL_QUARANTINE_COLOR)
-      mat.emissive.setStyle(CELL_QUARANTINE_COLOR)
-      mat.emissiveIntensity = 0.15
-      return
+    if (hazardStripe === 'quarantine') {
+      mat.color.setStyle(CELL_QUARANTINE_COLOR);
+      mat.emissive.setStyle(CELL_QUARANTINE_COLOR);
+      mat.emissiveIntensity = 0.15;
+      return;
     }
-    const hi = heatIntensity ?? 0
+    const hi = heatIntensity ?? 0;
     if (hi > 0.02) {
-      const r = 0.55 + hi * 0.42
-      const g = 0.55 - hi * 0.35
-      const b = 0.65 - hi * 0.45
-      mat.color.setRGB(r, Math.max(0.2, g), Math.max(0.15, b))
-      mat.emissive.setRGB(r * 0.4, g * 0.2, 0.05)
-      mat.emissiveIntensity = 0.08 + hi * 0.22
-      return
+      const r = 0.55 + hi * 0.42;
+      const g = 0.55 - hi * 0.35;
+      const b = 0.65 - hi * 0.45;
+      mat.color.setRGB(
+        r,
+        Math.max(0.2, g),
+        Math.max(0.15, b),
+      );
+      mat.emissive.setRGB(r * 0.4, g * 0.2, 0.05);
+      mat.emissiveIntensity = 0.08 + hi * 0.22;
+      return;
     }
-    mat.emissiveIntensity = 0
-    mat.emissive.setStyle("#000000")
+    mat.emissiveIntensity = 0;
+    mat.emissive.setStyle('#000000');
     if (selected) {
-      mat.color.setStyle(CELL_SELECTED_COLOR)
-      mat.emissive.setStyle("#b45309")
-      mat.emissiveIntensity = 0.15
+      mat.color.setStyle(CELL_SELECTED_COLOR);
+      mat.emissive.setStyle('#b45309');
+      mat.emissiveIntensity = 0.15;
     } else if (hover) {
-      mat.color.setStyle(CELL_HOVER_COLOR)
+      mat.color.setStyle(CELL_HOVER_COLOR);
     } else if (filled) {
-      mat.color.setStyle(CELL_FILLED_COLOR)
+      mat.color.setStyle(CELL_FILLED_COLOR);
     } else {
       mat.color.setStyle(
-        darkMode ? CELL_EMPTY_COLOR_DARK : CELL_EMPTY_COLOR_LIGHT,
-      )
+        darkMode
+          ? CELL_EMPTY_COLOR_DARK
+          : CELL_EMPTY_COLOR_LIGHT,
+      );
     }
   }, [
     pulsing,
@@ -139,17 +158,17 @@ export function StorageCell({
     hover,
     filled,
     darkMode,
-  ])
+  ]);
 
   const baseColor = expired
     ? CELL_EXPIRED_COLOR
     : expiring
       ? CELL_EXPIRING_COLOR
-      : hazardStripe === "blocked"
+      : hazardStripe === 'blocked'
         ? CELL_BLOCKED_COLOR
-        : hazardStripe === "reserved"
+        : hazardStripe === 'reserved'
           ? CELL_RESERVED_COLOR
-          : hazardStripe === "quarantine"
+          : hazardStripe === 'quarantine'
             ? CELL_QUARANTINE_COLOR
             : (heatIntensity ?? 0) > 0.02
               ? `rgb(${Math.round(55 + (heatIntensity ?? 0) * 200)}, ${Math.round(140 - (heatIntensity ?? 0) * 90)}, ${Math.round(165 - (heatIntensity ?? 0) * 120)})`
@@ -161,28 +180,42 @@ export function StorageCell({
                     ? CELL_FILLED_COLOR
                     : darkMode
                       ? CELL_EMPTY_COLOR_DARK
-                      : CELL_EMPTY_COLOR_LIGHT
+                      : CELL_EMPTY_COLOR_LIGHT;
 
   return (
     <>
       <mesh
         position={[x, y, z]}
-        onClick={(e) => {
-          e.stopPropagation()
-          onCellClick?.(e.shiftKey)
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          pointerDownRef.current = {
+            x: e.clientX,
+            y: e.clientY,
+          };
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          const start = pointerDownRef.current;
+          pointerDownRef.current = null;
+          if (!start) return;
+          const dx = e.clientX - start.x;
+          const dy = e.clientY - start.y;
+          if (dx * dx + dy * dy > 36) return;
+          onCellClick?.(e.shiftKey);
         }}
         onPointerOver={(e) => {
-          e.stopPropagation()
-          setHover(true)
-          onEnter?.()
+          e.stopPropagation();
+          setHover(true);
+          onEnter?.();
         }}
         onPointerOut={() => {
-          setHover(false)
-          onLeave?.()
+          setHover(false);
+          onLeave?.();
         }}
-        onPointerDown={(e) => e.stopPropagation()}
       >
-        <boxGeometry args={[CELL_SIZE, CELL_SIZE, CELL_SIZE]} />
+        <boxGeometry
+          args={[boxW, boxH, boxD]}
+        />
         <meshStandardMaterial
           ref={materialRef}
           color={baseColor}
@@ -200,5 +233,5 @@ export function StorageCell({
         />
       )}
     </>
-  )
+  );
 }

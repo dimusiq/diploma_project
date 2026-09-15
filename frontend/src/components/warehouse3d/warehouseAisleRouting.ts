@@ -5,8 +5,12 @@
 import { Vector3 } from "three"
 
 import {
-  CELL_GAP,
-  CELL_SIZE,
+  FLOOR_PLAN_AISLE_Z,
+  getFloorPlanRacks,
+  planToWorldX,
+  planToWorldZ,
+} from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
+import {
   PASSAGE_WIDTH,
   type WarehouseGeometry,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
@@ -18,6 +22,19 @@ export function pickLaneWorldZ(
   geom: WarehouseGeometry,
   rowIndex: number,
 ): number {
+  if (geom.floorPlanMode) {
+    const rack = getFloorPlanRacks()[rowIndex]
+    if (!rack) return 0
+    const rackCenterZ = planToWorldZ(rack.z + rack.d / 2)
+    let best = planToWorldZ(FLOOR_PLAN_AISLE_Z[0] ?? 0)
+    for (const aisleZ of FLOOR_PLAN_AISLE_Z) {
+      const wz = planToWorldZ(aisleZ)
+      if (Math.abs(wz - rackCenterZ) < Math.abs(best - rackCenterZ)) {
+        best = wz
+      }
+    }
+    return best
+  }
   const p = Math.floor(rowIndex / 2)
   const inPair = rowIndex % 2
   const blockStart = -geom.totalZ / 2 + p * (geom.blockWidth + PASSAGE_WIDTH)
@@ -37,11 +54,23 @@ export type WarehouseRouteWaypoint = {
   cellZ: number
 }
 
-function cellIndexToWorldX(geom: WarehouseGeometry, cellX: number): number {
-  return (cellX - (geom.cellsLength - 1) / 2) * (CELL_SIZE + CELL_GAP)
+function cellIndexToWorldX(
+  geom: WarehouseGeometry,
+  cellX: number,
+  row = 0,
+): number {
+  if (geom.floorPlanMode) {
+    const [x] = geom.getCellWorldPosition(row, 0, cellX, 0)
+    return x
+  }
+  const step = geom.cellSize + geom.cellGap
+  return (cellX - (geom.cellsLength - 1) / 2) * step
 }
 
 function endCapWorldX(geom: WarehouseGeometry, side: -1 | 1): number {
+  if (geom.floorPlanMode) {
+    return side < 0 ? planToWorldX(24) : planToWorldX(76)
+  }
   const margin = (geom.floorWidth - geom.rackLength) / 2
   return side * (geom.rackLength / 2 + margin * 0.65)
 }
@@ -59,7 +88,7 @@ export function stagingPointOnFloor(
   w: WarehouseRouteWaypoint,
   floorY: number,
 ): Vector3 {
-  const x = cellIndexToWorldX(geom, w.cellX)
+  const x = cellIndexToWorldX(geom, w.cellX, w.row)
   const z = pickLaneWorldZ(geom, w.row)
   return new Vector3(x, floorY, z)
 }
@@ -73,8 +102,8 @@ export function segmentThroughAisles(
   dest: WarehouseRouteWaypoint,
   floorY: number,
 ): Vector3[] {
-  const xa = cellIndexToWorldX(geom, origin.cellX)
-  const xb = cellIndexToWorldX(geom, dest.cellX)
+  const xa = cellIndexToWorldX(geom, origin.cellX, origin.row)
+  const xb = cellIndexToWorldX(geom, dest.cellX, dest.row)
   const za = pickLaneWorldZ(geom, origin.row)
   const zb = pickLaneWorldZ(geom, dest.row)
   const p0 = new Vector3(xa, floorY, za)

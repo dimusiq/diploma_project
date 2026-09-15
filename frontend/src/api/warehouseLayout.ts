@@ -31,7 +31,6 @@ export interface WarehouseOccupancyResponse {
   count: number
 }
 
-/** Лёгкая проекция занятости ячеек (без полного списка товаров). */
 export async function fetchWarehouseOccupancy(): Promise<WarehouseOccupancyResponse> {
   return request<WarehouseOccupancyResponse>("/api/v1/warehouse/occupancy")
 }
