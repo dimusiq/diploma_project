@@ -21,13 +21,14 @@ import {
   TableRow,
 } from "@/components/ui/table.tsx"
 import { cn } from "@/lib/utils"
-import { isMobileKind, taskKindLabel } from "./simEngine.ts"
 import {
   deviceKindLabel,
   deviceStatusLabel,
   deviceStatusTone,
   formatDuration,
+  isMobileKind,
   severityDot,
+  taskKindLabel,
 } from "./simFormat.ts"
 import { deviceSimulation } from "./simStore.ts"
 import type { DeviceKind, SimDevice } from "./simTypes.ts"

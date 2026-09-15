@@ -182,6 +182,7 @@ def reset_demo_domain(session: Session) -> dict[str, int]:
         text("DELETE FROM shipment WHERE extra->>'source' = :src"),
         {"src": SOURCE},
     )
+    session.execute(text("DELETE FROM wsim_event"))
     counts["inbound"] = inbound_n.rowcount if inbound_n is not None else 0
     counts["outbound"] = outbound_n.rowcount if outbound_n is not None else 0
     counts["shipments"] = shipment_n.rowcount if shipment_n is not None else 0

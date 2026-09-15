@@ -106,6 +106,10 @@ export function taskKindLabel(kind: TaskKind): string {
   return TASK_KIND_LABELS[kind]
 }
 
+export function isMobileKind(kind: DeviceKind): boolean {
+  return kind === "forklift" || kind === "agv" || kind === "amr"
+}
+
 export function outboundStatusLabel(status: OutboundStatus): string {
   return OUTBOUND_STATUS_LABELS[status]
 }

@@ -81,6 +81,7 @@ services:
 
   backend:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    # Warehouse Device Server: один FastAPI-процесс (backend/Dockerfile --workers 1).
     restart: always
     networks:
       - traefik-public

@@ -38,6 +38,7 @@ import {
   sidebarMenuButtonVariants,
 } from "@/components/ui/sidebar.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
+import { canAccessWarehouseSim } from "@/lib/warehouseSimAccess.ts"
 import { cn } from "@/lib/utils"
 
 interface SubItem {
@@ -151,16 +152,19 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
       }
       return true
     })
+    const extra: Item[] = []
+    if (canAccessWarehouseSim(currentUser)) {
+      extra.push({
+        icon: FiRadio,
+        title: "Warehouse Device Server",
+        path: "/device-server" as const,
+      })
+    }
     if (currentUser?.is_superuser) {
-      return [
-        ...base,
-        {
-          icon: FiRadio,
-          title: "Warehouse Device Server",
-          path: "/device-server" as const,
-        },
-        { icon: FiUsers, title: "Администрирование", path: "/admin" as const },
-      ]
+      extra.push({ icon: FiUsers, title: "Администрирование", path: "/admin" as const })
+    }
+    if (extra.length) {
+      return [...base, ...extra]
     }
     return base
   })()

@@ -18,13 +18,15 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs.tsx"
+import { canAccessWarehouseSim } from "@/lib/warehouseSimAccess.ts"
 
 export const Route = createFileRoute("/_layout/device-server")({
   beforeLoad: ({ context }) => {
-    const user = context.queryClient.getQueryData<{ is_superuser?: boolean }>([
-      "currentUser",
-    ])
-    if (!user?.is_superuser) {
+    const user = context.queryClient.getQueryData<{
+      is_superuser?: boolean
+      role_name?: string | null
+    }>(["currentUser"])
+    if (!canAccessWarehouseSim(user)) {
       throw redirect({ to: "/" })
     }
   },

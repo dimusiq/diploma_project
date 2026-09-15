@@ -7,13 +7,14 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from pydantic import ValidationError
-from sqlmodel import Session
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, select
 
 from app.core import security
 from app.core.config import settings
 from app.core.db import engine
 from app.core.permissions import can_manage_users, user_has_permission
-from app.models import TokenPayload, User
+from app.models import ROLE_ADMIN, TokenPayload, User
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/login/access-token"
@@ -47,7 +48,9 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
-    user = session.get(User, user_id)
+    user = session.exec(
+        select(User).where(User.id == user_id).options(selectinload(User.role))
+    ).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -84,6 +87,22 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 def get_current_active_superuser(current_user: CurrentUser) -> User:
     if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=403, detail="The user doesn't have enough privileges"
+        )
+    return current_user
+
+
+def user_is_warehouse_sim_admin(user: User) -> bool:
+    """Доступ к Warehouse Device Server: суперпользователь или роль admin."""
+    if user.is_superuser:
+        return True
+    role = user.role
+    return role is not None and role.name == ROLE_ADMIN
+
+
+def get_current_warehouse_sim_admin(current_user: CurrentUser) -> User:
+    if not user_is_warehouse_sim_admin(current_user):
         raise HTTPException(
             status_code=403, detail="The user doesn't have enough privileges"
         )

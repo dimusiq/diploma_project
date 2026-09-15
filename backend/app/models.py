@@ -615,6 +615,12 @@ class User(UserBase, table=True):
     role: Role | None = Relationship(back_populates="users")
     items: list["Item"] = Relationship(back_populates="owner", cascade_delete=True)
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def role_name(self) -> str | None:
+        role = self.role
+        return role.name if role is not None else None
+
 
 # Properties to return via API, id is always required
 class UserPublic(UserBase):
@@ -622,6 +628,7 @@ class UserPublic(UserBase):
     last_login_at: datetime | None = None
     deleted_at: datetime | None = None
     avatar_ext: str | None = None
+    role_name: str | None = None
 
 
 class UsersPublic(SQLModel):

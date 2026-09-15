@@ -391,8 +391,6 @@ class DeviceSimulationClient {
   }
 }
 
-export const deviceSimulation = new DeviceSimulationClient()
+export { isMobileKind } from "./simFormat.ts"
 
-export function isMobileKind(kind: DeviceKind): boolean {
-  return kind === "forklift" || kind === "agv" || kind === "amr"
-}
+export const deviceSimulation = new DeviceSimulationClient()

@@ -155,6 +155,7 @@ export type UserPublic = {
   deleted_at?: string | null
   /** Расширение файла аватара на сервере (webp), если загружено */
   avatar_ext?: string | null
+  role_name?: string | null
 }
 
 export type UserRegister = {

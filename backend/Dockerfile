@@ -43,4 +43,6 @@ COPY ./app /app/app
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync
 
-CMD ["fastapi", "run", "--workers", "4", "app/main.py"]
+# Warehouse Device Server держит SimulationRuntime в процессе API (архитектура B).
+# Несколько uvicorn/fastapi workers = несколько независимых рантаймов.
+CMD ["fastapi", "run", "--workers", "1", "app/main.py"]

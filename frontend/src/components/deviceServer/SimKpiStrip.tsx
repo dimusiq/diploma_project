@@ -3,8 +3,7 @@
 import type { ReactNode } from "react"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { cn } from "@/lib/utils"
-import { isMobileKind } from "./simEngine.ts"
-import { formatDuration, formatPercent } from "./simFormat.ts"
+import { formatDuration, formatPercent, isMobileKind } from "./simFormat.ts"
 import type { DataSnapshot } from "./simStore.ts"
 import { useSimData } from "./useDeviceSimulation.ts"
 

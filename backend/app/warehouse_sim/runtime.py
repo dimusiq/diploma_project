@@ -1,4 +1,17 @@
-"""Один authoritative runtime симулятора в процессе FastAPI."""
+"""
+Один authoritative runtime симулятора в процессе FastAPI (архитектура B).
+
+Warehouse Device Server не шарит состояние между процессами: нет Redis lock
+и нет отдельного simulation worker. `get_runtime()` — синглтон текущего
+процесса. Production-образ должен запускать FastAPI с `--workers 1`, иначе
+каждый worker поднимет свой SimulationRuntime.
+
+Слои состояния:
+
+* `WarehouseSimRuntime.world` — часы, позиции, движение, телеметрия, живой журнал;
+* `wsim_*` — layout/сценарии/persisted `wsim_event`;
+* существующий WMS-домен — бизнес-сущности через `integration.py`.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +23,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import and_, func, or_
 from sqlmodel import Session, select
 
 from app.core.db import engine
@@ -20,6 +34,7 @@ from app.warehouse_sim.models import (
     SIM_RUNNING,
     SIM_SPEEDS,
     SIM_STOPPED,
+    SimEvent,
     SimRun,
     SimWarehouse,
 )
@@ -58,6 +73,7 @@ class WarehouseSimRuntime:
         self._sub_lock = threading.Lock()
         self._last_motion = build_motion(self.world, False, 0)
         self._last_data = build_data(self.world, self.state, self.speed, 0)
+        self._last_persisted_seq = 0
 
     def motion(self) -> dict:
         with self._lock:
@@ -140,6 +156,20 @@ class WarehouseSimRuntime:
             world = self.world
             queue = list(world.get("integration_queue") or [])
             world["integration_queue"] = []
+            pending_events = [
+                e
+                for e in world.get("events") or []
+                if int(e.get("id") or 0) > self._last_persisted_seq
+            ]
+        if pending_events:
+            try:
+                with Session(engine) as session:
+                    written_max = persist_new_sim_events(session, pending_events)
+                if written_max:
+                    with self._lock:
+                        self._last_persisted_seq = max(self._last_persisted_seq, written_max)
+            except Exception:
+                logger.exception("Warehouse Device Server: не удалось сохранить журнал событий")
         if not queue:
             return
         try:
@@ -209,6 +239,7 @@ class WarehouseSimRuntime:
             self.world = create_world(cfg)
             self.devices.bind(self.world)
             self.state = SIM_STOPPED
+            self._last_persisted_seq = 0
             emit(self.world, ev.SYSTEM_RESET, "info", "Симуляция сброшена")
             self._refresh()
             self._publish("data", self._last_data)
@@ -223,6 +254,7 @@ class WarehouseSimRuntime:
             self.devices.bind(self.world)
             self.state = SIM_STOPPED
             self.speed = 10.0
+            self._last_persisted_seq = 0
             spawn_inbound_truck(self.world)
             emit(
                 self.world,
@@ -425,6 +457,162 @@ async def sse_stream(rt: WarehouseSimRuntime) -> AsyncIterator[bytes]:
 
 def _sse(data: dict[str, Any]) -> bytes:
     return f"data: {json.dumps(data, ensure_ascii=False, default=str)}\n\n".encode()
+
+
+def persist_new_sim_events(session: Session, events: list[dict[str, Any]]) -> int:
+    """Пишет новые события в wsim_event. SENSOR_READING остаётся только в памяти."""
+    if not events:
+        return 0
+    db_max = session.exec(select(func.max(SimEvent.seq))).one()
+    db_max = int(db_max or 0)
+    seen_max = 0
+    to_write: list[dict[str, Any]] = []
+    for event in events:
+        seq = int(event.get("id") or 0)
+        seen_max = max(seen_max, seq)
+        if seq <= db_max:
+            continue
+        if event.get("type") == ev.SENSOR_READING:
+            continue
+        to_write.append(event)
+    if not to_write and seen_max <= db_max:
+        return db_max
+    if to_write:
+        to_write.sort(key=lambda item: int(item["id"]))
+        warehouse = session.exec(select(SimWarehouse).where(SimWarehouse.code == "DEMO")).first()
+        warehouse_id = warehouse.id if warehouse is not None else None
+        for event in to_write:
+            session.add(
+                SimEvent(
+                    seq=int(event["id"]),
+                    warehouse_id=warehouse_id,
+                    sim_time_sec=float(event.get("at") or 0),
+                    event_type=str(event.get("type") or "")[:48],
+                    severity=str(event.get("severity") or "info")[:16],
+                    message=str(event.get("message") or "")[:512],
+                    payload={
+                        "deviceId": event.get("deviceId"),
+                        "entityId": event.get("entityId"),
+                        "zoneId": event.get("zoneId"),
+                        "taskId": event.get("taskId"),
+                        "orderId": event.get("orderId"),
+                    },
+                )
+            )
+        session.commit()
+    return max(seen_max, db_max)
+
+
+def _event_matches(
+    event: dict[str, Any],
+    *,
+    severity: str | None,
+    event_type: str | None,
+    q: str | None,
+    device_id: str | None,
+) -> bool:
+    if severity and event.get("severity") != severity:
+        return False
+    if event_type and event.get("type") != event_type:
+        return False
+    if device_id and event.get("deviceId") != device_id:
+        return False
+    if q:
+        needle = q.lower()
+        haystack = f"{event.get('type') or ''} {event.get('message') or ''}".lower()
+        if needle not in haystack:
+            return False
+    return True
+
+
+def _row_to_event(row: SimEvent) -> dict[str, Any]:
+    payload = row.payload or {}
+    return {
+        "id": row.seq,
+        "at": row.sim_time_sec,
+        "type": row.event_type,
+        "severity": row.severity,
+        "message": row.message,
+        "deviceId": payload.get("deviceId"),
+        "entityId": payload.get("entityId"),
+        "zoneId": payload.get("zoneId"),
+        "taskId": payload.get("taskId"),
+        "orderId": payload.get("orderId"),
+    }
+
+
+def query_event_log(
+    session: Session,
+    rt: WarehouseSimRuntime,
+    *,
+    severity: str | None = None,
+    event_type: str | None = None,
+    q: str | None = None,
+    device_id: str | None = None,
+    skip: int = 0,
+    limit: int = 200,
+    from_ts: datetime | None = None,
+    to_ts: datetime | None = None,
+) -> dict[str, Any]:
+    """Realtime-буфер из памяти + история из PostgreSQL (`wsim_event`)."""
+    with rt._lock:
+        memory_events = list(rt.world.get("events") or [])
+    persist_new_sim_events(session, memory_events)
+
+    include_memory = to_ts is None
+    memory: list[dict[str, Any]] = []
+    if include_memory:
+        memory = [
+            event
+            for event in memory_events
+            if _event_matches(
+                event,
+                severity=severity,
+                event_type=event_type,
+                q=q,
+                device_id=device_id,
+            )
+        ]
+
+    conditions = []
+    if severity:
+        conditions.append(SimEvent.severity == severity)
+    if event_type:
+        conditions.append(SimEvent.event_type == event_type)
+    if q:
+        needle = f"%{q}%"
+        conditions.append(
+            or_(SimEvent.message.ilike(needle), SimEvent.event_type.ilike(needle))
+        )
+    if device_id:
+        conditions.append(SimEvent.payload.contains({"deviceId": device_id}))
+    if from_ts is not None:
+        conditions.append(SimEvent.occurred_at >= from_ts)
+    if to_ts is not None:
+        conditions.append(SimEvent.occurred_at <= to_ts)
+
+    stmt = select(SimEvent)
+    count_stmt = select(func.count()).select_from(SimEvent)
+    if conditions:
+        clause = and_(*conditions)
+        stmt = stmt.where(clause)
+        count_stmt = count_stmt.where(clause)
+
+    db_count = int(session.exec(count_stmt).one() or 0)
+    fetch_limit = min(2000, skip + limit + max(len(memory), 50))
+    rows = list(session.exec(stmt.order_by(SimEvent.seq.desc()).limit(fetch_limit)).all())
+
+    merged: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        merged[int(row.seq)] = _row_to_event(row)
+    for event in memory:
+        merged[int(event["id"])] = event
+    ordered = sorted(merged.values(), key=lambda item: int(item["id"]), reverse=True)
+    sensor_count = sum(1 for event in memory if event.get("type") == ev.SENSOR_READING)
+    return {
+        "data": ordered[skip : skip + limit],
+        "count": db_count + sensor_count,
+    }
 
 
 def persist_run_row(session: Session, rt: WarehouseSimRuntime) -> None:
