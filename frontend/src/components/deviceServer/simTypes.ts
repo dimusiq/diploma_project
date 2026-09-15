@@ -34,6 +34,10 @@ export interface SimRack {
   id: string
   code: string
   zoneId: string
+  aisleId?: string
+  blockId?: string
+  side?: "A" | "B"
+  backToBackWith?: string
   x: number
   z: number
   w: number
@@ -344,6 +348,16 @@ export interface SimTopology {
   zones: SimZone[]
   racks: SimRack[]
   docks: SimDock[]
+  /** Сдвоенные back-to-back блоки (по два стеллажа). */
+  blocks?: Array<{
+    id: string
+    rackAId: string
+    rackBId: string
+    x: number
+    z: number
+    w: number
+    d: number
+  }>
   /** Центральные линии поперечных проездов (координата z). */
   aisleZ: number[]
   /** Центральные линии продольных проездов (координата x). */

@@ -23,19 +23,32 @@ def _world(ix: int, iz: int) -> dict[str, float]:
     return {"x": ix * GRID_M, "z": iz * GRID_M}
 
 
+def _corner_cells(path: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Оставляет старт, повороты и цель — иначе 1 м шаг блокирует технику в проезде."""
+    if len(path) <= 2:
+        return path
+    corners = [path[0]]
+    for prev, cur, nxt in zip(path, path[1:], path[2:]):
+        if (cur[0] - prev[0], cur[1] - prev[1]) != (nxt[0] - cur[0], nxt[1] - cur[1]):
+            corners.append(cur)
+    corners.append(path[-1])
+    return corners
+
+
 def blocked_cells(racks: Iterable[dict]) -> set[tuple[int, int]]:
+    """Клетки внутри footprint стеллажа. Зазор спины A/B < 1 м — непроходим."""
     blocked: set[tuple[int, int]] = set()
     for rack in racks:
-        x0 = rack["x"]
-        z0 = rack["z"]
-        x1 = x0 + rack["w"]
-        z1 = z0 + rack["d"]
-        ix0 = int(x0 / GRID_M)
-        iz0 = int(z0 / GRID_M)
-        ix1 = int(x1 / GRID_M) + 1
-        iz1 = int(z1 / GRID_M) + 1
-        for ix in range(ix0, ix1 + 1):
-            for iz in range(iz0, iz1 + 1):
+        x0 = float(rack["x"])
+        z0 = float(rack["z"])
+        x1 = x0 + float(rack["w"])
+        z1 = z0 + float(rack["d"])
+        ix0 = int(x0 // GRID_M)
+        iz0 = int(z0 // GRID_M)
+        ix1 = int(-(-x1 // GRID_M))  # ceil
+        iz1 = int(-(-z1 // GRID_M))
+        for ix in range(ix0, ix1):
+            for iz in range(iz0, iz1):
                 blocked.add((ix, iz))
     return blocked
 
@@ -98,7 +111,7 @@ def astar_path(
                 node = came[node]
             path.reverse()
             compact: list[dict[str, float]] = []
-            for i, cell in enumerate(path):
+            for i, cell in enumerate(_corner_cells(path)):
                 if i == 0:
                     continue
                 compact.append(_world(*cell))

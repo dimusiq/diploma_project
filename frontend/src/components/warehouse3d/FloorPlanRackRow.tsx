@@ -63,7 +63,6 @@ export function FloorPlanRackRow({
 }) {
   const geom = useWarehouseGeometry()
   const rack = getFloorPlanRacks()[rackIndex]
-  const cellStep = geom.cellSize + geom.cellGap
   const rackH = geom.levels * geom.levelHeight
 
   const cells = useMemo(() => {
@@ -125,13 +124,16 @@ export function FloorPlanRackRow({
       </mesh>
       <mesh position={[0, rackH / 2, 0]}>
         <boxGeometry
-          args={[geom.rackLength + 0.08, rackH, geom.rackDepth + 0.08]}
+          args={[geom.rackLength + 0.04, rackH, geom.rackDepth]}
         />
         <meshStandardMaterial
           color={shelfColor}
           transparent
-          opacity={0.08}
-          wireframe={false}
+          opacity={0.06}
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={1}
+          polygonOffsetUnits={1}
         />
       </mesh>
       <Text
@@ -156,9 +158,12 @@ export function FloorPlanRackRow({
       </Text>
 
       {cells.map(({ level, ix, iz, filled, expiring, expired }) => {
-        const ox = (ix - (geom.cellsLength - 1) / 2) * cellStep
-        const oz = (iz - (geom.cellsDepth - 1) / 2) * (geom.cellDepth + geom.cellGap)
-        const oy = level * geom.levelHeight + geom.cellHeight / 2 + 0.02
+        const [wx, wy, wz] = geom.getCellWorldPosition(
+          rackIndex,
+          level,
+          ix,
+          iz,
+        )
         const isSelected =
           selectedCell?.row === rackIndex &&
           selectedCell?.level === level &&
@@ -192,9 +197,9 @@ export function FloorPlanRackRow({
             filled={filled}
             expiring={expiring}
             expired={expired}
-            x={ox}
-            y={oy}
-            z={oz}
+            x={wx - baseX}
+            y={wy}
+            z={wz - baseZ}
             cellSize={geom.cellSize * 0.92}
             cellHeight={geom.cellHeight}
             cellDepth={geom.cellDepth * 0.92}

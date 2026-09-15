@@ -926,15 +926,24 @@ def _slot_from_context(c: dict) -> tuple[int, int, int, int] | None:
     cell = c.get("cell")
     if not cell:
         return None
-    rack_id = str(cell.get("rackId") or "rack-1")
-    try:
-        row = int(rack_id.rsplit("-", 1)[-1])
-    except ValueError:
-        row = 1
+    rack_id = str(cell.get("rackId") or "rack-1-A")
+    side_z = 0
+    parts = rack_id.split("-")
+    if len(parts) >= 3 and parts[-1] in ("A", "B", "L", "R"):
+        side_z = 0 if parts[-1] in ("A", "L") else 1
+        try:
+            row = int(parts[1])
+        except ValueError:
+            row = 1
+    else:
+        try:
+            row = int(parts[-1])
+        except ValueError:
+            row = 1
     row = max(1, min(12, row))
     level = max(1, min(4, int(cell.get("level") or 1)))
     x = max(1, min(20, int(cell.get("bay") or 1)))
-    return row, level, x, 1
+    return row, level, x, side_z
 
 
 def _free_slot(

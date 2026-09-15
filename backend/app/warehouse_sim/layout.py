@@ -1,4 +1,9 @@
-"""Геометрия склада и маршруты по проездам (ось z — сверху вниз, как на 2D-плане)."""
+"""Геометрия склада и маршруты по проездам (ось z — сверху вниз, как на 2D-плане).
+
+8 сдвоенных блоков (back-to-back): R01A спиной к R01B, …, R08A спиной к R08B.
+Между A и B нет прохода — только технический зазор общей спины.
+Рабочие проезды — снаружи блоков; продольные коридоры (запад/восток) связывают их.
+"""
 
 from __future__ import annotations
 
@@ -8,14 +13,42 @@ WAREHOUSE_WIDTH = 104.0
 WAREHOUSE_DEPTH = 64.0
 WEST_CORRIDOR_X = 22.0
 EAST_CORRIDOR_X = 78.0
-STORAGE_MIN_X = 24.0
-STORAGE_MAX_X = 76.0
+STORAGE_MIN_X = 26.0
+STORAGE_MAX_X = 74.0
+RACK_X = 26.0
 RACK_WIDTH = 48.0
-RACK_DEPTH = 3.0
+RACK_DEPTH = 2.4
 RACK_BAYS = 12
 RACK_LEVELS = 3
-RACK_Z = (4.0, 11.0, 19.0, 26.0, 34.0, 41.0, 49.0, 56.0)
-AISLE_Z = (9.0, 24.0, 39.0, 54.0)
+BACK_GAP = 0.2
+BLOCK_COUNT = 8
+BLOCK_DEPTH = 2 * RACK_DEPTH + BACK_GAP
+AISLE_WIDTH = 2.5
+PITCH = BLOCK_DEPTH + AISLE_WIDTH
+FIRST_BLOCK_Z = 3.0
+APPROACH_OFFSET = 1.2
+
+
+def _block_origin_z(index: int) -> float:
+    return FIRST_BLOCK_Z + index * PITCH
+
+
+def _work_aisle_centers() -> tuple[float, ...]:
+    """Центры рабочих проездов: север первого блока, между блоками, юг последнего."""
+    centers: list[float] = [FIRST_BLOCK_Z / 2.0]
+    for index in range(BLOCK_COUNT):
+        south = _block_origin_z(index) + BLOCK_DEPTH
+        north_next = (
+            _block_origin_z(index + 1) if index + 1 < BLOCK_COUNT else WAREHOUSE_DEPTH
+        )
+        centers.append((south + north_next) / 2.0)
+    return tuple(centers)
+
+
+RACK_Z_A = tuple(_block_origin_z(i) for i in range(BLOCK_COUNT))
+RACK_Z_B = tuple(z + RACK_DEPTH + BACK_GAP for z in RACK_Z_A)
+AISLE_Z = _work_aisle_centers()
+CORRIDOR_X = (WEST_CORRIDOR_X, EAST_CORRIDOR_X)
 
 ZONE_RECEIVING = "zone-recv"
 ZONE_CHARGING = "zone-chrg"
@@ -70,8 +103,7 @@ def _in_storage_span(x: float) -> bool:
 
 
 def _corridor_nearest(x: float) -> float:
-    mid = (WEST_CORRIDOR_X + EAST_CORRIDOR_X) / 2
-    return WEST_CORRIDOR_X if x < mid else EAST_CORRIDOR_X
+    return min(CORRIDOR_X, key=lambda corridor: abs(corridor - x))
 
 
 def _same_point(a: Vec2, b: Vec2) -> bool:
@@ -79,7 +111,7 @@ def _same_point(a: Vec2, b: Vec2) -> bool:
 
 
 def route_between(from_p: Vec2 | dict, to_p: Vec2 | dict) -> list[dict[str, float]]:
-    """Ортогональный маршрут по проездам; техника не едет сквозь стеллажи."""
+    """Ортогональный маршрут по рабочим проездам и продольным коридорам."""
     start = Vec2(*_xz(from_p))
     goal = Vec2(*_xz(to_p))
     points: list[Vec2] = []
@@ -192,29 +224,91 @@ def build_zones() -> list[dict]:
 
 
 def build_racks() -> list[dict]:
-    racks = []
-    for index, z in enumerate(RACK_Z):
-        racks.append(
-            {
-                "id": f"rack-{index + 1}",
-                "code": f"R{index + 1:02d}",
-                "zoneId": ZONE_STORAGE,
-                "x": 26,
-                "z": z,
-                "w": RACK_WIDTH,
-                "d": RACK_DEPTH,
-                "bays": RACK_BAYS,
-                "levels": RACK_LEVELS,
-            }
-        )
+    racks: list[dict] = []
+    for index in range(BLOCK_COUNT):
+        block_id = f"B{index + 1:02d}"
+        origin = _block_origin_z(index)
+        id_a = f"rack-{index + 1}-A"
+        id_b = f"rack-{index + 1}-B"
+        for side, z, own_id, mate_id in (
+            ("A", origin, id_a, id_b),
+            ("B", origin + RACK_DEPTH + BACK_GAP, id_b, id_a),
+        ):
+            racks.append(
+                {
+                    "id": own_id,
+                    "code": f"R{index + 1:02d}{side}",
+                    "blockId": block_id,
+                    "side": side,
+                    "backToBackWith": mate_id,
+                    "zoneId": ZONE_STORAGE,
+                    "x": RACK_X,
+                    "z": z,
+                    "w": RACK_WIDTH,
+                    "d": RACK_DEPTH,
+                    "bays": RACK_BAYS,
+                    "levels": RACK_LEVELS,
+                }
+            )
     return racks
 
 
+def build_blocks(racks: list[dict] | None = None) -> list[dict]:
+    if racks is None:
+        racks = build_racks()
+    by_block: dict[str, list[dict]] = {}
+    for rack in racks:
+        by_block.setdefault(str(rack["blockId"]), []).append(rack)
+    blocks: list[dict] = []
+    for index in range(BLOCK_COUNT):
+        block_id = f"B{index + 1:02d}"
+        pair = by_block[block_id]
+        rack_a = next(item for item in pair if item["side"] == "A")
+        rack_b = next(item for item in pair if item["side"] == "B")
+        blocks.append(
+            {
+                "id": block_id,
+                "rackAId": rack_a["id"],
+                "rackBId": rack_b["id"],
+                "x": rack_a["x"],
+                "z": rack_a["z"],
+                "w": rack_a["w"],
+                "d": BLOCK_DEPTH,
+            }
+        )
+    return blocks
+
+
+def build_aisles(racks: list[dict]) -> list[dict]:
+    by_id = {rack["id"]: rack for rack in racks}
+    aisles: list[dict] = []
+    for i, z in enumerate(AISLE_Z):
+        rack_ids: list[str] = []
+        if i == 0:
+            rack_ids = ["rack-1-A"]
+        elif i == BLOCK_COUNT:
+            rack_ids = [f"rack-{BLOCK_COUNT}-B"]
+        else:
+            rack_ids = [f"rack-{i}-B", f"rack-{i + 1}-A"]
+        aisles.append(
+            {
+                "id": f"A{i + 1:02d}",
+                "z": z,
+                "x": WEST_CORRIDOR_X,
+                "rackIds": [rid for rid in rack_ids if rid in by_id],
+            }
+        )
+    return aisles
+
+
 def _cell_approach(rack: dict, bay: int) -> dict[str, float]:
+    """Подъезд с внешней стороны стеллажа (не со стороны общей спины)."""
     bay_width = rack["w"] / rack["bays"]
     x = rack["x"] + (bay - 0.5) * bay_width
-    aisle = nearest_aisle_z(rack["z"] + rack["d"] / 2)
-    z = rack["z"] + rack["d"] + 0.8 if aisle > rack["z"] else rack["z"] - 0.8
+    if rack["side"] == "A":
+        z = rack["z"] - APPROACH_OFFSET
+    else:
+        z = rack["z"] + rack["d"] + APPROACH_OFFSET
     return {"x": x, "z": z}
 
 
@@ -226,7 +320,7 @@ def build_cells(racks: list[dict]) -> list[dict]:
             for level in range(1, rack["levels"] + 1):
                 cells.append(
                     {
-                        "id": f"{rack['code']}-{bay:02d}-{level}",
+                        "id": f"{rack['code']}-L{level}-C{bay:02d}",
                         "rackId": rack["id"],
                         "bay": bay,
                         "level": level,
@@ -269,7 +363,9 @@ def build_topology() -> dict:
         "depth": WAREHOUSE_DEPTH,
         "zones": build_zones(),
         "racks": racks,
+        "blocks": build_blocks(racks),
         "docks": build_docks(),
+        "aisles": build_aisles(racks),
         "aisleZ": list(AISLE_Z),
-        "corridorX": [WEST_CORRIDOR_X, EAST_CORRIDOR_X],
+        "corridorX": list(CORRIDOR_X),
     }

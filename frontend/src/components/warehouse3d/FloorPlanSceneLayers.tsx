@@ -3,17 +3,18 @@
  */
 import { Text } from "@react-three/drei"
 import { useMemo } from "react"
-import type { DeviceMotion, TruckMotion } from "@/components/deviceServer/simStore.ts"
-import { useSimMotion } from "@/components/deviceServer/useDeviceSimulation.ts"
 import {
   PACKING_POINT,
   RECEIVING_STAGING,
   SHIPPING_STAGING,
 } from "@/components/deviceServer/simLayout.ts"
+import type { DeviceMotion, TruckMotion } from "@/components/deviceServer/simStore.ts"
+import { useSimMotion } from "@/components/deviceServer/useDeviceSimulation.ts"
 import {
   FLOOR_PLAN_AISLE_Z,
   FLOOR_PLAN_CORRIDOR_X,
   getFloorPlanDocks,
+  getFloorPlanRacks,
   planToWorldX,
   planToWorldZ,
   WAREHOUSE_DEPTH,
@@ -28,6 +29,7 @@ const ZONE_COLORS: Record<string, string> = {
   packing: "#8b5cf6",
   shipping: "#10b981",
   charging: "#f59e0b",
+  picking: "#f97316",
 }
 
 function ZoneFloor({
@@ -45,7 +47,7 @@ function ZoneFloor({
           <group key={zone.id}>
             <mesh
               rotation={[-Math.PI / 2, 0, 0]}
-              position={[cx, 0.004, cz]}
+              position={[cx, 0.06, cz]}
             >
               <planeGeometry args={[zone.w, zone.d]} />
               <meshStandardMaterial
@@ -53,6 +55,10 @@ function ZoneFloor({
                 transparent
                 opacity={darkMode ? 0.22 : 0.32}
                 roughness={0.95}
+                depthWrite={false}
+                polygonOffset
+                polygonOffsetFactor={-2}
+                polygonOffsetUnits={-2}
               />
             </mesh>
             <Text
@@ -182,7 +188,7 @@ function StagingMarkers({ darkMode }: { darkMode?: boolean }) {
         const wx = planToWorldX(marker.pos.x)
         const wz = planToWorldZ(marker.pos.z)
         return (
-          <group key={marker.label} position={[wx, 0.02, wz]}>
+          <group key={marker.label} position={[wx, 0.12, wz]}>
             <mesh rotation={[-Math.PI / 2, 0, 0]}>
               <ringGeometry args={[0.8, 1.2, 24]} />
               <meshStandardMaterial color={ringColor} opacity={0.7} transparent />
@@ -210,13 +216,29 @@ function YardAreas({ darkMode }: { darkMode?: boolean }) {
   const color = darkMode ? "#1e293b" : "#e2e8f0"
   return (
     <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[westX, 0.003, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[westX, 0.04, 0]}>
         <planeGeometry args={[14, WAREHOUSE_DEPTH]} />
-        <meshStandardMaterial color={color} opacity={0.5} transparent />
+        <meshStandardMaterial
+          color={color}
+          opacity={0.5}
+          transparent
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+        />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[eastX, 0.003, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[eastX, 0.04, 0]}>
         <planeGeometry args={[14, WAREHOUSE_DEPTH]} />
-        <meshStandardMaterial color={color} opacity={0.5} transparent />
+        <meshStandardMaterial
+          color={color}
+          opacity={0.5}
+          transparent
+          depthWrite={false}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+        />
       </mesh>
     </>
   )
@@ -273,23 +295,32 @@ function FloorPlanDocks({ darkMode }: { darkMode?: boolean }) {
 
 function AisleMarkings({ darkMode }: { darkMode?: boolean }) {
   const color = darkMode ? "#eab308" : "#ca8a04"
-  const geom = useWarehouseGeometry()
+  const racks = getFloorPlanRacks()
+  const minX = Math.min(...racks.map((rack) => rack.x))
+  const maxX = Math.max(...racks.map((rack) => rack.x + rack.w))
+  const span = Math.max(8, maxX - minX)
+  const segments = Math.max(6, Math.floor(span / 3))
   return (
     <>
       {FLOOR_PLAN_AISLE_Z.map((planZ, ai) => {
         const wz = planToWorldZ(planZ)
-        const segments = Math.max(4, Math.floor(geom.rackLength / 3))
         return Array.from({ length: segments }, (_, si) => {
           const t = (si + 0.5) / segments
-          const wx = planToWorldX(26) + (t - 0.5) * geom.rackLength
+          const wx = planToWorldX(minX + t * span)
           return (
             <mesh
               key={`aisle-${ai}-${si}`}
-              position={[wx, 0.006, wz]}
+              position={[wx, 0.09, wz]}
               rotation={[-Math.PI / 2, 0, 0]}
             >
               <planeGeometry args={[1.2, 0.08]} />
-              <meshStandardMaterial color={color} />
+              <meshStandardMaterial
+                color={color}
+                depthWrite={false}
+                polygonOffset
+                polygonOffsetFactor={-2}
+                polygonOffsetUnits={-2}
+              />
             </mesh>
           )
         })
@@ -299,11 +330,19 @@ function AisleMarkings({ darkMode }: { darkMode?: boolean }) {
         return (
           <mesh
             key={`corr-${ci}`}
-            position={[wx, 0.005, 0]}
+            position={[wx, 0.08, 0]}
             rotation={[-Math.PI / 2, 0, 0]}
           >
             <planeGeometry args={[0.08, WAREHOUSE_DEPTH - 4]} />
-            <meshStandardMaterial color={color} opacity={0.5} transparent />
+            <meshStandardMaterial
+              color={color}
+              opacity={0.5}
+              transparent
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-2}
+              polygonOffsetUnits={-2}
+            />
           </mesh>
         )
       })}
@@ -415,16 +454,18 @@ export function SimDevicesLayer({ darkMode }: { darkMode?: boolean }) {
 export function FloorPlanSceneLayers({
   darkMode,
   showSimDevices = true,
+  showZones = true,
 }: {
   darkMode?: boolean
   showSimDevices?: boolean
+  showZones?: boolean
 }) {
   const geom = useWarehouseGeometry()
   if (!geom.floorPlanMode) return null
   return (
     <>
       <YardAreas darkMode={darkMode} />
-      <ZoneFloor darkMode={darkMode} />
+      {showZones && <ZoneFloor darkMode={darkMode} />}
       <AisleMarkings darkMode={darkMode} />
       <StagingMarkers darkMode={darkMode} />
       <FloorPlanWalls darkMode={darkMode} />

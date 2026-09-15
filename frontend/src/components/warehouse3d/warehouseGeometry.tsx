@@ -22,7 +22,8 @@ const FLOOR_PLAN_BAY_WIDTH = 4
 const FLOOR_PLAN_CELL_GAP = 0
 const FLOOR_PLAN_LEVEL_HEIGHT = 1.35
 const FLOOR_PLAN_CELL_HEIGHT = 1.05
-const FLOOR_PLAN_CELL_DEPTH = 2.6
+/** Меньше глубины стеллажа, чтобы A/B не пересекались на общей спине. */
+const FLOOR_PLAN_CELL_DEPTH = 1.55
 
 /**
  * Дополнительная глубина пола со стороны доков (legacy-сетка).
@@ -55,7 +56,7 @@ export type WarehouseGeometry = {
   floorDepth: number
   dockStagingDepth: number
   storageZOffset: number
-  /** План симулятора устройств (8 стеллажей, зоны 104×64 м). */
+  /** План симулятора устройств (8 back-to-back блоков, 16 стеллажей, 104×64 м). */
   floorPlanMode: boolean
   cellSize: number
   cellGap: number
@@ -164,9 +165,8 @@ function buildFloorPlanWarehouseGeometry(
   const cellsLength = spec.cellX
   const cellsDepth = spec.cellZ
   const levels = spec.levels
-  const rackLength =
-    cellsLength * (FLOOR_PLAN_BAY_WIDTH + FLOOR_PLAN_CELL_GAP) -
-    FLOOR_PLAN_CELL_GAP
+  const rackLength = racks[0]?.w ?? 20
+  const bayWidth = rackLength / Math.max(1, cellsLength)
   const rackDepth = racks[0]?.d ?? 3
   const pairs = Math.max(1, Math.floor(rackRows / 2))
   const blockWidth = rackDepth
@@ -208,7 +208,9 @@ function buildFloorPlanWarehouseGeometry(
     if (!rack) return [0, 0, 0]
     const bayWidth = rack.w / rack.bays
     const planX = rack.x + (cellX + 0.5) * bayWidth
-    const planZ = rack.z + rack.d / 2
+    const faceSign = rack.side === "B" ? 1 : -1
+    const inset = Math.max(0.12, (rack.d - FLOOR_PLAN_CELL_DEPTH) / 2)
+    const planZ = rack.z + rack.d / 2 + faceSign * inset
     const oy =
       level * FLOOR_PLAN_LEVEL_HEIGHT + FLOOR_PLAN_CELL_HEIGHT / 2 + 0.02
     const oz =
@@ -234,7 +236,7 @@ function buildFloorPlanWarehouseGeometry(
     dockStagingDepth,
     storageZOffset: 0,
     floorPlanMode: true,
-    cellSize: FLOOR_PLAN_BAY_WIDTH,
+    cellSize: bayWidth,
     cellGap: FLOOR_PLAN_CELL_GAP,
     levelHeight: FLOOR_PLAN_LEVEL_HEIGHT,
     cellHeight: FLOOR_PLAN_CELL_HEIGHT,

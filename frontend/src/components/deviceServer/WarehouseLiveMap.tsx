@@ -250,7 +250,7 @@ export function WarehouseLiveMap({
             key={`aisle-${z}`}
             x1={topology.corridorX[0]}
             y1={z}
-            x2={topology.corridorX[1]}
+            x2={topology.corridorX[topology.corridorX.length - 1]}
             y2={z}
             className="stroke-muted-foreground/30"
             strokeWidth={0.15}

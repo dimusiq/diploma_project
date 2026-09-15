@@ -104,6 +104,7 @@ def build_data(world: dict, state: str, speed: float, version: int) -> dict:
         "metrics": dict(world["metrics"]),
         "cellsTotal": len(world["cells"]),
         "cellsOccupied": occupied,
+        "occupiedCellIds": [c["id"] for c in world["cells"] if c.get("palletId")],
         "palletsTotal": len(world["pallets"]),
         "eventCounts": event_counts,
         "skuLabels": {s["id"]: s["code"] for s in world["skus"]},

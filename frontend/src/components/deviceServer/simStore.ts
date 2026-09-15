@@ -111,6 +111,7 @@ export interface DataSnapshot {
   metrics: SimMetrics
   cellsTotal: number
   cellsOccupied: number
+  occupiedCellIds?: string[]
   palletsTotal: number
   eventCounts: Array<{ type: string; count: number }>
   skuLabels: Record<string, string>

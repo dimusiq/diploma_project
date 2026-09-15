@@ -11,7 +11,7 @@ import { SimControlBar } from "@/components/deviceServer/SimControlBar.tsx"
 import { SimKpiStrip } from "@/components/deviceServer/SimKpiStrip.tsx"
 import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import { TasksPanel } from "@/components/deviceServer/TasksPanel.tsx"
-import { WarehouseLiveMap } from "@/components/deviceServer/WarehouseLiveMap.tsx"
+import { WarehouseDigitalTwin } from "@/components/deviceServer/WarehouseDigitalTwin.tsx"
 import {
   Tabs,
   TabsContent,
@@ -69,7 +69,7 @@ function DeviceServerPage() {
 
         <TabsContent value="map">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <WarehouseLiveMap
+            <WarehouseDigitalTwin
               selectedDeviceId={selectedDeviceId}
               onSelectDevice={setSelectedDeviceId}
             />

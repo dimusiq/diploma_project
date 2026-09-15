@@ -615,12 +615,33 @@ function Floor({ darkMode }: { darkMode?: boolean }) {
   const d = geom.floorPlanMode
     ? geom.floorDepth
     : geom.floorDepth + 2.5;
+  const detail = !geom.floorPlanMode;
+  const scuffs = useMemo(() => {
+    const marks: Array<{
+      x: number;
+      z: number;
+      rot: number;
+      w: number;
+    }> = [];
+    const seed = 42;
+    for (let i = 0; i < 12; i++) {
+      const h = (seed * (i + 1) * 7919) % 10000;
+      marks.push({
+        x: (((h % 200) - 100) / 100) * (w / 3),
+        z: ((((h * 3) % 200) - 100) / 100) * (d / 3),
+        rot: (h % 314) / 100,
+        w: 0.15 + (h % 30) / 100,
+      });
+    }
+    return marks;
+  }, [w, d]);
   return (
     <group>
       {/* Main concrete floor */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, 0, 0]}
+        receiveShadow
       >
         <planeGeometry args={[w, d]} />
         <meshStandardMaterial
@@ -629,6 +650,8 @@ function Floor({ darkMode }: { darkMode?: boolean }) {
           roughness={0.92}
         />
       </mesh>
+      {detail && (
+        <>
       {/* Concrete expansion joint grid */}
       {Array.from(
         { length: Math.floor(w / 4) + 1 },
@@ -637,13 +660,16 @@ function Floor({ darkMode }: { darkMode?: boolean }) {
         <mesh
           key={`jx-${i}`}
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[x, 0.002, 0]}
+          position={[x, 0.02, 0]}
         >
           <planeGeometry args={[0.02, d]} />
           <meshStandardMaterial
             color={darkMode ? '#1e293b' : '#9ca3af'}
             metalness={0.05}
             roughness={0.95}
+            polygonOffset
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-2}
           />
         </mesh>
       ))}
@@ -654,40 +680,24 @@ function Floor({ darkMode }: { darkMode?: boolean }) {
         <mesh
           key={`jz-${i}`}
           rotation={[-Math.PI / 2, 0, 0]}
-          position={[0, 0.002, z]}
+          position={[0, 0.02, z]}
         >
           <planeGeometry args={[w, 0.02]} />
           <meshStandardMaterial
             color={darkMode ? '#1e293b' : '#9ca3af'}
             metalness={0.05}
             roughness={0.95}
+            polygonOffset
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-2}
           />
         </mesh>
       ))}
-      {/* Tire scuff marks (subtle wear on high-traffic areas) */}
-      {useMemo(() => {
-        const marks: Array<{
-          x: number;
-          z: number;
-          rot: number;
-          w: number;
-        }> = [];
-        const seed = 42;
-        for (let i = 0; i < 12; i++) {
-          const h = (seed * (i + 1) * 7919) % 10000;
-          marks.push({
-            x: (((h % 200) - 100) / 100) * (w / 3),
-            z: ((((h * 3) % 200) - 100) / 100) * (d / 3),
-            rot: (h % 314) / 100,
-            w: 0.15 + (h % 30) / 100,
-          });
-        }
-        return marks;
-      }, [w, d]).map((m, i) => (
+      {scuffs.map((m, i) => (
         <mesh
           key={`scuff-${i}`}
           rotation={[-Math.PI / 2, m.rot, 0]}
-          position={[m.x, 0.003, m.z]}
+          position={[m.x, 0.025, m.z]}
         >
           <planeGeometry args={[m.w, 0.03]} />
           <meshStandardMaterial
@@ -696,9 +706,15 @@ function Floor({ darkMode }: { darkMode?: boolean }) {
             roughness={0.95}
             transparent
             opacity={0.3}
+            depthWrite={false}
+            polygonOffset
+            polygonOffsetFactor={-1}
+            polygonOffsetUnits={-2}
           />
         </mesh>
       ))}
+        </>
+      )}
     </group>
   );
 }
@@ -1470,13 +1486,15 @@ function WarehouseContent({
         color={darkMode ? '#fed7aa' : '#e2e8f0'}
       />
       {/* Soft contact shadows on the floor */}
-      <ContactShadows
-        position={[0, 0.005, 0]}
-        opacity={darkMode ? 0.12 : 0.35}
-        scale={geom.floorPlanMode ? 140 : 50}
-        blur={2.5}
-        far={geom.floorPlanMode ? 40 : 12}
-      />
+      {!geom.floorPlanMode && (
+        <ContactShadows
+          position={[0, 0.005, 0]}
+          opacity={darkMode ? 0.12 : 0.35}
+          scale={50}
+          blur={2.5}
+          far={12}
+        />
+      )}
 
       <Floor darkMode={darkMode} />
       <FloorPlanSceneLayers darkMode={darkMode} />
@@ -1807,11 +1825,12 @@ export function WarehouseScene({
         camera={{
           position: floorPlanView ? [58, 44, 58] : [20, 16, 20],
           fov: 45,
-          near: 0.1,
+          near: floorPlanView ? 0.8 : 0.1,
           far: floorPlanView ? 450 : 280,
         }}
         gl={{
           antialias: true,
+          logarithmicDepthBuffer: true,
           powerPreference: 'default',
           failIfMajorPerformanceCaveat: false,
         }}

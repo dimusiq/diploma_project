@@ -1,10 +1,9 @@
 /**
  * Геометрия склада: зоны, стеллажи, ячейки, ворота и маршрутизация по проездам.
  *
- * План склада 104 × 64 м. Ось x — с запада (приёмка) на восток (отгрузка),
- * ось z — сверху вниз. Техника ездит только по проездам между стеллажами
- * и по двум продольным коридорам, поэтому маршруты получаются «ортогональными»,
- * как на реальном складе.
+ * План склада 104 × 64 м. Ось x — длина стеллажа (запад → восток),
+ * ось z — между сдвоенными блоками (сверху вниз).
+ * 8 back-to-back блоков: R01A спиной к R01B, проезд только снаружи.
  */
 
 import type {
@@ -19,23 +18,42 @@ import type {
 export const WAREHOUSE_WIDTH = 104
 export const WAREHOUSE_DEPTH = 64
 
-/** Продольные коридоры: западный (у приёмки) и восточный (у упаковки/отгрузки). */
 export const WEST_CORRIDOR_X = 22
 export const EAST_CORRIDOR_X = 78
 
-/** Диапазон x, занятый стеллажами. */
-const STORAGE_MIN_X = 24
-const STORAGE_MAX_X = 76
+const STORAGE_MIN_X = 26
+const STORAGE_MAX_X = 74
 
+const RACK_X = 26
 const RACK_WIDTH = 48
-const RACK_DEPTH = 3
+const RACK_DEPTH = 2.4
 const RACK_BAYS = 12
 const RACK_LEVELS = 3
+const BACK_GAP = 0.2
+const BLOCK_COUNT = 8
+const BLOCK_DEPTH = 2 * RACK_DEPTH + BACK_GAP
+const AISLE_WIDTH = 2.5
+const PITCH = BLOCK_DEPTH + AISLE_WIDTH
+const FIRST_BLOCK_Z = 3
+const APPROACH_OFFSET = 1.2
 
-/** z-координата верхнего края каждого стеллажа. */
-const RACK_Z = [4, 11, 19, 26, 34, 41, 49, 56]
-/** Центры поперечных проездов между парами стеллажей. */
-const AISLE_Z = [9, 24, 39, 54]
+function blockOriginZ(index: number): number {
+  return FIRST_BLOCK_Z + index * PITCH
+}
+
+function workAisleCenters(): number[] {
+  const centers = [FIRST_BLOCK_Z / 2]
+  for (let index = 0; index < BLOCK_COUNT; index += 1) {
+    const south = blockOriginZ(index) + BLOCK_DEPTH
+    const northNext =
+      index + 1 < BLOCK_COUNT ? blockOriginZ(index + 1) : WAREHOUSE_DEPTH
+    centers.push((south + northNext) / 2)
+  }
+  return centers
+}
+
+const AISLE_Z = workAisleCenters()
+const CORRIDOR_X = [WEST_CORRIDOR_X, EAST_CORRIDOR_X]
 
 export const ZONES: SimZone[] = [
   {
@@ -69,6 +87,16 @@ export const ZONES: SimZone[] = [
     d: 60,
   },
   {
+    id: "zone-pick",
+    code: "PICK",
+    name: "Отбор",
+    kind: "picking",
+    x: 74,
+    z: 2,
+    w: 6,
+    d: 60,
+  },
+  {
     id: "zone-pack",
     code: "PACK",
     name: "Упаковка",
@@ -93,6 +121,7 @@ export const ZONES: SimZone[] = [
 export const ZONE_RECEIVING = "zone-recv"
 export const ZONE_CHARGING = "zone-chrg"
 export const ZONE_STORAGE = "zone-stor"
+export const ZONE_PICKING = "zone-pick"
 export const ZONE_PACKING = "zone-pack"
 export const ZONE_SHIPPING = "zone-ship"
 
@@ -104,28 +133,61 @@ export const PACKING_POINT: Vec2 = { x: 84, z: 14 }
 export const SHIPPING_STAGING: Vec2 = { x: 86, z: 44 }
 
 export function buildRacks(): SimRack[] {
-  return RACK_Z.map((z, index) => ({
-    id: `rack-${index + 1}`,
-    code: `R${String(index + 1).padStart(2, "0")}`,
-    zoneId: ZONE_STORAGE,
-    x: 26,
-    z,
-    w: RACK_WIDTH,
-    d: RACK_DEPTH,
-    bays: RACK_BAYS,
-    levels: RACK_LEVELS,
-  }))
+  const racks: SimRack[] = []
+  for (let index = 0; index < BLOCK_COUNT; index += 1) {
+    const blockId = `B${String(index + 1).padStart(2, "0")}`
+    const origin = blockOriginZ(index)
+    const idA = `rack-${index + 1}-A`
+    const idB = `rack-${index + 1}-B`
+    const pair: Array<["A" | "B", number, string, string]> = [
+      ["A", origin, idA, idB],
+      ["B", origin + RACK_DEPTH + BACK_GAP, idB, idA],
+    ]
+    for (const [side, z, ownId, mateId] of pair) {
+      racks.push({
+        id: ownId,
+        code: `R${String(index + 1).padStart(2, "0")}${side}`,
+        blockId,
+        side,
+        backToBackWith: mateId,
+        zoneId: ZONE_STORAGE,
+        x: RACK_X,
+        w: RACK_WIDTH,
+        z,
+        d: RACK_DEPTH,
+        bays: RACK_BAYS,
+        levels: RACK_LEVELS,
+      })
+    }
+  }
+  return racks
 }
 
-/**
- * Точка подъезда к ячейке — в проезде напротив стеллажа, а не внутри него:
- * техника останавливается перед ячейкой и работает мачтой.
- */
+export function buildBlocks(racks = buildRacks()) {
+  return Array.from({ length: BLOCK_COUNT }, (_, index) => {
+    const blockId = `B${String(index + 1).padStart(2, "0")}`
+    const pair = racks.filter((rack) => rack.blockId === blockId)
+    const rackA = pair.find((rack) => rack.side === "A")
+    const rackB = pair.find((rack) => rack.side === "B")
+    return {
+      id: blockId,
+      rackAId: rackA?.id ?? "",
+      rackBId: rackB?.id ?? "",
+      x: rackA?.x ?? RACK_X,
+      z: rackA?.z ?? 0,
+      w: rackA?.w ?? RACK_WIDTH,
+      d: BLOCK_DEPTH,
+    }
+  })
+}
+
 function cellApproachPos(rack: SimRack, bay: number): Vec2 {
   const bayWidth = rack.w / rack.bays
   const x = rack.x + (bay - 0.5) * bayWidth
-  const aisle = nearestAisleZ(rack.z + rack.d / 2)
-  const z = aisle > rack.z ? rack.z + rack.d + 0.8 : rack.z - 0.8
+  const z =
+    rack.side === "B"
+      ? rack.z + rack.d + APPROACH_OFFSET
+      : rack.z - APPROACH_OFFSET
   return { x, z }
 }
 
@@ -136,7 +198,7 @@ export function buildCells(racks: SimRack[]): SimCell[] {
       const pos = cellApproachPos(rack, bay)
       for (let level = 1; level <= rack.levels; level += 1) {
         cells.push({
-          id: `${rack.code}-${String(bay).padStart(2, "0")}-${level}`,
+          id: `${rack.code}-L${level}-C${String(bay).padStart(2, "0")}`,
           rackId: rack.id,
           bay,
           level,
@@ -175,9 +237,10 @@ export function buildTopology(): SimTopology {
     depth: WAREHOUSE_DEPTH,
     zones: ZONES,
     racks,
+    blocks: buildBlocks(racks),
     docks: buildDocks(),
     aisleZ: AISLE_Z,
-    corridorX: [WEST_CORRIDOR_X, EAST_CORRIDOR_X],
+    corridorX: CORRIDOR_X,
   }
 }
 
@@ -204,9 +267,11 @@ function inStorageSpan(x: number): boolean {
 }
 
 function corridorNearest(x: number): number {
-  return x < (WEST_CORRIDOR_X + EAST_CORRIDOR_X) / 2
-    ? WEST_CORRIDOR_X
-    : EAST_CORRIDOR_X
+  let best = CORRIDOR_X[0]
+  for (const corridor of CORRIDOR_X) {
+    if (Math.abs(corridor - x) < Math.abs(best - x)) best = corridor
+  }
+  return best
 }
 
 export function distance(a: Vec2, b: Vec2): number {
