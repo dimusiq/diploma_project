@@ -163,7 +163,7 @@ function emptyData(): DataSnapshot {
       scanErrorRate: 0.04,
       jamRatePerHour: 0.8,
       batteryDrainPerMin: 0.35,
-      initialFillRatio: 0.55,
+      initialFillRatio: 0.72,
       autoRepair: true,
     },
     topology: buildTopology(),

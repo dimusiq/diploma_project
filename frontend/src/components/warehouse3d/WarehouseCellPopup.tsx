@@ -1,5 +1,5 @@
-import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Link as RouterLink } from '@tanstack/react-router';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Button } from '@/components/ui/button.tsx';
 import { formatExpiredDaysLabel } from '@/components/warehouse3d/twin3dDerived.ts';
 import type { CellItemInfo } from '@/components/warehouse3d/warehouse3dTypes.ts';

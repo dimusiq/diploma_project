@@ -1,8 +1,13 @@
 import { useCursor } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { MeshStandardMaterial } from 'three';
+import { useEffect, useRef, useState } from 'react';
+import type { MeshStandardMaterial } from 'three';
+import {
+  CellStatusMark,
+  PalletLoad,
+} from '@/components/warehouse3d/PalletRackVisuals.tsx';
+import { palletCargoVariant } from '@/components/warehouse3d/palletRackLayout.ts';
 import type { CellStripe } from '@/components/warehouse3d/twin3dDerived.ts';
 import {
   CELL_BLOCKED_COLOR,
@@ -46,6 +51,29 @@ function CellEmissivePulse({
   return null;
 }
 
+type StorageCellProps = {
+  filled: boolean;
+  expiring: boolean;
+  expired: boolean;
+  x: number;
+  y: number;
+  z: number;
+  selected?: boolean;
+  darkMode?: boolean;
+  heatIntensity?: number;
+  hazardStripe?: CellStripe | null;
+  dimmed?: boolean;
+  cellSize?: number;
+  cellHeight?: number;
+  cellDepth?: number;
+  visualMode?: 'box' | 'pallet';
+  aisleSign?: 1 | -1;
+  cellKey?: string;
+  onCellClick?: (shiftKey: boolean) => void;
+  onEnter?: () => void;
+  onLeave?: () => void;
+};
+
 export function StorageCell({
   filled,
   expiring,
@@ -61,28 +89,13 @@ export function StorageCell({
   cellSize,
   cellHeight,
   cellDepth,
+  visualMode = 'box',
+  aisleSign = -1,
+  cellKey,
   onCellClick,
   onEnter,
   onLeave,
-}: {
-  filled: boolean;
-  expiring: boolean;
-  expired: boolean;
-  x: number;
-  y: number;
-  z: number;
-  selected?: boolean;
-  darkMode?: boolean;
-  heatIntensity?: number;
-  hazardStripe?: CellStripe | null;
-  dimmed?: boolean;
-  cellSize?: number;
-  cellHeight?: number;
-  cellDepth?: number;
-  onCellClick?: (shiftKey: boolean) => void;
-  onEnter?: () => void;
-  onLeave?: () => void;
-}) {
+}: StorageCellProps) {
   const [hover, setHover] = useState(false);
   const materialRef = useRef<MeshStandardMaterial>(null);
   const pointerDownRef = useRef<{
@@ -97,7 +110,7 @@ export function StorageCell({
 
   useEffect(() => {
     const mat = materialRef.current;
-    if (!mat || pulsing) return;
+    if (!mat || pulsing || visualMode === 'pallet') return;
     mat.opacity = dimmed ? 0.28 : 1;
     mat.transparent = Boolean(dimmed);
     if (hazardStripe === 'blocked') {
@@ -158,6 +171,7 @@ export function StorageCell({
     hover,
     filled,
     darkMode,
+    visualMode,
   ]);
 
   const baseColor = expired
@@ -182,36 +196,94 @@ export function StorageCell({
                       ? CELL_EMPTY_COLOR_DARK
                       : CELL_EMPTY_COLOR_LIGHT;
 
+  const pointerHandlers = {
+    onPointerDown: (e: { stopPropagation: () => void; clientX: number; clientY: number }) => {
+      e.stopPropagation();
+      pointerDownRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+      };
+    },
+    onPointerUp: (e: {
+      stopPropagation: () => void;
+      clientX: number;
+      clientY: number;
+      shiftKey: boolean;
+    }) => {
+      e.stopPropagation();
+      const start = pointerDownRef.current;
+      pointerDownRef.current = null;
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (dx * dx + dy * dy > 36) return;
+      onCellClick?.(e.shiftKey);
+    },
+    onPointerOver: (e: { stopPropagation: () => void }) => {
+      e.stopPropagation();
+      setHover(true);
+      onEnter?.();
+    },
+    onPointerOut: () => {
+      setHover(false);
+      onLeave?.();
+    },
+  };
+
+  if (visualMode === 'pallet') {
+    const variant = palletCargoVariant(cellKey ?? `${x}-${y}-${z}`);
+    return (
+      <group position={[x, y, z]}>
+        <mesh
+          onPointerDown={pointerHandlers.onPointerDown}
+          onPointerUp={pointerHandlers.onPointerUp}
+          onPointerOver={pointerHandlers.onPointerOver}
+          onPointerOut={pointerHandlers.onPointerOut}
+        >
+          <boxGeometry args={[boxW, boxH, boxD]} />
+          <meshStandardMaterial
+            color='#000000'
+            transparent
+            opacity={0.001}
+            depthWrite={false}
+          />
+        </mesh>
+        {filled && (
+          <group
+            position={[0, -boxH / 2 + 0.05, 0]}
+            visible={!dimmed || Boolean(selected)}
+          >
+            <PalletLoad
+              variant={variant}
+              maxHeight={boxH}
+              lanes={boxW >= 2.2 ? 2 : 1}
+            />
+          </group>
+        )}
+        <CellStatusMark
+          stripe={hazardStripe}
+          selected={selected}
+          hover={hover}
+          expiring={expiring}
+          expired={expired}
+          heatIntensity={heatIntensity}
+          aisleSign={aisleSign}
+          cellW={boxW}
+          cellH={boxH}
+          cellD={boxD}
+        />
+      </group>
+    );
+  }
+
   return (
     <>
       <mesh
         position={[x, y, z]}
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          pointerDownRef.current = {
-            x: e.clientX,
-            y: e.clientY,
-          };
-        }}
-        onPointerUp={(e) => {
-          e.stopPropagation();
-          const start = pointerDownRef.current;
-          pointerDownRef.current = null;
-          if (!start) return;
-          const dx = e.clientX - start.x;
-          const dy = e.clientY - start.y;
-          if (dx * dx + dy * dy > 36) return;
-          onCellClick?.(e.shiftKey);
-        }}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHover(true);
-          onEnter?.();
-        }}
-        onPointerOut={() => {
-          setHover(false);
-          onLeave?.();
-        }}
+        onPointerDown={pointerHandlers.onPointerDown}
+        onPointerUp={pointerHandlers.onPointerUp}
+        onPointerOver={pointerHandlers.onPointerOver}
+        onPointerOut={pointerHandlers.onPointerOut}
       >
         <boxGeometry
           args={[boxW, boxH, boxD]}

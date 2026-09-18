@@ -20,8 +20,14 @@ import { MeshStandardMaterial } from 'three';
 import type { EquipmentPublic } from '@/api/equipment.ts';
 import type { RouteGraphResponse } from '@/api/warehouseRouteGraph.ts';
 import type { TopologyDocument } from '@/api/warehouseTopology.ts';
+import { useSimMotion } from '@/components/deviceServer/useDeviceSimulation.ts';
+import { FloorPlanRackRow } from '@/components/warehouse3d/FloorPlanRackRow.tsx';
+import { FloorPlanSceneLayers } from '@/components/warehouse3d/FloorPlanSceneLayers.tsx';
 import type { CellStripe } from '@/components/warehouse3d/twin3dDerived.ts';
-import { cellMatchesFilter } from '@/components/warehouse3d/warehouse3dSearch.ts';
+import {
+  ConveyorSection,
+  type WarehouseEquipmentKind,
+} from '@/components/warehouse3d/WarehouseEquipmentModels.tsx';
 import { FreeCameraController } from '@/components/warehouse3d/WarehouseFreeCamera.tsx';
 import {
   ROUTE_FLOOR_Y,
@@ -30,22 +36,21 @@ import {
 } from '@/components/warehouse3d/WarehouseRouteLayer.tsx';
 import { StorageCell } from '@/components/warehouse3d/WarehouseStorageCell.tsx';
 import {
-  ConveyorSection,
-  type WarehouseEquipmentKind,
-} from '@/components/warehouse3d/WarehouseEquipmentModels.tsx';
-import {
   type TwinLayersVisibility,
   WarehouseTwinLayers,
 } from '@/components/warehouse3d/WarehouseTwinLayers.tsx';
-import { useSimMotion } from '@/components/deviceServer/useDeviceSimulation.ts';
-import { FloorPlanRackRow } from '@/components/warehouse3d/FloorPlanRackRow.tsx';
-import { FloorPlanSceneLayers } from '@/components/warehouse3d/FloorPlanSceneLayers.tsx';
+import { cellMatchesFilter } from '@/components/warehouse3d/warehouse3dSearch.ts';
+import type {
+  CellInfo,
+  TwinOverlayMode,
+  WarehouseInteractionMode,
+} from '@/components/warehouse3d/warehouse3dTypes.ts';
+import { pickLaneWorldZ } from '@/components/warehouse3d/warehouseAisleRouting.ts';
 import {
   getFloorPlanRacks,
   isFloorPlanLayoutSpec,
   resolveFloorPlanLayoutSpec,
 } from '@/components/warehouse3d/warehouseFloorPlanAdapter.ts';
-import { pickLaneWorldZ } from '@/components/warehouse3d/warehouseAisleRouting.ts';
 import {
   buildWarehouseGeometry,
   DEFAULT_WAREHOUSE_LAYOUT_SPEC,
@@ -55,21 +60,15 @@ import {
   type WarehouseLayoutSpec,
 } from '@/components/warehouse3d/warehouseGeometry.tsx';
 import { buildRoutePolyline } from '@/components/warehouse3d/warehouseRouteGraphPath.ts';
-import type {
-  CellInfo,
-  TwinOverlayMode,
-  WarehouseInteractionMode,
-} from '@/components/warehouse3d/warehouse3dTypes.ts';
 import type { LiveEquipmentPose } from '@/hooks/useEquipmentPositionsLive.ts';
 
-export type { WarehouseEquipmentKind };
-export type { WarehouseLayoutSpec };
 export type {
   CellInfo,
   CellItemInfo,
   TwinOverlayMode,
   WarehouseInteractionMode,
 } from '@/components/warehouse3d/warehouse3dTypes.ts';
+export type { WarehouseEquipmentKind, WarehouseLayoutSpec };
 
 const FLOOR_COLOR_LIGHT = '#6b7280';
 const FLOOR_COLOR_DARK = '#4b5563';
@@ -1485,16 +1484,13 @@ function WarehouseContent({
         decay={1.6}
         color={darkMode ? '#fed7aa' : '#e2e8f0'}
       />
-      {/* Soft contact shadows on the floor */}
-      {!geom.floorPlanMode && (
-        <ContactShadows
-          position={[0, 0.005, 0]}
-          opacity={darkMode ? 0.12 : 0.35}
-          scale={50}
-          blur={2.5}
-          far={12}
-        />
-      )}
+      <ContactShadows
+        position={[0, 0.005, 0]}
+        opacity={darkMode ? 0.12 : 0.28}
+        scale={geom.floorPlanMode ? 140 : 50}
+        blur={2.5}
+        far={geom.floorPlanMode ? 18 : 12}
+      />
 
       <Floor darkMode={darkMode} />
       <FloorPlanSceneLayers darkMode={darkMode} />
@@ -1823,7 +1819,7 @@ export function WarehouseScene({
           needsContinuousFrames ? 'always' : 'demand'
         }
         camera={{
-          position: floorPlanView ? [58, 44, 58] : [20, 16, 20],
+          position: floorPlanView ? [52, 82, 72] : [20, 16, 20],
           fov: 45,
           near: floorPlanView ? 0.8 : 0.1,
           far: floorPlanView ? 450 : 280,
@@ -1880,7 +1876,7 @@ export function WarehouseScene({
             enableZoom
             minDistance={floorPlanView ? 22 : 14}
             maxDistance={floorPlanView ? 220 : 90}
-            target={[0, floorPlanView ? 4 : 2, 0]}
+            target={[0, floorPlanView ? 2.2 : 2, 0]}
             maxPolarAngle={Math.PI / 2 - 0.1}
           />
         )}

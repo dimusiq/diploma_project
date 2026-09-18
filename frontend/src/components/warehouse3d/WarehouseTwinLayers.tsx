@@ -18,13 +18,13 @@ import {
   equipmentTypeToKind,
   WarehouseEquipmentMesh,
 } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
-import type { LiveEquipmentPose } from "@/hooks/useEquipmentPositionsLive.ts"
 import {
   CELL_SIZE,
   LEVEL_HEIGHT,
   useWarehouseGeometry,
   type WarehouseGeometry,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
+import type { LiveEquipmentPose } from "@/hooks/useEquipmentPositionsLive.ts"
 
 function zoneAabb(
   geom: WarehouseGeometry,

@@ -1,13 +1,17 @@
 /**
  * Стеллаж в режиме плана «Сервера устройств»: полоса 48×3 м, 12 ячеек × 3 уровня.
  */
-import { Text } from "@react-three/drei"
 import { useMemo } from "react"
-import { getFloorPlanRacks } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
+import {
+  RackBay,
+  RackFrame,
+  RackLevel,
+} from "@/components/warehouse3d/twin/RackFrame.tsx"
+import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
 import { StorageCell } from "@/components/warehouse3d/WarehouseStorageCell.tsx"
 import { cellMatchesFilter } from "@/components/warehouse3d/warehouse3dSearch.ts"
-import type { CellStripe } from "@/components/warehouse3d/twin3dDerived.ts"
 import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
+import { getFloorPlanRacks } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 import { useWarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
 
 function isCellFilled(
@@ -63,7 +67,7 @@ export function FloorPlanRackRow({
 }) {
   const geom = useWarehouseGeometry()
   const rack = getFloorPlanRacks()[rackIndex]
-  const rackH = geom.levels * geom.levelHeight
+  const aisleSign: 1 | -1 = rack?.side === "B" ? 1 : -1
 
   const cells = useMemo(() => {
     const out: Array<{
@@ -107,123 +111,93 @@ export function FloorPlanRackRow({
 
   if (!rack) return null
 
-  const shelfColor = darkMode ? "#475569" : "#94a3b8"
-  const fillOpacity = 0.12 + fillRatio * 0.45
-
   return (
     <group position={[baseX, 0, baseZ]}>
-      <mesh position={[0, 0.06, 0]}>
-        <boxGeometry args={[geom.rackLength, 0.12, geom.rackDepth]} />
-        <meshStandardMaterial
-          color={shelfColor}
-          transparent
-          opacity={fillOpacity}
-          metalness={0.15}
-          roughness={0.75}
-        />
-      </mesh>
-      <mesh position={[0, rackH / 2, 0]}>
-        <boxGeometry
-          args={[geom.rackLength + 0.04, rackH, geom.rackDepth]}
-        />
-        <meshStandardMaterial
-          color={shelfColor}
-          transparent
-          opacity={0.06}
-          depthWrite={false}
-          polygonOffset
-          polygonOffsetFactor={1}
-          polygonOffsetUnits={1}
-        />
-      </mesh>
-      <Text
-        position={[-geom.rackLength / 2 - 1.2, 0.2, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.9}
-        color={darkMode ? "#cbd5e1" : "#475569"}
-        anchorX="right"
-        anchorY="middle"
-      >
-        {rack.code}
-      </Text>
-      <Text
-        position={[geom.rackLength / 2 + 1.2, 0.2, 0]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.75}
-        color={darkMode ? "#94a3b8" : "#64748b"}
-        anchorX="left"
-        anchorY="middle"
-      >
-        {`${Math.round(fillRatio * 100)}%`}
-      </Text>
+      <RackFrame
+        geom={geom}
+        aisleSign={aisleSign}
+        code={rack.code}
+        fillRatio={fillRatio}
+        darkMode={darkMode}
+      />
 
-      {cells.map(({ level, ix, iz, filled, expiring, expired }) => {
-        const [wx, wy, wz] = geom.getCellWorldPosition(
-          rackIndex,
-          level,
-          ix,
-          iz,
-        )
-        const isSelected =
-          selectedCell?.row === rackIndex &&
-          selectedCell?.level === level &&
-          selectedCell?.cellX === ix &&
-          selectedCell?.cellZ === iz
-        const info: CellInfo = {
-          row: rackIndex,
-          level,
-          cellX: ix,
-          cellZ: iz,
-          filled,
-        }
-        const ckey = geom.cellKey(rackIndex, level, ix, iz)
-        const matches = cellMatchesFilter(
-          cellFilter,
-          filled,
-          expiring,
-          expired,
-        )
-        if (
-          !matches &&
-          cellFilter &&
-          cellFilter !== "all" &&
-          !isSelected
-        ) {
-          return null
-        }
-        return (
-          <StorageCell
-            key={ckey}
-            filled={filled}
-            expiring={expiring}
-            expired={expired}
-            x={wx - baseX}
-            y={wy}
-            z={wz - baseZ}
-            cellSize={geom.cellSize * 0.92}
-            cellHeight={geom.cellHeight}
-            cellDepth={geom.cellDepth * 0.92}
-            selected={isSelected}
-            darkMode={darkMode}
-            heatIntensity={heatByCellKey?.get(ckey)}
-            hazardStripe={hazardByCellKey?.get(ckey) ?? null}
-            dimmed={!matches}
-            onCellClick={(shiftKey) => {
-              if (routeMode) {
-                onRouteWaypointAdd?.(info)
-                return
+      {Array.from({ length: geom.levels }, (_, level) => (
+        <RackLevel key={level} level={level}>
+          {cells
+            .filter((cell) => cell.level === level)
+            .map(({ ix, iz, filled, expiring, expired }) => {
+              const [wx, wy, wz] = geom.getCellWorldPosition(
+                rackIndex,
+                level,
+                ix,
+                iz,
+              )
+              const isSelected =
+                selectedCell?.row === rackIndex &&
+                selectedCell?.level === level &&
+                selectedCell?.cellX === ix &&
+                selectedCell?.cellZ === iz
+              const info: CellInfo = {
+                row: rackIndex,
+                level,
+                cellX: ix,
+                cellZ: iz,
+                filled,
               }
-              if (shiftKey && onRouteWaypointAdd) {
-                onRouteWaypointAdd(info)
-                return
+              const ckey = geom.cellKey(rackIndex, level, ix, iz)
+              const matches = cellMatchesFilter(
+                cellFilter,
+                filled,
+                expiring,
+                expired,
+              )
+              if (
+                !matches &&
+                cellFilter &&
+                cellFilter !== "all" &&
+                !isSelected
+              ) {
+                return null
               }
-              onCellClick(isSelected ? null : info)
-            }}
-            onEnter={() => onCellEnter?.(info)}
-            onLeave={() => onCellLeave?.(info)}
-          />
-        )
-      })}
+              return (
+                <RackBay key={ckey} bay={ix}>
+                  <StorageCell
+                    cellKey={ckey}
+                    filled={filled}
+                    expiring={expiring}
+                    expired={expired}
+                    x={wx - baseX}
+                    y={wy}
+                    z={wz - baseZ}
+                    cellSize={geom.cellSize * 0.88}
+                    cellHeight={geom.cellHeight}
+                    cellDepth={Math.min(geom.cellDepth, geom.rackDepth * 0.72)}
+                    visualMode="pallet"
+                    aisleSign={aisleSign}
+                    selected={isSelected}
+                    darkMode={darkMode}
+                    heatIntensity={heatByCellKey?.get(ckey)}
+                    hazardStripe={hazardByCellKey?.get(ckey) ?? null}
+                    dimmed={!matches}
+                    onCellClick={(shiftKey) => {
+                      if (routeMode) {
+                        onRouteWaypointAdd?.(info)
+                        return
+                      }
+                      if (shiftKey && onRouteWaypointAdd) {
+                        onRouteWaypointAdd(info)
+                        return
+                      }
+                      onCellClick(isSelected ? null : info)
+                    }}
+                    onEnter={() => onCellEnter?.(info)}
+                    onLeave={() => onCellLeave?.(info)}
+                  />
+                </RackBay>
+              )
+            })}
+        </RackLevel>
+      ))}
     </group>
   )
 }

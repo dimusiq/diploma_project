@@ -1,7 +1,7 @@
 import type { TopologyDocument } from "@/api/warehouseTopology.ts"
 import type { ItemPublic } from "@/client/index.ts"
-import type { WarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import { normalizeSlotKey } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
+import type { WarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import { ruPlural } from "@/lib/ruPlural.ts"
 
 export const EXPIRING_DAYS = 30

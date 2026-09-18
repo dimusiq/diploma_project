@@ -9,12 +9,12 @@ import {
   parseSlotKeyZeroBased,
 } from "@/components/warehouse3d/twin3dDerived.ts"
 import {
+  cellInfoToSearch,
+  cellMatchesFilter,
   clampSearchToLayout,
   parseCellFilter,
   searchToCellInfo,
   validateWarehouse3dSearch,
-  cellInfoToSearch,
-  cellMatchesFilter,
 } from "@/components/warehouse3d/warehouse3dSearch.ts"
 import {
   buildWarehouseGeometry,

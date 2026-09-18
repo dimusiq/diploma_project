@@ -44,3 +44,34 @@ export function occupiedCellKeysForTwin(
   }
   return occupiedCellKeysFromRackFill(rackFill)
 }
+
+export type TwinOccupancyStats = {
+  total: number
+  occupied: number
+  empty: number
+  percent: number
+  visualKeys: number
+}
+
+export function occupancyStatsForTwin(
+  cellsTotal: number,
+  cellsOccupied: number,
+  occupiedCellIds: string[] | undefined,
+  rackFill: RackFill[],
+): TwinOccupancyStats {
+  const keys = occupiedCellKeysForTwin(occupiedCellIds, rackFill)
+  const occupied =
+    occupiedCellIds && occupiedCellIds.length > 0
+      ? occupiedCellIds.length
+      : cellsOccupied
+  const total = cellsTotal > 0 ? cellsTotal : occupied
+  const empty = Math.max(0, total - occupied)
+  const percent = total > 0 ? Math.round((occupied / total) * 1000) / 10 : 0
+  return {
+    total,
+    occupied,
+    empty,
+    percent,
+    visualKeys: keys.size,
+  }
+}

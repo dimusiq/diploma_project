@@ -1,5 +1,5 @@
-import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
 import type { CellFilter } from "@/components/warehouse3d/warehouse3dSearch.ts"
+import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
 import {
   getFloorPlanRacks,
   planToWorldX,

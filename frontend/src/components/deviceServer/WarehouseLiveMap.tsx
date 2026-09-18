@@ -15,7 +15,8 @@ import {
 import type { DeviceMotion, TruckMotion } from "./simStore.ts"
 import { deviceSimulation } from "./simStore.ts"
 import type { ZoneKind } from "./simTypes.ts"
-import { useSimMotion } from "./useDeviceSimulation.ts"
+import { occupiedCellKeysForTwin } from "./twinOccupancy.ts"
+import { useSimData, useSimMotion } from "./useDeviceSimulation.ts"
 
 const ZONE_TONE: Record<ZoneKind, string> = {
   receiving: "fill-sky-500/10 stroke-sky-500/40",
@@ -184,13 +185,16 @@ function TruckShape({ truck }: { truck: TruckMotion }) {
 interface WarehouseLiveMapProps {
   selectedDeviceId: string | null
   onSelectDevice: (deviceId: string | null) => void
+  occupiedCellKeys?: Set<string>
 }
 
 export function WarehouseLiveMap({
   selectedDeviceId,
   onSelectDevice,
+  occupiedCellKeys,
 }: WarehouseLiveMapProps) {
   const motion = useSimMotion()
+  const data = useSimData()
   const topology = deviceSimulation.topology
 
   const fillByRack = useMemo(() => {
@@ -200,6 +204,13 @@ export function WarehouseLiveMap({
     }
     return map
   }, [motion.rackFill])
+
+  const cellKeys = useMemo(
+    () =>
+      occupiedCellKeys ??
+      occupiedCellKeysForTwin(data.occupiedCellIds, motion.rackFill),
+    [occupiedCellKeys, data.occupiedCellIds, motion.rackFill],
+  )
 
   return (
     <div className="rounded-lg border bg-card p-2">
@@ -271,8 +282,9 @@ export function WarehouseLiveMap({
         ))}
 
         {/* Стеллажи с заполнением */}
-        {topology.racks.map((rack) => {
+        {topology.racks.map((rack, rackIndex) => {
           const ratio = fillByRack.get(rack.id) ?? 0
+          const bayW = rack.w / Math.max(1, rack.bays)
           return (
             <g key={rack.id}>
               <rect
@@ -282,9 +294,40 @@ export function WarehouseLiveMap({
                 height={rack.d}
                 rx={0.3}
                 className="fill-foreground stroke-border"
-                fillOpacity={0.1 + ratio * 0.55}
+                fillOpacity={0.08 + ratio * 0.2}
                 strokeWidth={0.2}
               />
+              {Array.from({ length: rack.bays }, (_, bay) => {
+                const occupiedLevels = [0, 1, 2].filter((level) =>
+                  cellKeys.has(`${rackIndex}-${level}-${bay}-0`),
+                ).length
+                if (!occupiedLevels) return null
+                return (
+                  <rect
+                    key={`${rack.id}-occ-${bay}`}
+                    x={rack.x + bay * bayW + 0.08}
+                    y={rack.z + 0.12}
+                    width={bayW - 0.16}
+                    height={rack.d - 0.24}
+                    className="fill-foreground"
+                    fillOpacity={0.18 + occupiedLevels * 0.18}
+                  />
+                )
+              })}
+              {Array.from({ length: Math.max(0, rack.bays - 1) }, (_, i) => {
+                const x = rack.x + ((i + 1) / rack.bays) * rack.w
+                return (
+                  <line
+                    key={`${rack.id}-bay-${i}`}
+                    x1={x}
+                    y1={rack.z + 0.15}
+                    x2={x}
+                    y2={rack.z + rack.d - 0.15}
+                    className="stroke-border"
+                    strokeWidth={0.08}
+                  />
+                )
+              })}
               <text
                 x={rack.x - 1.2}
                 y={rack.z + rack.d / 2 + 0.8}

@@ -31,7 +31,7 @@ DEFAULT_CONFIG = {
     "scanErrorRate": 0.04,
     "jamRatePerHour": 0.8,
     "batteryDrainPerMin": 0.35,
-    "initialFillRatio": 0.55,
+    "initialFillRatio": 0.72,
     "autoRepair": True,
 }
 
@@ -43,7 +43,7 @@ DEMO_CONFIG = {
     "faultRatePerHour": 0.0,
     "scanErrorRate": 0.0,
     "jamRatePerHour": 0.0,
-    "initialFillRatio": 0.35,
+    "initialFillRatio": 0.78,
     "autoRepair": True,
 }
 
@@ -351,11 +351,24 @@ def empty_bridge() -> dict:
 
 
 def _seed_inventory(world: dict) -> None:
-    target = int(len(world["cells"]) * world["config"]["initialFillRatio"])
-    step = max(1, len(world["cells"]) // max(1, target))
-    i = 0
-    while i < len(world["cells"]) and len(world["pallets"]) < target:
-        cell = world["cells"][i]
+    """Равномерно занимает ячейки всех стеллажей по initialFillRatio.
+
+    Раньше при fill ≥ 0.5 шаг был 1, и паллеты укладывались подряд с начала
+    списка (первые ряды полные, дальние пустые). Теперь выбирается ровно
+    target ячеек случайно по всему складу — occupancy совпадает с конфигом
+    и визуально распределена по 16 rack.
+    """
+    cells = [cell for cell in world["cells"] if not cell.get("blocked")]
+    if not cells:
+        return
+    ratio = float(world["config"].get("initialFillRatio") or 0)
+    target = max(0, min(len(cells), int(round(len(cells) * ratio))))
+    order = list(range(len(cells)))
+    for i in range(len(order) - 1, 0, -1):
+        j = rand_int(world, 0, i)
+        order[i], order[j] = order[j], order[i]
+    for idx in order[:target]:
+        cell = cells[idx]
         sku = rand_pick(world, world["skus"])
         world["counters"]["pallet"] += 1
         pid = f"pal-{world['counters']['pallet']}"
@@ -373,4 +386,3 @@ def _seed_inventory(world: dict) -> None:
         }
         world["pallets"][pid] = pallet
         cell["palletId"] = pid
-        i += step

@@ -1,4 +1,9 @@
-import { lazy, Suspense, useState } from "react"
+import { lazy, Suspense, useEffect, useMemo, useState } from "react"
+import {
+  occupancyStatsForTwin,
+  occupiedCellKeysForTwin,
+} from "./twinOccupancy.ts"
+import { useSimData, useSimMotion } from "./useDeviceSimulation.ts"
 import { WarehouseLiveMap } from "./WarehouseLiveMap.tsx"
 import {
   type TwinViewMode,
@@ -18,6 +23,12 @@ export function WarehouseDigitalTwin({
   onSelectDevice: (deviceId: string | null) => void
 }) {
   const [view, setView] = useState<TwinViewMode>("2d")
+  const [mounted3d, setMounted3d] = useState(false)
+  const occupancy = useTwinOccupancy()
+
+  useEffect(() => {
+    if (view === "3d") setMounted3d(true)
+  }, [view])
 
   return (
     <div>
@@ -27,25 +38,58 @@ export function WarehouseDigitalTwin({
         </h2>
         <WarehouseViewSwitcher value={view} onChange={setView} />
       </div>
-      {view === "2d" ? (
+      {view === "2d" && (
         <WarehouseLiveMap
           selectedDeviceId={selectedDeviceId}
           onSelectDevice={onSelectDevice}
+          occupiedCellKeys={occupancy.keys}
         />
-      ) : (
-        <Suspense
-          fallback={
-            <div className="flex h-[min(62vh,640px)] min-h-[420px] items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
-              Загрузка 3D…
-            </div>
-          }
-        >
-          <Warehouse3D
-            selectedDeviceId={selectedDeviceId}
-            onSelectDevice={onSelectDevice}
-          />
-        </Suspense>
       )}
+      {mounted3d && (
+        <div className={view === "3d" ? undefined : "hidden"}>
+          <Suspense
+            fallback={
+              <div className="flex h-[min(62vh,640px)] min-h-[420px] items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
+                Загрузка 3D…
+              </div>
+            }
+          >
+            <Warehouse3D
+              selectedDeviceId={selectedDeviceId}
+              onSelectDevice={onSelectDevice}
+              active={view === "3d"}
+            />
+          </Suspense>
+        </div>
+      )}
+      <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+        Warehouse occupancy: total cells: {occupancy.stats.total} occupied
+        cells: {occupancy.stats.occupied} empty cells: {occupancy.stats.empty}{" "}
+        occupancy: {occupancy.stats.percent}%
+      </p>
     </div>
   )
+}
+
+export function useTwinOccupancy() {
+  const data = useSimData()
+  const motion = useSimMotion()
+  return useMemo(() => {
+    const keys = occupiedCellKeysForTwin(
+      data.occupiedCellIds,
+      motion.rackFill,
+    )
+    const stats = occupancyStatsForTwin(
+      data.cellsTotal,
+      data.cellsOccupied,
+      data.occupiedCellIds,
+      motion.rackFill,
+    )
+    return { keys, stats }
+  }, [
+    data.cellsOccupied,
+    data.cellsTotal,
+    data.occupiedCellIds,
+    motion.rackFill,
+  ])
 }

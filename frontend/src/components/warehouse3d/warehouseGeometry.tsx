@@ -296,10 +296,10 @@ export function cellWorldOnFloor(
 }
 
 export {
-  CELL_SIZE,
   CELL_GAP,
-  LEVEL_HEIGHT,
-  PASSAGE_WIDTH,
+  CELL_SIZE,
   FLOOR_PLAN_BAY_WIDTH,
   FLOOR_PLAN_LEVEL_HEIGHT,
+  LEVEL_HEIGHT,
+  PASSAGE_WIDTH,
 }

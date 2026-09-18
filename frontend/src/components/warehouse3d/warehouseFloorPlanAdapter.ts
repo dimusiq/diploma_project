@@ -9,8 +9,8 @@ import {
   ZONES,
 } from "@/components/deviceServer/simLayout.ts"
 import type { SimDock, SimRack, SimTopology } from "@/components/deviceServer/simTypes.ts"
-import type { WarehouseLayoutSpec } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import { parseSlotKeyZeroBased } from "@/components/warehouse3d/twin3dDerived.ts"
+import type { WarehouseLayoutSpec } from "@/components/warehouse3d/warehouseGeometry.tsx"
 
 /** Размеры сетки, совпадающие с симулятором устройств. */
 export const FLOOR_PLAN_LAYOUT_SPEC: WarehouseLayoutSpec = {
@@ -115,4 +115,4 @@ export function normalizeSlotKey(raw: string | null | undefined): string | null 
 
 export const FLOOR_PLAN_AISLE_Z = getFloorPlanTopology().aisleZ
 export const FLOOR_PLAN_CORRIDOR_X = getFloorPlanTopology().corridorX
-export { WAREHOUSE_WIDTH, WAREHOUSE_DEPTH, ZONES }
+export { WAREHOUSE_DEPTH, WAREHOUSE_WIDTH, ZONES }

@@ -1,19 +1,18 @@
 import { Line } from "@react-three/drei"
 import { useFrame } from "@react-three/fiber"
 import { useEffect, useMemo, useRef } from "react"
-import type { Group } from "three"
-import { Vector3 } from "three"
+import type { Group, Vector3 } from "three"
 import {
   type WarehouseEquipmentKind,
   WarehouseEquipmentMesh,
 } from "@/components/warehouse3d/WarehouseEquipmentModels.tsx"
+import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
 import { stagingPointOnFloor } from "@/components/warehouse3d/warehouseAisleRouting.ts"
 import { useWarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import {
   polylineLength,
   samplePolyline3D,
 } from "@/components/warehouse3d/warehousePathFollow.ts"
-import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
 
 export const ROUTE_FLOOR_Y = 0.22
 

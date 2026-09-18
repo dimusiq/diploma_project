@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
-import {
-  buildRoutePolyline,
-  diffOccupancyKeys,
-} from "@/components/warehouse3d/warehouseRouteGraphPath.ts"
+import type { ItemPublic } from "@/client/index.ts"
 import {
   buildWarehouseGeometry,
   DEFAULT_WAREHOUSE_LAYOUT_SPEC,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
-import type { ItemPublic } from "@/client/index.ts"
+import {
+  buildRoutePolyline,
+  diffOccupancyKeys,
+} from "@/components/warehouse3d/warehouseRouteGraphPath.ts"
 
 function item(overrides: Partial<ItemPublic> = {}): ItemPublic {
   return {

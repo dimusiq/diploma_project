@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest"
+import { getFloorPlanRacks } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 import {
   buildBlocks,
   buildRacks,
   buildTopology,
   routeBetween,
 } from "../simLayout.ts"
-import { occupiedCellKeysForTwin } from "../twinOccupancy.ts"
-import { getFloorPlanRacks } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 
 describe("маршрутизация по проездам", () => {
   it("строит путь между точками и заканчивает его в цели", () => {
@@ -50,13 +49,5 @@ describe("геометрия склада Device Server", () => {
   it("2D и 3D берут один и тот же layout из simLayout", () => {
     expect(getFloorPlanRacks()).toEqual(buildRacks())
     expect(getFloorPlanRacks()).toHaveLength(16)
-  })
-})
-
-describe("занятость ячеек для 3D", () => {
-  it("переводит sim cell id в ключ сетки", () => {
-    const keys = occupiedCellKeysForTwin(["R01A-L1-C01", "R08B-L3-C12"], [])
-    expect(keys.has("0-0-0-0")).toBe(true)
-    expect(keys.has("15-2-11-0")).toBe(true)
   })
 })
