@@ -93,7 +93,7 @@ async def notification_sse_stream(user_id: uuid.UUID) -> AsyncIterator[bytes]:
             try:
                 msg = await asyncio.wait_for(q.get(), timeout=15.0)
                 yield _format_sse(msg)
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 yield _format_sse(comment="ping")
     finally:
         _unsubscribe_queue(user_id, q)

@@ -1,9 +1,11 @@
 import asyncio
-from contextlib import asynccontextmanager
+import logging
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 
@@ -11,6 +13,8 @@ from app.api.main import api_router
 from app.core.config import settings
 from app.core.report_scheduler import report_scheduler_loop
 from app.warehouse_sim.runtime import ensure_seed_layout, start_runtime, stop_runtime
+
+logger = logging.getLogger(__name__)
 
 
 def custom_generate_unique_id(route: APIRoute) -> str:
@@ -67,3 +71,26 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Return JSON 500 inside ExceptionMiddleware so CORS headers are still applied.
+
+    Starlette's ServerErrorMiddleware sits outside CORSMiddleware; an unhandled
+    crash otherwise looks like a CORS failure in the browser.
+    """
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    if settings.SENTRY_DSN:
+        sentry_sdk.capture_exception(exc)
+    detail = "Internal Server Error"
+    if settings.ENVIRONMENT == "local":
+        detail = f"{type(exc).__name__}: {exc}"
+    origin = request.headers.get("origin")
+    headers: dict[str, str] = {}
+    if origin and origin.rstrip("/") in {
+        o.rstrip("/") for o in settings.all_cors_origins
+    }:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(status_code=500, content={"detail": detail}, headers=headers)

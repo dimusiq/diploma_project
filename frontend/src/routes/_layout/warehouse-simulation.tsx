@@ -793,41 +793,48 @@ function ScenarioComparisonSection({
                       </table>
                     </div>
 
-                    <div className="mx-auto w-full max-w-lg">
-                      <p className="mb-2 text-center text-xs text-muted-foreground">
-                        Радар-профиль (нормализовано 0–100, выше = лучше)
-                      </p>
-                      <ResponsiveContainer width="100%" height={380}>
-                        <RadarChart data={radarData} outerRadius="72%">
-                          <PolarGrid />
-                          <PolarAngleAxis
-                            dataKey="metric"
-                            tick={{ fontSize: 10 }}
-                          />
-                          <PolarRadiusAxis
-                            angle={90}
-                            domain={[0, 100]}
-                            tick={false}
-                            axisLine={false}
-                          />
-                          <Radar
-                            name={nameA}
-                            dataKey="scenarioA"
-                            stroke="hsl(210 80% 55%)"
-                            fill="hsl(210 80% 55%)"
-                            fillOpacity={0.15}
-                          />
-                          <Radar
-                            name={nameB}
-                            dataKey="scenarioB"
-                            stroke="hsl(340 75% 55%)"
-                            fill="hsl(340 75% 55%)"
-                            fillOpacity={0.15}
-                          />
-                          <Legend />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                    </div>
+                    {open ? (
+                      <div className="mx-auto h-[380px] w-full min-w-0 max-w-lg">
+                        <p className="mb-2 text-center text-xs text-muted-foreground">
+                          Радар-профиль (нормализовано 0–100, выше = лучше)
+                        </p>
+                        <ResponsiveContainer
+                          width="100%"
+                          height="100%"
+                          minWidth={0}
+                          minHeight={1}
+                        >
+                          <RadarChart data={radarData} outerRadius="72%">
+                            <PolarGrid />
+                            <PolarAngleAxis
+                              dataKey="metric"
+                              tick={{ fontSize: 10 }}
+                            />
+                            <PolarRadiusAxis
+                              angle={90}
+                              domain={[0, 100]}
+                              tick={false}
+                              axisLine={false}
+                            />
+                            <Radar
+                              name={nameA}
+                              dataKey="scenarioA"
+                              stroke="hsl(210 80% 55%)"
+                              fill="hsl(210 80% 55%)"
+                              fillOpacity={0.15}
+                            />
+                            <Radar
+                              name={nameB}
+                              dataKey="scenarioB"
+                              stroke="hsl(340 75% 55%)"
+                              fill="hsl(340 75% 55%)"
+                              fillOpacity={0.15}
+                            />
+                            <Legend />
+                          </RadarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </CardContent>

@@ -18,11 +18,21 @@ const Warehouse3D = lazy(async () => {
 export function WarehouseDigitalTwin({
   selectedDeviceId,
   onSelectDevice,
+  view: viewProp,
+  onViewChange,
+  sceneActive = true,
+  title = "Warehouse Digital Twin",
 }: {
   selectedDeviceId: string | null
   onSelectDevice: (deviceId: string | null) => void
+  view?: TwinViewMode
+  onViewChange?: (view: TwinViewMode) => void
+  sceneActive?: boolean
+  title?: string | null
 }) {
-  const [view, setView] = useState<TwinViewMode>("2d")
+  const [uncontrolledView, setUncontrolledView] = useState<TwinViewMode>("2d")
+  const view = viewProp ?? uncontrolledView
+  const setView = onViewChange ?? setUncontrolledView
   const [mounted3d, setMounted3d] = useState(false)
   const occupancy = useTwinOccupancy()
 
@@ -33,18 +43,22 @@ export function WarehouseDigitalTwin({
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-heading text-lg font-semibold tracking-tight">
-          Warehouse Digital Twin
-        </h2>
+        {title ? (
+          <h2 className="font-heading text-lg font-semibold tracking-tight">
+            {title}
+          </h2>
+        ) : (
+          <span />
+        )}
         <WarehouseViewSwitcher value={view} onChange={setView} />
       </div>
-      {view === "2d" && (
+      <div className={view === "2d" ? undefined : "hidden"}>
         <WarehouseLiveMap
           selectedDeviceId={selectedDeviceId}
           onSelectDevice={onSelectDevice}
           occupiedCellKeys={occupancy.keys}
         />
-      )}
+      </div>
       {mounted3d && (
         <div className={view === "3d" ? undefined : "hidden"}>
           <Suspense
@@ -57,7 +71,7 @@ export function WarehouseDigitalTwin({
             <Warehouse3D
               selectedDeviceId={selectedDeviceId}
               onSelectDevice={onSelectDevice}
-              active={view === "3d"}
+              active={view === "3d" && sceneActive}
             />
           </Suspense>
         </div>

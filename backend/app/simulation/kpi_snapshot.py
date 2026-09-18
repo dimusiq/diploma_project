@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, extract, func, select
-from sqlmodel import Session, col
+from sqlalchemy import and_, extract, func
+from sqlmodel import Session, col, select
 
 from app.core.permissions import can_read_audit, can_see_all_items
 from app.models import (

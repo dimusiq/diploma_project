@@ -1,8 +1,11 @@
 /**
- * HTTP-клиент Warehouse Device Server (только admin API).
+ * HTTP-клиент Warehouse Device Server.
+ * Чтение snapshot/stream — для авторизованных пользователей (Digital Twin).
+ * Команды runtime — только admin (Device Monitor).
  */
-import { request } from "@/lib/apiClient.ts"
+
 import type { SimCommand, SimConfig } from "@/components/deviceServer/simTypes.ts"
+import { request } from "@/lib/apiClient.ts"
 
 const BASE = "/api/v1/warehouse-sim"
 

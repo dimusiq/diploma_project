@@ -449,7 +449,7 @@ async def sse_stream(rt: WarehouseSimRuntime) -> AsyncIterator[bytes]:
             try:
                 msg = await asyncio.wait_for(q.get(), timeout=15.0)
                 yield _sse(msg)
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 yield b": ping\n\n"
     finally:
         rt.unsubscribe(q)

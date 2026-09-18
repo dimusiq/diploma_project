@@ -89,5 +89,5 @@ async def inventory_snapshot_loop(stop_event: asyncio.Event) -> None:
             logger.exception("Inventory snapshot tick failed")
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=SNAPSHOT_INTERVAL_SEC)
-        except TimeoutError:
+        except asyncio.TimeoutError:
             continue

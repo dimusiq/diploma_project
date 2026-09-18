@@ -38,14 +38,15 @@ def _headers_for_role(
     return user_authentication_headers(client=client, email=email, password=password)
 
 
-def test_normal_user_forbidden(
+def test_authenticated_user_can_read_snapshot(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
     r = client.get(
         f"{settings.API_V1_STR}/warehouse-sim/snapshot",
         headers=normal_user_token_headers,
     )
-    assert r.status_code == 403
+    assert r.status_code == 200
+    assert r.json()["state"] in ("STOPPED", "RUNNING", "PAUSED")
 
 
 def test_unauthenticated_rejected(client: TestClient) -> None:
@@ -53,22 +54,22 @@ def test_unauthenticated_rejected(client: TestClient) -> None:
     assert r.status_code in (401, 403)
 
 
-def test_manager_forbidden(client: TestClient, db: Session) -> None:
+def test_manager_can_read_snapshot(client: TestClient, db: Session) -> None:
     headers = _headers_for_role(client, db, ROLE_MANAGER)
     r = client.get(f"{settings.API_V1_STR}/warehouse-sim/snapshot", headers=headers)
-    assert r.status_code == 403
+    assert r.status_code == 200
 
 
-def test_warehouse_role_forbidden(client: TestClient, db: Session) -> None:
+def test_warehouse_role_can_read_snapshot(client: TestClient, db: Session) -> None:
     headers = _headers_for_role(client, db, ROLE_WAREHOUSE)
     r = client.get(f"{settings.API_V1_STR}/warehouse-sim/snapshot", headers=headers)
-    assert r.status_code == 403
+    assert r.status_code == 200
 
 
-def test_viewer_forbidden(client: TestClient, db: Session) -> None:
+def test_viewer_can_read_snapshot(client: TestClient, db: Session) -> None:
     headers = _headers_for_role(client, db, ROLE_VIEWER)
     r = client.get(f"{settings.API_V1_STR}/warehouse-sim/snapshot", headers=headers)
-    assert r.status_code == 403
+    assert r.status_code == 200
 
 
 def test_role_admin_allowed_without_superuser(client: TestClient, db: Session) -> None:
@@ -148,6 +149,17 @@ def test_demo_start_forbidden_for_normal_user(
     r = client.post(
         f"{settings.API_V1_STR}/warehouse-sim/demo/start",
         headers=normal_user_token_headers,
+    )
+    assert r.status_code == 403
+
+
+def test_control_forbidden_for_normal_user(
+    client: TestClient, normal_user_token_headers: dict[str, str]
+) -> None:
+    r = client.post(
+        f"{settings.API_V1_STR}/warehouse-sim/control",
+        headers=normal_user_token_headers,
+        json={"action": "start"},
     )
     assert r.status_code == 403
 

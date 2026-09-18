@@ -927,10 +927,8 @@ def _slot_from_context(c: dict) -> tuple[int, int, int, int] | None:
     if not cell:
         return None
     rack_id = str(cell.get("rackId") or "rack-1-A")
-    side_z = 0
     parts = rack_id.split("-")
     if len(parts) >= 3 and parts[-1] in ("A", "B", "L", "R"):
-        side_z = 0 if parts[-1] in ("A", "L") else 1
         try:
             row = int(parts[1])
         except ValueError:
@@ -943,7 +941,8 @@ def _slot_from_context(c: dict) -> tuple[int, int, int, int] | None:
     row = max(1, min(12, row))
     level = max(1, min(4, int(cell.get("level") or 1)))
     x = max(1, min(20, int(cell.get("bay") or 1)))
-    return row, level, x, side_z
+    # WMS API is 1-based; floor-plan depth is always 1 (Item.storage_cell_z).
+    return row, level, x, 1
 
 
 def _free_slot(
@@ -969,8 +968,11 @@ def _free_slot(
         if exclude is not None and item_id == exclude:
             continue
         occupied.add((int(row), int(level), int(x), int(z)))
-    if preferred and preferred not in occupied:
-        return preferred
+    if preferred:
+        row, level, x, _z = preferred
+        preferred = (int(row), int(level), int(x), 1)
+        if preferred not in occupied:
+            return preferred
     for row in range(1, 13):
         for level in range(1, 5):
             for x in range(1, 21):

@@ -471,8 +471,8 @@ export function Dashboard() {
                 Распределение по статусам
               </h3>
               {statusData.length > 0 ? (
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                     <PieChart>
                       <Pie
                         data={statusData}
@@ -514,8 +514,8 @@ export function Dashboard() {
                 Топ владельцев по количеству товаров
               </h3>
               {topOwnersData.length > 0 ? (
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="h-[300px] min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                     <BarChart data={topOwnersData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis
@@ -576,13 +576,13 @@ export function Dashboard() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="h-[300px]">
+            <div className="h-[300px] min-w-0">
               {trendsLoading ? (
                 <div className="flex h-full items-center justify-center">
                   <p className="text-sm text-muted-foreground">Загрузка...</p>
                 </div>
               ) : trendsChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                   <ComposedChart
                     data={trendsChartData}
                     margin={{
@@ -651,13 +651,13 @@ export function Dashboard() {
             <h3 className="mb-4 font-heading text-base font-semibold">
               Динамика запасов
             </h3>
-            <div className="h-[300px]">
+            <div className="h-[300px] min-w-0">
               {snapshotsLoading ? (
                 <div className="flex h-full items-center justify-center">
                   <p className="text-sm text-muted-foreground">Загрузка...</p>
                 </div>
               ) : snapshotChartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                   <LineChart
                     data={snapshotChartData}
                     margin={{ top: 8, right: 8, left: 0, bottom: 0 }}

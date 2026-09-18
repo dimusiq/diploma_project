@@ -2,19 +2,18 @@ import { useQuery } from "@tanstack/react-query"
 import { Link as RouterLink, useLocation } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import {
+  FiActivity,
   FiArrowDownRight,
   FiBarChart2,
   FiBox,
-  FiCheckCircle,
   FiChevronDown,
   FiCpu,
-  FiDownload,
+  FiLayers,
   FiMessageCircle,
   FiRadio,
   FiSettings,
   FiTarget,
   FiTruck,
-  FiUpload,
   FiUsers,
 } from "react-icons/fi"
 import type { IconType } from "react-icons/lib"
@@ -38,12 +37,13 @@ import {
   sidebarMenuButtonVariants,
 } from "@/components/ui/sidebar.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
-import { canAccessWarehouseSim } from "@/lib/warehouseSimAccess.ts"
 import { cn } from "@/lib/utils"
+import { canAccessWarehouseSim } from "@/lib/warehouseSimAccess.ts"
 
 interface SubItem {
   path: string
   title: string
+  search?: Record<string, string>
 }
 
 interface ItemBase {
@@ -52,6 +52,7 @@ interface ItemBase {
 }
 interface ItemLink extends ItemBase {
   path: string
+  search?: Record<string, string>
   children?: never
 }
 interface ItemExpandable extends ItemBase {
@@ -60,9 +61,23 @@ interface ItemExpandable extends ItemBase {
 }
 type Item = ItemLink | ItemExpandable
 
+const controlItems: Item[] = [
+  { icon: FiTarget, title: "Control Tower", path: "/control-tower" },
+  { icon: FiLayers, title: "Digital Twin", path: "/digital-twin" },
+  { icon: FiBarChart2, title: "Дашборд", path: "/" },
+]
+
 const operationsItems: Item[] = [
-  { icon: FiArrowDownRight, title: "Поступления", path: "/items" },
-  { icon: FiDownload, title: "Входящие заказы", path: "/inbound-orders" },
+  { icon: FiArrowDownRight, title: "Приёмка", path: "/items" },
+  {
+    icon: FiBox,
+    title: "Заказы",
+    path: null,
+    children: [
+      { path: "/inbound-orders", title: "Входящие" },
+      { path: "/outbound-orders", title: "Исходящие" },
+    ],
+  },
   {
     icon: FiBox,
     title: "Склад",
@@ -70,21 +85,32 @@ const operationsItems: Item[] = [
     children: [
       { path: "/warehouse", title: "Остатки" },
       { path: "/warehouse-tasks", title: "Задания" },
-      { path: "/warehouse-3d", title: "3D модель" },
-      { path: "/warehouse-twin", title: "Twin" },
     ],
   },
-  { icon: FiUpload, title: "Исходящие заказы", path: "/outbound-orders" },
-  { icon: FiTruck, title: "Отгрузка", path: "/shipment" },
-  { icon: FiCheckCircle, title: "Отгружено", path: "/shipped" },
+  {
+    icon: FiTruck,
+    title: "Отгрузка",
+    path: null,
+    children: [
+      { path: "/shipment", title: "К отгрузке" },
+      { path: "/shipped", title: "Отгружено" },
+    ],
+  },
 ]
 
-const analyticsItems: Item[] = [
-  { icon: FiBarChart2, title: "Дашборд", path: "/" },
-  { icon: FiTarget, title: "Control Tower", path: "/control-tower" },
+const monitoringItems: Item[] = [
+  {
+    icon: FiActivity,
+    title: "События",
+    path: "/digital-twin",
+    search: { tab: "events", view: "2d" },
+  },
+]
+
+const simulationItems: Item[] = [
   {
     icon: FiCpu,
-    title: "Симуляция",
+    title: "Simulation Lab",
     path: "/warehouse-simulation",
   },
 ]
@@ -121,10 +147,33 @@ function groupShouldOpen(item: ItemExpandable, pathname: string): boolean {
   )
 }
 
+function pathIsActive(
+  path: string,
+  pathname: string,
+  search?: Record<string, string>,
+  currentSearch?: Record<string, unknown>,
+): boolean {
+  const pathMatch =
+    path === "/"
+      ? pathname === "/"
+      : pathname === path || pathname.startsWith(`${path}/`)
+  if (!pathMatch) return false
+  if (!search) {
+    if (path === "/digital-twin" && currentSearch?.tab === "events") {
+      return false
+    }
+    return true
+  }
+  return Object.entries(search).every(
+    ([key, value]) => currentSearch?.[key] === value,
+  )
+}
+
 function SidebarItems({ onNavigate }: SidebarItemsProps) {
   const currentUser = useCurrentUser()
   const location = useLocation()
   const pathname = location.pathname
+  const search = location.search as Record<string, unknown>
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
@@ -144,30 +193,29 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
     queryFn: fetchAgentPermissions,
   })
 
-  const managementItems: Item[] = (() => {
-    const base = managementItemsBase.filter((item) => {
-      if (!isExpandable(item) && item.path === "/assistant") {
-        if (agentPermPending) return false
-        return agentPerm?.can_use === true
-      }
-      return true
+  const managementItems: Item[] = managementItemsBase.filter((item) => {
+    if (!isExpandable(item) && item.path === "/assistant") {
+      if (agentPermPending) return false
+      return agentPerm?.can_use === true
+    }
+    return true
+  })
+
+  const adminItems: Item[] = []
+  if (canAccessWarehouseSim(currentUser)) {
+    adminItems.push({
+      icon: FiRadio,
+      title: "Device Monitor",
+      path: "/device-server",
     })
-    const extra: Item[] = []
-    if (canAccessWarehouseSim(currentUser)) {
-      extra.push({
-        icon: FiRadio,
-        title: "Warehouse Device Server",
-        path: "/device-server" as const,
-      })
-    }
-    if (currentUser?.is_superuser) {
-      extra.push({ icon: FiUsers, title: "Администрирование", path: "/admin" as const })
-    }
-    if (extra.length) {
-      return [...base, ...extra]
-    }
-    return base
-  })()
+  }
+  if (currentUser?.is_superuser) {
+    adminItems.push({
+      icon: FiUsers,
+      title: "Администрирование",
+      path: "/admin",
+    })
+  }
 
   const renderItem = (item: Item) => {
     if (isExpandable(item)) {
@@ -230,12 +278,16 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
         </SidebarMenuItem>
       )
     }
-    const { icon: Icon, title, path } = item
-    const isActive = pathname === path || (path === "/" && pathname === "/")
+    const { icon: Icon, title, path, search: itemSearch } = item
+    const isActive = pathIsActive(path, pathname, itemSearch, search)
     return (
-      <SidebarMenuItem key={title}>
+      <SidebarMenuItem key={`${title}-${path}-${itemSearch?.tab ?? ""}`}>
         <SidebarMenuButton asChild isActive={isActive} tooltip={title}>
-          <RouterLink to={path} onClick={onNavigate}>
+          <RouterLink
+            to={path}
+            search={itemSearch}
+            onClick={onNavigate}
+          >
             <Icon className="size-4 shrink-0" aria-hidden />
             <span>{title}</span>
           </RouterLink>
@@ -247,15 +299,27 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
   return (
     <>
       <SidebarGroup>
+        <SidebarGroupLabel>Контроль</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>{controlItems.map(renderItem)}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+      <SidebarGroup>
         <SidebarGroupLabel>Операции</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>{operationsItems.map(renderItem)}</SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
       <SidebarGroup>
-        <SidebarGroupLabel>Аналитика</SidebarGroupLabel>
+        <SidebarGroupLabel>Мониторинг</SidebarGroupLabel>
         <SidebarGroupContent>
-          <SidebarMenu>{analyticsItems.map(renderItem)}</SidebarMenu>
+          <SidebarMenu>{monitoringItems.map(renderItem)}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+      <SidebarGroup>
+        <SidebarGroupLabel>Симуляция</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>{simulationItems.map(renderItem)}</SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
       <SidebarGroup>
@@ -264,6 +328,14 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
           <SidebarMenu>{managementItems.map(renderItem)}</SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
+      {adminItems.length > 0 ? (
+        <SidebarGroup>
+          <SidebarGroupLabel>Admin</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>{adminItems.map(renderItem)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      ) : null}
     </>
   )
 }

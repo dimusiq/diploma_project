@@ -20,6 +20,7 @@ import { Route as LayoutAssistantRouteImport } from './routes/_layout/assistant'
 import { Route as LayoutControlTowerRouteImport } from './routes/_layout/control-tower'
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutDeviceServerRouteImport } from './routes/_layout/device-server'
+import { Route as LayoutDigitalTwinRouteImport } from './routes/_layout/digital-twin'
 import { Route as LayoutInboundOrdersRouteImport } from './routes/_layout/inbound-orders'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutOutboundOrdersRouteImport } from './routes/_layout/outbound-orders'
@@ -100,6 +101,11 @@ const LayoutDashboardRoute = LayoutDashboardRouteImport.update({
 const LayoutDeviceServerRoute = LayoutDeviceServerRouteImport.update({
   id: '/device-server',
   path: '/device-server',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutDigitalTwinRoute = LayoutDigitalTwinRouteImport.update({
+  id: '/digital-twin',
+  path: '/digital-twin',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutInboundOrdersRoute = LayoutInboundOrdersRouteImport.update({
@@ -262,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/control-tower': typeof LayoutControlTowerRoute
   '/dashboard': typeof LayoutDashboardRoute
   '/device-server': typeof LayoutDeviceServerRoute
+  '/digital-twin': typeof LayoutDigitalTwinRoute
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
   '/outbound-orders': typeof LayoutOutboundOrdersRoute
@@ -299,6 +306,7 @@ export interface FileRoutesByTo {
   '/control-tower': typeof LayoutControlTowerRoute
   '/dashboard': typeof LayoutDashboardRoute
   '/device-server': typeof LayoutDeviceServerRoute
+  '/digital-twin': typeof LayoutDigitalTwinRoute
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
   '/outbound-orders': typeof LayoutOutboundOrdersRoute
@@ -340,6 +348,7 @@ export interface FileRoutesById {
   '/_layout/control-tower': typeof LayoutControlTowerRoute
   '/_layout/dashboard': typeof LayoutDashboardRoute
   '/_layout/device-server': typeof LayoutDeviceServerRoute
+  '/_layout/digital-twin': typeof LayoutDigitalTwinRoute
   '/_layout/inbound-orders': typeof LayoutInboundOrdersRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/outbound-orders': typeof LayoutOutboundOrdersRoute
@@ -382,6 +391,7 @@ export interface FileRouteTypes {
     | '/control-tower'
     | '/dashboard'
     | '/device-server'
+    | '/digital-twin'
     | '/inbound-orders'
     | '/items'
     | '/outbound-orders'
@@ -419,6 +429,7 @@ export interface FileRouteTypes {
     | '/control-tower'
     | '/dashboard'
     | '/device-server'
+    | '/digital-twin'
     | '/inbound-orders'
     | '/items'
     | '/outbound-orders'
@@ -459,6 +470,7 @@ export interface FileRouteTypes {
     | '/_layout/control-tower'
     | '/_layout/dashboard'
     | '/_layout/device-server'
+    | '/_layout/digital-twin'
     | '/_layout/inbound-orders'
     | '/_layout/items'
     | '/_layout/outbound-orders'
@@ -573,6 +585,13 @@ declare module '@tanstack/react-router' {
       path: '/device-server'
       fullPath: '/device-server'
       preLoaderRoute: typeof LayoutDeviceServerRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/digital-twin': {
+      id: '/_layout/digital-twin'
+      path: '/digital-twin'
+      fullPath: '/digital-twin'
+      preLoaderRoute: typeof LayoutDigitalTwinRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/inbound-orders': {
@@ -814,6 +833,7 @@ interface LayoutRouteChildren {
   LayoutControlTowerRoute: typeof LayoutControlTowerRoute
   LayoutDashboardRoute: typeof LayoutDashboardRoute
   LayoutDeviceServerRoute: typeof LayoutDeviceServerRoute
+  LayoutDigitalTwinRoute: typeof LayoutDigitalTwinRoute
   LayoutInboundOrdersRoute: typeof LayoutInboundOrdersRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutOutboundOrdersRoute: typeof LayoutOutboundOrdersRoute
@@ -836,6 +856,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutControlTowerRoute: LayoutControlTowerRoute,
   LayoutDashboardRoute: LayoutDashboardRoute,
   LayoutDeviceServerRoute: LayoutDeviceServerRoute,
+  LayoutDigitalTwinRoute: LayoutDigitalTwinRoute,
   LayoutInboundOrdersRoute: LayoutInboundOrdersRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutOutboundOrdersRoute: LayoutOutboundOrdersRoute,

@@ -131,7 +131,12 @@ function ControlTowerPage() {
                 asChild
                 className="inline-flex w-fit"
               >
-                <Link to="/warehouse-twin">Аналитика двойника</Link>
+                <Link
+                  to="/digital-twin"
+                  search={{ tab: "analytics", view: "2d" }}
+                >
+                  Digital Twin
+                </Link>
               </Button>
               <Button
                 variant="outline"

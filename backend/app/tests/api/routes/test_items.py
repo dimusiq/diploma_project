@@ -1,9 +1,12 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlmodel import Session
 
 from app.core.config import settings
+from app.models import ItemPublic
 from app.tests.utils.item import create_random_item
 
 
@@ -77,6 +80,45 @@ def test_read_items(
     assert response.status_code == 200
     content = response.json()
     assert len(content["data"]) >= 2
+
+
+def test_read_items_with_legacy_storage_cell_z_zero(
+    client: TestClient, superuser_token_headers: dict[str, str], db: Session
+) -> None:
+    item = create_random_item(db)
+    db.execute(
+        text(
+            "UPDATE item SET storage_row = 1, storage_level = 1, "
+            "storage_cell_x = 1, storage_cell_z = 0, status = 'warehouse' "
+            "WHERE id = :id"
+        ),
+        {"id": item.id},
+    )
+    db.commit()
+    response = client.get(
+        f"{settings.API_V1_STR}/items/",
+        headers=superuser_token_headers,
+    )
+    assert response.status_code == 200, response.text
+    found = next(row for row in response.json()["data"] if row["id"] == str(item.id))
+    assert found["storage_cell_z"] == 1
+    assert found["slot_key"] == "0-0-0-0"
+
+
+def test_item_public_coerces_zero_storage_cell_z() -> None:
+    row = ItemPublic(
+        id=uuid.uuid4(),
+        owner_id=uuid.uuid4(),
+        title="legacy-z",
+        status="warehouse",
+        created_at=datetime.now(timezone.utc),
+        storage_row=1,
+        storage_level=1,
+        storage_cell_x=1,
+        storage_cell_z=0,
+    )
+    assert row.storage_cell_z == 1
+    assert row.slot_key == "0-0-0-0"
 
 
 def test_update_item(

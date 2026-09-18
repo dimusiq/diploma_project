@@ -308,8 +308,8 @@ export function ParkHealthAnalytics() {
               График ТО: просрочено / скоро / норма
             </h3>
             {maintenanceChartData.length > 0 ? (
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-[280px] min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                   <PieChart>
                     <Pie
                       data={maintenanceChartData}
@@ -352,8 +352,8 @@ export function ParkHealthAnalytics() {
               Статус техники: в эксплуатации / на обслуживании
             </h3>
             {equipmentStatusChartData.length > 0 ? (
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-[280px] min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                   <PieChart>
                     <Pie
                       data={equipmentStatusChartData}
@@ -413,8 +413,8 @@ export function ParkHealthAnalytics() {
               <h3 className="font-heading mb-4 text-sm font-semibold">
                 Сводка по парку
               </h3>
-              <div className="h-[240px]">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="h-[240px] min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                   <BarChart
                     data={barData}
                     margin={{ top: 8, right: 8, left: 0, bottom: 24 }}

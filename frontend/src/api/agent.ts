@@ -37,6 +37,7 @@ export async function postAgentChat(
     includeReasoningDebug?: boolean
     userChatId?: string
     includePublicReasoning?: boolean
+    signal?: AbortSignal
   },
 ): Promise<AgentChatResponse> {
   const wantReasoning = options?.includePublicReasoning === true
@@ -48,6 +49,7 @@ export async function postAgentChat(
       user_chat_id: options?.userChatId ?? null,
       include_public_reasoning: wantReasoning,
     },
+    signal: options?.signal,
   })
   if (!wantReasoning && data.public_reasoning != null) {
     const { public_reasoning: _omit, ...rest } = data

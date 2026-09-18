@@ -38,6 +38,8 @@ function extractAnswerInnerOrFull(text: string): string {
 export function sanitizeAssistantChatContent(text: string): string {
   if (!text) return text
   const core = extractAnswerInnerOrFull(text)
-  const cleaned = core.replace(RUN_ID_LINE_RE, "")
+  const cleaned = core
+    .replace(RUN_ID_LINE_RE, "")
+    .replace(/<\/?answer\s*>/gi, "")
   return cleaned.replace(/\n{3,}/g, "\n\n").trim()
 }

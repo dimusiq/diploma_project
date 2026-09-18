@@ -53,7 +53,7 @@ async def report_scheduler_loop(
                             pass
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=300)
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 continue
     finally:
         if r is not None:

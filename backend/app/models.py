@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from pydantic import EmailStr, computed_field
+from pydantic import EmailStr, computed_field, field_validator
 from sqlalchemy import Column, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
@@ -730,6 +730,18 @@ class ItemPublic(ItemBase):
     status: str
     category_id: uuid.UUID | None = None
     created_at: datetime
+    # Read model is lenient: sim/legacy rows may have z=0 or z outside the 1×1 floor-plan depth.
+    storage_row: int | None = None
+    storage_level: int | None = None
+    storage_cell_x: int | None = None
+    storage_cell_z: int | None = None
+
+    @field_validator("storage_cell_z", mode="before")
+    @classmethod
+    def _coerce_storage_cell_z(cls, v: object) -> object:
+        if isinstance(v, int | float) and int(v) < 1:
+            return 1
+        return v
 
     @computed_field  # type: ignore[prop-decorator]
     @property

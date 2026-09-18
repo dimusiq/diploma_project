@@ -1,4 +1,8 @@
-"""HTTP API Warehouse Device Server — ROLE_ADMIN или суперпользователь."""
+"""HTTP API Warehouse Device Server.
+
+Чтение live-состояния доступно любому авторизованному пользователю (Digital Twin).
+Управление runtime — только ROLE_ADMIN или суперпользователь (Device Monitor).
+"""
 
 from __future__ import annotations
 
@@ -8,7 +12,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from app.api.deps import SessionDep, get_current_warehouse_sim_admin
+from app.api.deps import CurrentUser, SessionDep, get_current_warehouse_sim_admin
 from app.models import User
 from app.warehouse_sim.events import ALL_EVENT_TYPES, MANUAL_EVENT_TYPES
 from app.warehouse_sim.runtime import get_runtime, query_event_log, sse_stream
@@ -30,34 +34,34 @@ router = APIRouter(prefix="/warehouse-sim", tags=["warehouse-device-server"])
 
 
 @router.get("/snapshot")
-def read_snapshot(_user: SimAdmin) -> dict[str, Any]:
+def read_snapshot(_user: CurrentUser) -> dict[str, Any]:
     return get_runtime().data()
 
 
 @router.get("/motion")
-def read_motion(_user: SimAdmin) -> dict[str, Any]:
+def read_motion(_user: CurrentUser) -> dict[str, Any]:
     return get_runtime().motion()
 
 
 @router.get("/kpi")
-def read_kpi(_user: SimAdmin) -> dict[str, Any]:
+def read_kpi(_user: CurrentUser) -> dict[str, Any]:
     data = get_runtime().data()
     return data.get("kpi") or {}
 
 
 @router.get("/layout")
-def read_layout(_user: SimAdmin) -> dict[str, Any]:
+def read_layout(_user: CurrentUser) -> dict[str, Any]:
     return get_runtime().world["topology"]
 
 
 @router.get("/devices")
-def list_devices(_user: SimAdmin) -> dict[str, Any]:
+def list_devices(_user: CurrentUser) -> dict[str, Any]:
     rt = get_runtime()
     return {"data": rt.devices.get_devices(), "count": len(rt.world["devices"])}
 
 
 @router.get("/devices/{device_id}")
-def read_device(_user: SimAdmin, device_id: str) -> dict[str, Any]:
+def read_device(_user: CurrentUser, device_id: str) -> dict[str, Any]:
     try:
         return get_runtime().devices.get_device_telemetry(device_id)
     except KeyError as exc:
@@ -75,7 +79,7 @@ def command_device(_user: SimAdmin, device_id: str, body: DeviceCommandBody) -> 
 
 
 @router.get("/tasks")
-def list_tasks(_user: SimAdmin, status: str | None = Query(default=None)) -> dict[str, Any]:
+def list_tasks(_user: CurrentUser, status: str | None = Query(default=None)) -> dict[str, Any]:
     tasks = get_runtime().world["tasks"]
     if status:
         tasks = [t for t in tasks if t["status"] == status]
@@ -83,7 +87,7 @@ def list_tasks(_user: SimAdmin, status: str | None = Query(default=None)) -> dic
 
 
 @router.get("/orders")
-def list_orders(_user: SimAdmin) -> dict[str, Any]:
+def list_orders(_user: CurrentUser) -> dict[str, Any]:
     world = get_runtime().world
     return {
         "inbound": world["inbound"][-40:],
@@ -95,7 +99,7 @@ def list_orders(_user: SimAdmin) -> dict[str, Any]:
 @router.get("/events")
 def list_events(
     session: SessionDep,
-    _user: SimAdmin,
+    _user: CurrentUser,
     severity: str | None = Query(default=None),
     event_type: str | None = Query(default=None),
     q: str | None = Query(default=None, max_length=128),
@@ -197,7 +201,7 @@ def fast_forward(_user: SimAdmin, body: FastForwardBody) -> dict[str, Any]:
 
 
 @router.get("/stream")
-async def stream(_user: SimAdmin) -> StreamingResponse:
+async def stream(_user: CurrentUser) -> StreamingResponse:
     rt = get_runtime()
     return StreamingResponse(
         sse_stream(rt),

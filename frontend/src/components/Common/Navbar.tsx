@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useLocation } from '@tanstack/react-router';
 import { useState } from 'react';
 import { FaRobot } from 'react-icons/fa';
 import { FiMaximize } from 'react-icons/fi';
@@ -25,13 +25,18 @@ const navIconClass =
 
 function Navbar() {
   const [scanOpen, setScanOpen] = useState(false);
+  const pathname = useLocation({
+    select: (loc) => loc.pathname,
+  });
   const { data: agentPerm, isPending: agentPermPending } =
     useQuery({
       queryKey: ['agent-permissions'],
       queryFn: fetchAgentPermissions,
     });
   const showAssistant =
-    !agentPermPending && agentPerm?.can_use === true;
+    !agentPermPending &&
+    agentPerm?.can_use === true &&
+    pathname !== '/assistant';
 
   return (
     <header

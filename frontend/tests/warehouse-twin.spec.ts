@@ -15,6 +15,7 @@ test("страница аналитики двойника открываетс�
   await page.waitForURL("/")
 
   await page.goto("/warehouse-twin")
+  await page.waitForURL(/\/digital-twin/)
   await expect(
     page.getByRole("heading", { name: "Аналитика цифрового двойника" }),
   ).toBeVisible()

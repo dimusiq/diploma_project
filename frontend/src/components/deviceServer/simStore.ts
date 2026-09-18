@@ -1,8 +1,7 @@
 /**
  * Клиент симулятора: состояние приходит с backend (SSE), команды уходят HTTP.
  */
-import { getApiUrl } from "@/lib/apiClient.ts"
-import { getAccessToken } from "@/lib/authStorage.ts"
+
 import {
   fetchSimSnapshot,
   patchSimConfig,
@@ -16,6 +15,8 @@ import {
   postSimSpeed,
   simStreamUrl,
 } from "@/api/deviceServer.ts"
+import { getApiUrl } from "@/lib/apiClient.ts"
+import { getAccessToken } from "@/lib/authStorage.ts"
 import { buildTopology } from "./simLayout.ts"
 import type {
   DeviceKind,
@@ -213,7 +214,12 @@ class DeviceSimulationClient {
   private motionListeners = new Set<() => void>()
   private dataListeners = new Set<() => void>()
   private started = false
+  private sseOpen = false
   private abort: AbortController | null = null
+
+  get sseConnected(): boolean {
+    return this.sseOpen
+  }
 
   get topology(): SimTopology {
     return this.dataSnapshot.topology ?? buildTopology()
@@ -250,6 +256,12 @@ class DeviceSimulationClient {
     for (const listener of this.dataListeners) listener()
   }
 
+  private setSseOpen(open: boolean): void {
+    if (this.sseOpen === open) return
+    this.sseOpen = open
+    this.notifyData()
+  }
+
   private applyData(data: DataSnapshot): void {
     this.dataSnapshot = {
       ...data,
@@ -282,6 +294,7 @@ class DeviceSimulationClient {
     while (this.started) {
       const token = getAccessToken()
       if (!token) {
+        this.setSseOpen(false)
         await new Promise((r) => setTimeout(r, 4000))
         continue
       }
@@ -293,15 +306,20 @@ class DeviceSimulationClient {
           signal: this.abort.signal,
         })
         if (!res.ok || !res.body) {
+          this.setSseOpen(false)
           await new Promise((r) => setTimeout(r, 4000))
           continue
         }
+        this.setSseOpen(true)
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buf = ""
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done) {
+            this.setSseOpen(false)
+            break
+          }
           buf += decoder.decode(value, { stream: true })
           const { events, rest } = parseSseBlocks(buf)
           buf = rest
@@ -323,7 +341,7 @@ class DeviceSimulationClient {
           }
         }
       } catch {
-        /* reconnect */
+        this.setSseOpen(false)
       }
       await new Promise((r) => setTimeout(r, 3000))
     }

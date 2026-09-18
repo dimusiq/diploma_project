@@ -32,5 +32,5 @@ async def outbox_dispatcher_loop(stop_event: asyncio.Event) -> None:
             logger.exception("Outbox dispatcher tick failed")
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=OUTBOX_POLL_INTERVAL_SEC)
-        except TimeoutError:
+        except asyncio.TimeoutError:
             continue

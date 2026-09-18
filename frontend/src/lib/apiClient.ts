@@ -29,6 +29,17 @@ export interface ApiClientRequestOptions {
   body?: unknown
   /** Для ответов PDF и т.п. */
   responseType?: "json" | "blob"
+  signal?: AbortSignal
+}
+
+export function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "name" in err &&
+    (err as { name: unknown }).name === "AbortError"
+  )
 }
 
 function buildRequestOptions(
@@ -116,6 +127,7 @@ export async function request<T>(
   const res = await fetch(url, {
     method,
     headers,
+    signal: options.signal,
     ...(options.body !== undefined &&
       method !== "GET" && { body: JSON.stringify(options.body) }),
   })

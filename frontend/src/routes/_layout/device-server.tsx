@@ -7,11 +7,10 @@ import {
 import { EventStreamPanel } from "@/components/deviceServer/EventStreamPanel.tsx"
 import { GeneratorPanel } from "@/components/deviceServer/GeneratorPanel.tsx"
 import { OrdersPanel } from "@/components/deviceServer/OrdersPanel.tsx"
+import { RuntimeStatusCard } from "@/components/deviceServer/RuntimeStatusCard.tsx"
 import { SimControlBar } from "@/components/deviceServer/SimControlBar.tsx"
-import { SimKpiStrip } from "@/components/deviceServer/SimKpiStrip.tsx"
 import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import { TasksPanel } from "@/components/deviceServer/TasksPanel.tsx"
-import { WarehouseDigitalTwin } from "@/components/deviceServer/WarehouseDigitalTwin.tsx"
 import {
   Tabs,
   TabsContent,
@@ -36,46 +35,31 @@ export const Route = createFileRoute("/_layout/device-server")({
 function DeviceServerPage() {
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
 
-  // Модель живёт в модульном синглтоне: она продолжает работать при переходе
-  // на другие вкладки и останавливается только кнопкой «Пауза».
   useEffect(() => {
     deviceSimulation.autoStart()
   }, [])
 
   return (
-    <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:py-8">
-      <h1 className="font-heading mb-2 text-2xl font-semibold tracking-tight">
-        Warehouse Device Server
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 md:py-8">
+      <h1 className="font-heading mb-1 text-2xl font-semibold tracking-tight">
+        Device Monitor
       </h1>
-      <p className="mb-6 max-w-4xl text-sm text-muted-foreground">
-        Warehouse Simulation &amp; Event Generator — сервер устройств и
-        генератор событий. Состояние склада считается на backend: техника едет
-        по проездам, задания назначаются, товар принимается и отгружается.
-        Эта страница только отображает снимок и отправляет команды.
+      <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
+        Engineering / Runtime Console. Управление SimulationManager, диагностика
+        устройств и сырой поток событий. Карта склада — в Digital Twin.
       </p>
 
       <SimControlBar />
-      <SimKpiStrip />
+      <RuntimeStatusCard />
 
-      <Tabs defaultValue="map">
+      <Tabs defaultValue="devices">
         <TabsList variant="line" className="mb-4 flex-wrap">
-          <TabsTrigger value="map">План склада</TabsTrigger>
-          <TabsTrigger value="devices">Устройства</TabsTrigger>
-          <TabsTrigger value="events">Поток событий</TabsTrigger>
-          <TabsTrigger value="orders">Заказы и транспорт</TabsTrigger>
-          <TabsTrigger value="tasks">Задания и смена</TabsTrigger>
+          <TabsTrigger value="devices">Диагностика устройств</TabsTrigger>
+          <TabsTrigger value="events">Сырые события</TabsTrigger>
+          <TabsTrigger value="orders">Заказы runtime</TabsTrigger>
+          <TabsTrigger value="tasks">Задания runtime</TabsTrigger>
           <TabsTrigger value="generator">Генератор</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="map">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-            <WarehouseDigitalTwin
-              selectedDeviceId={selectedDeviceId}
-              onSelectDevice={setSelectedDeviceId}
-            />
-            <DeviceInspector deviceId={selectedDeviceId} />
-          </div>
-        </TabsContent>
 
         <TabsContent value="devices">
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -88,7 +72,7 @@ function DeviceServerPage() {
         </TabsContent>
 
         <TabsContent value="events">
-          <EventStreamPanel />
+          <EventStreamPanel variant="technical" />
         </TabsContent>
 
         <TabsContent value="orders">

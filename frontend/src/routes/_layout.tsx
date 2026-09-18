@@ -46,15 +46,22 @@ export const Route = createFileRoute('/_layout')({
 });
 
 function MainColumn() {
-  const isWarehouse3d = useLocation({
-    select: (loc) => loc.pathname === '/warehouse-3d',
+  const pathname = useLocation({
+    select: (loc) => loc.pathname,
   });
+  const isWarehouse3d = pathname === '/warehouse-3d';
+  const isAssistant = pathname === '/assistant';
   return (
     <div
       data-main-scroll
-      className='flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-4 pb-20 md:pb-4'
+      className={cn(
+        'flex min-h-0 flex-1 flex-col',
+        isAssistant
+          ? 'overflow-hidden p-0 pb-14 md:pb-0'
+          : 'overflow-y-auto overscroll-y-contain p-4 pb-20 md:pb-4',
+      )}
     >
-      <Breadcrumbs />
+      {isAssistant ? null : <Breadcrumbs />}
       <div
         className={cn(
           'flex flex-col',

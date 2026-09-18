@@ -405,7 +405,7 @@ async def twin_sse_stream(
             try:
                 msg = await asyncio.wait_for(q.get(), timeout=15.0)
                 yield _format_sse(msg)
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 yield _format_sse(comment="ping")
     finally:
         unsubscribe_twin(q)

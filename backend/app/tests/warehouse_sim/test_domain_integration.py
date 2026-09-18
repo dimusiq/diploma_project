@@ -4,6 +4,7 @@ from app.models import InboundOrder, Item, OutboundOrder, WarehouseTask
 from app.warehouse_sim.integration import (
     BARCODE_PREFIX,
     SOURCE,
+    _slot_from_context,
     apply_integration_queue,
     reset_demo_domain,
     seed_world_inventory,
@@ -96,3 +97,10 @@ def test_full_warehouse_workflow_writes_existing_domain(db: Session) -> None:
     assert leftover_in == []
     assert leftover_out == []
     assert leftover_tasks == []
+
+
+def test_slot_from_context_uses_one_based_cell_z() -> None:
+    slot_a = _slot_from_context({"cell": {"rackId": "rack-3-A", "level": 2, "bay": 4}})
+    slot_b = _slot_from_context({"cell": {"rackId": "rack-3-B", "level": 2, "bay": 4}})
+    assert slot_a == (3, 2, 4, 1)
+    assert slot_b == (3, 2, 4, 1)

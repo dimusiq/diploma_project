@@ -25,8 +25,9 @@ import {
 } from "@/api/agent.ts"
 import { ApiError } from "@/client/index.ts"
 import useCustomToast from "@/hooks/useCustomToast.ts"
-import { getErrorHttpStatus } from "@/lib/apiClient.ts"
+import { getErrorHttpStatus, isAbortError } from "@/lib/apiClient.ts"
 import type { ChatMessage } from "@/lib/assistantChatStorage.ts"
+import { isAssistantFailureReply } from "@/lib/assistantPresentation.ts"
 import {
   buildAgentMessageWithFiles,
   formatUserMessagePreview,
@@ -72,6 +73,17 @@ export const DS_AVATAR = {
   },
 } as const
 
+function assistantErrorMessage(content: string): ChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: "assistant",
+    content,
+    llmAvailable: false,
+    model: null,
+    isError: true,
+  }
+}
+
 export function bucketLabelForChat(updatedAt: string): string {
   const d = new Date(updatedAt)
   const t = new Date()
@@ -102,6 +114,7 @@ export function mapApiMessages(
         ? (meta.public_reasoning as import("@/api/agent.ts").AgentPublicReasoningSummary)
         : undefined,
       runId: (meta.run_id as string | null | undefined) ?? null,
+      isError: isAssistantFailureReply(m.content),
     }
   })
 }
@@ -122,8 +135,6 @@ export type AssistantSessionContextValue = {
   setChatSearchQuery: (v: string) => void
   sidebarHoveredChatId: string | null
   setSidebarHoveredChatId: (v: string | null) => void
-  chatMenuOpenId: string | null
-  setChatMenuOpenId: (v: string | null) => void
   isEnsuringChat: boolean
   scrollRef: React.RefObject<HTMLDivElement | null>
   composerRef: React.RefObject<HTMLTextAreaElement | null>
@@ -142,12 +153,24 @@ export type AssistantSessionContextValue = {
     typeof useMutation<
       import("@/api/agent.ts").AgentChatResponse,
       unknown,
-      { text: string; includePublicReasoning: boolean; userChatId: string },
+      {
+        text: string
+        includePublicReasoning: boolean
+        userChatId: string
+        signal: AbortSignal
+      },
       unknown
     >
   >
   /** Текст и файлы берутся из поля ввода; можно передать явно из `PromptInput.onSubmit`. */
-  send: (override?: { text: string; files: File[] }) => Promise<void>
+  send: (override?: {
+    text: string
+    files: File[]
+    apiText?: string
+    userPreview?: string
+  }) => Promise<void>
+  retryLast: () => Promise<void>
+  stop: () => void
   newChat: () => void
   selectChat: (id: string) => void
   historyLocked: boolean
@@ -176,13 +199,16 @@ export function AssistantSessionProvider({
   const streamRafRef = useRef<number | null>(null)
   const streamingMessageIdRef = useRef<string | null>(null)
   const activeChatIdRef = useRef<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const lastApiTextRef = useRef<string | null>(null)
+  const lastUserPreviewRef = useRef<string | null>(null)
+  const streamFullRef = useRef<string | null>(null)
 
   const [deepStudy, setDeepStudy] = useState(false)
   const [chatSearchQuery, setChatSearchQuery] = useState("")
   const [sidebarHoveredChatId, setSidebarHoveredChatId] = useState<
     string | null
   >(null)
-  const [chatMenuOpenId, setChatMenuOpenId] = useState<string | null>(null)
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -239,7 +265,14 @@ export function AssistantSessionProvider({
   useEffect(() => {
     if (!detailQuery.data || detailQuery.data.id !== activeChatId) return
     if (streamingMessageIdRef.current !== null) return
-    setMessages(mapApiMessages(detailQuery.data.messages))
+    if (abortRef.current) return
+    const mapped = mapApiMessages(detailQuery.data.messages)
+    setMessages(mapped)
+    const lastUser = [...mapped].reverse().find((m) => m.role === "user")
+    if (lastUser) {
+      lastApiTextRef.current = lastUser.content
+      lastUserPreviewRef.current = lastUser.content
+    }
   }, [activeChatId, detailQuery.data])
 
   /** Сервер вернул 404 по выбранному чату (другая БД / удалён) — сбрасываем выбор. */
@@ -306,6 +339,7 @@ export function AssistantSessionProvider({
   useEffect(
     () => () => {
       stopStreamRaf()
+      abortRef.current?.abort()
     },
     [stopStreamRaf],
   )
@@ -315,15 +349,19 @@ export function AssistantSessionProvider({
       text: string
       includePublicReasoning: boolean
       userChatId: string
+      signal: AbortSignal
     }) =>
       postAgentChat(vars.text, {
         userChatId: vars.userChatId,
         includePublicReasoning: vars.includePublicReasoning,
+        signal: vars.signal,
       }),
     onSuccess: (data, vars) => {
+      abortRef.current = null
       const id = crypto.randomUUID()
       const full = data.reply
       stopStreamRaf()
+      streamFullRef.current = full
       setStreamingMessageId(id)
       streamingMessageIdRef.current = id
       setActiveChatId(vars.userChatId)
@@ -338,6 +376,7 @@ export function AssistantSessionProvider({
           model: data.model ?? null,
           publicReasoning: data.public_reasoning ?? undefined,
           runId: data.run_id ?? null,
+          isError: isAssistantFailureReply(full),
         },
       ])
 
@@ -380,6 +419,7 @@ export function AssistantSessionProvider({
             } finally {
               streamingMessageIdRef.current = null
               setStreamingMessageId(null)
+              streamFullRef.current = null
             }
           })()
           return
@@ -390,6 +430,8 @@ export function AssistantSessionProvider({
       streamRafRef.current = requestAnimationFrame(runStreamFrame)
     },
     onError: (err) => {
+      abortRef.current = null
+      if (isAbortError(err)) return
       const msg =
         err instanceof ApiError
           ? err.message
@@ -399,7 +441,7 @@ export function AssistantSessionProvider({
               "message" in err
             ? String((err as { message: unknown }).message)
             : "Не удалось получить ответ"
-      showErrorToast(msg)
+      setMessages((prev) => [...prev, assistantErrorMessage(msg)])
     },
   })
 
@@ -442,19 +484,24 @@ export function AssistantSessionProvider({
   ])
 
   const send = useCallback(
-    async (override?: { text: string; files: File[] }) => {
+    async (override?: {
+      text: string
+      files: File[]
+      apiText?: string
+      userPreview?: string
+    }) => {
       const text = (override?.text ?? input).trim()
       const files = override?.files ?? []
       if (
-        (!text && files.length === 0) ||
+        (!text && files.length === 0 && !override?.apiText) ||
         chatMutation.isPending ||
         streamingMessageId !== null ||
         isEnsuringChat
       )
         return
 
-      let messageForApi = text
-      if (files.length > 0) {
+      let messageForApi = override?.apiText ?? text
+      if (!override?.apiText && files.length > 0) {
         try {
           messageForApi = await buildAgentMessageWithFiles(text, files)
         } catch {
@@ -483,7 +530,12 @@ export function AssistantSessionProvider({
         }
       }
 
-      const userPreview = formatUserMessagePreview(text, files)
+      const userPreview =
+        override?.userPreview ?? formatUserMessagePreview(text, files)
+      lastApiTextRef.current = messageForApi
+      lastUserPreviewRef.current = userPreview
+      const ac = new AbortController()
+      abortRef.current = ac
       setMessages((prev) => [
         ...prev,
         { id: crypto.randomUUID(), role: "user", content: userPreview },
@@ -493,6 +545,7 @@ export function AssistantSessionProvider({
         text: messageForApi,
         includePublicReasoning: deepStudy,
         userChatId: chatId,
+        signal: ac.signal,
       })
     },
     [
@@ -508,6 +561,59 @@ export function AssistantSessionProvider({
   const historyLocked =
     chatMutation.isPending || streamingMessageId !== null || isEnsuringChat
 
+  const stop = useCallback(() => {
+    const hadInflightRequest = abortRef.current != null
+    abortRef.current?.abort()
+    abortRef.current = null
+    stopStreamRaf()
+    const id = streamingMessageIdRef.current
+    const full = streamFullRef.current
+    if (id && full) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === id && m.role === "assistant"
+            ? {
+                ...m,
+                content: full,
+                isError: isAssistantFailureReply(full),
+              }
+            : m,
+        ),
+      )
+    } else if (hadInflightRequest) {
+      setMessages((prev) => [
+        ...prev,
+        assistantErrorMessage("Запрос остановлен"),
+      ])
+    }
+    streamingMessageIdRef.current = null
+    setStreamingMessageId(null)
+    streamFullRef.current = null
+  }, [stopStreamRaf])
+
+  const retryLast = useCallback(async () => {
+    const apiText = lastApiTextRef.current
+    const preview = lastUserPreviewRef.current ?? apiText
+    if (!apiText || !preview || historyLocked) return
+    const chatId = activeChatIdRef.current
+    if (!chatId) return
+    const ac = new AbortController()
+    abortRef.current = ac
+    setMessages((prev) => {
+      const next = [...prev]
+      if (next[next.length - 1]?.role === "assistant") next.pop()
+      if (next[next.length - 1]?.role === "user") next.pop()
+      next.push({ id: crypto.randomUUID(), role: "user", content: preview })
+      return next
+    })
+    chatMutation.mutate({
+      text: apiText,
+      includePublicReasoning: deepStudy,
+      userChatId: chatId,
+      signal: ac.signal,
+    })
+  }, [chatMutation, deepStudy, historyLocked])
+
   const newChat = useCallback(() => {
     if (historyLocked) return
     setActiveChatId(null)
@@ -515,6 +621,8 @@ export function AssistantSessionProvider({
     setMessages([])
     setInput("")
     setComposerResetKey((k) => k + 1)
+    lastApiTextRef.current = null
+    lastUserPreviewRef.current = null
     safeInvalidateQueries(queryClient, { queryKey: ["agent-user-chats"] })
     requestAnimationFrame(() => {
       scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
@@ -549,8 +657,6 @@ export function AssistantSessionProvider({
       setChatSearchQuery,
       sidebarHoveredChatId,
       setSidebarHoveredChatId,
-      chatMenuOpenId,
-      setChatMenuOpenId,
       isEnsuringChat,
       scrollRef,
       composerRef,
@@ -563,6 +669,8 @@ export function AssistantSessionProvider({
       deleteChatMutation,
       chatMutation,
       send,
+      retryLast,
+      stop,
       newChat,
       selectChat,
       historyLocked,
@@ -579,7 +687,6 @@ export function AssistantSessionProvider({
       historyDrawerOpen,
       chatSearchQuery,
       sidebarHoveredChatId,
-      chatMenuOpenId,
       isEnsuringChat,
       chatsQuery,
       detailQuery,
@@ -590,6 +697,8 @@ export function AssistantSessionProvider({
       deleteChatMutation,
       chatMutation,
       send,
+      retryLast,
+      stop,
       newChat,
       selectChat,
       historyLocked,

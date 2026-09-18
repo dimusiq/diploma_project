@@ -86,7 +86,7 @@ async def items_sse_stream() -> AsyncIterator[bytes]:
             try:
                 msg = await asyncio.wait_for(q.get(), timeout=15.0)
                 yield _format_sse(msg)
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 yield _format_sse(comment="ping")
     finally:
         unsubscribe_items_queue(q)

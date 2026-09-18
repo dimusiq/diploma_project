@@ -35,7 +35,7 @@ async def agent_orchestration_loop(stop_event: asyncio.Event) -> None:
             logger.exception("agent_orchestration_loop failed")
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval)
-        except TimeoutError:
+        except asyncio.TimeoutError:
             continue
 
 
@@ -51,5 +51,5 @@ async def integration_inbox_domain_loop(stop_event: asyncio.Event) -> None:
             logger.exception("integration_inbox_domain_loop failed")
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=interval)
-        except TimeoutError:
+        except asyncio.TimeoutError:
             continue

@@ -11,4 +11,5 @@ export type ChatMessage =
       model: string | null
       publicReasoning?: AgentPublicReasoningSummary
       runId?: string | null
+      isError?: boolean
     }

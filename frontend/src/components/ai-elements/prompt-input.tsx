@@ -8,6 +8,7 @@
 import {
   CornerDownLeftIcon,
   Loader2Icon,
+  PaperclipIcon,
   PlusIcon,
   SquareIcon,
   XIcon,
@@ -578,6 +579,30 @@ export function PromptInputActionAddAttachments({
     >
       {label}
     </DropdownMenuItem>
+  )
+}
+
+export function PromptInputAttachButton({
+  label = "Прикрепить файл",
+  tooltip = "Картинки и текстовые файлы, до 14 МБ",
+  disabled,
+}: {
+  label?: string
+  tooltip?: string
+  disabled?: boolean
+}) {
+  const { openFileDialog } = usePromptInputAttachments()
+  return (
+    <PromptInputButton
+      type="button"
+      size="icon-sm"
+      tooltip={tooltip}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => openFileDialog()}
+    >
+      <PaperclipIcon className="size-4" />
+    </PromptInputButton>
   )
 }
 
