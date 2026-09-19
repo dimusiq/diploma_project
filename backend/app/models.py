@@ -1342,6 +1342,76 @@ class OutboundOrderList(SQLModel):
     count: int
 
 
+class OutboundTimelineEvent(SQLModel):
+    at: datetime
+    kind: str
+    label: str
+
+
+class OutboundLineView(SQLModel):
+    sku_id: str | None = None
+    pallets: int = 0
+    picked: int = 0
+    quantity: int = 0
+
+
+class OutboundLinkedItem(SQLModel):
+    id: uuid.UUID
+    sku: str | None = None
+    title: str
+    status: str
+    quantity: int
+
+
+class OutboundTaskView(SQLModel):
+    id: uuid.UUID
+    task_type: str
+    status: str
+    updated_at: datetime
+
+
+class OutboundFulfillmentPublic(SQLModel):
+    """Исходящий заказ в operational-представлении отгрузки."""
+
+    id: uuid.UUID
+    warehouse_id: uuid.UUID
+    code: str
+    status: str
+    shipment_id: uuid.UUID | None = None
+    ship_by_at: datetime | None = None
+    lines: dict[str, Any] | None = None
+    extra: dict[str, Any] | None = None
+    created_at: datetime
+    updated_at: datetime
+    customer: str | None = None
+    items_count: int = 0
+    total_quantity: int = 0
+    pallets_count: int = 0
+    picking_status: str = "pending"
+    packing_status: str = "pending"
+    ready_at: datetime | None = None
+    transport_id: uuid.UUID | None = None
+    transport_label: str | None = None
+    transport_status: str | None = None
+    transport_assigned: bool = False
+
+
+class OutboundFulfillmentDetail(OutboundFulfillmentPublic):
+    line_items: list[OutboundLineView] = []
+    tasks: list[OutboundTaskView] = []
+    items: list[OutboundLinkedItem] = []
+    timeline: list[OutboundTimelineEvent] = []
+
+
+class OutboundFulfillmentList(SQLModel):
+    data: list[OutboundFulfillmentPublic]
+    count: int
+    ready_count: int = 0
+    items_count: int = 0
+    pallets_count: int = 0
+    awaiting_transport: int = 0
+
+
 class WarehouseTask(SQLModel, table=True):
     """Складское задание (погрузка, размещение, инвентаризация и т.д.)."""
 

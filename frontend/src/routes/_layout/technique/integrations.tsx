@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { request } from "@/lib/apiClient"
+import { getEventStatusLabel, getEventTypeLabel } from "@/lib/statusLabels.ts"
 
 export const Route = createFileRoute("/_layout/technique/integrations")({
   component: IntegrationsSection,
@@ -200,7 +201,7 @@ function IntegrationsSection() {
                           {entry.source}
                         </TableCell>
                         <TableCell className="text-xs">
-                          {entry.event_type}
+                          {getEventTypeLabel(entry.event_type)}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -208,12 +209,13 @@ function IntegrationsSection() {
                             className={
                               entry.status === "processed"
                                 ? "border-transparent bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                                : entry.status === "error"
+                                : entry.status === "error" ||
+                                    entry.status === "failed"
                                   ? "border-transparent bg-red-500/15 text-red-700 dark:text-red-400"
                                   : "border-transparent bg-zinc-500/15 text-zinc-500"
                             }
                           >
-                            {entry.status}
+                            {getEventStatusLabel(entry.status)}
                           </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs text-muted-foreground">

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -14,12 +15,24 @@ from fastapi.responses import StreamingResponse
 
 from app.api.deps import CurrentUser, SessionDep, get_current_warehouse_sim_admin
 from app.models import User
+from app.warehouse_sim.equipment_catalog import equipment_catalog
 from app.warehouse_sim.events import ALL_EVENT_TYPES, MANUAL_EVENT_TYPES
+from app.warehouse_sim.fleet import (
+    SUPPORTED_KINDS,
+    archive_fleet_device,
+    create_fleet_device,
+    get_device_row,
+    list_config_devices,
+    patch_fleet_device,
+    serialize_fleet_device,
+)
 from app.warehouse_sim.runtime import get_runtime, query_event_log, sse_stream
 from app.warehouse_sim.scenarios import SCENARIO_DEFS
 from app.warehouse_sim.schemas import (
     ApplyScenarioBody,
     DeviceCommandBody,
+    DeviceFleetCreate,
+    DeviceFleetPatch,
     FastForwardBody,
     ManualEventBody,
     SimCommandBody,
@@ -66,6 +79,76 @@ def read_device(_user: CurrentUser, device_id: str) -> dict[str, Any]:
         return get_runtime().devices.get_device_telemetry(device_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Устройство не найдено") from exc
+
+
+def _runtime_by_code() -> dict[str, dict[str, Any]]:
+    return {device["id"]: device for device in get_runtime().world["devices"]}
+
+
+@router.get("/fleet")
+def list_fleet(
+    session: SessionDep,
+    _user: CurrentUser,
+    include_archived: bool = Query(default=False),
+    category: str | None = Query(default=None),
+    kind: str | None = Query(default=None),
+) -> dict[str, Any]:
+    rows = list_config_devices(session, include_archived=include_archived)
+    runtime = _runtime_by_code()
+    data = [serialize_fleet_device(row, runtime.get(row.code)) for row in rows]
+    if category and category != "all":
+        data = [row for row in data if row["category"] == category]
+    if kind:
+        data = [row for row in data if row["kind"] == kind]
+    catalog = equipment_catalog()
+    return {
+        "data": data,
+        "count": len(data),
+        "kinds": list(SUPPORTED_KINDS),
+        **catalog,
+    }
+
+
+@router.post("/fleet")
+def create_fleet(session: SessionDep, _user: SimAdmin, body: DeviceFleetCreate) -> dict[str, Any]:
+    row = create_fleet_device(session, body.model_dump())
+    get_runtime().sync_fleet_device(row)
+    return serialize_fleet_device(row, _runtime_by_code().get(row.code))
+
+
+@router.get("/fleet/{device_id}")
+def read_fleet_device(session: SessionDep, _user: CurrentUser, device_id: uuid.UUID) -> dict[str, Any]:
+    row = get_device_row(session, device_id)
+    return serialize_fleet_device(row, _runtime_by_code().get(row.code))
+
+
+@router.patch("/fleet/{device_id}")
+def patch_fleet(
+    session: SessionDep,
+    _user: SimAdmin,
+    device_id: uuid.UUID,
+    body: DeviceFleetPatch,
+) -> dict[str, Any]:
+    patch = body.model_dump(exclude_unset=True)
+    row = get_device_row(session, device_id)
+    previous_code = row.code
+    runtime_device = _runtime_by_code().get(previous_code)
+    if get_runtime().state == "RUNNING" and runtime_device and runtime_device.get("taskId"):
+        if "kind" in patch or "code" in patch:
+            raise HTTPException(
+                status_code=409,
+                detail="Тип и код нельзя менять, пока устройство выполняет задание",
+            )
+    row = patch_fleet_device(session, device_id, patch)
+    get_runtime().sync_fleet_device(row, previous_code=previous_code)
+    return serialize_fleet_device(row, _runtime_by_code().get(row.code) or _runtime_by_code().get(previous_code))
+
+
+@router.delete("/fleet/{device_id}")
+def delete_fleet_device(session: SessionDep, _user: SimAdmin, device_id: uuid.UUID) -> dict[str, Any]:
+    row = archive_fleet_device(session, device_id)
+    get_runtime().sync_fleet_device(row)
+    return serialize_fleet_device(row, _runtime_by_code().get(row.code))
 
 
 @router.post("/devices/{device_id}/command")

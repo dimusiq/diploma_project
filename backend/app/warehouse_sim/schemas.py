@@ -59,3 +59,27 @@ class FastForwardBody(BaseModel):
 
 class ApplyScenarioBody(BaseModel):
     code: str = Field(min_length=1, max_length=48)
+
+
+class DeviceFleetCreate(BaseModel):
+    kind: str = Field(min_length=1, max_length=32)
+    name: str | None = Field(default=None, max_length=64)
+    code: str | None = Field(default=None, max_length=64)
+    description: str | None = Field(default=None, max_length=255)
+    enabled: bool = True
+    speed: float | None = Field(default=None, ge=0, le=20)
+    battery: float | None = Field(default=None, ge=0, le=100)
+    home: dict[str, Any] | None = None
+    configuration: dict[str, Any] | None = None
+
+
+class DeviceFleetPatch(BaseModel):
+    name: str | None = Field(default=None, max_length=64)
+    code: str | None = Field(default=None, max_length=64)
+    description: str | None = Field(default=None, max_length=255)
+    kind: str | None = Field(default=None, max_length=32)
+    enabled: bool | None = None
+    archived: bool | None = None
+    speed: float | None = Field(default=None, ge=0, le=20)
+    battery: float | None = Field(default=None, ge=0, le=100)
+    configuration: dict[str, Any] | None = None

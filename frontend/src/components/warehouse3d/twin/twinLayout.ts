@@ -4,9 +4,22 @@
  */
 import type { SimDock, SimZone } from "@/components/deviceServer/simTypes.ts"
 import {
+  dockFacadeWorldX,
   planToWorldX,
   planToWorldZ,
 } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
+
+/** Высота и толщина внешней стены Twin (единый фасад для стен и ворот). */
+export const TWIN_WALL_HEIGHT = 4.2
+export const TWIN_WALL_THICKNESS = 0.18
+
+/**
+ * Половина проёма во внешней стене (м).
+ * Проём чуть уже рамы, чтобы рама сидела в фасаде без зазора.
+ */
+export const DOCK_OPENING_HALF = 1.74
+export const DOCK_FRAME_WIDTH = 3.56
+export const DOCK_DOOR_WIDTH = 3.05
 
 export const ZONE_LABELS: Record<string, string> = {
   receiving: "RECEIVING",
@@ -45,9 +58,14 @@ export function zoneSignWorldPos(zone: SimZone) {
   }
 }
 
+/**
+ * 3D-поза ворот: логический dock.pos остаётся для simulation/2D,
+ * геометрия двери ставится в плоскость внешней стены.
+ * Локальный +Z модели смотрит внутрь склада.
+ */
 export function dockWorldPose(dock: SimDock) {
   return {
-    x: planToWorldX(dock.pos.x),
+    x: dockFacadeWorldX(dock.direction),
     z: planToWorldZ(dock.pos.z),
     yardX: planToWorldX(dock.yardPos.x),
     yardZ: planToWorldZ(dock.yardPos.z),
@@ -64,7 +82,8 @@ export function truckWorldPose(args: {
   return {
     x: planToWorldX(args.x),
     z: planToWorldZ(args.z),
-    rotationY: args.direction === "inbound" ? Math.PI / 2 : -Math.PI / 2,
+    /** Кабина в сторону площадки, кузов к воротам. */
+    rotationY: args.direction === "inbound" ? -Math.PI / 2 : Math.PI / 2,
   }
 }
 

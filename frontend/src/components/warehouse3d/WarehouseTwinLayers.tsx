@@ -25,6 +25,7 @@ import {
   type WarehouseGeometry,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import type { LiveEquipmentPose } from "@/hooks/useEquipmentPositionsLive.ts"
+import { getEquipmentStatusLabel } from "@/lib/statusLabels.ts"
 
 function zoneAabb(
   geom: WarehouseGeometry,
@@ -351,7 +352,9 @@ function EquipmentMarkersLayer({
               }}
             >
               {m.label}
-              <span style={{ opacity: 0.75, marginLeft: 4 }}>({m.status})</span>
+              <span style={{ opacity: 0.75, marginLeft: 4 }}>
+                ({getEquipmentStatusLabel(m.status)})
+              </span>
             </div>
           </Html>
         </group>

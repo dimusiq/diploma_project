@@ -6,7 +6,12 @@ import {
   SafetyBarrier,
   SafetyBollard,
 } from "@/components/warehouse3d/twin/SafetyBarrier.tsx"
-import { wallSegments } from "@/components/warehouse3d/twin/twinLayout.ts"
+import {
+  DOCK_OPENING_HALF,
+  TWIN_WALL_HEIGHT,
+  TWIN_WALL_THICKNESS,
+  wallSegments,
+} from "@/components/warehouse3d/twin/twinLayout.ts"
 import { TWIN_GEOM, TWIN_MAT } from "@/components/warehouse3d/twin/twinMaterials.ts"
 import { WarehouseFloor } from "@/components/warehouse3d/twin/WarehouseFloor.tsx"
 import { WarehouseZone } from "@/components/warehouse3d/twin/WarehouseZone.tsx"
@@ -15,11 +20,11 @@ import {
   planToWorldX,
   planToWorldZ,
   WAREHOUSE_DEPTH,
+  WAREHOUSE_FACADE_X,
   WAREHOUSE_WIDTH,
 } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 
 function TwinWalls({ darkMode }: { darkMode?: boolean }) {
-  const hw = WAREHOUSE_WIDTH / 2
   const hd = WAREHOUSE_DEPTH / 2
   const wallMat = darkMode ? TWIN_MAT.wallDark : TWIN_MAT.wall
   const docks = getFloorPlanDocks()
@@ -39,9 +44,10 @@ function TwinWalls({ darkMode }: { darkMode?: boolean }) {
         .sort((a, b) => a - b),
     [docks],
   )
-  const westSegs = wallSegments(hd, westGaps, 2.6)
-  const eastSegs = wallSegments(hd, eastGaps, 2.6)
-  const h = 4.2
+  const westSegs = wallSegments(hd, westGaps, DOCK_OPENING_HALF)
+  const eastSegs = wallSegments(hd, eastGaps, DOCK_OPENING_HALF)
+  const h = TWIN_WALL_HEIGHT
+  const t = TWIN_WALL_THICKNESS
 
   return (
     <group>
@@ -49,21 +55,21 @@ function TwinWalls({ darkMode }: { darkMode?: boolean }) {
         geometry={TWIN_GEOM.box}
         material={wallMat}
         position={[0, h / 2, -hd]}
-        scale={[WAREHOUSE_WIDTH, h, 0.18]}
+        scale={[WAREHOUSE_WIDTH, h, t]}
       />
       <mesh
         geometry={TWIN_GEOM.box}
         material={wallMat}
         position={[0, h / 2, hd]}
-        scale={[WAREHOUSE_WIDTH, h, 0.18]}
+        scale={[WAREHOUSE_WIDTH, h, t]}
       />
       {westSegs.map((s, i) => (
         <mesh
           key={`w-${i}`}
           geometry={TWIN_GEOM.box}
           material={wallMat}
-          position={[-hw, h / 2, s.center]}
-          scale={[0.18, h, Math.max(0.2, s.length)]}
+          position={[WAREHOUSE_FACADE_X.west, h / 2, s.center]}
+          scale={[t, h, Math.max(0.2, s.length)]}
         />
       ))}
       {eastSegs.map((s, i) => (
@@ -71,8 +77,8 @@ function TwinWalls({ darkMode }: { darkMode?: boolean }) {
           key={`e-${i}`}
           geometry={TWIN_GEOM.box}
           material={wallMat}
-          position={[hw, h / 2, s.center]}
-          scale={[0.18, h, Math.max(0.2, s.length)]}
+          position={[WAREHOUSE_FACADE_X.east, h / 2, s.center]}
+          scale={[t, h, Math.max(0.2, s.length)]}
         />
       ))}
     </group>

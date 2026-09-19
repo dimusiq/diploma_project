@@ -4,6 +4,7 @@ import type { MaintenanceCalendarEventPublic } from "@/api/maintenanceCalendar"
 import { maintenanceCalendarApi } from "@/api/maintenanceCalendar"
 import { type WorkOrderPublic, workOrdersApi } from "@/api/workOrders"
 import { Button } from "@/components/ui/button.tsx"
+import { getMaintenanceScheduleStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils.ts"
 
 type ViewMode = "day" | "week" | "month"
@@ -270,11 +271,7 @@ export function MaintenanceCalendar({
                         badgeCls,
                       )}
                     >
-                      {ev.status === "overdue"
-                        ? "Просрочено"
-                        : ev.status === "due_soon"
-                          ? "Скоро"
-                          : "Норма"}
+                      {getMaintenanceScheduleStatusLabel(ev.status)}
                     </span>
                   </div>
                   <span className="w-full truncate text-sm font-semibold">

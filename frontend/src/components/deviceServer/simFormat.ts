@@ -1,5 +1,13 @@
 /** Подписи и форматирование для интерфейса симулятора. */
 
+import {
+  getDeviceStatusLabel,
+  getOrderStatusLabel,
+  getTaskStatusLabel,
+  getTaskTypeLabel,
+  getTruckStatusLabel,
+  getWorkerStatusLabel,
+} from "@/lib/statusLabels.ts"
 import type {
   DeviceKind,
   DeviceStatus,
@@ -25,56 +33,6 @@ const DEVICE_KIND_LABELS: Record<DeviceKind, string> = {
   printer: "Принтер",
 }
 
-const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
-  idle: "Ожидание",
-  moving: "В движении",
-  waiting: "Ждёт разъезда",
-  loading: "Захват груза",
-  unloading: "Выгрузка",
-  charging: "Заряд",
-  running: "Работает",
-  scanning: "Сканирование",
-  occupied: "Занято",
-  jam: "Замятие",
-  fault: "Отказ",
-  maintenance: "ТО",
-  offline: "Отключено",
-}
-
-const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  pending: "В очереди",
-  assigned: "Назначено",
-  in_progress: "Выполняется",
-  done: "Завершено",
-}
-
-const TASK_KIND_LABELS: Record<TaskKind, string> = {
-  unload: "Разгрузка",
-  putaway: "Размещение",
-  pick: "Отбор",
-  load: "Погрузка",
-  replenish: "Пополнение",
-  charge: "Заряд",
-}
-
-const OUTBOUND_STATUS_LABELS: Record<OutboundStatus, string> = {
-  new: "Новый",
-  backorder: "Нет запаса",
-  picking: "Отбор",
-  packing: "Упаковка",
-  staged: "В буфере",
-  loading: "Погрузка",
-  shipped: "Отгружен",
-}
-
-const TRUCK_STATUS_LABELS: Record<TruckStatus, string> = {
-  queued: "В очереди",
-  docked: "У ворот",
-  unloading: "Разгрузка",
-  loading: "Погрузка",
-  departed: "Уехал",
-}
-
 const WORKER_ROLE_LABELS: Record<WorkerRole, string> = {
   receiver: "Приёмка",
   picker: "Отборщик",
@@ -83,27 +41,20 @@ const WORKER_ROLE_LABELS: Record<WorkerRole, string> = {
   supervisor: "Бригадир",
 }
 
-const WORKER_STATUS_LABELS: Record<WorkerStatus, string> = {
-  idle: "Свободен",
-  busy: "Занят",
-  break: "Перерыв",
-  off_shift: "Не в смене",
-}
-
 export function deviceKindLabel(kind: DeviceKind): string {
   return DEVICE_KIND_LABELS[kind]
 }
 
 export function deviceStatusLabel(status: DeviceStatus): string {
-  return DEVICE_STATUS_LABELS[status]
+  return getDeviceStatusLabel(status)
 }
 
 export function taskStatusLabel(status: TaskStatus): string {
-  return TASK_STATUS_LABELS[status]
+  return getTaskStatusLabel(status)
 }
 
 export function taskKindLabel(kind: TaskKind): string {
-  return TASK_KIND_LABELS[kind]
+  return getTaskTypeLabel(kind)
 }
 
 export function isMobileKind(kind: DeviceKind): boolean {
@@ -111,11 +62,11 @@ export function isMobileKind(kind: DeviceKind): boolean {
 }
 
 export function outboundStatusLabel(status: OutboundStatus): string {
-  return OUTBOUND_STATUS_LABELS[status]
+  return getOrderStatusLabel(status)
 }
 
 export function truckStatusLabel(status: TruckStatus): string {
-  return TRUCK_STATUS_LABELS[status]
+  return getTruckStatusLabel(status)
 }
 
 export function workerRoleLabel(role: WorkerRole): string {
@@ -123,7 +74,7 @@ export function workerRoleLabel(role: WorkerRole): string {
 }
 
 export function workerStatusLabel(status: WorkerStatus): string {
-  return WORKER_STATUS_LABELS[status]
+  return getWorkerStatusLabel(status)
 }
 
 /** Модельные часы: сутки смены + время суток. */

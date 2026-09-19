@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { sparePartsApi } from "@/api/spareParts.ts"
 import {
-  WORK_ORDER_PRIORITY_LABELS,
   WORK_ORDER_STATUS_LABELS,
   type WorkOrderDetailPublic,
   workOrdersApi,
@@ -40,6 +39,7 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import { getPriorityLabel, getWorkOrderStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils.ts"
 
 export function WorkOrderDetailDrawer({
@@ -253,14 +253,8 @@ function WorkOrderDetailContent({
   onAddConsumption: (spare_part_id: string, quantity: number) => void
   addConsumptionLoading: boolean
 }) {
-  const statusLabel =
-    WORK_ORDER_STATUS_LABELS[
-      order.status as keyof typeof WORK_ORDER_STATUS_LABELS
-    ] ?? order.status
-  const priorityLabel =
-    WORK_ORDER_PRIORITY_LABELS[
-      order.priority as keyof typeof WORK_ORDER_PRIORITY_LABELS
-    ] ?? order.priority
+  const statusLabel = getWorkOrderStatusLabel(order.status)
+  const priorityLabel = getPriorityLabel(order.priority)
 
   const timeline: Array<{
     type: "status" | "comment"
@@ -273,7 +267,7 @@ function WorkOrderDetailContent({
       type: "status" as const,
       id: h.id,
       date: h.created_at,
-      text: `Статус: ${WORK_ORDER_STATUS_LABELS[h.to_status as keyof typeof WORK_ORDER_STATUS_LABELS] ?? h.to_status}${h.comment ? ` — ${h.comment}` : ""}`,
+      text: `Статус: ${getWorkOrderStatusLabel(h.to_status)}${h.comment ? ` — ${h.comment}` : ""}`,
       user: h.changed_by_email ?? null,
     })),
     ...order.comments.map((c) => ({

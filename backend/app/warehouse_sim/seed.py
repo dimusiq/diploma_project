@@ -73,6 +73,9 @@ def seed_if_empty(session: Session) -> None:
         logger.info("Warehouse Device Server: seeded DEMO layout")
     _seed_products(session)
     _seed_scenarios(session)
+    from app.warehouse_sim.fleet import ensure_fleet_seed
+
+    ensure_fleet_seed(session)
     session.commit()
 
 
@@ -225,15 +228,35 @@ def _seed_warehouse(session: Session) -> None:
             continue
         session.add(
             SimDevice(
-                warehouse_id=wh.id,
-                name=device["name"][:64],
-                device_type=dtype,
-                status=DEVICE_STATUS_IDLE if device["status"] == "idle" else DEVICE_STATUS_ONLINE,
-                battery=device["battery"],
-                x=device["pos"]["x"],
-                y=device["pos"]["z"],
-                home_x=device["homePos"]["x"],
-                home_y=device["homePos"]["z"],
-                speed_mps=float(device["speed"] or 0),
+                **{
+                    "warehouse_id": wh.id,
+                    "code": device["id"][:64],
+                    "name": device["name"][:64],
+                    "device_type": dtype,
+                    "enabled": True,
+                    "archived": False,
+                    "status": DEVICE_STATUS_IDLE if device["status"] == "idle" else DEVICE_STATUS_ONLINE,
+                    "battery": device["battery"],
+                    "x": device["pos"]["x"],
+                    "y": device["pos"]["z"],
+                    "home_x": device["homePos"]["x"],
+                    "home_y": device["homePos"]["z"],
+                    "speed_mps": float(device["speed"] or 0),
+                    "meta": {
+                        k: device[k]
+                        for k in (
+                            "kind",
+                            "zoneId",
+                            "metricKind",
+                            "metricUnit",
+                            "metricMin",
+                            "metricMax",
+                            "metric",
+                            "health",
+                            "status",
+                        )
+                        if device.get(k) is not None
+                    },
+                }
             )
         )

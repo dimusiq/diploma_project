@@ -45,6 +45,7 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import { getInboundOrderStatusLabel } from "@/lib/statusLabels.ts"
 
 export const Route = createFileRoute("/_layout/inbound-orders")({
   component: InboundOrdersPage,
@@ -54,23 +55,28 @@ const PER_PAGE = 20
 
 const STATUS_OPTIONS = [
   { value: SELECT_ALL_VALUE, label: "Все статусы" },
-  { value: "open", label: "Открыт" },
-  { value: "in_progress", label: "В работе" },
-  { value: "received", label: "Получен" },
-  { value: "closed", label: "Закрыт" },
-  { value: "cancelled", label: "Отменён" },
+  { value: "open", label: getInboundOrderStatusLabel("open") },
+  { value: "in_progress", label: getInboundOrderStatusLabel("in_progress") },
+  { value: "received", label: getInboundOrderStatusLabel("received") },
+  { value: "closed", label: getInboundOrderStatusLabel("closed") },
+  { value: "cancelled", label: getInboundOrderStatusLabel("cancelled") },
 ] as const
 
 function statusBadge(status: string) {
-  const map: Record<string, { label: string; cls: string }> = {
-    open: { label: "Открыт", cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
-    in_progress: { label: "В работе", cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300" },
-    received: { label: "Получен", cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
-    closed: { label: "Закрыт", cls: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
-    cancelled: { label: "Отменён", cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+  const cls: Record<string, string> = {
+    open: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    in_progress:
+      "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+    received:
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    closed: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    cancelled: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   }
-  const m = map[status] ?? { label: status, cls: "" }
-  return <Badge variant="outline" className={m.cls}>{m.label}</Badge>
+  return (
+    <Badge variant="outline" className={cls[status] ?? ""}>
+      {getInboundOrderStatusLabel(status)}
+    </Badge>
+  )
 }
 
 function linesCount(lines: Record<string, unknown> | null): number {
@@ -320,11 +326,21 @@ function InboundOrderForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="open">Открыт</SelectItem>
-              <SelectItem value="in_progress">В работе</SelectItem>
-              <SelectItem value="received">Получен</SelectItem>
-              <SelectItem value="closed">Закрыт</SelectItem>
-              <SelectItem value="cancelled">Отменён</SelectItem>
+              <SelectItem value="open">
+                {getInboundOrderStatusLabel("open")}
+              </SelectItem>
+              <SelectItem value="in_progress">
+                {getInboundOrderStatusLabel("in_progress")}
+              </SelectItem>
+              <SelectItem value="received">
+                {getInboundOrderStatusLabel("received")}
+              </SelectItem>
+              <SelectItem value="closed">
+                {getInboundOrderStatusLabel("closed")}
+              </SelectItem>
+              <SelectItem value="cancelled">
+                {getInboundOrderStatusLabel("cancelled")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

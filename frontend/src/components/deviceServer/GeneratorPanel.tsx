@@ -3,8 +3,8 @@
  * состав парка устройств и ручная инъекция событий.
  */
 
-import { fetchSimScenarios } from "@/api/deviceServer.ts"
 import { type ReactNode, useEffect, useState } from "react"
+import { fetchSimScenarios } from "@/api/deviceServer.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
@@ -129,20 +129,26 @@ export function GeneratorPanel() {
         <CardContent className="px-4 py-4">
           <h3 className="font-heading mb-1 text-sm font-semibold">Сценарии</h3>
           <p className="mb-3 text-xs text-muted-foreground">
-            Start Demo запускает полный цикл на реальных заказах и остатках.
-            Сценарий ниже меняет интенсивность потоков и может сразу ввести отказ
-            техники или конвейера.
+            «Запустить демо» поднимает готовый демонстрационный сценарий на
+            реальных заказах и остатках. Сценарий ниже меняет интенсивность
+            потоков и может сразу ввести отказ техники или конвейера.
           </p>
           <div className="mb-3 flex flex-wrap gap-2">
-            <Button size="xs" onClick={() => deviceSimulation.startDemo()}>
-              Start Demo
+            <Button
+              size="xs"
+              variant="secondary"
+              onClick={() => void deviceSimulation.startDemo()}
+              title="Запустить заранее подготовленный демонстрационный сценарий"
+            >
+              Запустить демо
             </Button>
             <Button
               size="xs"
               variant="outline"
-              onClick={() => deviceSimulation.resetDemo()}
+              onClick={() => void deviceSimulation.resetDemo()}
+              title="Сбросить состояние демонстрационного сценария"
             >
-              Reset Demo
+              Сбросить демо
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">

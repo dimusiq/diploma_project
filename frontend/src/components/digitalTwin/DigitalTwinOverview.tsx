@@ -7,6 +7,7 @@ import {
 import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import { useSimData } from "@/components/deviceServer/useDeviceSimulation.ts"
 import { Card, CardContent } from "@/components/ui/card.tsx"
+import { getSimulationStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils.ts"
 
 export function DigitalTwinOverview() {
@@ -26,7 +27,7 @@ export function DigitalTwinOverview() {
         <CardContent className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div>
             <p className="font-heading text-xs font-semibold tracking-[0.16em] text-muted-foreground">
-              DIGITAL TWIN
+              Цифровой двойник
             </p>
             <p className="text-sm text-muted-foreground">
               Что сейчас происходит на складе
@@ -40,10 +41,10 @@ export function DigitalTwinOverview() {
                   live ? "bg-emerald-500" : "bg-muted-foreground/50",
                 )}
               />
-              {live ? "LIVE" : data.state}
+              {getSimulationStatusLabel(data.state, { uppercase: true })}
             </span>
             <span className="tabular-nums text-muted-foreground">
-              Simulation time:{" "}
+              Время симуляции:{" "}
               <span className="text-foreground">
                 {formatSimClock(data.timeSec, deviceSimulation.dayStartSec)}
               </span>
@@ -54,28 +55,28 @@ export function DigitalTwinOverview() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 [&>*]:min-w-0">
         <StatCard
-          label="Devices"
+          label="Устройства"
           value={`${kpi.online} / ${data.devices.length}`}
           hint={`${kpi.working} техники в работе`}
           tone={kpi.faults > 0 ? "danger" : "good"}
         />
         <StatCard
-          label="Tasks"
+          label="Задания"
           value={kpi.activeTasks}
           hint={`в очереди ${kpi.pendingTasks}`}
         />
         <StatCard
-          label="Occupancy"
+          label="Заполнение"
           value={formatPercent(kpi.fillRatio)}
           hint={`${data.cellsOccupied} из ${data.cellsTotal}`}
         />
         <StatCard
-          label="Orders"
+          label="Заказы"
           value={kpi.openOrders}
           hint={`входящих открыто ${inboundOpen}`}
         />
         <StatCard
-          label="Incidents"
+          label="Инциденты"
           value={incidents}
           hint={`отказы ${data.metrics.faults}, замятия ${data.metrics.jams}`}
           tone={incidents > 0 ? "warning" : "good"}
@@ -84,12 +85,12 @@ export function DigitalTwinOverview() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3 [&>*]:min-w-0">
         <StatCard
-          label="Inbound / Outbound"
+          label="Приёмка / отгрузка"
           value={`${data.metrics.palletsReceived} / ${data.metrics.palletsShipped}`}
           hint={`размещено ${data.metrics.palletsPutaway}, отобрано ${data.metrics.palletsPicked}`}
         />
         <StatCard
-          label="Transport"
+          label="Транспорт"
           value={`${data.trucks.length} на площадке`}
           hint={`принято ${data.metrics.trucksArrived}, ушло ${data.metrics.trucksDeparted}`}
         />

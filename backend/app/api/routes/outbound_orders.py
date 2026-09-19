@@ -1,4 +1,4 @@
-"""CRUD API for OutboundOrder (исходящие заказы)."""
+"""CRUD API for OutboundOrder (исходящие заказы) и operational-отгрузка."""
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -9,12 +9,23 @@ from sqlmodel import func, select
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     Message,
+    OutboundFulfillmentDetail,
+    OutboundFulfillmentList,
     OutboundOrder,
     OutboundOrderCreate,
     OutboundOrderList,
     OutboundOrderPublic,
     OutboundOrderUpdate,
+    Shipment,
     Warehouse,
+)
+from app.services.outbound_fulfillment import (
+    READY_STATUS,
+    SHIPPED_STATUS,
+    list_board,
+    related_tasks,
+    ship_order,
+    to_detail,
 )
 
 router = APIRouter(prefix="/outbound-orders", tags=["outbound-orders"])
@@ -32,6 +43,52 @@ def _resolve_warehouse_id(session: SessionDep, warehouse_id: uuid.UUID | None) -
     if not wh:
         raise HTTPException(status_code=500, detail="Не настроен ни один склад")
     return wh.id
+
+
+@router.get("/ready-for-shipment", response_model=OutboundFulfillmentList)
+def list_ready_for_shipment(
+    session: SessionDep,
+    _current_user: CurrentUser,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    search: str | None = None,
+    customer: str | None = None,
+    transport: str | None = None,
+    ready_date: str | None = None,
+) -> Any:
+    return list_board(
+        session,
+        status=READY_STATUS,
+        skip=skip,
+        limit=limit,
+        search=search,
+        customer=customer,
+        transport=transport,
+        ready_date=ready_date,
+    )
+
+
+@router.get("/shipped-board", response_model=OutboundFulfillmentList)
+def list_shipped_board(
+    session: SessionDep,
+    _current_user: CurrentUser,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    search: str | None = None,
+    customer: str | None = None,
+    transport: str | None = None,
+    ready_date: str | None = None,
+) -> Any:
+    return list_board(
+        session,
+        status=SHIPPED_STATUS,
+        skip=skip,
+        limit=limit,
+        search=search,
+        customer=customer,
+        transport=transport,
+        ready_date=ready_date,
+    )
 
 
 @router.get("/", response_model=OutboundOrderList)
@@ -52,6 +109,28 @@ def list_outbound_orders(
         stmt.order_by(OutboundOrder.created_at.desc()).offset(skip).limit(limit)
     ).all()
     return OutboundOrderList(data=rows, count=count)
+
+
+@router.get("/{id}/fulfillment", response_model=OutboundFulfillmentDetail)
+def get_outbound_fulfillment(
+    session: SessionDep,
+    _current_user: CurrentUser,
+    id: uuid.UUID,
+) -> Any:
+    order = session.get(OutboundOrder, id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Исходящий заказ не найден")
+    shipment = session.get(Shipment, order.shipment_id) if order.shipment_id else None
+    return to_detail(session, order, shipment=shipment, tasks=related_tasks(session, order))
+
+
+@router.post("/{id}/ship", response_model=OutboundFulfillmentDetail)
+def ship_outbound_order(
+    session: SessionDep,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+) -> Any:
+    return ship_order(session, current_user, id)
 
 
 @router.get("/{id}", response_model=OutboundOrderPublic)

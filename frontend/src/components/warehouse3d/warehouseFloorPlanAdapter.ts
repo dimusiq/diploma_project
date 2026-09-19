@@ -45,6 +45,19 @@ export function planToWorldZ(planZ: number): number {
   return planZ - WAREHOUSE_DEPTH / 2
 }
 
+/** Мировая X-плоскость западного/восточного фасада (центр внешней стены). */
+export const WAREHOUSE_FACADE_X = {
+  west: -WAREHOUSE_WIDTH / 2,
+  east: WAREHOUSE_WIDTH / 2,
+} as const
+
+/** 3D-плоскость ворот: inbound = западный фасад, outbound = восточный. */
+export function dockFacadeWorldX(direction: "inbound" | "outbound"): number {
+  return direction === "inbound"
+    ? WAREHOUSE_FACADE_X.west
+    : WAREHOUSE_FACADE_X.east
+}
+
 export function planToWorldY(planY: number): number {
   return planY
 }

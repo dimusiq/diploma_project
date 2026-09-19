@@ -51,14 +51,9 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import { getEquipmentStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils.ts"
 import { handleError } from "@/utils.ts"
-
-const STATUS_LABELS: Record<string, string> = {
-  active: "В эксплуатации",
-  maintenance: "На обслуживании",
-  decommissioned: "Выведена из эксплуатации",
-}
 
 const PAGE_SIZE = 500
 /** Строк таблицы на одной странице (клиентская пагинация отфильтрованного списка). */
@@ -395,10 +390,14 @@ export function EquipmentList() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={SELECT_ALL_VALUE}>Все состояния</SelectItem>
-              <SelectItem value="active">В эксплуатации</SelectItem>
-              <SelectItem value="maintenance">На обслуживании</SelectItem>
+              <SelectItem value="active">
+                {getEquipmentStatusLabel("active")}
+              </SelectItem>
+              <SelectItem value="maintenance">
+                {getEquipmentStatusLabel("maintenance")}
+              </SelectItem>
               <SelectItem value="decommissioned">
-                Выведена из эксплуатации
+                {getEquipmentStatusLabel("decommissioned")}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -591,8 +590,7 @@ export function EquipmentList() {
                   </TableCell>
                   <TableCell>
                     <span className="text-sm">
-                      {STATUS_LABELS[item.current_status] ??
-                        item.current_status}
+                      {getEquipmentStatusLabel(item.current_status)}
                     </span>
                   </TableCell>
                   <TableCell

@@ -3,6 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Button } from '@/components/ui/button.tsx';
 import { formatExpiredDaysLabel } from '@/components/warehouse3d/twin3dDerived.ts';
 import type { CellItemInfo } from '@/components/warehouse3d/warehouse3dTypes.ts';
+import { getItemStatusLabel } from '@/lib/statusLabels.ts';
 
 export function CellPopup({
   cellLabel,
@@ -95,7 +96,7 @@ export function CellPopup({
                 </div>
               )}
               <div className='mt-1.5 text-[11px] text-muted-foreground'>
-                Статус: {item.status}
+                Статус: {getItemStatusLabel(item.status)}
               </div>
               {item.id && (
                 <Button

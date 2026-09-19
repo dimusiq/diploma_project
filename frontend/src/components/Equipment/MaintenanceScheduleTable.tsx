@@ -73,6 +73,7 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import { getMaintenanceScheduleStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils.ts"
 import { getRemindBeforeHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
@@ -131,10 +132,10 @@ interface RowData {
 }
 
 const STATUS_LABELS: Record<ScheduleStatus, string> = {
-  in_repair: "В ремонте",
-  overdue: "Просрочено",
-  due_soon: "Скоро",
-  ok: "Норма",
+  in_repair: getMaintenanceScheduleStatusLabel("in_repair"),
+  overdue: getMaintenanceScheduleStatusLabel("overdue"),
+  due_soon: getMaintenanceScheduleStatusLabel("due_soon"),
+  ok: getMaintenanceScheduleStatusLabel("ok"),
 }
 
 /** Классы для бейджа статуса в строке графика ТО */

@@ -157,8 +157,10 @@ export function DeviceFleetPanel({
           <SelectContent>
             <SelectItem value={ALL}>Любое состояние</SelectItem>
             <SelectItem value="busy">В работе</SelectItem>
-            <SelectItem value="idle">Ожидание</SelectItem>
-            <SelectItem value="charging">На заряде</SelectItem>
+            <SelectItem value="idle">{deviceStatusLabel("idle")}</SelectItem>
+            <SelectItem value="charging">
+              {deviceStatusLabel("charging")}
+            </SelectItem>
             <SelectItem value="problem">Проблемные</SelectItem>
           </SelectContent>
         </Select>
@@ -319,7 +321,9 @@ export function DeviceInspector({ deviceId }: DeviceInspectorProps) {
           </h3>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <DeviceStatusBadge device={device} />
-            {!device.online && <Badge variant="outline">Отключено</Badge>}
+            {!device.online && (
+              <Badge variant="outline">{deviceStatusLabel("offline")}</Badge>
+            )}
             {device.alarm && (
               <Badge variant="destructive">Авария датчика</Badge>
             )}

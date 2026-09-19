@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table.tsx"
+import { getInboundOrderStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils"
 import {
   formatDuration,
@@ -18,13 +19,6 @@ import {
 } from "./simFormat.ts"
 import type { DataSnapshot } from "./simStore.ts"
 import { useSimData } from "./useDeviceSimulation.ts"
-
-const INBOUND_STATUS_LABELS: Record<string, string> = {
-  awaiting: "Ожидает ворот",
-  unloading: "Разгрузка",
-  received: "Принято",
-  closed: "Закрыто",
-}
 
 function dockCode(data: DataSnapshot, dockId: string | null): string {
   if (!dockId) return "—"
@@ -199,7 +193,7 @@ export function OrdersPanel() {
                     {data.skuLabels[item.skuId] ?? item.skuId}
                   </TableCell>
                   <TableCell>
-                    {INBOUND_STATUS_LABELS[item.status] ?? item.status}
+                    {getInboundOrderStatusLabel(item.status)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {item.palletsReceived} / {item.palletsPlanned}

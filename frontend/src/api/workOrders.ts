@@ -13,13 +13,7 @@ export const WORK_ORDER_STATUSES = [
 ] as const
 export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number]
 
-export const WORK_ORDER_STATUS_LABELS: Record<WorkOrderStatus, string> = {
-  open: "Открыта",
-  in_progress: "В работе",
-  waiting_parts: "Ожидание запчастей",
-  done: "Выполнена",
-  canceled: "Отменена",
-}
+export { WORK_ORDER_STATUS_LABELS } from "@/lib/statusLabels.ts"
 
 export const WORK_ORDER_PRIORITIES = [
   "low",
@@ -29,12 +23,7 @@ export const WORK_ORDER_PRIORITIES = [
 ] as const
 export type WorkOrderPriority = (typeof WORK_ORDER_PRIORITIES)[number]
 
-export const WORK_ORDER_PRIORITY_LABELS: Record<WorkOrderPriority, string> = {
-  low: "Низкий",
-  medium: "Средний",
-  high: "Высокий",
-  critical: "Критический",
-}
+export { WORK_ORDER_PRIORITY_LABELS } from "@/lib/statusLabels.ts"
 
 export const ATTACHMENT_KINDS = [
   "before_photo",

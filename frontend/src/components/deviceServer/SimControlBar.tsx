@@ -1,6 +1,6 @@
 /** Панель управления симуляцией: запуск, скорость модельного времени, сброс. */
 
-import type { ReactNode } from "react"
+import { type ReactNode, useRef, useState } from "react"
 import {
   FiAlertOctagon,
   FiBellOff,
@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
+import { getSimulationStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils"
 import { formatSimClock } from "./simFormat.ts"
 import type { SimSpeed } from "./simStore.ts"
@@ -62,6 +63,88 @@ function GroupDivider() {
   )
 }
 
+function DemoControls({ running }: { running: boolean }) {
+  const lock = useRef(false)
+  const [pending, setPending] = useState<"start" | "reset" | null>(null)
+  const busy = pending !== null
+
+  const run = (kind: "start" | "reset") => {
+    if (lock.current) return
+    if (kind === "start" && running) return
+    lock.current = true
+    setPending(kind)
+    const op =
+      kind === "start"
+        ? deviceSimulation.startDemo()
+        : deviceSimulation.resetDemo()
+    void Promise.resolve(op).finally(() => {
+      lock.current = false
+      setPending(null)
+    })
+  }
+
+  const startDisabled = running || busy
+  const resetDisabled = busy
+
+  return (
+    <>
+      <ControlGroup className="xl:hidden">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="xs"
+              variant="secondary"
+              title="Демонстрационный сценарий"
+            >
+              DEMO
+              <FiChevronDown aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-56">
+            <DropdownMenuItem
+              disabled={startDisabled}
+              onClick={() => run("start")}
+            >
+              <FiPlay aria-hidden />
+              Запустить демо
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={resetDisabled}
+              onClick={() => run("reset")}
+            >
+              <FiRotateCcw aria-hidden />
+              Сбросить демо
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </ControlGroup>
+      <ControlGroup
+        label="Demo"
+        className="hidden rounded-md border border-dashed border-border/80 px-1.5 py-0.5 xl:flex"
+      >
+        <Button
+          size="xs"
+          variant="secondary"
+          onClick={() => run("start")}
+          disabled={startDisabled}
+          title="Запустить заранее подготовленный демонстрационный сценарий"
+        >
+          <FiPlay aria-hidden /> Запустить демо
+        </Button>
+        <Button
+          size="xs"
+          variant="ghost"
+          onClick={() => run("reset")}
+          disabled={resetDisabled}
+          title="Сбросить состояние демонстрационного сценария"
+        >
+          <FiRotateCcw aria-hidden /> Сбросить демо
+        </Button>
+      </ControlGroup>
+    </>
+  )
+}
+
 export function SimControlBar() {
   const data = useSimData()
   const faults = data.devices.filter(
@@ -74,7 +157,7 @@ export function SimControlBar() {
   const stopped = data.state === "STOPPED"
   const emergencyActive = offline > 0
 
-  const stateLabel = running ? "RUNNING" : paused ? "PAUSED" : "STOPPED"
+  const stateLabel = getSimulationStatusLabel(data.state, { uppercase: true })
 
   return (
     <div className="sticky top-0 z-20 mb-4 rounded-lg border bg-card/95 px-3 py-2.5 backdrop-blur">
@@ -140,6 +223,7 @@ export function SimControlBar() {
                 className="rounded-none border-0"
                 onClick={() => deviceSimulation.start()}
                 disabled={running}
+                title="Запустить текущую симуляцию"
               >
                 <FiPlay aria-hidden /> START
               </Button>
@@ -149,6 +233,7 @@ export function SimControlBar() {
                 className="rounded-none border-0 border-l"
                 onClick={() => deviceSimulation.pause()}
                 disabled={!running}
+                title="Приостановить текущую симуляцию"
               >
                 <FiPause aria-hidden /> PAUSE
               </Button>
@@ -158,6 +243,7 @@ export function SimControlBar() {
                 className="rounded-none border-0 border-l"
                 onClick={() => deviceSimulation.stop()}
                 disabled={stopped}
+                title="Остановить текущую симуляцию"
               >
                 <FiSquare aria-hidden /> STOP
               </Button>
@@ -166,6 +252,7 @@ export function SimControlBar() {
                 variant="ghost"
                 className="rounded-none border-0 border-l text-muted-foreground"
                 onClick={() => deviceSimulation.reset()}
+                title="Сбросить текущее состояние симуляции"
               >
                 <FiRotateCcw aria-hidden /> RESET
               </Button>
@@ -174,24 +261,7 @@ export function SimControlBar() {
 
           <GroupDivider />
 
-          <ControlGroup label="Demo">
-            <Button
-              size="xs"
-              variant="secondary"
-              onClick={() => deviceSimulation.startDemo()}
-              title="Полный складской цикл на реальных заказах, товарах и заданиях"
-            >
-              <FiPlay aria-hidden /> Start Demo
-            </Button>
-            <Button
-              size="xs"
-              variant="ghost"
-              onClick={() => deviceSimulation.resetDemo()}
-              title="Сбросить симуляцию и связанные заказы, остатки, задания и отгрузки"
-            >
-              <FiRotateCcw aria-hidden /> Reset Demo
-            </Button>
-          </ControlGroup>
+          <DemoControls running={running} />
 
           <GroupDivider />
 

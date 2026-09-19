@@ -254,10 +254,8 @@ export function Warehouse3D({
         <div className="absolute bottom-8 left-2 max-w-sm space-y-3 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
           {showMobileInspector && selectedDevice && (
             <div className="space-y-1">
-              <p className="font-semibold">
-                {selectedDevice.kind === "forklift" ? "Forklift" : "AGV"}
-              </p>
-              <InspectorRow label="AGV ID" value={selectedDevice.id} />
+              <p className="font-semibold">{selectedDevice.name}</p>
+              <InspectorRow label="Код" value={selectedDevice.id} />
               <InspectorRow
                 label="Status"
                 value={deviceStatusLabel(selectedDevice.status)}

@@ -368,6 +368,33 @@ class DeviceSimulationClient {
     void postSimControl<DataSnapshot>("reset", config).then((d) => this.applyData(d))
   }
 
+  /**
+   * Reset Demo ≠ RESET: backend `reset_demo()` вызывает `reset(DEMO_CONFIG)`
+   * (демонстрационный профиль: seed, нулевые отказы, fill). Обычный RESET
+   * сбрасывает текущий config без подмены на DEMO_CONFIG. Один и тот же runtime.
+   */
+  private demoOp: Promise<unknown> | null = null
+
+  startDemo(): Promise<unknown> {
+    if (this.demoOp) return this.demoOp
+    this.demoOp = postDemoStart<DataSnapshot>()
+      .then((d) => this.applyData(d))
+      .finally(() => {
+        this.demoOp = null
+      })
+    return this.demoOp
+  }
+
+  resetDemo(): Promise<unknown> {
+    if (this.demoOp) return this.demoOp
+    this.demoOp = postDemoReset<DataSnapshot>()
+      .then((d) => this.applyData(d))
+      .finally(() => {
+        this.demoOp = null
+      })
+    return this.demoOp
+  }
+
   setSpeed(speed: SimSpeed): void {
     void postSimSpeed<DataSnapshot>(speed).then((d) => this.applyData(d))
   }
@@ -388,14 +415,6 @@ class DeviceSimulationClient {
 
   applyScenario(code: string): void {
     void postApplyScenario<DataSnapshot>(code).then((d) => this.applyData(d))
-  }
-
-  startDemo(): void {
-    void postDemoStart<DataSnapshot>().then((d) => this.applyData(d))
-  }
-
-  resetDemo(): void {
-    void postDemoReset<DataSnapshot>().then((d) => this.applyData(d))
   }
 
   fastForward(seconds: number): void {

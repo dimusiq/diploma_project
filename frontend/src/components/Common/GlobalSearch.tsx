@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog.tsx';
 import { Input } from '@/components/ui/input.tsx';
+import { getWorkOrderStatusLabel } from '@/lib/statusLabels.ts';
 
 interface SearchResult {
   items: Array<{ id: string; title: string; sku?: string }>;
@@ -226,7 +227,7 @@ export function GlobalSearch() {
                         </span>
                         {wo.status && (
                           <span className='ml-auto shrink-0 text-xs text-muted-foreground'>
-                            {wo.status}
+                            {getWorkOrderStatusLabel(wo.status)}
                           </span>
                         )}
                       </button>

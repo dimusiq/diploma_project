@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  dockFacadeWorldX,
   FLOOR_PLAN_LAYOUT_SPEC,
   isFloorPlanLayoutSpec,
   normalizeSlotKey,
@@ -8,6 +9,7 @@ import {
   resolveFloorPlanLayoutSpec,
   simCellIdToSlotKey,
   slotKeyToSimCellId,
+  WAREHOUSE_FACADE_X,
 } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 import { buildWarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
 
@@ -47,6 +49,10 @@ describe("warehouseFloorPlanAdapter", () => {
     expect(geom.cellsLength).toBe(12)
     expect(planToWorldX(52)).toBeCloseTo(0)
     expect(planToWorldZ(32)).toBeCloseTo(0)
+    expect(WAREHOUSE_FACADE_X.west).toBeCloseTo(-52)
+    expect(WAREHOUSE_FACADE_X.east).toBeCloseTo(52)
+    expect(dockFacadeWorldX("inbound")).toBe(WAREHOUSE_FACADE_X.west)
+    expect(dockFacadeWorldX("outbound")).toBe(WAREHOUSE_FACADE_X.east)
     const [xA, yA, zA] = geom.getCellWorldPosition(0, 0, 0, 0)
     const [xB, , zB] = geom.getCellWorldPosition(1, 0, 0, 0)
     expect(xA).toBeCloseTo(xB, 5)

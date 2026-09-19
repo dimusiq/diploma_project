@@ -45,12 +45,13 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import { getEquipmentStatusLabel } from "@/lib/statusLabels.ts"
 import { handleError } from "@/utils.ts"
 
 const STATUS_OPTIONS = [
-  { value: "active", label: "В эксплуатации" },
-  { value: "maintenance", label: "На обслуживании" },
-  { value: "decommissioned", label: "Выведена из эксплуатации" },
+  { value: "active", label: getEquipmentStatusLabel("active") },
+  { value: "maintenance", label: getEquipmentStatusLabel("maintenance") },
+  { value: "decommissioned", label: getEquipmentStatusLabel("decommissioned") },
 ]
 
 const EQUIPMENT_TYPE_OPTIONS = Object.entries(EQUIPMENT_TYPE_LABELS).map(

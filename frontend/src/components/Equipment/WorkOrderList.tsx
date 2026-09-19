@@ -35,6 +35,7 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import { getPriorityLabel, getWorkOrderStatusLabel } from "@/lib/statusLabels.ts"
 
 export function WorkOrderList() {
   const [statusFilter, setStatusFilter] = useState<string>("")
@@ -169,14 +170,10 @@ export function WorkOrderList() {
                   </TableCell>
                   <TableCell>{order.title}</TableCell>
                   <TableCell>
-                    {WORK_ORDER_STATUS_LABELS[
-                      order.status as keyof typeof WORK_ORDER_STATUS_LABELS
-                    ] ?? order.status}
+                    {getWorkOrderStatusLabel(order.status)}
                   </TableCell>
                   <TableCell>
-                    {WORK_ORDER_PRIORITY_LABELS[
-                      order.priority as keyof typeof WORK_ORDER_PRIORITY_LABELS
-                    ] ?? order.priority}
+                    {getPriorityLabel(order.priority)}
                   </TableCell>
                   <TableCell>{order.assigned_to_email ?? "—"}</TableCell>
                   <TableCell>

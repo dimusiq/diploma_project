@@ -104,9 +104,7 @@ function NotificationItem({
               badgeClass,
             )}
           >
-            {SEVERITY_LABELS[
-              severity as keyof typeof SEVERITY_LABELS
-            ] ?? item.severity}
+            {SEVERITY_LABELS[severity] ?? item.severity}
           </span>
           {!item.is_read ? (
             <Button

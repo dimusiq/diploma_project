@@ -4,6 +4,7 @@ import { formatSimClock } from "@/components/deviceServer/simFormat.ts"
 import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import { useSimData } from "@/components/deviceServer/useDeviceSimulation.ts"
 import { Card, CardContent } from "@/components/ui/card.tsx"
+import { getEventTypeLabel, getSimulationStatusLabel } from "@/lib/statusLabels.ts"
 
 function useSseConnected(): boolean {
   return useSyncExternalStore(
@@ -27,12 +28,7 @@ export function RuntimeStatusCard() {
   const sse = useSseConnected()
   const kpi = computeKpis(data)
   const last = data.events[0]
-  const manager =
-    data.state === "RUNNING"
-      ? "running"
-      : data.state === "PAUSED"
-        ? "paused"
-        : "stopped"
+  const manager = getSimulationStatusLabel(data.state)
 
   return (
     <Card className="mb-6 bg-muted/20 font-mono ring-foreground/10">
@@ -42,26 +38,31 @@ export function RuntimeStatusCard() {
         </h2>
         <dl className="space-y-1.5">
           <Row label="SimulationManager" value={manager} />
-          <Row label="SSE" value={sse ? "connected" : "reconnecting"} />
-          <Row label="Simulation state" value={data.state} />
           <Row
-            label="Simulation time"
+            label="SSE"
+            value={sse ? getSimulationStatusLabel("connected") : getSimulationStatusLabel("reconnecting")}
+          />
+          <Row
+            label="Состояние симуляции"
+            value={getSimulationStatusLabel(data.state)}
+          />
+          <Row label="Время симуляции"
             value={formatSimClock(data.timeSec, deviceSimulation.dayStartSec)}
           />
-          <Row label="Speed" value={`×${data.speed}`} />
+          <Row label="Скорость" value={`×${data.speed}`} />
           <Row
-            label="Last event"
+            label="Последнее событие"
             value={
               last
-                ? `${last.type}: ${last.message.slice(0, 72)}`
+                ? `${getEventTypeLabel(last.type)}: ${last.message.slice(0, 72)}`
                 : "—"
             }
           />
           <Row
-            label="Active devices"
+            label="Устройства"
             value={`${kpi.online} / ${data.devices.length}`}
           />
-          <Row label="Active tasks" value={String(kpi.activeTasks)} />
+          <Row label="Активные задания" value={String(kpi.activeTasks)} />
         </dl>
       </CardContent>
     </Card>

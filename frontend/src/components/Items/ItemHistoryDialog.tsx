@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table.tsx"
+import { getItemStatusLabel } from "@/lib/statusLabels.ts"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -68,6 +69,11 @@ export default function ItemHistoryDialog({
 
   const rows = data?.data ?? []
   const label = (f: string) => FIELD_LABELS[f] ?? f
+  const formatValue = (field: string, value: string | null | undefined) => {
+    if (!value) return "—"
+    if (field === "status") return getItemStatusLabel(value)
+    return value
+  }
 
   return (
     <DialogRoot open={open} onOpenChange={({ open: o }) => setOpen(o)}>
@@ -97,15 +103,23 @@ export default function ItemHistoryDialog({
                     <TableCell>{label(h.field_name)}</TableCell>
                     <TableCell
                       className="max-w-[120px] truncate"
-                      title={h.old_value}
+                      title={
+                        h.field_name === "status"
+                          ? formatValue(h.field_name, h.old_value)
+                          : h.old_value
+                      }
                     >
-                      {h.old_value || "—"}
+                      {formatValue(h.field_name, h.old_value)}
                     </TableCell>
                     <TableCell
                       className="max-w-[120px] truncate"
-                      title={h.new_value}
+                      title={
+                        h.field_name === "status"
+                          ? formatValue(h.field_name, h.new_value)
+                          : h.new_value
+                      }
                     >
-                      {h.new_value || "—"}
+                      {formatValue(h.field_name, h.new_value)}
                     </TableCell>
                   </TableRow>
                 ))}

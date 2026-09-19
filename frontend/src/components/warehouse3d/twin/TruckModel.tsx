@@ -28,9 +28,11 @@ export function TruckModel({
   z?: number
   darkMode?: boolean
 }) {
-  const rotY = direction === "inbound" ? Math.PI / 2 : -Math.PI / 2
   const posed =
     x != null && z != null ? truckWorldPose({ x, z, direction }) : null
+  const rotY =
+    posed?.rotationY ??
+    (direction === "inbound" ? -Math.PI / 2 : Math.PI / 2)
   const cabinMat =
     direction === "inbound" ? TWIN_MAT.cabinBlue : TWIN_MAT.cabinGreen
   return (

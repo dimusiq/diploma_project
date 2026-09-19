@@ -52,6 +52,17 @@ from app.warehouse_sim.world import DEFAULT_CONFIG, DEMO_CONFIG, create_world
 
 logger = logging.getLogger(__name__)
 
+
+def _fleet_for_world() -> list[dict] | None:
+    from app.warehouse_sim.fleet import load_active_runtime_devices
+
+    try:
+        with Session(engine) as session:
+            return load_active_runtime_devices(session)
+    except Exception:
+        logger.exception("Не удалось загрузить persistent fleet, используем встроенный парк")
+        return None
+
 TICK_SEC = 0.05
 MAX_WALL_STEP = 0.25
 DATA_PUBLISH_SEC = 0.25
@@ -61,7 +72,7 @@ MOTION_PUBLISH_SEC = 0.1
 class WarehouseSimRuntime:
     def __init__(self) -> None:
         self._lock = threading.RLock()
-        self.world = create_world()
+        self.world = create_world(fleet=_fleet_for_world())
         self.devices = DeviceServer(self.world)
         self.state = SIM_STOPPED
         self.speed = 1.0
@@ -236,7 +247,7 @@ class WarehouseSimRuntime:
         self._reset_domain()
         with self._lock:
             cfg = {**self.world.get("config", DEFAULT_CONFIG), **(config or {})}
-            self.world = create_world(cfg)
+            self.world = create_world(cfg, fleet=_fleet_for_world())
             self.devices.bind(self.world)
             self.state = SIM_STOPPED
             self._last_persisted_seq = 0
@@ -250,7 +261,7 @@ class WarehouseSimRuntime:
     def start_demo(self) -> dict:
         self._reset_domain()
         with self._lock:
-            self.world = create_world(DEMO_CONFIG)
+            self.world = create_world(DEMO_CONFIG, fleet=_fleet_for_world())
             self.devices.bind(self.world)
             self.state = SIM_STOPPED
             self.speed = 10.0
@@ -271,6 +282,44 @@ class WarehouseSimRuntime:
 
     def reset_demo(self) -> dict:
         return self.reset(dict(DEMO_CONFIG))
+
+    def sync_fleet_device(self, row: Any, *, previous_code: str | None = None) -> None:
+        """Безопасный hot-update identity/enabled без пересоздания мира."""
+        from app.warehouse_sim.fleet import row_to_runtime
+
+        with self._lock:
+            lookup = previous_code or row.code
+            device = self.world["deviceById"].get(lookup) or self.world["deviceById"].get(row.code)
+            if row.archived:
+                if device is not None:
+                    device["enabled"] = False
+                    device["online"] = False
+                    if not device.get("taskId"):
+                        device["status"] = "offline"
+                self._refresh()
+                self._publish("data", self._last_data)
+                self._publish("motion", self._last_motion)
+                return
+            if device is None:
+                if row.enabled:
+                    self.devices.register_device(row_to_runtime(row))
+            else:
+                device["name"] = row.name
+                device["enabled"] = bool(row.enabled)
+                if not row.enabled:
+                    device["online"] = False
+                    if not device.get("taskId"):
+                        device["status"] = "offline"
+                elif device.get("status") == "offline":
+                    device["online"] = True
+                    device["status"] = "idle"
+                if self.state != SIM_RUNNING and not device.get("taskId"):
+                    device["speed"] = float(row.speed_mps or 0)
+                    if row.battery is not None:
+                        device["battery"] = row.battery
+            self._refresh()
+            self._publish("data", self._last_data)
+            self._publish("motion", self._last_motion)
 
     def set_speed(self, speed: float) -> dict:
         if speed not in SIM_SPEEDS:

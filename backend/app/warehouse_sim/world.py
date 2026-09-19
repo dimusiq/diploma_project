@@ -273,11 +273,15 @@ def _create_devices(config: dict, topology: dict) -> list[dict]:
     return devices
 
 
-def create_world(config_input: dict | None = None) -> dict:
+def create_world(
+    config_input: dict | None = None,
+    *,
+    fleet: list[dict] | None = None,
+) -> dict:
     config = {**DEFAULT_CONFIG, **(config_input or {})}
     topology = build_topology()
     cells = build_cells(topology["racks"])
-    devices = _create_devices(config, topology)
+    devices = fleet if fleet is not None else _create_devices(config, topology)
     workers = []
     for i in range(int(config["workers"])):
         workers.append(

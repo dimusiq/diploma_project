@@ -475,8 +475,8 @@ export function WarehouseLiveMap({
                 >
                   {/* Заряд — только у выбранного: иначе подписи наезжают друг на друга. */}
                   {selected && device.battery !== null
-                    ? `${device.id.toUpperCase()} ${Math.round(device.battery)}%`
-                    : device.id.toUpperCase()}
+                    ? `${device.name} ${Math.round(device.battery)}%`
+                    : device.name}
                 </text>
               )}
             </g>

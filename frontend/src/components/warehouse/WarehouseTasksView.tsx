@@ -33,6 +33,13 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import {
+  getPriorityLabel,
+  getTaskStatusLabel,
+  getTaskStatusMeta,
+  getTaskTypeLabel,
+  STATUS_TONE_CLASS,
+} from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils.ts"
 import {
   parseWarehouseTaskTarget,
@@ -53,11 +60,11 @@ function Task3dLink({ task }: { task: WarehouseTask }) {
 
 const STATUS_OPTIONS = [
   { value: SELECT_ALL_VALUE, label: "Все статусы" },
-  { value: "pending", label: "pending" },
-  { value: "in_progress", label: "in_progress" },
-  { value: "blocked", label: "blocked" },
-  { value: "completed", label: "completed" },
-  { value: "cancelled", label: "cancelled" },
+  { value: "pending", label: getTaskStatusLabel("pending") },
+  { value: "in_progress", label: getTaskStatusLabel("in_progress") },
+  { value: "blocked", label: getTaskStatusLabel("blocked") },
+  { value: "completed", label: getTaskStatusLabel("completed") },
+  { value: "cancelled", label: getTaskStatusLabel("cancelled") },
 ] as const
 
 export function WarehouseTasksView({
@@ -173,17 +180,18 @@ export function WarehouseTasksView({
             <TableBody>
               {(listQ.data?.data ?? []).map((t: WarehouseTask) => (
                 <TableRow key={t.id}>
-                  <TableCell>{t.task_type}</TableCell>
+                  <TableCell>{getTaskTypeLabel(t.task_type)}</TableCell>
                   <TableCell>
                     <span
                       className={cn(
                         "inline-flex rounded-md border border-border px-2 py-0.5 text-xs font-medium",
+                        STATUS_TONE_CLASS[getTaskStatusMeta(t.status).tone],
                       )}
                     >
-                      {t.status}
+                      {getTaskStatusLabel(t.status)}
                     </span>
                   </TableCell>
-                  <TableCell>{t.priority}</TableCell>
+                  <TableCell>{getPriorityLabel(t.priority)}</TableCell>
                   <TableCell className="text-xs">
                     {new Date(t.updated_at).toLocaleString()}
                   </TableCell>
@@ -257,23 +265,24 @@ const KANBAN_COLUMNS = [
 ] as const
 
 function priorityLabel(p: number) {
+  const text = getPriorityLabel(p)
   if (p >= 8)
     return {
-      text: "критичный",
+      text,
       cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     }
   if (p >= 5)
     return {
-      text: "высокий",
+      text,
       cls: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
     }
   if (p >= 3)
     return {
-      text: "средний",
+      text,
       cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
     }
   return {
-    text: "низкий",
+    text,
     cls: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
   }
 }
@@ -343,7 +352,9 @@ function KanbanCard({
         <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", prio.cls)}>
           {prio.text}
         </span>
-        <span className="text-xs text-muted-foreground">{task.task_type}</span>
+        <span className="text-xs text-muted-foreground">
+          {getTaskTypeLabel(task.task_type)}
+        </span>
       </div>
       <p className="text-sm font-medium">Задание #{task.id.slice(0, 8)}</p>
       <p className="mt-1 text-xs text-muted-foreground">

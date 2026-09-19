@@ -9,6 +9,7 @@ import {
   outboundOrdersApi,
 } from "@/api/outboundOrders.ts"
 import { ApiError } from "@/client/index.ts"
+import { outboundStatusBadge } from "@/components/outbound/outboundLabels.tsx"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -19,7 +20,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/app-dialog.tsx"
-import { Badge } from "@/components/ui/badge.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import { Label } from "@/components/ui/label.tsx"
@@ -45,6 +45,7 @@ import {
   SELECT_ALL_VALUE,
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
+import { getOrderStatusLabel } from "@/lib/statusLabels.ts"
 
 export const Route = createFileRoute("/_layout/outbound-orders")({
   component: OutboundOrdersPage,
@@ -54,26 +55,13 @@ const PER_PAGE = 20
 
 const STATUS_OPTIONS = [
   { value: SELECT_ALL_VALUE, label: "Все статусы" },
-  { value: "open", label: "Открыт" },
-  { value: "picking", label: "Комплектация" },
-  { value: "packed", label: "Упакован" },
-  { value: "shipped", label: "Отгружен" },
-  { value: "closed", label: "Закрыт" },
-  { value: "cancelled", label: "Отменён" },
+  { value: "open", label: getOrderStatusLabel("open") },
+  { value: "picking", label: getOrderStatusLabel("picking") },
+  { value: "packed", label: getOrderStatusLabel("packed") },
+  { value: "shipped", label: getOrderStatusLabel("shipped") },
+  { value: "closed", label: getOrderStatusLabel("closed") },
+  { value: "cancelled", label: getOrderStatusLabel("cancelled") },
 ] as const
-
-function statusBadge(status: string) {
-  const map: Record<string, { label: string; cls: string }> = {
-    open: { label: "Открыт", cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
-    picking: { label: "Комплектация", cls: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300" },
-    packed: { label: "Упакован", cls: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" },
-    shipped: { label: "Отгружен", cls: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" },
-    closed: { label: "Закрыт", cls: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
-    cancelled: { label: "Отменён", cls: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
-  }
-  const m = map[status] ?? { label: status, cls: "" }
-  return <Badge variant="outline" className={m.cls}>{m.label}</Badge>
-}
 
 function linesCount(lines: Record<string, unknown> | null): number {
   if (!lines) return 0
@@ -205,7 +193,7 @@ function OutboundOrdersPage() {
                 {(listQ.data?.data ?? []).map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.code}</TableCell>
-                    <TableCell>{statusBadge(order.status)}</TableCell>
+                    <TableCell>{outboundStatusBadge(order.status)}</TableCell>
                     <TableCell className="text-sm">
                       {order.ship_by_at
                         ? new Date(order.ship_by_at).toLocaleDateString("ru-RU")
@@ -322,12 +310,24 @@ function OutboundOrderForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="open">Открыт</SelectItem>
-              <SelectItem value="picking">Комплектация</SelectItem>
-              <SelectItem value="packed">Упакован</SelectItem>
-              <SelectItem value="shipped">Отгружен</SelectItem>
-              <SelectItem value="closed">Закрыт</SelectItem>
-              <SelectItem value="cancelled">Отменён</SelectItem>
+              <SelectItem value="open">
+                {getOrderStatusLabel("open")}
+              </SelectItem>
+              <SelectItem value="picking">
+                {getOrderStatusLabel("picking")}
+              </SelectItem>
+              <SelectItem value="packed">
+                {getOrderStatusLabel("packed")}
+              </SelectItem>
+              <SelectItem value="shipped">
+                {getOrderStatusLabel("shipped")}
+              </SelectItem>
+              <SelectItem value="closed">
+                {getOrderStatusLabel("closed")}
+              </SelectItem>
+              <SelectItem value="cancelled">
+                {getOrderStatusLabel("cancelled")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

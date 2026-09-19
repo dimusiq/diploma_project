@@ -33,12 +33,14 @@ function deviceColor(kind: DeviceKind, status: string, online: boolean, alarm: b
 function LiveMobile({
   id,
   kind,
+  name,
   selected,
   task,
   onSelect,
 }: {
   id: string
   kind: DeviceKind
+  name: string
   selected: boolean
   task: SimTask | undefined
   onSelect: () => void
@@ -115,7 +117,7 @@ function LiveMobile({
           zIndexRange={[10, 0]}
         >
           <div className="whitespace-nowrap rounded-sm bg-background px-1 py-0.5 text-[10px] font-medium text-foreground shadow-sm">
-            {id.toUpperCase()}
+            {name}
             {task ? ` · ${taskKindLabel(task.kind)}` : ""}
           </div>
         </Html>
@@ -177,7 +179,7 @@ export const DynamicFleet = memo(function DynamicFleet({
     () =>
       data.devices
         .filter((device) => MOBILE_KINDS.includes(device.kind))
-        .map((device) => ({ id: device.id, kind: device.kind })),
+        .map((device) => ({ id: device.id, kind: device.kind, name: device.name })),
     [data.devices],
   )
   const tasksByDevice = useMemo(() => {
@@ -205,6 +207,7 @@ export const DynamicFleet = memo(function DynamicFleet({
           key={device.id}
           id={device.id}
           kind={device.kind}
+          name={device.name}
           selected={device.id === selectedDeviceId}
           task={tasksByDevice.get(device.id)}
           onSelect={() =>

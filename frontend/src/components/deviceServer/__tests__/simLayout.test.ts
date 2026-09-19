@@ -50,4 +50,16 @@ describe("геометрия склада Device Server", () => {
     expect(getFloorPlanRacks()).toEqual(buildRacks())
     expect(getFloorPlanRacks()).toHaveLength(16)
   })
+
+  it("логические координаты доков остаются inset для simulation", () => {
+    const docks = buildTopology().docks
+    const inbound = docks.filter((d) => d.direction === "inbound")
+    const outbound = docks.filter((d) => d.direction === "outbound")
+    expect(inbound).toHaveLength(3)
+    expect(outbound).toHaveLength(3)
+    expect(inbound.every((d) => d.pos.x === 3)).toBe(true)
+    expect(outbound.every((d) => d.pos.x === 98)).toBe(true)
+    expect(inbound.every((d) => d.yardPos.x === -12)).toBe(true)
+    expect(outbound.every((d) => d.yardPos.x === 116)).toBe(true)
+  })
 })

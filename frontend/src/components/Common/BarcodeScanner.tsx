@@ -21,20 +21,11 @@ import {
 } from "@/components/ui/dialog.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import { getErrorHttpStatus } from "@/lib/apiClient.ts"
+import { getItemStatusLabel } from "@/lib/statusLabels.ts"
 
 interface BarcodeScannerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  incoming: "Поступление",
-  warehouse: "На складе",
-  shipment: "К отгрузке",
-  shipped: "Отгружено",
-  stored: "На складе",
-  reserved: "Зарезервирован",
-  defective: "Брак",
 }
 
 function formatStorageCell(loc: ScanResult["location"]): string | null {
@@ -161,7 +152,7 @@ export function BarcodeScanner({ open, onOpenChange }: BarcodeScannerProps) {
                   </h4>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     <Badge variant="secondary" className="text-xs">
-                      {STATUS_LABELS[result.item.status] ?? result.item.status}
+                      {getItemStatusLabel(result.item.status)}
                     </Badge>
                     <span className="text-xs text-muted-foreground">
                       {result.item.quantity} {result.item.unit ?? "шт."}

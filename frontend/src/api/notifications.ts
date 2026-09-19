@@ -6,11 +6,7 @@ import { request } from "@/lib/apiClient.ts"
 export const NOTIFICATION_SEVERITIES = ["critical", "warning", "info"] as const
 export type NotificationSeverity = (typeof NOTIFICATION_SEVERITIES)[number]
 
-export const SEVERITY_LABELS: Record<NotificationSeverity, string> = {
-  critical: "Критично",
-  warning: "Важно",
-  info: "Инфо",
-}
+export { SEVERITY_LABELS } from "@/lib/statusLabels.ts"
 
 export interface NotificationPublic {
   id: string

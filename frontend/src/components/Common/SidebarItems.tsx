@@ -121,6 +121,7 @@ const managementItemsBase: Item[] = [
     title: "Техника",
     path: null,
     children: [
+      { path: "/fleet", title: "Оборудование" },
       { path: "/technique", title: "Парк" },
       { path: "/technique/maintenance", title: "ТО" },
       { path: "/technique/work-orders", title: "Наряды" },

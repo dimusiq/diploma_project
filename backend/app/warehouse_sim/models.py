@@ -401,7 +401,10 @@ class SimDevice(SQLModel, table=True):
     """
 
     __tablename__ = "wsim_device"
-    __table_args__ = (UniqueConstraint("warehouse_id", "name", name="uq_wsim_device_wh_name"),)
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "name", name="uq_wsim_device_wh_name"),
+        UniqueConstraint("warehouse_id", "code", name="uq_wsim_device_wh_code"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     warehouse_id: uuid.UUID = Field(
@@ -410,8 +413,12 @@ class SimDevice(SQLModel, table=True):
     zone_id: uuid.UUID | None = Field(
         default=None, foreign_key="wsim_zone.id", ondelete="SET NULL", index=True
     )
-    name: str = Field(max_length=64, description="AGV-01, FORKLIFT-02 и т.п.")
+    code: str = Field(max_length=64, description="Стабильный runtime id: agv-1, fl-2")
+    name: str = Field(max_length=64, description="Отображаемое имя: AGV-01")
+    description: str | None = Field(default=None, max_length=255)
     device_type: str = Field(max_length=32, index=True, description="|".join(DEVICE_TYPES))
+    enabled: bool = Field(default=True)
+    archived: bool = Field(default=False)
     status: str = Field(default=DEVICE_STATUS_IDLE, max_length=16, index=True)
     battery: float | None = Field(
         default=None, ge=0, le=100, description="Проценты; None — устройство без батареи"

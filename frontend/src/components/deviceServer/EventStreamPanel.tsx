@@ -11,6 +11,7 @@ import {
   OPERATOR_EVENT_CATEGORY_LABELS,
   type OperatorEventCategory,
 } from "@/lib/simEventCategory.ts"
+import { getEventTypeLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils"
 import { formatSimClock, severityDot, severityTone } from "./simFormat.ts"
 import { deviceSimulation } from "./simStore.ts"
@@ -51,7 +52,9 @@ export function EventStreamPanel({
       }
       if (
         needle &&
-        !`${event.type} ${event.message}`.toLowerCase().includes(needle)
+        !`${event.type} ${getEventTypeLabel(event.type)} ${event.message}`
+          .toLowerCase()
+          .includes(needle)
       ) {
         return false
       }
@@ -134,7 +137,7 @@ export function EventStreamPanel({
                     <p className="text-xs text-muted-foreground">
                       {operator ? null : (
                         <>
-                          <span className="font-mono">{event.type}</span>
+                          <span>{getEventTypeLabel(event.type)}</span>
                           {" · "}
                         </>
                       )}
@@ -177,7 +180,7 @@ export function EventStreamPanel({
                     onClick={() => setQuery(item.type)}
                     className="flex w-full items-center justify-between gap-2 rounded px-1 py-0.5 text-left text-xs hover:bg-accent"
                   >
-                    <span className="truncate font-mono">{item.type}</span>
+                    <span className="truncate">{getEventTypeLabel(item.type)}</span>
                     <span className="tabular-nums text-muted-foreground">
                       {item.count}
                     </span>

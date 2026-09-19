@@ -19,13 +19,16 @@ class DeviceServer:
         did = spec["id"]
         if did in self._world["deviceById"]:
             raise ValueError(f"Устройство {did} уже зарегистрировано")
-        device = create_device(
-            did,
-            spec.get("kind", "agv"),
-            spec.get("name", did),
-            spec.get("pos") or {"x": 10.0, "z": 10.0},
-            **{k: v for k, v in spec.items() if k not in {"id", "kind", "name", "pos"}},
-        )
+        if spec.get("pos") is not None and spec.get("homePos") is not None:
+            device = spec
+        else:
+            device = create_device(
+                did,
+                spec.get("kind", "agv"),
+                spec.get("name", did),
+                spec.get("pos") or {"x": 10.0, "z": 10.0},
+                **{k: v for k, v in spec.items() if k not in {"id", "kind", "name", "pos"}},
+            )
         self._world["devices"].append(device)
         self._world["deviceById"][did] = device
         return device
