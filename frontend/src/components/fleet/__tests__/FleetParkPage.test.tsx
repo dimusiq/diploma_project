@@ -234,6 +234,19 @@ describe("FleetParkPage / Оборудование", () => {
     expect(screen.getByText("AGV-01")).toBeTruthy()
   })
 
+  it("клик по названию открывает карточку", async () => {
+    const user = userEvent.setup()
+    const onOpenDevice = vi.fn()
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <FleetParkPage canManage onOpenDevice={onOpenDevice} />
+      </QueryClientProvider>,
+    )
+    await user.click(await screen.findByRole("button", { name: "AGV-01" }))
+    expect(onOpenDevice).toHaveBeenCalledWith(expect.objectContaining({ id: "id-agv-1" }))
+  })
+
   it("включает и отключает устройство", async () => {
     const user = userEvent.setup()
     renderPage()

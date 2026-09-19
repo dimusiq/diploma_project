@@ -306,11 +306,14 @@ class WarehouseSimRuntime:
             else:
                 device["name"] = row.name
                 device["enabled"] = bool(row.enabled)
+                device["inMaintenance"] = bool((row.meta or {}).get("inMaintenance"))
                 if not row.enabled:
                     device["online"] = False
                     if not device.get("taskId"):
                         device["status"] = "offline"
-                elif device.get("status") == "offline":
+                elif device["inMaintenance"] and not device.get("taskId"):
+                    device["status"] = "maintenance"
+                elif device.get("status") in ("offline", "maintenance"):
                     device["online"] = True
                     device["status"] = "idle"
                 if self.state != SIM_RUNNING and not device.get("taskId"):

@@ -24,11 +24,45 @@ def test_baseline_park_composition() -> None:
     assert [d["name"] for d in world["devices"]] == [d["name"] for d in devices]
 
 
+def test_maintenance_device_is_not_assigned_new_tasks() -> None:
+    world = create_world({"faultRatePerHour": 0, "jamRatePerHour": 0})
+    for device in world["devices"]:
+        if device["kind"] == "forklift":
+            device["inMaintenance"] = True
+            device["status"] = "maintenance"
+            device["online"] = True
+            device["taskId"] = None
+    spawn_inbound_truck(world)
+    advance_world(world, 45)
+    assert all(
+        device.get("taskId") is None
+        for device in world["devices"]
+        if device["kind"] == "forklift"
+    )
+
+
 def test_disabled_device_is_not_assigned_new_tasks() -> None:
     world = create_world({"faultRatePerHour": 0, "jamRatePerHour": 0})
     for device in world["devices"]:
         if device["kind"] == "forklift":
             device["enabled"] = False
+            device["online"] = True
+            device["status"] = "idle"
+            device["taskId"] = None
+    spawn_inbound_truck(world)
+    advance_world(world, 45)
+    assert all(
+        device.get("taskId") is None
+        for device in world["devices"]
+        if device["kind"] == "forklift"
+    )
+
+
+def test_archived_device_is_not_assigned_new_tasks() -> None:
+    world = create_world({"faultRatePerHour": 0, "jamRatePerHour": 0})
+    for device in world["devices"]:
+        if device["kind"] == "forklift":
+            device["archived"] = True
             device["online"] = True
             device["status"] = "idle"
             device["taskId"] = None

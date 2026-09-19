@@ -21,6 +21,7 @@ import { Route as LayoutControlTowerRouteImport } from './routes/_layout/control
 import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutDeviceServerRouteImport } from './routes/_layout/device-server'
 import { Route as LayoutDigitalTwinRouteImport } from './routes/_layout/digital-twin'
+import { Route as LayoutEquipmentRouteImport } from './routes/_layout/equipment'
 import { Route as LayoutFleetRouteImport } from './routes/_layout/fleet'
 import { Route as LayoutInboundOrdersRouteImport } from './routes/_layout/inbound-orders'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
@@ -35,6 +36,8 @@ import { Route as LayoutWarehouse3dHelpRouteImport } from './routes/_layout/ware
 import { Route as LayoutWarehouseSimulationRouteImport } from './routes/_layout/warehouse-simulation'
 import { Route as LayoutWarehouseTasksRouteImport } from './routes/_layout/warehouse-tasks'
 import { Route as LayoutWarehouseTwinRouteImport } from './routes/_layout/warehouse-twin'
+import { Route as LayoutEquipmentIndexRouteImport } from './routes/_layout/equipment.index'
+import { Route as LayoutEquipmentDeviceIdRouteImport } from './routes/_layout/equipment.$deviceId'
 import { Route as LayoutTechniqueIndexRouteImport } from './routes/_layout/technique/index'
 import { Route as LayoutTechniqueAlertsRouteImport } from './routes/_layout/technique/alerts'
 import { Route as LayoutTechniqueAnalyticsRouteImport } from './routes/_layout/technique/analytics'
@@ -109,6 +112,11 @@ const LayoutDigitalTwinRoute = LayoutDigitalTwinRouteImport.update({
   path: '/digital-twin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutEquipmentRoute = LayoutEquipmentRouteImport.update({
+  id: '/equipment',
+  path: '/equipment',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutFleetRoute = LayoutFleetRouteImport.update({
   id: '/fleet',
   path: '/fleet',
@@ -179,6 +187,16 @@ const LayoutWarehouseTwinRoute = LayoutWarehouseTwinRouteImport.update({
   id: '/warehouse-twin',
   path: '/warehouse-twin',
   getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutEquipmentIndexRoute = LayoutEquipmentIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => LayoutEquipmentRoute,
+} as any)
+const LayoutEquipmentDeviceIdRoute = LayoutEquipmentDeviceIdRouteImport.update({
+  id: '/$deviceId',
+  path: '/$deviceId',
+  getParentRoute: () => LayoutEquipmentRoute,
 } as any)
 const LayoutTechniqueIndexRoute = LayoutTechniqueIndexRouteImport.update({
   id: '/',
@@ -275,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof LayoutDashboardRoute
   '/device-server': typeof LayoutDeviceServerRoute
   '/digital-twin': typeof LayoutDigitalTwinRoute
+  '/equipment': typeof LayoutEquipmentRouteWithChildren
   '/fleet': typeof LayoutFleetRoute
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
@@ -288,6 +307,7 @@ export interface FileRoutesByFullPath {
   '/warehouse-simulation': typeof LayoutWarehouseSimulationRoute
   '/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/warehouse-twin': typeof LayoutWarehouseTwinRoute
+  '/equipment/$deviceId': typeof LayoutEquipmentDeviceIdRoute
   '/technique/alerts': typeof LayoutTechniqueAlertsRoute
   '/technique/analytics': typeof LayoutTechniqueAnalyticsRoute
   '/technique/integrations': typeof LayoutTechniqueIntegrationsRoute
@@ -299,6 +319,7 @@ export interface FileRoutesByFullPath {
   '/technique/spare-parts': typeof LayoutTechniqueSparePartsRoute
   '/technique/technicians': typeof LayoutTechniqueTechniciansRoute
   '/technique/work-orders': typeof LayoutTechniqueWorkOrdersRoute
+  '/equipment/': typeof LayoutEquipmentIndexRoute
   '/technique/': typeof LayoutTechniqueIndexRoute
   '/technique/equipment/$equipmentId': typeof LayoutTechniqueEquipmentEquipmentIdRoute
   '/technique/equipment/new': typeof LayoutTechniqueEquipmentNewRoute
@@ -328,6 +349,7 @@ export interface FileRoutesByTo {
   '/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/warehouse-twin': typeof LayoutWarehouseTwinRoute
   '/': typeof LayoutIndexRoute
+  '/equipment/$deviceId': typeof LayoutEquipmentDeviceIdRoute
   '/technique/alerts': typeof LayoutTechniqueAlertsRoute
   '/technique/analytics': typeof LayoutTechniqueAnalyticsRoute
   '/technique/integrations': typeof LayoutTechniqueIntegrationsRoute
@@ -339,6 +361,7 @@ export interface FileRoutesByTo {
   '/technique/spare-parts': typeof LayoutTechniqueSparePartsRoute
   '/technique/technicians': typeof LayoutTechniqueTechniciansRoute
   '/technique/work-orders': typeof LayoutTechniqueWorkOrdersRoute
+  '/equipment': typeof LayoutEquipmentIndexRoute
   '/technique': typeof LayoutTechniqueIndexRoute
   '/technique/equipment/$equipmentId': typeof LayoutTechniqueEquipmentEquipmentIdRoute
   '/technique/equipment/new': typeof LayoutTechniqueEquipmentNewRoute
@@ -357,6 +380,7 @@ export interface FileRoutesById {
   '/_layout/dashboard': typeof LayoutDashboardRoute
   '/_layout/device-server': typeof LayoutDeviceServerRoute
   '/_layout/digital-twin': typeof LayoutDigitalTwinRoute
+  '/_layout/equipment': typeof LayoutEquipmentRouteWithChildren
   '/_layout/fleet': typeof LayoutFleetRoute
   '/_layout/inbound-orders': typeof LayoutInboundOrdersRoute
   '/_layout/items': typeof LayoutItemsRoute
@@ -371,6 +395,7 @@ export interface FileRoutesById {
   '/_layout/warehouse-tasks': typeof LayoutWarehouseTasksRoute
   '/_layout/warehouse-twin': typeof LayoutWarehouseTwinRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/equipment/$deviceId': typeof LayoutEquipmentDeviceIdRoute
   '/_layout/technique/alerts': typeof LayoutTechniqueAlertsRoute
   '/_layout/technique/analytics': typeof LayoutTechniqueAnalyticsRoute
   '/_layout/technique/integrations': typeof LayoutTechniqueIntegrationsRoute
@@ -382,6 +407,7 @@ export interface FileRoutesById {
   '/_layout/technique/spare-parts': typeof LayoutTechniqueSparePartsRoute
   '/_layout/technique/technicians': typeof LayoutTechniqueTechniciansRoute
   '/_layout/technique/work-orders': typeof LayoutTechniqueWorkOrdersRoute
+  '/_layout/equipment/': typeof LayoutEquipmentIndexRoute
   '/_layout/technique/': typeof LayoutTechniqueIndexRoute
   '/_layout/technique/equipment/$equipmentId': typeof LayoutTechniqueEquipmentEquipmentIdRoute
   '/_layout/technique/equipment/new': typeof LayoutTechniqueEquipmentNewRoute
@@ -401,6 +427,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/device-server'
     | '/digital-twin'
+    | '/equipment'
     | '/fleet'
     | '/inbound-orders'
     | '/items'
@@ -414,6 +441,7 @@ export interface FileRouteTypes {
     | '/warehouse-simulation'
     | '/warehouse-tasks'
     | '/warehouse-twin'
+    | '/equipment/$deviceId'
     | '/technique/alerts'
     | '/technique/analytics'
     | '/technique/integrations'
@@ -425,6 +453,7 @@ export interface FileRouteTypes {
     | '/technique/spare-parts'
     | '/technique/technicians'
     | '/technique/work-orders'
+    | '/equipment/'
     | '/technique/'
     | '/technique/equipment/$equipmentId'
     | '/technique/equipment/new'
@@ -454,6 +483,7 @@ export interface FileRouteTypes {
     | '/warehouse-tasks'
     | '/warehouse-twin'
     | '/'
+    | '/equipment/$deviceId'
     | '/technique/alerts'
     | '/technique/analytics'
     | '/technique/integrations'
@@ -465,6 +495,7 @@ export interface FileRouteTypes {
     | '/technique/spare-parts'
     | '/technique/technicians'
     | '/technique/work-orders'
+    | '/equipment'
     | '/technique'
     | '/technique/equipment/$equipmentId'
     | '/technique/equipment/new'
@@ -482,6 +513,7 @@ export interface FileRouteTypes {
     | '/_layout/dashboard'
     | '/_layout/device-server'
     | '/_layout/digital-twin'
+    | '/_layout/equipment'
     | '/_layout/fleet'
     | '/_layout/inbound-orders'
     | '/_layout/items'
@@ -496,6 +528,7 @@ export interface FileRouteTypes {
     | '/_layout/warehouse-tasks'
     | '/_layout/warehouse-twin'
     | '/_layout/'
+    | '/_layout/equipment/$deviceId'
     | '/_layout/technique/alerts'
     | '/_layout/technique/analytics'
     | '/_layout/technique/integrations'
@@ -507,6 +540,7 @@ export interface FileRouteTypes {
     | '/_layout/technique/spare-parts'
     | '/_layout/technique/technicians'
     | '/_layout/technique/work-orders'
+    | '/_layout/equipment/'
     | '/_layout/technique/'
     | '/_layout/technique/equipment/$equipmentId'
     | '/_layout/technique/equipment/new'
@@ -606,6 +640,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutDigitalTwinRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/equipment': {
+      id: '/_layout/equipment'
+      path: '/equipment'
+      fullPath: '/equipment'
+      preLoaderRoute: typeof LayoutEquipmentRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/fleet': {
       id: '/_layout/fleet'
       path: '/fleet'
@@ -703,6 +744,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/warehouse-twin'
       preLoaderRoute: typeof LayoutWarehouseTwinRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/_layout/equipment/': {
+      id: '/_layout/equipment/'
+      path: '/'
+      fullPath: '/equipment/'
+      preLoaderRoute: typeof LayoutEquipmentIndexRouteImport
+      parentRoute: typeof LayoutEquipmentRoute
+    }
+    '/_layout/equipment/$deviceId': {
+      id: '/_layout/equipment/$deviceId'
+      path: '/$deviceId'
+      fullPath: '/equipment/$deviceId'
+      preLoaderRoute: typeof LayoutEquipmentDeviceIdRouteImport
+      parentRoute: typeof LayoutEquipmentRoute
     }
     '/_layout/technique/': {
       id: '/_layout/technique/'
@@ -845,6 +900,20 @@ const LayoutTechniqueRouteRouteChildren: LayoutTechniqueRouteRouteChildren = {
 const LayoutTechniqueRouteRouteWithChildren =
   LayoutTechniqueRouteRoute._addFileChildren(LayoutTechniqueRouteRouteChildren)
 
+interface LayoutEquipmentRouteChildren {
+  LayoutEquipmentDeviceIdRoute: typeof LayoutEquipmentDeviceIdRoute
+  LayoutEquipmentIndexRoute: typeof LayoutEquipmentIndexRoute
+}
+
+const LayoutEquipmentRouteChildren: LayoutEquipmentRouteChildren = {
+  LayoutEquipmentDeviceIdRoute: LayoutEquipmentDeviceIdRoute,
+  LayoutEquipmentIndexRoute: LayoutEquipmentIndexRoute,
+}
+
+const LayoutEquipmentRouteWithChildren = LayoutEquipmentRoute._addFileChildren(
+  LayoutEquipmentRouteChildren,
+)
+
 interface LayoutRouteChildren {
   LayoutTechniqueRouteRoute: typeof LayoutTechniqueRouteRouteWithChildren
   LayoutAdminRoute: typeof LayoutAdminRoute
@@ -853,6 +922,7 @@ interface LayoutRouteChildren {
   LayoutDashboardRoute: typeof LayoutDashboardRoute
   LayoutDeviceServerRoute: typeof LayoutDeviceServerRoute
   LayoutDigitalTwinRoute: typeof LayoutDigitalTwinRoute
+  LayoutEquipmentRoute: typeof LayoutEquipmentRouteWithChildren
   LayoutFleetRoute: typeof LayoutFleetRoute
   LayoutInboundOrdersRoute: typeof LayoutInboundOrdersRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
@@ -877,6 +947,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutDashboardRoute: LayoutDashboardRoute,
   LayoutDeviceServerRoute: LayoutDeviceServerRoute,
   LayoutDigitalTwinRoute: LayoutDigitalTwinRoute,
+  LayoutEquipmentRoute: LayoutEquipmentRouteWithChildren,
   LayoutFleetRoute: LayoutFleetRoute,
   LayoutInboundOrdersRoute: LayoutInboundOrdersRoute,
   LayoutItemsRoute: LayoutItemsRoute,

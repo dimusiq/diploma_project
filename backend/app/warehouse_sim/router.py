@@ -10,11 +10,21 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import CurrentUser, SessionDep, get_current_warehouse_sim_admin
+from app.core.audit import get_client_ip, log_audit
 from app.models import User
+from app.warehouse_sim.device_maintenance import (
+    create_maintenance,
+    get_maintenance,
+    list_maintenance,
+    maintenance_summaries,
+    maintenance_summary,
+    patch_maintenance,
+    serialize_maintenance,
+)
 from app.warehouse_sim.equipment_catalog import equipment_catalog
 from app.warehouse_sim.events import ALL_EVENT_TYPES, MANUAL_EVENT_TYPES
 from app.warehouse_sim.fleet import (
@@ -33,6 +43,8 @@ from app.warehouse_sim.schemas import (
     DeviceCommandBody,
     DeviceFleetCreate,
     DeviceFleetPatch,
+    DeviceMaintenanceCreate,
+    DeviceMaintenancePatch,
     FastForwardBody,
     ManualEventBody,
     SimCommandBody,
@@ -95,7 +107,13 @@ def list_fleet(
 ) -> dict[str, Any]:
     rows = list_config_devices(session, include_archived=include_archived)
     runtime = _runtime_by_code()
-    data = [serialize_fleet_device(row, runtime.get(row.code)) for row in rows]
+    summaries = maintenance_summaries(session, [row.id for row in rows])
+    data = [
+        serialize_fleet_device(
+            row, runtime.get(row.code), maintenance=summaries.get(row.id)
+        )
+        for row in rows
+    ]
     if category and category != "all":
         data = [row for row in data if row["category"] == category]
     if kind:
@@ -119,13 +137,18 @@ def create_fleet(session: SessionDep, _user: SimAdmin, body: DeviceFleetCreate) 
 @router.get("/fleet/{device_id}")
 def read_fleet_device(session: SessionDep, _user: CurrentUser, device_id: uuid.UUID) -> dict[str, Any]:
     row = get_device_row(session, device_id)
-    return serialize_fleet_device(row, _runtime_by_code().get(row.code))
+    return serialize_fleet_device(
+        row,
+        _runtime_by_code().get(row.code),
+        maintenance=maintenance_summary(session, row.id),
+    )
 
 
 @router.patch("/fleet/{device_id}")
 def patch_fleet(
     session: SessionDep,
-    _user: SimAdmin,
+    request: Request,
+    user: SimAdmin,
     device_id: uuid.UUID,
     body: DeviceFleetPatch,
 ) -> dict[str, Any]:
@@ -133,22 +156,186 @@ def patch_fleet(
     row = get_device_row(session, device_id)
     previous_code = row.code
     runtime_device = _runtime_by_code().get(previous_code)
-    if get_runtime().state == "RUNNING" and runtime_device and runtime_device.get("taskId"):
+    rt = get_runtime()
+    if patch.get("inMaintenance") and runtime_device and runtime_device.get("taskId"):
+        raise HTTPException(
+            status_code=409,
+            detail="Оборудование выполняет задачу. Перевод в техническое обслуживание требует завершения или остановки текущей задачи",
+        )
+    if rt.state == "RUNNING" and runtime_device and runtime_device.get("taskId"):
         if "kind" in patch or "code" in patch:
             raise HTTPException(
                 status_code=409,
                 detail="Тип и код нельзя менять, пока устройство выполняет задание",
             )
+    deferred: list[str] = []
+    if rt.state == "RUNNING":
+        if "speed" in patch:
+            deferred.append("speed")
+        if "kind" in patch:
+            deferred.append("kind")
     row = patch_fleet_device(session, device_id, patch)
-    get_runtime().sync_fleet_device(row, previous_code=previous_code)
-    return serialize_fleet_device(row, _runtime_by_code().get(row.code) or _runtime_by_code().get(previous_code))
+    rt.sync_fleet_device(row, previous_code=previous_code)
+    log_audit(
+        session,
+        user_id=user.id,
+        action="fleet.update",
+        resource_type="wsim_device",
+        resource_id=row.id,
+        details={k: patch[k] for k in patch if k != "configuration"} | (
+            {"configuration": patch["configuration"]} if "configuration" in patch else {}
+        ),
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    return serialize_fleet_device(
+        row,
+        _runtime_by_code().get(row.code) or _runtime_by_code().get(previous_code),
+        maintenance=maintenance_summary(session, row.id),
+        deferred=deferred,
+    )
 
 
 @router.delete("/fleet/{device_id}")
-def delete_fleet_device(session: SessionDep, _user: SimAdmin, device_id: uuid.UUID) -> dict[str, Any]:
+def delete_fleet_device(
+    session: SessionDep, request: Request, user: SimAdmin, device_id: uuid.UUID
+) -> dict[str, Any]:
     row = archive_fleet_device(session, device_id)
     get_runtime().sync_fleet_device(row)
+    log_audit(
+        session,
+        user_id=user.id,
+        action="fleet.archive",
+        resource_type="wsim_device",
+        resource_id=row.id,
+        details={"code": row.code},
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
     return serialize_fleet_device(row, _runtime_by_code().get(row.code))
+
+
+@router.get("/fleet/{device_id}/tasks")
+def list_fleet_device_tasks(_user: CurrentUser, device_id: uuid.UUID, session: SessionDep) -> dict[str, Any]:
+    row = get_device_row(session, device_id)
+    tasks = [
+        task
+        for task in get_runtime().world["tasks"]
+        if task.get("deviceId") == row.code
+    ]
+    return {"data": tasks[-40:], "count": len(tasks)}
+
+
+@router.get("/fleet/{device_id}/events")
+def list_fleet_device_events(
+    session: SessionDep,
+    _user: CurrentUser,
+    device_id: uuid.UUID,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+) -> dict[str, Any]:
+    row = get_device_row(session, device_id)
+    return query_event_log(
+        session,
+        get_runtime(),
+        device_id=row.code,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.get("/fleet/{device_id}/maintenance")
+def list_fleet_device_maintenance(
+    session: SessionDep, _user: CurrentUser, device_id: uuid.UUID
+) -> dict[str, Any]:
+    row = get_device_row(session, device_id)
+    items = [serialize_maintenance(item) for item in list_maintenance(session, row.id)]
+    return {
+        "data": items,
+        "count": len(items),
+        "summary": maintenance_summary(session, row.id),
+    }
+
+
+@router.post("/fleet/{device_id}/maintenance")
+def create_fleet_device_maintenance(
+    session: SessionDep,
+    request: Request,
+    user: SimAdmin,
+    device_id: uuid.UUID,
+    body: DeviceMaintenanceCreate,
+) -> dict[str, Any]:
+    row = get_device_row(session, device_id)
+    payload = body.model_dump()
+    if payload.get("status") == "in_progress":
+        runtime_device = _runtime_by_code().get(row.code)
+        if runtime_device and runtime_device.get("taskId"):
+            raise HTTPException(
+                status_code=409,
+                detail="Оборудование выполняет задачу. Перевод в техническое обслуживание требует завершения или остановки текущей задачи",
+            )
+    record = create_maintenance(session, row, payload)
+    if payload.get("status") == "in_progress":
+        row = patch_fleet_device(session, row.id, {"inMaintenance": True})
+        get_runtime().sync_fleet_device(row)
+    log_audit(
+        session,
+        user_id=user.id,
+        action="fleet.maintenance.create",
+        resource_type="wsim_device",
+        resource_id=row.id,
+        details={"maintenance_id": str(record.id), "title": record.title},
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    return serialize_maintenance(record)
+
+
+@router.patch("/fleet/{device_id}/maintenance/{record_id}")
+def patch_fleet_device_maintenance(
+    session: SessionDep,
+    request: Request,
+    user: SimAdmin,
+    device_id: uuid.UUID,
+    record_id: uuid.UUID,
+    body: DeviceMaintenancePatch,
+) -> dict[str, Any]:
+    row = get_device_row(session, device_id)
+    record = get_maintenance(session, record_id)
+    if record.device_id != row.id:
+        raise HTTPException(status_code=404, detail="Запись ТО не найдена")
+    patch = body.model_dump(exclude_unset=True)
+    if patch.get("status") == "in_progress":
+        runtime_device = _runtime_by_code().get(row.code)
+        if runtime_device and runtime_device.get("taskId"):
+            raise HTTPException(
+                status_code=409,
+                detail="Оборудование выполняет задачу. Перевод в техническое обслуживание требует завершения или остановки текущей задачи",
+            )
+    record = patch_maintenance(session, record_id, patch)
+    if record.status == "in_progress":
+        row = patch_fleet_device(session, row.id, {"inMaintenance": True})
+        get_runtime().sync_fleet_device(row)
+    elif record.status in ("completed", "cancelled"):
+        open_items = [
+            item
+            for item in list_maintenance(session, row.id)
+            if item.status == "in_progress"
+        ]
+        if not open_items:
+            row = patch_fleet_device(session, row.id, {"inMaintenance": False})
+            get_runtime().sync_fleet_device(row)
+    log_audit(
+        session,
+        user_id=user.id,
+        action="fleet.maintenance.update",
+        resource_type="wsim_device",
+        resource_id=row.id,
+        details={"maintenance_id": str(record.id), "status": record.status},
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    return serialize_maintenance(record)
 
 
 @router.post("/devices/{device_id}/command")
@@ -162,10 +349,16 @@ def command_device(_user: SimAdmin, device_id: str, body: DeviceCommandBody) -> 
 
 
 @router.get("/tasks")
-def list_tasks(_user: CurrentUser, status: str | None = Query(default=None)) -> dict[str, Any]:
+def list_tasks(
+    _user: CurrentUser,
+    status: str | None = Query(default=None),
+    device_id: str | None = Query(default=None),
+) -> dict[str, Any]:
     tasks = get_runtime().world["tasks"]
     if status:
         tasks = [t for t in tasks if t["status"] == status]
+    if device_id:
+        tasks = [t for t in tasks if t.get("deviceId") == device_id]
     return {"data": tasks, "count": len(tasks)}
 
 

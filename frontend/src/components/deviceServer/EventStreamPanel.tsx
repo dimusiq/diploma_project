@@ -31,8 +31,10 @@ const SEVERITY_FILTERS: Array<{
 
 export function EventStreamPanel({
   variant = "technical",
+  deviceId = null,
 }: {
   variant?: "technical" | "operator"
+  deviceId?: string | null
 }) {
   const data = useSimData()
   const [severity, setSeverity] = useState<SimEventSeverity | "all">("all")
@@ -45,6 +47,7 @@ export function EventStreamPanel({
   const events = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return source.filter((event) => {
+      if (deviceId && event.deviceId !== deviceId) return false
       if (operator) {
         if (!matchesEventCategory(event, category)) return false
       } else if (severity !== "all" && event.severity !== severity) {
@@ -60,7 +63,7 @@ export function EventStreamPanel({
       }
       return true
     })
-  }, [source, severity, category, query, operator])
+  }, [source, severity, category, query, operator, deviceId])
 
   return (
     <div

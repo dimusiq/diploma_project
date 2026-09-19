@@ -1,13 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { FleetParkPage } from "@/components/fleet/FleetParkPage.tsx"
-import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
-import { canAccessWarehouseSim } from "@/lib/warehouseSimAccess.ts"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_layout/fleet")({
-  component: FleetParkRoute,
+  beforeLoad: () => {
+    throw redirect({ to: "/equipment" })
+  },
+  component: () => null,
 })
-
-function FleetParkRoute() {
-  const user = useCurrentUser()
-  return <FleetParkPage canManage={canAccessWarehouseSim(user)} />
-}

@@ -21,6 +21,7 @@ function DigitalTwinPage() {
     <DigitalTwinWorkspace
       tab={search.tab}
       view={search.view}
+      deviceId={search.deviceId}
       onTabChange={(tab) => {
         void navigate({
           search: (prev: typeof search) => ({ ...prev, tab }),

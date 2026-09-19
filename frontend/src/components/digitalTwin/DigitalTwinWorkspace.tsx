@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { DeviceInspector } from "@/components/deviceServer/DeviceFleetPanel.tsx"
 import { EventStreamPanel } from "@/components/deviceServer/EventStreamPanel.tsx"
 import { WarehouseDigitalTwin } from "@/components/deviceServer/WarehouseDigitalTwin.tsx"
@@ -19,15 +19,23 @@ import type {
 export function DigitalTwinWorkspace({
   tab,
   view,
+  deviceId,
   onTabChange,
   onViewChange,
 }: {
   tab: DigitalTwinTab
   view: DigitalTwinView
+  deviceId?: string
   onTabChange: (tab: DigitalTwinTab) => void
   onViewChange: (view: DigitalTwinView) => void
 }) {
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null)
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(
+    deviceId ?? null,
+  )
+
+  useEffect(() => {
+    if (deviceId) setSelectedDeviceId(deviceId)
+  }, [deviceId])
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:py-8">
@@ -76,7 +84,7 @@ export function DigitalTwinWorkspace({
         </TabsContent>
 
         <TabsContent value="events">
-          <EventStreamPanel variant="operator" />
+          <EventStreamPanel variant="operator" deviceId={selectedDeviceId} />
         </TabsContent>
 
         <TabsContent value="analytics">

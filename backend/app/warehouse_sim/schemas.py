@@ -83,3 +83,27 @@ class DeviceFleetPatch(BaseModel):
     speed: float | None = Field(default=None, ge=0, le=20)
     battery: float | None = Field(default=None, ge=0, le=100)
     configuration: dict[str, Any] | None = None
+    inMaintenance: bool | None = None
+
+
+class DeviceMaintenanceCreate(BaseModel):
+    type: str = Field(min_length=1, max_length=24)
+    status: str | None = Field(default=None, max_length=24)
+    title: str = Field(min_length=1, max_length=256)
+    description: str | None = Field(default=None, max_length=4096)
+    priority: str | None = Field(default=None, max_length=16)
+    scheduled_at: str | None = None
+    performed_by: str | None = Field(default=None, max_length=128)
+    notes: str | None = Field(default=None, max_length=2048)
+
+
+class DeviceMaintenancePatch(BaseModel):
+    type: str | None = Field(default=None, max_length=24)
+    status: str | None = Field(default=None, max_length=24)
+    title: str | None = Field(default=None, max_length=256)
+    description: str | None = Field(default=None, max_length=4096)
+    priority: str | None = Field(default=None, max_length=16)
+    scheduled_at: str | None = None
+    performed_by: str | None = Field(default=None, max_length=128)
+    notes: str | None = Field(default=None, max_length=2048)
+

@@ -29,7 +29,21 @@ export type FleetRuntime = {
   metricKind?: string | null
   metricUnit?: string | null
   lastSeen?: number | null
+  lastEventAt?: number | null
+  busySec?: number | null
   inSimulation: boolean
+  inMaintenance?: boolean
+}
+
+export type MaintenanceTone = "ok" | "due_soon" | "overdue" | "in_progress"
+
+export type FleetMaintenanceSummary = {
+  count: number
+  overdueCount: number
+  lastAt: string | null
+  nextAt: string | null
+  status: string | null
+  tone: MaintenanceTone
 }
 
 export type FleetDevice = {
@@ -43,6 +57,7 @@ export type FleetDevice = {
   enabled: boolean
   archived: boolean
   simulated?: boolean
+  inMaintenance?: boolean
   configuration: {
     speed: number
     battery: number | null
@@ -53,10 +68,66 @@ export type FleetDevice = {
     metricMin?: number | null
     metricMax?: number | null
     metric?: number | null
+    inMaintenance?: boolean
   }
   runtime: FleetRuntime
+  maintenance?: FleetMaintenanceSummary | null
+  deferredUntilRestart?: string[]
   created_at: string | null
   updated_at: string | null
+}
+
+export type DeviceMaintenanceRecord = {
+  id: string
+  device_id: string
+  type: string
+  status: string
+  title: string
+  description: string | null
+  priority: string
+  scheduled_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  performed_by: string | null
+  notes: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export type DeviceMaintenanceList = {
+  data: DeviceMaintenanceRecord[]
+  count: number
+  summary: FleetMaintenanceSummary
+}
+
+export type DeviceMaintenanceCreate = {
+  type: string
+  status?: string
+  title: string
+  description?: string
+  priority?: string
+  scheduled_at?: string
+  performed_by?: string
+  notes?: string
+}
+
+export type SimTask = {
+  id: string
+  kind: string
+  status: string
+  deviceId: string | null
+  createdAt?: number
+  assignedAt?: number | null
+  doneAt?: number | null
+}
+
+export type SimEventItem = {
+  id: number
+  at?: number
+  type: string
+  severity?: string
+  message: string
+  deviceId?: string | null
 }
 
 export type EquipmentCategoryMeta = {
@@ -110,11 +181,53 @@ export type FleetPatch = {
   archived?: boolean
   speed?: number
   configuration?: Record<string, unknown>
+  inMaintenance?: boolean
 }
+
+export const SIM_FLEET_QUERY_KEY = ["sim-fleet"] as const
 
 export async function fetchSimFleet(includeArchived = false): Promise<FleetListResponse> {
   const q = includeArchived ? "?include_archived=true" : ""
   return request(`${BASE}${q}`)
+}
+
+export async function fetchSimFleetDevice(id: string): Promise<FleetDevice> {
+  return request(`${BASE}/${encodeURIComponent(id)}`)
+}
+
+export async function fetchDeviceTasks(id: string): Promise<{ data: SimTask[]; count: number }> {
+  return request(`${BASE}/${encodeURIComponent(id)}/tasks`)
+}
+
+export async function fetchDeviceEvents(
+  id: string,
+): Promise<{ data: SimEventItem[]; count: number }> {
+  return request(`${BASE}/${encodeURIComponent(id)}/events?limit=80`)
+}
+
+export async function fetchDeviceMaintenance(id: string): Promise<DeviceMaintenanceList> {
+  return request(`${BASE}/${encodeURIComponent(id)}/maintenance`)
+}
+
+export async function createDeviceMaintenance(
+  id: string,
+  body: DeviceMaintenanceCreate,
+): Promise<DeviceMaintenanceRecord> {
+  return request(`${BASE}/${encodeURIComponent(id)}/maintenance`, {
+    method: "POST",
+    body,
+  })
+}
+
+export async function patchDeviceMaintenance(
+  deviceId: string,
+  recordId: string,
+  body: Partial<DeviceMaintenanceCreate> & { status?: string },
+): Promise<DeviceMaintenanceRecord> {
+  return request(
+    `${BASE}/${encodeURIComponent(deviceId)}/maintenance/${encodeURIComponent(recordId)}`,
+    { method: "PATCH", body },
+  )
 }
 
 export async function createSimFleetDevice(

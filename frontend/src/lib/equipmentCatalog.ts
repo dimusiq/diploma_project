@@ -41,7 +41,7 @@ export const CATEGORY_ICONS: Record<EquipmentCategoryId, LucideIcon> = {
 }
 
 export const CATEGORY_COLUMNS: Record<string, string[]> = {
-  all: ["name", "code", "kind", "zone", "status", "enabled", "actions"],
+  all: ["name", "code", "kind", "zone", "status", "task", "maintenance", "enabled", "actions"],
   transport: [
     "name",
     "code",
@@ -50,6 +50,7 @@ export const CATEGORY_COLUMNS: Record<string, string[]> = {
     "status",
     "battery",
     "task",
+    "maintenance",
     "enabled",
     "actions",
   ],
@@ -72,7 +73,7 @@ export const CATEGORY_COLUMNS: Record<string, string[]> = {
 }
 
 export const COLUMN_LABELS: Record<string, string> = {
-  name: "Название",
+  name: "Оборудование",
   code: "Код",
   kind: "Тип",
   subtype: "Тип",
@@ -80,6 +81,7 @@ export const COLUMN_LABELS: Record<string, string> = {
   status: "Состояние",
   battery: "Батарея",
   task: "Текущая задача",
+  maintenance: "ТО",
   value: "Значение",
   unit: "Единица",
   enabled: "Активно",

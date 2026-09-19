@@ -151,6 +151,21 @@ export const SENSOR_METRIC_LABELS: Record<string, string> = {
   photo_eye: "Фотобарьер",
 }
 
+export const SIM_MAINTENANCE_TYPE_LABELS: Record<string, string> = {
+  preventive: "Плановое ТО",
+  corrective: "Ремонт",
+  inspection: "Осмотр",
+  emergency: "Аварийное",
+}
+
+export const SIM_MAINTENANCE_STATUS_LABELS: Record<string, string> = {
+  planned: "Запланировано",
+  scheduled: "Назначено",
+  in_progress: "Выполняется",
+  completed: "Завершено",
+  cancelled: "Отменено",
+}
+
 /** Состояние прогона симуляции (`SimRunState` и lowercase). */
 export const SIMULATION_STATUS_LABELS: Record<string, string> = {
   stopped: "Остановлено",
@@ -399,6 +414,14 @@ export function getDeviceStatusLabel(status: string): string {
 
 export function getSensorMetricLabel(metricKind: string): string {
   return lookup(SENSOR_METRIC_LABELS, metricKind, "sensor.metricKind")
+}
+
+export function getSimMaintenanceTypeLabel(type: string): string {
+  return lookup(SIM_MAINTENANCE_TYPE_LABELS, type, "sim.maintenance.type")
+}
+
+export function getSimMaintenanceStatusLabel(status: string): string {
+  return lookup(SIM_MAINTENANCE_STATUS_LABELS, status, "sim.maintenance.status")
 }
 
 export function getSimulationStatusLabel(

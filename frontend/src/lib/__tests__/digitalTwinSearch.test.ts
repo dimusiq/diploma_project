@@ -9,10 +9,10 @@ describe("digitalTwinSearchSchema", () => {
     })
   })
 
-  it("accepts map 3d and unknown values", () => {
+  it("accepts map 3d, deviceId and unknown values", () => {
     expect(
-      digitalTwinSearchSchema.parse({ tab: "map", view: "3d" }),
-    ).toEqual({ tab: "map", view: "3d" })
+      digitalTwinSearchSchema.parse({ tab: "map", view: "3d", deviceId: "agv-1" }),
+    ).toEqual({ tab: "map", view: "3d", deviceId: "agv-1" })
     expect(
       digitalTwinSearchSchema.parse({ tab: "nope", view: "iso" }),
     ).toEqual({ tab: "overview", view: "2d" })

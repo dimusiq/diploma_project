@@ -18,6 +18,7 @@ const PATH_LABELS: Record<string, string> = {
   "/warehouse-twin": "Аналитика двойника",
   "/warehouse-simulation": "Simulation Lab",
   "/device-server": "Device Monitor",
+  "/equipment": "Оборудование",
   "/warehouse-3d": "3D Склад",
   "/warehouse-3d-help": "Справка 3D",
   "/assistant": "Ассистент",

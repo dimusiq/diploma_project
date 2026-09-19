@@ -151,6 +151,7 @@ def create_device(did: str, kind: str, name: str, pos: dict, **overrides) -> dic
         "lastEventAt": 0.0,
         "temperature": 24.0 if kind in ("agv", "amr", "forklift", "conveyor") else None,
         "lastSeen": 0.0,
+        "inMaintenance": False,
     }
     device.update(overrides)
     return device

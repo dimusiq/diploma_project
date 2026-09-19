@@ -163,6 +163,152 @@ def test_role_admin_can_change_fleet(client: TestClient, db: Session) -> None:
     client.delete(f"{_fleet_url()}/{device_id}", headers=headers)
 
 
+def test_get_and_patch_fleet_device(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    listed = client.get(_fleet_url(), headers=superuser_token_headers).json()
+    agv = next(row for row in listed["data"] if row["code"] == "agv-1")
+    detail = client.get(f"{_fleet_url()}/{agv['id']}", headers=superuser_token_headers)
+    assert detail.status_code == 200
+    assert detail.json()["code"] == "agv-1"
+    assert "maintenance" in detail.json()
+
+    original = agv["name"]
+    renamed = client.patch(
+        f"{_fleet_url()}/{agv['id']}",
+        headers=superuser_token_headers,
+        json={"name": "Погрузчик №1"},
+    )
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "Погрузчик №1"
+    snap = client.get(
+        f"{settings.API_V1_STR}/warehouse-sim/snapshot",
+        headers=superuser_token_headers,
+    )
+    runtime = next(d for d in snap.json()["devices"] if d["id"] == "agv-1")
+    assert runtime["name"] == "Погрузчик №1"
+    client.patch(
+        f"{_fleet_url()}/{agv['id']}",
+        headers=superuser_token_headers,
+        json={"name": original},
+    )
+
+
+def test_maintenance_crud_and_blocks_new_tasks(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    listed = client.get(_fleet_url(), headers=superuser_token_headers).json()
+    agv = next(row for row in listed["data"] if row["code"] == "agv-1")
+    created = client.post(
+        f"{_fleet_url()}/{agv['id']}/maintenance",
+        headers=superuser_token_headers,
+        json={
+            "type": "preventive",
+            "title": "Плановое ТО AGV",
+            "status": "planned",
+            "priority": "medium",
+        },
+    )
+    assert created.status_code == 200
+    record_id = created.json()["id"]
+    assert created.json()["device_id"] == agv["id"]
+
+    history = client.get(
+        f"{_fleet_url()}/{agv['id']}/maintenance",
+        headers=superuser_token_headers,
+    )
+    assert history.status_code == 200
+    assert any(item["id"] == record_id for item in history.json()["data"])
+
+    started = client.patch(
+        f"{_fleet_url()}/{agv['id']}/maintenance/{record_id}",
+        headers=superuser_token_headers,
+        json={"status": "in_progress"},
+    )
+    assert started.status_code == 200
+    device = client.get(f"{_fleet_url()}/{agv['id']}", headers=superuser_token_headers).json()
+    assert device["inMaintenance"] is True
+
+    runtime = get_runtime().world["deviceById"]["agv-1"]
+    assert runtime.get("inMaintenance") is True
+    runtime["taskId"] = None
+    runtime["status"] = "maintenance"
+
+    client.patch(
+        f"{_fleet_url()}/{agv['id']}/maintenance/{record_id}",
+        headers=superuser_token_headers,
+        json={"status": "completed"},
+    )
+    restored = client.get(f"{_fleet_url()}/{agv['id']}", headers=superuser_token_headers).json()
+    assert restored["inMaintenance"] is False
+
+
+def test_busy_device_cannot_enter_maintenance(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    listed = client.get(_fleet_url(), headers=superuser_token_headers).json()
+    agv = next(row for row in listed["data"] if row["code"] == "agv-1")
+    runtime = get_runtime().world["deviceById"]["agv-1"]
+    runtime["taskId"] = "task-busy"
+    blocked = client.patch(
+        f"{_fleet_url()}/{agv['id']}",
+        headers=superuser_token_headers,
+        json={"inMaintenance": True},
+    )
+    assert blocked.status_code == 409
+    runtime["taskId"] = None
+
+
+def test_device_tasks_and_events_endpoints(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    listed = client.get(_fleet_url(), headers=superuser_token_headers).json()
+    agv = next(row for row in listed["data"] if row["code"] == "agv-1")
+    tasks = client.get(
+        f"{_fleet_url()}/{agv['id']}/tasks",
+        headers=superuser_token_headers,
+    )
+    assert tasks.status_code == 200
+    assert "data" in tasks.json()
+    events = client.get(
+        f"{_fleet_url()}/{agv['id']}/events",
+        headers=superuser_token_headers,
+    )
+    assert events.status_code == 200
+    assert "data" in events.json()
+
+
+def test_viewer_cannot_create_maintenance(client: TestClient, db: Session) -> None:
+    headers = _headers_for_role(client, db, ROLE_VIEWER)
+    listed = client.get(_fleet_url(), headers=headers).json()
+    agv = next(row for row in listed["data"] if row["code"] == "agv-1")
+    created = client.post(
+        f"{_fleet_url()}/{agv['id']}/maintenance",
+        headers=headers,
+        json={"type": "inspection", "title": "Осмотр"},
+    )
+    assert created.status_code == 403
+
+
+def test_archived_device_is_offline_in_runtime(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
+    created = client.post(
+        _fleet_url(),
+        headers=superuser_token_headers,
+        json={"kind": "agv", "name": f"AGV Arch {uuid4().hex[:6]}", "code": f"agv-arch-{uuid4().hex[:8]}"},
+    )
+    assert created.status_code == 200
+    device_id = created.json()["id"]
+    code = created.json()["code"]
+    archived = client.delete(f"{_fleet_url()}/{device_id}", headers=superuser_token_headers)
+    assert archived.status_code == 200
+    runtime = get_runtime().world["deviceById"].get(code)
+    if runtime is not None:
+        assert runtime.get("enabled") is False
+        assert runtime.get("taskId") is None or runtime.get("enabled") is False
+
+
 def test_simulation_reset_uses_active_fleet(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:

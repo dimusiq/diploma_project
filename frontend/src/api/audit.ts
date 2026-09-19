@@ -59,7 +59,10 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "zone.create": "Создание зоны",
   "zone.update": "Изменение зоны",
   "zone.delete": "Удаление зоны",
-  "password_recovery.requested": "Запрос сброса пароля",
+  "fleet.update": "Изменение оборудования",
+  "fleet.archive": "Архивация оборудования",
+  "fleet.maintenance.create": "Создание ТО оборудования",
+  "fleet.maintenance.update": "Изменение ТО оборудования",
 }
 
 /** Человекочитаемые подписи для resource_type */
@@ -68,4 +71,5 @@ export const AUDIT_RESOURCE_LABELS: Record<string, string> = {
   category: "Категория",
   brand: "Бренд",
   zone: "Зона",
+  wsim_device: "Оборудование склада",
 }

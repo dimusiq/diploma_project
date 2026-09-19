@@ -396,6 +396,10 @@ def assign_tasks(world: dict) -> None:
                 continue
             if device.get("enabled") is False:
                 continue
+            if device.get("inMaintenance") or device.get("status") == "maintenance":
+                continue
+            if device.get("archived"):
+                continue
             if device["battery"] is not None and device["battery"] < 20:
                 continue
             dx = device["pos"]["x"] - task["from"]["x"]

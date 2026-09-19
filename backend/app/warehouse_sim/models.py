@@ -82,6 +82,7 @@ DEVICE_STATUS_WAITING = "WAITING"
 DEVICE_STATUS_CHARGING = "CHARGING"
 DEVICE_STATUS_ERROR = "ERROR"
 DEVICE_STATUS_OFFLINE = "OFFLINE"
+DEVICE_STATUS_MAINTENANCE = "MAINTENANCE"
 DEVICE_STATUSES = (
     DEVICE_STATUS_ONLINE,
     DEVICE_STATUS_IDLE,
@@ -91,6 +92,42 @@ DEVICE_STATUSES = (
     DEVICE_STATUS_CHARGING,
     DEVICE_STATUS_ERROR,
     DEVICE_STATUS_OFFLINE,
+    DEVICE_STATUS_MAINTENANCE,
+)
+
+MAINT_TYPE_PREVENTIVE = "preventive"
+MAINT_TYPE_CORRECTIVE = "corrective"
+MAINT_TYPE_INSPECTION = "inspection"
+MAINT_TYPE_EMERGENCY = "emergency"
+MAINT_TYPES = (
+    MAINT_TYPE_PREVENTIVE,
+    MAINT_TYPE_CORRECTIVE,
+    MAINT_TYPE_INSPECTION,
+    MAINT_TYPE_EMERGENCY,
+)
+
+MAINT_STATUS_PLANNED = "planned"
+MAINT_STATUS_SCHEDULED = "scheduled"
+MAINT_STATUS_IN_PROGRESS = "in_progress"
+MAINT_STATUS_COMPLETED = "completed"
+MAINT_STATUS_CANCELLED = "cancelled"
+MAINT_STATUSES = (
+    MAINT_STATUS_PLANNED,
+    MAINT_STATUS_SCHEDULED,
+    MAINT_STATUS_IN_PROGRESS,
+    MAINT_STATUS_COMPLETED,
+    MAINT_STATUS_CANCELLED,
+)
+
+MAINT_PRIORITY_LOW = "low"
+MAINT_PRIORITY_MEDIUM = "medium"
+MAINT_PRIORITY_HIGH = "high"
+MAINT_PRIORITY_CRITICAL = "critical"
+MAINT_PRIORITIES = (
+    MAINT_PRIORITY_LOW,
+    MAINT_PRIORITY_MEDIUM,
+    MAINT_PRIORITY_HIGH,
+    MAINT_PRIORITY_CRITICAL,
 )
 
 # --- Товар и его состояния ---
@@ -431,6 +468,29 @@ class SimDevice(SQLModel, table=True):
     #: Мягкая ссылка на wsim_task (без FK, чтобы не замыкать связь device ↔ task).
     current_task_id: uuid.UUID | None = Field(default=None, index=True)
     meta: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+
+class SimDeviceMaintenance(SQLModel, table=True):
+    """Запись ТО/ремонта для устройства симулятора (не CMMS technique/equipment)."""
+
+    __tablename__ = "wsim_device_maintenance"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    device_id: uuid.UUID = Field(
+        foreign_key="wsim_device.id", ondelete="CASCADE", index=True
+    )
+    type: str = Field(max_length=24, description="|".join(MAINT_TYPES))
+    status: str = Field(default=MAINT_STATUS_PLANNED, max_length=24, index=True)
+    title: str = Field(max_length=256)
+    description: str | None = Field(default=None, max_length=4096)
+    priority: str = Field(default=MAINT_PRIORITY_MEDIUM, max_length=16)
+    scheduled_at: datetime | None = Field(default=None)
+    started_at: datetime | None = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
+    performed_by: str | None = Field(default=None, max_length=128)
+    notes: str | None = Field(default=None, max_length=2048)
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
 

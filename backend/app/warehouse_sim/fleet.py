@@ -61,6 +61,7 @@ META_KEYS = (
     "metric",
     "health",
     "status",
+    "inMaintenance",
 )
 
 
@@ -95,8 +96,11 @@ def row_to_runtime(row: SimDevice) -> dict[str, Any]:
     overrides["battery"] = row.battery
     overrides["enabled"] = bool(row.enabled)
     overrides["online"] = bool(row.enabled)
+    overrides["inMaintenance"] = bool(meta.get("inMaintenance"))
     if not row.enabled:
         overrides["status"] = "offline"
+    elif overrides["inMaintenance"]:
+        overrides["status"] = "maintenance"
     return create_device(
         row.code,
         kind,
@@ -332,6 +336,10 @@ def patch_fleet_device(session: Session, device_id: uuid.UUID, body: dict[str, A
         row.speed_mps = float(body["speed"])
     if "battery" in body:
         row.battery = body["battery"]
+    if "inMaintenance" in body and body["inMaintenance"] is not None:
+        meta = dict(row.meta or {})
+        meta["inMaintenance"] = bool(body["inMaintenance"])
+        row.meta = meta
     if isinstance(body.get("configuration"), dict):
         meta = dict(row.meta or {})
         for key, value in body["configuration"].items():
@@ -358,12 +366,21 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat().replace("+00:00", "Z")
 
 
-def serialize_fleet_device(row: SimDevice, runtime: dict[str, Any] | None = None) -> dict[str, Any]:
+def serialize_fleet_device(
+    row: SimDevice,
+    runtime: dict[str, Any] | None = None,
+    *,
+    maintenance: dict[str, Any] | None = None,
+    deferred: list[str] | None = None,
+) -> dict[str, Any]:
     meta = dict(row.meta or {})
     kind = str(meta.get("kind") or TYPE_TO_KIND.get(row.device_type) or "agv")
     rt = runtime or {}
     pos = rt.get("pos") or {"x": row.x, "z": row.y}
+    in_maintenance = bool(meta.get("inMaintenance"))
     status = rt.get("status") if rt else None
+    if in_maintenance and not rt.get("taskId"):
+        status = "maintenance"
     return {
         "id": str(row.id),
         "code": row.code,
@@ -375,6 +392,7 @@ def serialize_fleet_device(row: SimDevice, runtime: dict[str, Any] | None = None
         "enabled": bool(row.enabled),
         "archived": bool(row.archived),
         "simulated": kind in SIMULATED_KINDS,
+        "inMaintenance": in_maintenance,
         "configuration": {
             "speed": float(row.speed_mps or 0),
             "battery": row.battery,
@@ -385,10 +403,11 @@ def serialize_fleet_device(row: SimDevice, runtime: dict[str, Any] | None = None
             "metricMin": meta.get("metricMin"),
             "metricMax": meta.get("metricMax"),
             "metric": meta.get("metric"),
+            "inMaintenance": in_maintenance,
         },
         "runtime": {
             "status": status,
-            "online": rt.get("online"),
+            "online": False if in_maintenance and not rt.get("taskId") else rt.get("online"),
             "battery": rt.get("battery"),
             "position": pos,
             "taskId": rt.get("taskId"),
@@ -396,8 +415,13 @@ def serialize_fleet_device(row: SimDevice, runtime: dict[str, Any] | None = None
             "metricKind": rt.get("metricKind") or meta.get("metricKind"),
             "metricUnit": rt.get("metricUnit") or meta.get("metricUnit"),
             "lastSeen": rt.get("lastSeen"),
+            "lastEventAt": rt.get("lastEventAt"),
+            "busySec": rt.get("busySec"),
             "inSimulation": bool(rt),
+            "inMaintenance": in_maintenance,
         },
+        "maintenance": maintenance,
+        "deferredUntilRestart": deferred or [],
         "created_at": _iso(row.created_at),
         "updated_at": _iso(row.updated_at),
     }

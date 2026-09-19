@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useMemo, useState } from "react"
 import { FaPlus } from "react-icons/fa"
+import { AlertTriangle, CheckCircle2, Wrench, XCircle } from "lucide-react"
 import {
   archiveSimFleetDevice,
   createSimFleetDevice,
@@ -14,6 +15,7 @@ import {
   fetchSimFleet,
   FLEET_KINDS,
   patchSimFleetDevice,
+  SIM_FLEET_QUERY_KEY,
 } from "@/api/simFleet.ts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
@@ -71,7 +73,7 @@ import {
 import { cn } from "@/lib/utils.ts"
 import { handleError } from "@/utils.ts"
 
-const QUERY_KEY = ["sim-fleet"] as const
+const QUERY_KEY = SIM_FLEET_QUERY_KEY
 const ALL = "all"
 const ERROR = new Set(["fault", "jam", "error"])
 
@@ -120,7 +122,13 @@ function zoneName(
   return zones.find((zone) => zone.id === zoneId)?.name ?? zoneId
 }
 
-export function FleetParkPage({ canManage = false }: { canManage?: boolean }) {
+export function FleetParkPage({
+  canManage = false,
+  onOpenDevice,
+}: {
+  canManage?: boolean
+  onOpenDevice?: (device: FleetDevice) => void
+}) {
   const qc = useQueryClient()
   const { showSuccessToast } = useCustomToast()
   const [tab, setTab] = useState<EquipmentCategoryId>("all")
@@ -310,7 +318,17 @@ export function FleetParkPage({ canManage = false }: { canManage?: boolean }) {
   function cellValue(device: FleetDevice, column: string): ReactNode {
     switch (column) {
       case "name":
-        return device.name
+        return onOpenDevice ? (
+          <button
+            type="button"
+            className="text-left font-medium text-primary hover:underline"
+            onClick={() => onOpenDevice(device)}
+          >
+            {device.name}
+          </button>
+        ) : (
+          device.name
+        )
       case "code":
         return <span className="font-mono text-xs">{device.code}</span>
       case "kind":
@@ -334,6 +352,8 @@ export function FleetParkPage({ canManage = false }: { canManage?: boolean }) {
         return (
           <span className="font-mono text-xs">{device.runtime.taskId ?? "—"}</span>
         )
+      case "maintenance":
+        return <MaintenanceTone device={device} />
       case "value": {
         const value = device.runtime.metric ?? device.configuration.metric
         return value != null ? String(value) : "—"
@@ -353,7 +373,11 @@ export function FleetParkPage({ canManage = false }: { canManage?: boolean }) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setViewing(device)}>
+              <DropdownMenuItem
+                onClick={() =>
+                  onOpenDevice ? onOpenDevice(device) : setViewing(device)
+                }
+              >
                 Просмотр
               </DropdownMenuItem>
               {canManage ? (
@@ -796,6 +820,48 @@ export function FleetParkPage({ canManage = false }: { canManage?: boolean }) {
         }}
       />
     </div>
+  )
+}
+
+function MaintenanceTone({ device }: { device: FleetDevice }) {
+  if (device.inMaintenance) {
+    return (
+      <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+        <Wrench className="size-3.5" aria-hidden />
+        На обслуживании
+      </span>
+    )
+  }
+  const tone = device.maintenance?.tone ?? "ok"
+  if (tone === "overdue") {
+    return (
+      <span className="inline-flex items-center gap-1 text-destructive">
+        <XCircle className="size-3.5" aria-hidden />
+        ТО просрочено
+      </span>
+    )
+  }
+  if (tone === "due_soon") {
+    return (
+      <span className="inline-flex items-center gap-1 text-amber-600">
+        <AlertTriangle className="size-3.5" aria-hidden />
+        Скоро ТО
+      </span>
+    )
+  }
+  if (tone === "in_progress") {
+    return (
+      <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400">
+        <Wrench className="size-3.5" aria-hidden />
+        На обслуживании
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+      <CheckCircle2 className="size-3.5" aria-hidden />
+      ТО актуально
+    </span>
   )
 }
 

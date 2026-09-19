@@ -59,8 +59,8 @@ KIND_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 CATEGORY_COLUMNS: dict[str, tuple[str, ...]] = {
-    "all": ("name", "code", "kind", "zone", "status", "enabled", "actions"),
-    "transport": ("name", "code", "kind", "zone", "status", "battery", "task", "enabled", "actions"),
+    "all": ("name", "code", "kind", "zone", "status", "task", "maintenance", "enabled", "actions"),
+    "transport": ("name", "code", "kind", "zone", "status", "battery", "task", "maintenance", "enabled", "actions"),
     "scanner": ("name", "code", "kind", "zone", "status", "enabled", "actions"),
     "conveyor": ("name", "code", "zone", "status", "enabled", "actions"),
     "sensor": ("name", "code", "subtype", "zone", "status", "value", "unit", "enabled", "actions"),
