@@ -30,6 +30,9 @@ function EquipmentDetailRoute() {
           search: { tab: "events", view: "2d", deviceId: code },
         })
       }}
+      onShowWorkOrders={() => {
+        void navigate({ to: "/technique/work-orders" })
+      }}
     />
   )
 }

@@ -62,6 +62,7 @@ META_KEYS = (
     "health",
     "status",
     "inMaintenance",
+    "engineHours",
 )
 
 
@@ -340,6 +341,10 @@ def patch_fleet_device(session: Session, device_id: uuid.UUID, body: dict[str, A
         meta = dict(row.meta or {})
         meta["inMaintenance"] = bool(body["inMaintenance"])
         row.meta = meta
+    if "engineHours" in body and body["engineHours"] is not None:
+        meta = dict(row.meta or {})
+        meta["engineHours"] = int(body["engineHours"])
+        row.meta = meta
     if isinstance(body.get("configuration"), dict):
         meta = dict(row.meta or {})
         for key, value in body["configuration"].items():
@@ -381,6 +386,14 @@ def serialize_fleet_device(
     status = rt.get("status") if rt else None
     if in_maintenance and not rt.get("taskId"):
         status = "maintenance"
+    engine_hours = meta.get("engineHours")
+    if engine_hours is not None:
+        try:
+            engine_hours = int(engine_hours)
+        except (TypeError, ValueError):
+            engine_hours = None
+    elif rt.get("busySec"):
+        engine_hours = int(float(rt["busySec"]) // 3600)
     return {
         "id": str(row.id),
         "code": row.code,
@@ -421,6 +434,7 @@ def serialize_fleet_device(
             "inMaintenance": in_maintenance,
         },
         "maintenance": maintenance,
+        "engine_hours": engine_hours,
         "deferredUntilRestart": deferred or [],
         "created_at": _iso(row.created_at),
         "updated_at": _iso(row.updated_at),

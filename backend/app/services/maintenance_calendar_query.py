@@ -10,13 +10,14 @@ from sqlmodel import Session, select
 
 from app.models import (
     ChainAssignment,
-    Equipment,
     MaintenanceCalendarEventList,
     MaintenanceCalendarEventPublic,
     MaintenanceChain,
     MaintenanceChainStep,
     MaintenanceScheduleConfig,
 )
+from app.services.canonical_equipment import canonical_device_name, device_engine_hours
+from app.warehouse_sim.models import SimDevice
 
 
 def _get_default_config(session: Session) -> tuple[list[int], int]:
@@ -117,19 +118,17 @@ def build_maintenance_calendar_event_list(
     default_intervals, default_remind = _get_default_config(session)
     default_interval = default_intervals[0] if default_intervals else 500
 
-    equipments = list(
-        session.exec(select(Equipment).where(Equipment.engine_hours.is_not(None))).all()
-    )
+    devices = list(session.exec(select(SimDevice).where(SimDevice.archived.is_(False))).all())
 
     events: list[MaintenanceCalendarEventPublic] = []
-    for eq in equipments:
-        engine_hours = eq.engine_hours
+    for device in devices:
+        engine_hours = device_engine_hours(device)
         if engine_hours is None:
             continue
 
         interval_hours, primary_chain_id, remind_before = _get_interval_and_remind_for_equipment(
             session,
-            equipment_id=eq.id,
+            equipment_id=device.id,
             default_interval=default_interval,
             default_remind=default_remind,
         )
@@ -144,16 +143,14 @@ def build_maintenance_calendar_event_list(
 
         event_uuid = uuid.uuid5(
             uuid.NAMESPACE_OID,
-            f"{eq.id}-{primary_chain_id}-{interval_hours}-{next_at}",
+            f"{device.id}-{primary_chain_id}-{interval_hours}-{next_at}",
         )
-
-        eq_name = eq.garage_number or eq.model
 
         events.append(
             MaintenanceCalendarEventPublic(
                 id=event_uuid,
-                equipment_id=eq.id,
-                equipment_name=eq_name,
+                equipment_id=device.id,
+                equipment_name=canonical_device_name(device),
                 chain_id=primary_chain_id,
                 interval_hours=interval_hours,
                 engine_hours=int(engine_hours),

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import * as simFleet from "@/api/simFleet.ts"
+import * as workOrders from "@/api/workOrders.ts"
 import { EquipmentDetailPage } from "../EquipmentDetailPage"
 
 vi.mock("@/hooks/useCustomToast.ts", () => ({
@@ -53,6 +54,7 @@ function renderCard() {
   const onBack = vi.fn()
   const onShowOnMap = vi.fn()
   const onShowEvents = vi.fn()
+  const onShowWorkOrders = vi.fn()
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
@@ -62,10 +64,11 @@ function renderCard() {
         onBack={onBack}
         onShowOnMap={onShowOnMap}
         onShowEvents={onShowEvents}
+        onShowWorkOrders={onShowWorkOrders}
       />
     </QueryClientProvider>,
   )
-  return { onBack, onShowOnMap, onShowEvents }
+  return { onBack, onShowOnMap, onShowEvents, onShowWorkOrders }
 }
 
 describe("EquipmentDetailPage", () => {
@@ -116,6 +119,28 @@ describe("EquipmentDetailPage", () => {
       created_at: "2026-09-19T10:00:00Z",
       updated_at: "2026-09-19T10:00:00Z",
     })
+    vi.spyOn(workOrders.workOrdersApi, "list").mockResolvedValue({
+      data: [
+        {
+          id: "wo-1",
+          equipment_id: "id-agv-1",
+          equipment_name: "AGV-01",
+          title: "Замена ролика",
+          description: null,
+          status: "open",
+          priority: "high",
+          assigned_to_id: null,
+          assigned_to_email: null,
+          start_at: null,
+          end_at: null,
+          due_at: "2026-09-20T10:00:00Z",
+          created_by_id: null,
+          created_at: "2026-09-19T10:00:00Z",
+          updated_at: "2026-09-19T10:00:00Z",
+        },
+      ],
+      count: 1,
+    })
   })
 
   afterEach(() => {
@@ -128,6 +153,7 @@ describe("EquipmentDetailPage", () => {
     expect(screen.getByText("Техническое обслуживание")).toBeTruthy()
     expect(screen.getByText("Текущее состояние")).toBeTruthy()
     expect(screen.getByText("Нет активной задачи")).toBeTruthy()
+    expect(await screen.findByText("Замена ролика")).toBeTruthy()
   })
 
   it("меняет название через PATCH", async () => {
@@ -173,5 +199,13 @@ describe("EquipmentDetailPage", () => {
     await screen.findByRole("heading", { name: "AGV-01" })
     await user.click(screen.getByRole("button", { name: "Показать все события" }))
     expect(onShowEvents).toHaveBeenCalledWith("agv-1")
+  })
+
+  it("открывает список нарядов", async () => {
+    const user = userEvent.setup()
+    const { onShowWorkOrders } = renderCard()
+    await screen.findByRole("heading", { name: "AGV-01" })
+    await user.click(screen.getByRole("button", { name: "Все наряды" }))
+    expect(onShowWorkOrders).toHaveBeenCalled()
   })
 })

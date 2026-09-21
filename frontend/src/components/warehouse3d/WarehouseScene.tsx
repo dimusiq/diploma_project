@@ -17,7 +17,6 @@ import {
   useState,
 } from 'react';
 import { MeshStandardMaterial } from 'three';
-import type { EquipmentPublic } from '@/api/equipment.ts';
 import type { RouteGraphResponse } from '@/api/warehouseRouteGraph.ts';
 import type { TopologyDocument } from '@/api/warehouseTopology.ts';
 import { useSimMotion } from '@/components/deviceServer/useDeviceSimulation.ts';
@@ -36,6 +35,7 @@ import {
 } from '@/components/warehouse3d/WarehouseRouteLayer.tsx';
 import { StorageCell } from '@/components/warehouse3d/WarehouseStorageCell.tsx';
 import {
+  type TwinEquipmentMarker,
   type TwinLayersVisibility,
   WarehouseTwinLayers,
 } from '@/components/warehouse3d/WarehouseTwinLayers.tsx';
@@ -1310,7 +1310,7 @@ export type WarehouseTwinEnrichment = {
   overlayMode: TwinOverlayMode;
   topology: TopologyDocument | null;
   routeGraph: RouteGraphResponse | null;
-  equipmentList: EquipmentPublic[];
+  equipmentList: TwinEquipmentMarker[];
   liveEquipment?: Map<string, LiveEquipmentPose> | null;
   useRouteGraph?: boolean;
   twinHeatByCellKey: Map<string, number>;

@@ -10,26 +10,25 @@ from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.audit import get_client_ip, log_audit
 from app.core.permissions import (
     PERM_MAINTENANCE_SCHEDULE_EDIT,
-    PERM_MAINTENANCE_SCHEDULE_VIEW,
     can_edit_maintenance_schedule,
     can_view_maintenance_schedule,
 )
 from app.models import (
     ChainAssignment,
-    Equipment,
     MaintenanceChain,
     MaintenanceChainAudit,
+    MaintenanceChainAuditPublic,
     MaintenanceChainCreate,
+    MaintenanceChainImportBody,
     MaintenanceChainList,
     MaintenanceChainPublic,
     MaintenanceChainStep,
     MaintenanceChainUpdate,
-    MaintenanceChainAuditPublic,
     MaintenanceScheduleConfig,
     MaintenanceScheduleConfigPublic,
-    MaintenanceChainImportBody,
     User,
 )
+from app.services.canonical_equipment import get_canonical_device
 
 router = APIRouter(prefix="/maintenance-schedule", tags=["maintenance-schedule"])
 
@@ -219,7 +218,7 @@ def create_chain(
                 MaintenanceChainStep(chain_id=chain.id, position=pos, interval_hours=ih)
             )
     for eid in body.equipment_ids or []:
-        if session.get(Equipment, eid):
+        if get_canonical_device(session, eid):
             session.add(ChainAssignment(chain_id=chain.id, equipment_id=eid))
     _log_chain_audit(
         session,
@@ -293,7 +292,7 @@ def update_chain(
         for a in session.exec(select(ChainAssignment).where(ChainAssignment.chain_id == chain_id)):
             session.delete(a)
         for eid in body.equipment_ids:
-            if session.get(Equipment, eid):
+            if get_canonical_device(session, eid):
                 session.add(ChainAssignment(chain_id=chain.id, equipment_id=eid))
 
     log_audit(
@@ -432,7 +431,7 @@ def import_chains_from_local(
         for eid in equipment_ids:
             try:
                 uid = uuid.UUID(str(eid)) if eid else None
-                if uid and session.get(Equipment, uid):
+                if uid and get_canonical_device(session, uid):
                     eq_uuids.append(uid)
             except (ValueError, TypeError):
                 pass

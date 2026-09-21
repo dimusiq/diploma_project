@@ -8,13 +8,16 @@ from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
-    Brand,
-    Equipment,
-    SparePart,
-    User,
+    WORK_ORDER_PRIORITIES,
+    WORK_ORDER_PRIORITY_MEDIUM,
+    WORK_ORDER_STATUS_OPEN,
+    WORK_ORDER_STATUS_WAITING_PARTS,
+    WORK_ORDER_STATUSES,
     MaintenanceReglamentTemplate,
     MaintenanceTemplateChecklistItem,
     MaintenanceTemplateSparePartRequirement,
+    SparePart,
+    User,
     WorkOrder,
     WorkOrderAttachment,
     WorkOrderAttachmentCreate,
@@ -28,6 +31,7 @@ from app.models import (
     WorkOrderCommentPublic,
     WorkOrderCreate,
     WorkOrderDetailPublic,
+    WorkOrderFromMaintenanceEventCreate,
     WorkOrderList,
     WorkOrderPartConsumption,
     WorkOrderPartConsumptionCreate,
@@ -39,25 +43,24 @@ from app.models import (
     WorkOrderStatusHistory,
     WorkOrderStatusHistoryPublic,
     WorkOrderUpdate,
-    WorkOrderFromMaintenanceEventCreate,
-    WORK_ORDER_PRIORITY_MEDIUM,
-    WORK_ORDER_STATUS_OPEN,
-    WORK_ORDER_STATUS_WAITING_PARTS,
-    WORK_ORDER_PRIORITIES,
-    WORK_ORDER_STATUSES,
 )
-from app.services.work_order_conflict_service import assert_no_overlapping_conflicts_or_raise
+from app.services.canonical_equipment import (
+    canonical_device_name,
+    get_canonical_device,
+    require_canonical_device,
+)
+from app.services.work_order_conflict_service import (
+    assert_no_overlapping_conflicts_or_raise,
+)
 
 router = APIRouter(prefix="/work-orders", tags=["work-orders"])
 
 
 def _equipment_name(session: SessionDep, equipment_id: uuid.UUID) -> str | None:
-    eq = session.get(Equipment, equipment_id)
-    if not eq:
+    device = get_canonical_device(session, equipment_id)
+    if device is None:
         return None
-    brand = session.get(Brand, eq.brand_id) if eq.brand_id else None
-    parts = [brand.name if brand else "", eq.model or ""]
-    return " ".join(p for p in parts if p).strip() or None
+    return canonical_device_name(device)
 
 
 def _work_order_to_public(
@@ -197,9 +200,7 @@ def create_work_order(
     body: WorkOrderCreate,
 ) -> Any:
     """Создать заявку (статус open)."""
-    equipment = session.get(Equipment, body.equipment_id)
-    if not equipment:
-        raise HTTPException(status_code=404, detail="Техника не найдена")
+    require_canonical_device(session, body.equipment_id)
     if body.assigned_to_id and session.get(User, body.assigned_to_id) is None:
         raise HTTPException(status_code=400, detail="Исполнитель не найден")
 
@@ -251,9 +252,8 @@ def create_work_order_from_maintenance_event(
     body: WorkOrderFromMaintenanceEventCreate,
 ) -> Any:
     """Создать work order из расчетного события календаря ТО."""
-    equipment = session.get(Equipment, body.equipment_id)
-    if not equipment:
-        raise HTTPException(status_code=404, detail="Техника не найдена")
+    device = require_canonical_device(session, body.equipment_id)
+    equipment_type = str((device.meta or {}).get("kind") or device.device_type)
 
     if body.assigned_to_id and session.get(User, body.assigned_to_id) is None:
         raise HTTPException(status_code=400, detail="Исполнитель не найден")
@@ -272,7 +272,7 @@ def create_work_order_from_maintenance_event(
     if body.interval_hours is not None:
         template = session.exec(
             select(MaintenanceReglamentTemplate).where(
-                MaintenanceReglamentTemplate.equipment_type == equipment.equipment_type,
+                MaintenanceReglamentTemplate.equipment_type == equipment_type,
                 MaintenanceReglamentTemplate.interval_hours == body.interval_hours,
             )
         ).first()
@@ -280,7 +280,7 @@ def create_work_order_from_maintenance_event(
     if template is None:
         template = session.exec(
             select(MaintenanceReglamentTemplate).where(
-                MaintenanceReglamentTemplate.equipment_type == equipment.equipment_type,
+                MaintenanceReglamentTemplate.equipment_type == equipment_type,
                 MaintenanceReglamentTemplate.interval_hours.is_(None),
             )
         ).first()

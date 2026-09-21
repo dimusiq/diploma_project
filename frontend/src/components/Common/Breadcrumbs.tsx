@@ -24,8 +24,8 @@ const PATH_LABELS: Record<string, string> = {
   "/assistant": "Ассистент",
   "/shipment": "Отгрузка",
   "/shipped": "Отгружено",
-  "/technique": "Список техники",
-  "/technique/equipment": "Оборудование",
+  "/technique": "Техника",
+  "/technique/equipment": "Карточка ТО",
   "/settings": "Настройки",
   "/admin": "Администрирование",
   "/control-tower": "Control Tower",
@@ -33,13 +33,13 @@ const PATH_LABELS: Record<string, string> = {
 
 /** Сегмент пути после `/technique/` → подпись (вложенные маршруты техники). */
 const TECHNIQUE_SECTION_LABELS: Record<string, string> = {
-  assets: "Список техники",
+  assets: "Оборудование",
   maintenance: "График ТО",
   "maintenance-schedule": "Календарь ТО",
   "maintenance-settings": "Настройка ТО",
-  "work-orders": "Обслуживание и ремонт техники",
-  technicians: "Управление задачами техников",
-  alerts: "Мониторинг и уведомления",
+  "work-orders": "Наряды",
+  technicians: "Техники",
+  alerts: "Мониторинг",
   "spare-parts": "Запасные части",
   analytics: "Аналитика",
   integrations: "Интеграции",
@@ -87,6 +87,10 @@ function pathToCrumbs(pathname: string): Crumb[] {
   let acc = ""
   for (const seg of segments) {
     acc += `/${seg}`
+    if (acc === "/technique") {
+      crumbs.push({ label: "Техника" })
+      continue
+    }
     const label = getPathLabel(acc)
     crumbs.push({ label, to: acc })
   }

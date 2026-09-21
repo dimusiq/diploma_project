@@ -26,22 +26,23 @@ import {
   FiRotateCcw,
   FiSliders,
 } from 'react-icons/fi';
-import { equipmentApi } from '@/api/equipment.ts';
+import { fetchSimFleet, SIM_FLEET_QUERY_KEY } from '@/api/simFleet.ts';
 import {
   fetchWarehouseLayout,
   fetchWarehouseOccupancy,
   specToLayoutGeometry,
 } from '@/api/warehouseLayout.ts';
 import { fetchWarehouseRouteGraph } from '@/api/warehouseRouteGraph.ts';
-import { warehouseTopologyApi } from '@/api/warehouseTopology.ts';
 import {
   fetchWarehouseTask,
   patchWarehouseTask,
 } from '@/api/warehouseTasks.ts';
+import { warehouseTopologyApi } from '@/api/warehouseTopology.ts';
 import type { ItemPublic } from '@/client/index.ts';
 import { ItemsService } from '@/client/index.ts';
 import { ErrorFallback } from '@/components/Common/ErrorFallback.tsx';
 import { WarehouseHubNav } from '@/components/Common/WarehouseHubNav.tsx';
+import { deviceSimulation } from '@/components/deviceServer/simStore.ts';
 import { Button } from '@/components/ui/button.tsx';
 import {
   Sheet,
@@ -89,18 +90,18 @@ import {
   validateWarehouse3dSearch,
   type Warehouse3dSearch,
 } from '@/components/warehouse3d/warehouse3dSearch.ts';
-import { deviceSimulation } from '@/components/deviceServer/simStore.ts';
 import { resolveFloorPlanLayoutSpec } from '@/components/warehouse3d/warehouseFloorPlanAdapter.ts';
 import { buildWarehouseGeometry } from '@/components/warehouse3d/warehouseGeometry.tsx';
+import useCustomToast from '@/hooks/useCustomToast.ts';
 import { useEquipmentPositionsLive } from '@/hooks/useEquipmentPositionsLive.ts';
 import { useTwinLivePanelState } from '@/hooks/useTwinLivePanelState.ts';
+import { toCanonicalEquipment } from '@/lib/canonicalEquipment.ts';
 import {
   fetchAllItems,
   itemsFingerprint,
 } from '@/lib/fetchAllItems.ts';
-import { parseWarehouseTaskTarget } from '@/lib/warehouseTaskTarget.ts';
 import { cn } from '@/lib/utils.ts';
-import useCustomToast from '@/hooks/useCustomToast.ts';
+import { parseWarehouseTaskTarget } from '@/lib/warehouseTaskTarget.ts';
 
 const WAREHOUSE_3D_TOOLS_TAB_KEY =
   'nebardak.warehouse3d.toolsTab';
@@ -355,11 +356,11 @@ function Warehouse3DPage() {
     }
     skipFocusFromSelfRef.current = false;
   }, [
-    search.row,
-    search.level,
-    search.cellX,
-    search.cellZ,
-    layoutSpecResolved,
+    search.row, 
+    search.level, 
+    search.cellX, 
+    search.cellZ, 
+    layoutSpecResolved, search
   ]);
 
   const persistCellInUrl = useCallback(
@@ -429,9 +430,8 @@ function Warehouse3DPage() {
   });
 
   const { data: equipmentResponse } = useQuery({
-    queryKey: ['equipment', 'all-warehouse-3d'],
-    queryFn: () =>
-      equipmentApi.list({ limit: 200, skip: 0 }),
+    queryKey: SIM_FLEET_QUERY_KEY,
+    queryFn: () => fetchSimFleet(false),
     staleTime: 60_000,
   });
 
@@ -504,12 +504,11 @@ function Warehouse3DPage() {
       { ...taskTarget.cell },
     ]);
   }, [
-    taskId,
-    taskTarget.cell?.row,
-    taskTarget.cell?.level,
-    taskTarget.cell?.cellX,
-    taskTarget.cell?.cellZ,
-    simulationActive,
+    taskTarget.cell?.row, 
+    taskTarget.cell?.level, 
+    taskTarget.cell?.cellX, 
+    taskTarget.cell?.cellZ, 
+    simulationActive, taskTarget.cell
   ]);
 
   const addSelectedCellToRoute = useCallback(() => {
@@ -678,7 +677,15 @@ function Warehouse3DPage() {
         overlayMode,
         topology: topology ?? null,
         routeGraph: routeGraph ?? null,
-        equipmentList: equipmentResponse?.data ?? [],
+        equipmentList: (equipmentResponse?.data ?? []).map((device) => {
+          const row = toCanonicalEquipment(device, equipmentResponse?.zones ?? []);
+          return {
+            id: row.id,
+            name: row.name,
+            kind: row.kind,
+            current_status: row.currentStatus,
+          };
+        }),
         liveEquipment: viewingHistory
           ? null
           : liveEquipment,
@@ -692,6 +699,7 @@ function Warehouse3DPage() {
         topology,
         routeGraph,
         equipmentResponse?.data,
+        equipmentResponse?.zones,
         liveEquipment,
         viewingHistory,
         useRouteGraph,

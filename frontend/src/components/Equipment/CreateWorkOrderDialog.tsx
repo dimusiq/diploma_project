@@ -4,7 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
-import { equipmentApi } from "@/api/equipment.ts"
+import { fetchSimFleet, SIM_FLEET_QUERY_KEY } from "@/api/simFleet.ts"
 import {
   WORK_ORDER_PRIORITY_LABELS,
   type WorkOrderCreate,
@@ -54,8 +54,8 @@ export function CreateWorkOrderDialog({
   const [dueAt, setDueAt] = useState("")
 
   const { data: equipmentData } = useQuery({
-    queryKey: ["equipment", "all"],
-    queryFn: () => equipmentApi.list({ limit: 500 }),
+    queryKey: SIM_FLEET_QUERY_KEY,
+    queryFn: () => fetchSimFleet(false),
     enabled: open,
   })
   const equipmentList = equipmentData?.data ?? []
@@ -124,8 +124,7 @@ export function CreateWorkOrderDialog({
                     </SelectItem>
                     {equipmentList.map((eq) => (
                       <SelectItem key={eq.id} value={eq.id}>
-                        {[eq.brand_name, eq.model].filter(Boolean).join(" ")}{" "}
-                        {eq.garage_number ? `(${eq.garage_number})` : ""}
+                        {eq.name} ({eq.code})
                       </SelectItem>
                     ))}
                   </SelectContent>

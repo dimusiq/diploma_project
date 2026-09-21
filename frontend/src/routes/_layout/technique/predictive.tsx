@@ -12,13 +12,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import {
-  EQUIPMENT_TYPE_LABELS,
-  type EquipmentListResponse,
-  type EquipmentPublic,
-  type MaintenanceRecordListWithEquipmentResponse,
-  type MaintenanceRecordWithEquipmentPublic,
+import type {
+  MaintenanceRecordListWithEquipmentResponse,
+  MaintenanceRecordWithEquipmentPublic,
 } from "@/api/equipment"
+import { fetchSimFleet } from "@/api/simFleet.ts"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -29,6 +27,10 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { request } from "@/lib/apiClient"
+import {
+  type CanonicalEquipment,
+  toCanonicalEquipment,
+} from "@/lib/canonicalEquipment.ts"
 
 export const Route = createFileRoute("/_layout/technique/predictive")({
   component: PredictiveSection,
@@ -46,7 +48,7 @@ interface CalendarEvent {
 }
 
 interface EquipmentForecast {
-  equipment: EquipmentPublic
+  equipment: CanonicalEquipment
   records: MaintenanceRecordWithEquipmentPublic[]
   nextServiceHours: number | null
   remainingHours: number | null
@@ -64,7 +66,7 @@ function PredictiveSection() {
     async function load() {
       try {
         const [eqRes, mrRes, calRes] = await Promise.all([
-          request<EquipmentListResponse>("/api/v1/equipment/?limit=200"),
+          fetchSimFleet(false),
           request<MaintenanceRecordListWithEquipmentResponse>(
             "/api/v1/equipment/maintenance-records?limit=500",
           ),
@@ -96,7 +98,8 @@ function PredictiveSection() {
         }
 
         const results: EquipmentForecast[] = eqRes.data
-          .filter((eq) => eq.engine_hours != null && eq.engine_hours > 0)
+          .map((device) => toCanonicalEquipment(device, eqRes.zones ?? []))
+          .filter((eq) => eq.engineHours != null && eq.engineHours > 0)
           .map((eq) => {
             const records = (recordsByEq.get(eq.id) ?? []).sort(
               (a, b) =>
@@ -123,12 +126,12 @@ function PredictiveSection() {
 
             chartData.push({
               name: "Сейчас",
-              hours: eq.engine_hours!,
+              hours: eq.engineHours!,
             })
 
             if (
               nextServiceHours != null &&
-              nextServiceHours > eq.engine_hours!
+              nextServiceHours > eq.engineHours!
             ) {
               const daysToService =
                 remainingHours != null && remainingHours > 0
@@ -242,7 +245,7 @@ function PredictiveSection() {
           <div className="grid gap-6 lg:grid-cols-2">
             {forecasts.map((f) => {
               const eq = f.equipment
-              const label = `${eq.brand_name} ${eq.model}`
+              const label = eq.name
               const statusMeta = {
                 overdue: {
                   label: "Просрочено",
@@ -265,10 +268,10 @@ function PredictiveSection() {
               }
 
               const progressPct =
-                f.thresholdHours && eq.engine_hours != null
+                f.thresholdHours && eq.engineHours != null
                   ? Math.min(
                       100,
-                      Math.round((eq.engine_hours / f.thresholdHours) * 100),
+                      Math.round((eq.engineHours / f.thresholdHours) * 100),
                     )
                   : null
 
@@ -281,9 +284,9 @@ function PredictiveSection() {
                           {label}
                         </CardTitle>
                         <CardDescription className="text-xs">
-                          {EQUIPMENT_TYPE_LABELS[eq.equipment_type] ??
-                            eq.equipment_type}
-                          {eq.garage_number && ` • №${eq.garage_number}`}
+                          {eq.kindLabel}
+                          {eq.code ? ` • ${eq.code}` : ""}
+                          {eq.zone ? ` • ${eq.zone}` : ""}
                         </CardDescription>
                       </div>
                       <Badge variant="outline" className={statusMeta.color}>
@@ -296,7 +299,7 @@ function PredictiveSection() {
                       <div>
                         <div className="text-muted-foreground">Текущие м/ч</div>
                         <div className="text-lg font-bold">
-                          {eq.engine_hours?.toLocaleString("ru-RU") ?? "—"}
+                          {eq.engineHours?.toLocaleString("ru-RU") ?? "—"}
                         </div>
                       </div>
                       <div>

@@ -84,6 +84,7 @@ class DeviceFleetPatch(BaseModel):
     battery: float | None = Field(default=None, ge=0, le=100)
     configuration: dict[str, Any] | None = None
     inMaintenance: bool | None = None
+    engineHours: int | None = Field(default=None, ge=0)
 
 
 class DeviceMaintenanceCreate(BaseModel):

@@ -4,7 +4,6 @@
 import { Html, Line, Text } from "@react-three/drei"
 import { useMemo } from "react"
 import { Vector3 } from "three"
-import type { EquipmentPublic } from "@/api/equipment.ts"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
 import type {
   TopologyDocument,
@@ -26,6 +25,13 @@ import {
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import type { LiveEquipmentPose } from "@/hooks/useEquipmentPositionsLive.ts"
 import { getEquipmentStatusLabel } from "@/lib/statusLabels.ts"
+
+export type TwinEquipmentMarker = {
+  id: string
+  name: string
+  kind: string
+  current_status: string
+}
 
 function zoneAabb(
   geom: WarehouseGeometry,
@@ -279,7 +285,7 @@ function EquipmentMarkersLayer({
   livePositions,
   visible,
 }: {
-  equipment: EquipmentPublic[]
+  equipment: TwinEquipmentMarker[]
   livePositions?: Map<string, LiveEquipmentPose> | null
   visible: boolean
 }) {
@@ -316,10 +322,10 @@ function EquipmentMarkersLayer({
         id,
         pos: liveWorld ?? fallback,
         label: eq
-          ? `${eq.brand_name} ${eq.model}`.slice(0, 32)
+          ? eq.name.slice(0, 32)
           : (live?.externalVehicleId ?? id).slice(0, 32),
         status: eq?.current_status ?? "live",
-        kind: equipmentTypeToKind(eq?.equipment_type ?? "autopogruzchik"),
+        kind: equipmentTypeToKind(eq?.kind ?? "forklift"),
       })
       if (out.length >= 32) break
     }
@@ -379,7 +385,7 @@ export function WarehouseTwinLayers({
 }: {
   topology: TopologyDocument | null
   routeGraph: RouteGraphResponse | null
-  equipment: EquipmentPublic[]
+  equipment: TwinEquipmentMarker[]
   livePositions?: Map<string, LiveEquipmentPose> | null
   visibility: TwinLayersVisibility
 }) {

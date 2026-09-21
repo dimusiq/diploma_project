@@ -1,7 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { z } from "zod"
-
-import { EquipmentCard } from "@/components/Equipment/EquipmentCard.tsx"
 
 const equipmentCardSearchSchema = z.object({
   tab: z
@@ -12,26 +10,12 @@ const equipmentCardSearchSchema = z.object({
 export const Route = createFileRoute(
   "/_layout/technique/equipment/$equipmentId",
 )({
-  component: EquipmentEditPage,
   validateSearch: (search) => equipmentCardSearchSchema.parse(search ?? {}),
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: "/equipment/$deviceId",
+      params: { deviceId: params.equipmentId },
+    })
+  },
+  component: () => null,
 })
-
-function EquipmentEditPage() {
-  const { equipmentId } = Route.useParams()
-  const { tab } = Route.useSearch()
-  const navigate = useNavigate()
-
-  const handleBack = () => {
-    navigate({ to: "/technique" })
-  }
-
-  return (
-    <div className="mx-auto w-full max-w-full px-4">
-      <EquipmentCard
-        equipmentId={equipmentId}
-        initialTab={tab ?? "passport"}
-        onBack={handleBack}
-      />
-    </div>
-  )
-}

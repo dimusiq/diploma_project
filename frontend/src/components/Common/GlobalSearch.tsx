@@ -192,7 +192,7 @@ export function GlobalSearch() {
                         key={eq.id}
                         type='button'
                         className='flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
-                        onClick={() => go(`/technique`)}
+                        onClick={() => go(`/equipment/${eq.id}`)}
                       >
                         <FiTool className='size-4 shrink-0 text-muted-foreground' />
                         <span className='truncate'>

@@ -6,15 +6,12 @@ import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { FaPlus } from "react-icons/fa"
 
-import {
-  type EquipmentPublic,
-  equipmentApi,
-  type MaintenanceRecordCreate,
-} from "@/api/equipment.ts"
+import { equipmentApi, type MaintenanceRecordCreate } from "@/api/equipment.ts"
 import {
   apiChainToLegacyFormat,
   maintenanceScheduleApi,
 } from "@/api/maintenanceSchedule.ts"
+import { fetchSimFleet, SIM_FLEET_QUERY_KEY } from "@/api/simFleet.ts"
 import {
   DialogBody,
   DialogCloseTrigger,
@@ -83,11 +80,11 @@ function CreateOrderDialog({
   }, [chainIntervals, intervalHours])
 
   const { data: equipmentData } = useQuery({
-    queryKey: ["equipment", "all"],
-    queryFn: () => equipmentApi.list({ limit: 500 }),
+    queryKey: SIM_FLEET_QUERY_KEY,
+    queryFn: () => fetchSimFleet(false),
     enabled: open,
   })
-  const equipmentList: EquipmentPublic[] = equipmentData?.data ?? []
+  const equipmentList = equipmentData?.data ?? []
 
   const createMutation = useMutation({
     mutationFn: (body: MaintenanceRecordCreate) =>
@@ -160,8 +157,7 @@ function CreateOrderDialog({
                     </SelectItem>
                     {equipmentList.map((eq) => (
                       <SelectItem key={eq.id} value={eq.id}>
-                        {[eq.brand_name, eq.model].filter(Boolean).join(" ")}{" "}
-                        {eq.garage_number ? `(${eq.garage_number})` : ""}
+                        {eq.name} ({eq.code})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -337,8 +333,8 @@ export function PerformedMaintenanceList() {
                 className="cursor-pointer"
                 onClick={() =>
                   navigate({
-                    to: "/technique/equipment/$equipmentId",
-                    params: { equipmentId: r.equipment_id },
+                    to: "/equipment/$deviceId",
+                    params: { deviceId: r.equipment_id },
                   })
                 }
               >

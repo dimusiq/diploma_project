@@ -72,6 +72,7 @@ export type FleetDevice = {
   }
   runtime: FleetRuntime
   maintenance?: FleetMaintenanceSummary | null
+  engine_hours?: number | null
   deferredUntilRestart?: string[]
   created_at: string | null
   updated_at: string | null
@@ -182,9 +183,10 @@ export type FleetPatch = {
   speed?: number
   configuration?: Record<string, unknown>
   inMaintenance?: boolean
+  engineHours?: number
 }
 
-export const SIM_FLEET_QUERY_KEY = ["sim-fleet"] as const
+export const SIM_FLEET_QUERY_KEY = ["equipment"] as const
 
 export async function fetchSimFleet(includeArchived = false): Promise<FleetListResponse> {
   const q = includeArchived ? "?include_archived=true" : ""

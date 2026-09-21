@@ -3,14 +3,13 @@
  * (как экспорт товаров: заголовок с заливкой, границы, ширина колонок).
  */
 
-import type { EquipmentPublic } from "@/api/equipment.ts"
-import { EQUIPMENT_TYPE_LABELS } from "@/api/equipment.ts"
+import type { CanonicalEquipment } from "@/lib/canonicalEquipment.ts"
 import { getMaintenanceScheduleStatusLabel } from "@/lib/statusLabels.ts"
 
 export type ScheduleStatus = "in_repair" | "overdue" | "due_soon" | "ok"
 
 export interface MaintenanceScheduleRowExport {
-  equipment: EquipmentPublic
+  equipment: CanonicalEquipment
   engineHours: number | null
   lastMaintenanceAtHours: number | null
   nextServiceAtHours: number | null
@@ -21,8 +20,8 @@ export interface MaintenanceScheduleRowExport {
 const HEADERS = [
   "Техника",
   "Тип",
-  "Гаражный номер",
-  "Серийный номер",
+  "Код",
+  "Зона",
   "Предыдущее ТО (м/ч)",
   "Моточасы",
   "След. ТО (м/ч)",
@@ -39,11 +38,10 @@ function rowToCells(r: MaintenanceScheduleRowExport): (string | number)[] {
       ? r.nextServiceAtHours - r.engineHours
       : null
   return [
-    `${r.equipment.brand_name ?? ""} ${r.equipment.model ?? ""}`.trim(),
-    EQUIPMENT_TYPE_LABELS[r.equipment.equipment_type] ??
-      r.equipment.equipment_type,
-    r.equipment.garage_number ?? "—",
-    r.equipment.serial_number ?? "—",
+    r.equipment.name,
+    r.equipment.kindLabel,
+    r.equipment.code,
+    r.equipment.zone ?? "—",
     r.lastMaintenanceAtHours ?? "—",
     r.engineHours ?? "—",
     r.nextServiceAtHours ?? "—",

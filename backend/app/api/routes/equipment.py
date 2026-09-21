@@ -26,11 +26,16 @@ from app.models import (
     MaintenanceRecordWithEquipmentPublic,
     Message,
 )
+from app.services.canonical_equipment import (
+    canonical_device_name,
+    require_canonical_device,
+)
 from app.services.equipment_import import (
     MAX_IMPORT_BYTES,
     build_equipment_import_template_xlsx,
     import_equipment_from_spreadsheet,
 )
+from app.warehouse_sim.models import SimDevice
 
 router = APIRouter(prefix="/equipment", tags=["equipment"])
 
@@ -183,17 +188,13 @@ def read_all_maintenance_records(
     equipment_id: uuid.UUID | None = Query(None, description="Фильтр по единице техники"),
 ) -> Any:
     """Общий список проведённых ТО (для раздела «Рабочие заказы»)."""
-    statement = (
-        select(MaintenanceRecord, Equipment, Brand)
-        .join(Equipment, MaintenanceRecord.equipment_id == Equipment.id)
-        .join(Brand, Equipment.brand_id == Brand.id)
-        .where(Equipment.equipment_type.in_(EQUIPMENT_TYPES))
+    statement = select(MaintenanceRecord, SimDevice).join(
+        SimDevice, MaintenanceRecord.equipment_id == SimDevice.id
     )
     count_statement = (
         select(func.count())
         .select_from(MaintenanceRecord)
-        .join(Equipment, MaintenanceRecord.equipment_id == Equipment.id)
-        .where(Equipment.equipment_type.in_(EQUIPMENT_TYPES))
+        .join(SimDevice, MaintenanceRecord.equipment_id == SimDevice.id)
     )
     if equipment_id is not None:
         statement = statement.where(MaintenanceRecord.equipment_id == equipment_id)
@@ -210,13 +211,13 @@ def read_all_maintenance_records(
         MaintenanceRecordWithEquipmentPublic(
             id=r.id,
             equipment_id=r.equipment_id,
-            equipment_name=f"{brand.name} {eq.model}".strip(),
+            equipment_name=canonical_device_name(device),
             performed_at=r.performed_at,
             engine_hours_at_service=r.engine_hours_at_service,
             interval_hours=r.interval_hours,
             comment=r.comment,
         )
-        for r, eq, brand in rows
+        for r, device in rows
     ]
     return MaintenanceRecordListWithEquipment(data=items, count=count)
 
@@ -228,9 +229,7 @@ def read_equipment_maintenance_records(
     equipment_id: uuid.UUID,
 ) -> Any:
     """Список проведённых ТО по единице техники."""
-    equipment = _get_or_404(session, equipment_id)
-    if equipment.equipment_type not in EQUIPMENT_TYPES:
-        raise HTTPException(status_code=404, detail="Техника не найдена")
+    require_canonical_device(session, equipment_id)
     statement = (
         select(MaintenanceRecord)
         .where(MaintenanceRecord.equipment_id == equipment_id)
@@ -260,9 +259,7 @@ def create_maintenance_record(
     body: MaintenanceRecordCreate,
 ) -> Any:
     """Создать запись о проведённом ТО по единице техники."""
-    equipment = _get_or_404(session, equipment_id)
-    if equipment.equipment_type not in EQUIPMENT_TYPES:
-        raise HTTPException(status_code=404, detail="Техника не найдена")
+    require_canonical_device(session, equipment_id)
     record = MaintenanceRecord(
         equipment_id=equipment_id,
         performed_at=body.performed_at,

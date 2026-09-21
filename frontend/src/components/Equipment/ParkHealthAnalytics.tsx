@@ -24,17 +24,18 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { equipmentApi } from "@/api/equipment.ts"
 import {
   apiChainToLegacyFormat,
   maintenanceScheduleApi,
 } from "@/api/maintenanceSchedule.ts"
+import { fetchSimFleet, SIM_FLEET_QUERY_KEY } from "@/api/simFleet.ts"
 import { workOrdersApi } from "@/api/workOrders.ts"
 import {
   pieHoverActiveShape,
   pieHoverInactiveStyle,
 } from "@/components/Charts/pieHoverShapes.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
+import { toCanonicalEquipment } from "@/lib/canonicalEquipment.ts"
 import { getRemindBeforeHoursForEquipment } from "@/utils/maintenanceChains.ts"
 
 type ScheduleStatus = "overdue" | "due_soon" | "ok"
@@ -82,8 +83,8 @@ const EQUIPMENT_STATUS_COLORS = ["#38a169", "#dd6b20", "#718096"]
 
 export function ParkHealthAnalytics() {
   const { data: equipmentData, isLoading: equipmentLoading } = useQuery({
-    queryKey: ["equipment", "analytics"],
-    queryFn: () => equipmentApi.list({ limit: 500 }),
+    queryKey: SIM_FLEET_QUERY_KEY,
+    queryFn: () => fetchSimFleet(false),
   })
   const { data: chainsData } = useQuery({
     queryKey: ["maintenance-chains"],
@@ -104,29 +105,29 @@ export function ParkHealthAnalytics() {
   )
   const defaultInterval = (configData?.default_intervals ?? [500])[0] ?? 500
   const defaultRemind = configData?.default_remind_before_hours ?? 50
-  const equipmentList = equipmentData?.data ?? []
+  const equipmentList = useMemo(
+    () =>
+      (equipmentData?.data ?? []).map((device) =>
+        toCanonicalEquipment(device, equipmentData?.zones ?? []),
+      ),
+    [equipmentData],
+  )
 
   const kpis = useMemo(() => {
     let overdue = 0
     let dueSoon = 0
-    const underMaintenance = equipmentList.filter(
-      (e) => e.current_status === "maintenance",
-    ).length
+    const underMaintenance = equipmentList.filter((e) => e.inMaintenance).length
     const total = equipmentList.length
 
     for (const eq of equipmentList) {
       const interval = getIntervalForEquipment(eq.id, chains) || defaultInterval
-      const nextAt = getNextServiceAtHours(eq.engine_hours ?? null, interval)
+      const nextAt = getNextServiceAtHours(eq.engineHours, interval)
       const remindBefore = getRemindBeforeHoursForEquipment(
         eq.id,
         defaultRemind,
         chains,
       )
-      const status = getScheduleStatus(
-        eq.engine_hours ?? null,
-        nextAt,
-        remindBefore,
-      )
+      const status = getScheduleStatus(eq.engineHours, nextAt, remindBefore)
       if (status === "overdue") overdue++
       else if (status === "due_soon") dueSoon++
     }
@@ -180,12 +181,8 @@ export function ParkHealthAnalytics() {
   }, [kpis.overdue, kpis.dueSoon, kpis.total])
 
   const equipmentStatusChartData = useMemo(() => {
-    const active = equipmentList.filter(
-      (e) => e.current_status === "active",
-    ).length
-    const maintenance = equipmentList.filter(
-      (e) => e.current_status === "maintenance",
-    ).length
+    const active = equipmentList.filter((e) => !e.inMaintenance).length
+    const maintenance = equipmentList.filter((e) => e.inMaintenance).length
     const other = kpis.total - active - maintenance
     return [
       {
@@ -211,7 +208,7 @@ export function ParkHealthAnalytics() {
   return (
     <div>
       <h2 className="font-heading mb-2 text-lg font-semibold md:text-xl">
-        Здоровье парка техники
+        Эксплуатация и ТО
       </h2>
       <p className="mb-6 text-sm text-muted-foreground">
         Ключевые показатели и распределение по статусам

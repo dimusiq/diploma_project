@@ -233,7 +233,7 @@ export const CONNECTION_STATUS_LABELS: Record<string, string> = {
 
 /** График ТО. */
 export const MAINTENANCE_SCHEDULE_STATUS_LABELS: Record<string, string> = {
-  in_repair: "В ремонте",
+  in_repair: "На обслуживании",
   overdue: "Просрочено",
   due_soon: "Скоро",
   ok: "Норма",

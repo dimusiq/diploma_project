@@ -1,22 +1,24 @@
 /** Карточка единицы оборудования склада (wsim_device). */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { type ReactNode, useMemo, useState } from "react"
 import { Wrench } from "lucide-react"
+import { type ReactNode, useMemo, useState } from "react"
 import {
   archiveSimFleetDevice,
   createDeviceMaintenance,
+  type DeviceMaintenanceCreate,
+  FLEET_KINDS,
   fetchDeviceEvents,
   fetchDeviceMaintenance,
   fetchDeviceTasks,
   fetchSimFleet,
   fetchSimFleetDevice,
-  FLEET_KINDS,
   patchDeviceMaintenance,
   patchSimFleetDevice,
   SIM_FLEET_QUERY_KEY,
-  type DeviceMaintenanceCreate,
 } from "@/api/simFleet.ts"
+import { type WorkOrderPublic, workOrdersApi } from "@/api/workOrders.ts"
+import type { ApiError } from "@/client/index.ts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import { deviceKindLabel } from "@/components/deviceServer/simFormat.ts"
@@ -52,18 +54,19 @@ import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
   CATEGORY_ICONS,
-  EQUIPMENT_CATEGORIES,
   categoryOf,
+  EQUIPMENT_CATEGORIES,
 } from "@/lib/equipmentCatalog.ts"
 import {
   getDeviceStatusLabel,
+  getPriorityLabel,
   getSimMaintenanceStatusLabel,
   getSimMaintenanceTypeLabel,
   getTaskStatusLabel,
   getTaskTypeLabel,
+  getWorkOrderStatusLabel,
 } from "@/lib/statusLabels.ts"
 import { handleError } from "@/utils.ts"
-import { ApiError } from "@/client/index.ts"
 
 function kindLabel(kind: string): string {
   return deviceKindLabel(kind as DeviceKind) || kind
@@ -71,6 +74,25 @@ function kindLabel(kind: string): string {
 
 function categoryLabel(category: string): string {
   return EQUIPMENT_CATEGORIES.find((item) => item.id === category)?.label ?? category
+}
+
+function workOrdersForDevice(
+  orders: WorkOrderPublic[],
+  device: { id: string; name: string; code: string },
+): WorkOrderPublic[] {
+  const name = device.name.trim().toLowerCase()
+  const code = device.code.trim().toLowerCase()
+  return orders.filter((order) => {
+    if (order.equipment_id === device.id) return true
+    const eq = (order.equipment_name ?? "").trim().toLowerCase()
+    if (!eq) return false
+    return (
+      eq === name ||
+      eq === code ||
+      (code.length > 0 && eq.includes(code)) ||
+      (name.length > 1 && eq.includes(name))
+    )
+  })
 }
 
 function formatDate(iso: string | null | undefined): string {
@@ -94,12 +116,14 @@ export function EquipmentDetailPage({
   onBack,
   onShowOnMap,
   onShowEvents,
+  onShowWorkOrders,
 }: {
   deviceId: string
   canManage: boolean
   onBack: () => void
   onShowOnMap: (code: string) => void
   onShowEvents?: (code: string) => void
+  onShowWorkOrders?: () => void
 }) {
   const qc = useQueryClient()
   const { showSuccessToast, showErrorToast } = useCustomToast()
@@ -141,6 +165,11 @@ export function EquipmentDetailPage({
     queryKey: [...SIM_FLEET_QUERY_KEY, deviceId, "events"],
     queryFn: () => fetchDeviceEvents(deviceId),
   })
+  const workOrdersQuery = useQuery({
+    queryKey: ["work-orders", "device-card", deviceId],
+    queryFn: () => workOrdersApi.list({ limit: 50 }),
+    retry: false,
+  })
 
   const device = deviceQuery.data
   const summary = maintenanceQuery.data?.summary ?? device?.maintenance
@@ -161,6 +190,11 @@ export function EquipmentDetailPage({
     if (!taskId) return null
     return tasksQuery.data?.data.find((task) => task.id === taskId) ?? null
   }, [device?.runtime.taskId, tasksQuery.data])
+
+  const relatedWorkOrders = useMemo(() => {
+    if (!device) return []
+    return workOrdersForDevice(workOrdersQuery.data?.data ?? [], device)
+  }, [device, workOrdersQuery.data])
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -341,7 +375,8 @@ export function EquipmentDetailPage({
             active={
               deviceQuery.isFetching ||
               maintenanceQuery.isFetching ||
-              tasksQuery.isFetching
+              tasksQuery.isFetching ||
+              workOrdersQuery.isFetching
             }
           />
         </div>
@@ -423,6 +458,7 @@ export function EquipmentDetailPage({
           <TableHeader>
             <TableRow>
               <TableHead>Дата</TableHead>
+              <TableHead>Название</TableHead>
               <TableHead>Тип</TableHead>
               <TableHead>Статус</TableHead>
               <TableHead>Исполнитель</TableHead>
@@ -432,6 +468,7 @@ export function EquipmentDetailPage({
             {records.slice(0, 8).map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{formatDate(row.scheduled_at || row.created_at)}</TableCell>
+                <TableCell>{row.title}</TableCell>
                 <TableCell>{getSimMaintenanceTypeLabel(row.type)}</TableCell>
                 <TableCell>{getSimMaintenanceStatusLabel(row.status)}</TableCell>
                 <TableCell>{row.performed_by || "—"}</TableCell>
@@ -439,7 +476,7 @@ export function EquipmentDetailPage({
             ))}
             {records.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-muted-foreground">
+                <TableCell colSpan={5} className="text-muted-foreground">
                   Записей ТО нет
                 </TableCell>
               </TableRow>
@@ -449,6 +486,41 @@ export function EquipmentDetailPage({
         {records.length > 8 ? (
           <Button variant="outline" className="mt-2" onClick={() => setHistoryOpen(true)}>
             Показать все
+          </Button>
+        ) : null}
+      </Section>
+
+      <Section title="Последние наряды">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Наряд</TableHead>
+              <TableHead>Статус</TableHead>
+              <TableHead>Приоритет</TableHead>
+              <TableHead>Срок</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {relatedWorkOrders.slice(0, 5).map((order) => (
+              <TableRow key={order.id}>
+                <TableCell>{order.title}</TableCell>
+                <TableCell>{getWorkOrderStatusLabel(order.status)}</TableCell>
+                <TableCell>{getPriorityLabel(order.priority)}</TableCell>
+                <TableCell>{formatDate(order.due_at || order.end_at)}</TableCell>
+              </TableRow>
+            ))}
+            {relatedWorkOrders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-muted-foreground">
+                  Нарядов по этому оборудованию нет
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+        {onShowWorkOrders ? (
+          <Button variant="outline" className="mt-3" onClick={onShowWorkOrders}>
+            Все наряды
           </Button>
         ) : null}
       </Section>

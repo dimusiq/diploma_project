@@ -1,11 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router"
-
-import { EquipmentList } from "@/components/Equipment/EquipmentList.tsx"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_layout/technique/")({
-  component: AssetsSection,
+  beforeLoad: () => {
+    throw redirect({ to: "/equipment" })
+  },
+  component: () => null,
 })
-
-function AssetsSection() {
-  return <EquipmentList />
-}

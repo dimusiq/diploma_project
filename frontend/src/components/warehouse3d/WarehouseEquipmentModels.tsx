@@ -19,10 +19,14 @@ export type WarehouseEquipmentKind =
 export function equipmentTypeToKind(type: string): WarehouseEquipmentKind {
   switch (type) {
     case "richtrak":
+    case "reach_truck":
       return "reach_truck"
     case "komplektovshchik":
+    case "order_picker":
       return "order_picker"
     case "elektrotelezhka":
+    case "pallet_jack":
+    case "electric_pallet_jack":
       return "electric_pallet_jack"
     default:
       return "forklift"

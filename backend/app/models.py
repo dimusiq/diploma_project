@@ -2076,7 +2076,7 @@ class EquipmentImportResult(SQLModel):
 # --- MaintenanceRecord (проведённое ТО по единице техники) ---
 class MaintenanceRecord(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    equipment_id: uuid.UUID = Field(foreign_key="equipment.id", ondelete="CASCADE")
+    equipment_id: uuid.UUID = Field(foreign_key="wsim_device.id", ondelete="CASCADE")
     performed_at: date = Field(description="Дата проведения ТО")
     engine_hours_at_service: int | None = Field(default=None, ge=0, description="Моточасы на момент проведения")
     interval_hours: int = Field(ge=1, description="Интервал ТО в моточасах (500, 1000 и т.д.)")
@@ -2108,7 +2108,7 @@ class MaintenanceRecordWithEquipmentPublic(SQLModel):
     """Запись ТО с отображаемым названием техники для общего списка."""
     id: uuid.UUID
     equipment_id: uuid.UUID
-    equipment_name: str  # brand + model
+    equipment_name: str  # canonical SimDevice.name
     performed_at: date
     engine_hours_at_service: int | None
     interval_hours: int
@@ -2154,7 +2154,7 @@ ATTACHMENT_KINDS = [ATTACHMENT_KIND_BEFORE, ATTACHMENT_KIND_AFTER, ATTACHMENT_KI
 class WorkOrder(SQLModel, table=True):
     __tablename__ = "workorder"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    equipment_id: uuid.UUID = Field(foreign_key="equipment.id", ondelete="CASCADE")
+    equipment_id: uuid.UUID = Field(foreign_key="wsim_device.id", ondelete="CASCADE")
     title: str = Field(max_length=256)
     description: str | None = Field(default=None, max_length=4096)
     status: str = Field(default=WORK_ORDER_STATUS_OPEN, max_length=32)
@@ -2455,7 +2455,7 @@ class ChainAssignment(SQLModel, table=True):
     __tablename__ = "chain_assignment"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     chain_id: uuid.UUID = Field(foreign_key="maintenance_chain.id", ondelete="CASCADE")
-    equipment_id: uuid.UUID = Field(foreign_key="equipment.id", ondelete="CASCADE")
+    equipment_id: uuid.UUID = Field(foreign_key="wsim_device.id", ondelete="CASCADE")
 
 
 class MaintenanceChainAudit(SQLModel, table=True):

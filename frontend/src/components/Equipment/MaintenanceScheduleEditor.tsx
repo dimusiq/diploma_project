@@ -5,14 +5,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FiTrash2 } from "react-icons/fi"
-
-import { EQUIPMENT_TYPE_LABELS, equipmentApi } from "@/api/equipment.ts"
 import {
   apiChainToLegacyFormat,
   type MaintenanceChainCreateBody,
   type MaintenanceChainUpdateBody,
   maintenanceScheduleApi,
 } from "@/api/maintenanceSchedule.ts"
+import { fetchSimFleet, SIM_FLEET_QUERY_KEY } from "@/api/simFleet.ts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
@@ -38,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table.tsx"
+import { toCanonicalEquipment } from "@/lib/canonicalEquipment.ts"
 import { cn } from "@/lib/utils.ts"
 import {
   CHAIN_COLOR_OPTIONS,
@@ -111,10 +111,16 @@ export function MaintenanceScheduleEditor() {
   const [equipmentSearch, setEquipmentSearch] = useState("")
 
   const { data: equipmentData } = useQuery({
-    queryKey: ["equipment", "all"],
-    queryFn: () => equipmentApi.list({ limit: 500, skip: 0 }),
+    queryKey: SIM_FLEET_QUERY_KEY,
+    queryFn: () => fetchSimFleet(false),
   })
-  const equipmentList = equipmentData?.data ?? []
+  const equipmentList = useMemo(
+    () =>
+      (equipmentData?.data ?? []).map((device) =>
+        toCanonicalEquipment(device, equipmentData?.zones ?? []),
+      ),
+    [equipmentData],
+  )
 
   const { data: chainsData } = useQuery({
     queryKey: ["maintenance-chains"],
@@ -416,13 +422,10 @@ export function MaintenanceScheduleEditor() {
     if (!q) return equipmentList
     return equipmentList.filter(
       (e) =>
-        e.brand_name?.toLowerCase().includes(q) ||
-        e.model?.toLowerCase().includes(q) ||
-        e.serial_number?.toLowerCase().includes(q) ||
-        e.garage_number?.toLowerCase().includes(q) ||
-        String(EQUIPMENT_TYPE_LABELS[e.equipment_type] ?? e.equipment_type)
-          .toLowerCase()
-          .includes(q),
+        e.name.toLowerCase().includes(q) ||
+        e.code.toLowerCase().includes(q) ||
+        e.kindLabel.toLowerCase().includes(q) ||
+        (e.zone ?? "").toLowerCase().includes(q),
     )
   }, [equipmentList, equipmentSearch])
 
@@ -872,7 +875,7 @@ export function MaintenanceScheduleEditor() {
                   </div>
                   <Input
                     className="mb-2 max-w-[320px]"
-                    placeholder="Поиск по названию, модели, серийному номеру..."
+                    placeholder="Поиск по названию, коду, типу..."
                     value={equipmentSearch}
                     onChange={(e) => setEquipmentSearch(e.target.value)}
                   />
@@ -884,8 +887,8 @@ export function MaintenanceScheduleEditor() {
                   <div className="max-h-[400px] overflow-y-auto rounded-md border border-border bg-background p-2">
                     {equipmentList.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        Нет техники. Добавьте технику в разделе «Список
-                        техники».
+                        Нет техники. Добавьте оборудование в разделе
+                        «Оборудование».
                       </p>
                     ) : filteredEquipmentList.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
@@ -923,20 +926,13 @@ export function MaintenanceScheduleEditor() {
                                   inOtherChain && "opacity-70",
                                 )}
                               >
-                                {eq.brand_name} {eq.model}
-                                {eq.garage_number && (
-                                  <span className="block text-xs text-muted-foreground">
-                                    Гаражный номер: {eq.garage_number}
-                                  </span>
-                                )}
-                                {eq.serial_number && (
-                                  <span className="ml-2 text-muted-foreground">
-                                    ({eq.serial_number})
-                                  </span>
-                                )}
+                                {eq.name}
+                                <span className="ml-2 font-mono text-muted-foreground">
+                                  ({eq.code})
+                                </span>
                                 {" · "}
-                                {EQUIPMENT_TYPE_LABELS[eq.equipment_type] ??
-                                  eq.equipment_type}
+                                {eq.kindLabel}
+                                {eq.zone ? ` · ${eq.zone}` : ""}
                                 {otherChainName && (
                                   <span className="mt-0.5 block text-xs text-muted-foreground">
                                     в цепочке «{otherChainName}»

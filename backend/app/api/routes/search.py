@@ -7,7 +7,8 @@ from sqlalchemy import or_
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import Brand, Equipment, Item, WorkOrder
+from app.models import Item, WorkOrder
+from app.warehouse_sim.models import SimDevice
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -39,24 +40,23 @@ def global_search(
     ]
 
     eq_stmt = (
-        select(Equipment, Brand.name)
-        .join(Brand, Equipment.brand_id == Brand.id)
+        select(SimDevice)
         .where(
+            SimDevice.archived.is_(False),
             or_(
-                col(Equipment.model).ilike(pattern),
-                col(Equipment.serial_number).ilike(pattern),
-                col(Equipment.garage_number).ilike(pattern),
-            )
+                col(SimDevice.name).ilike(pattern),
+                col(SimDevice.code).ilike(pattern),
+            ),
         )
         .limit(LIMIT)
     )
     equipment = [
         {
             "id": str(e.id),
-            "name": f"{brand_name} {e.model}",
-            "serial_number": e.serial_number,
+            "name": e.name,
+            "serial_number": e.code,
         }
-        for e, brand_name in session.exec(eq_stmt).all()
+        for e in session.exec(eq_stmt).all()
     ]
 
     wo_stmt = (

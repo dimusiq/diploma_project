@@ -3,15 +3,11 @@
  * Типичный UI: таблица, статусы с цветовой индикацией, фильтры, сводка.
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FiChevronDown, FiChevronUp, FiDownload } from "react-icons/fi"
 import type { MaintenanceRecordCreate } from "@/api/equipment"
-import {
-  EQUIPMENT_TYPE_LABELS,
-  type EquipmentPublic,
-  equipmentApi,
-} from "@/api/equipment.ts"
+import { equipmentApi } from "@/api/equipment.ts"
 import {
   downloadMaintenanceScheduleCsv,
   downloadMaintenanceScheduleXlsx,
@@ -21,13 +17,10 @@ import {
   maintenanceScheduleApi,
 } from "@/api/maintenanceSchedule.ts"
 import {
-  DialogBody,
-  DialogCloseTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogRoot,
-  DialogTitle,
-} from "@/components/ui/app-dialog.tsx"
+  fetchSimFleet,
+  patchSimFleetDevice,
+  SIM_FLEET_QUERY_KEY,
+} from "@/api/simFleet.ts"
 import { Button } from "@/components/ui/button.tsx"
 import {
   DropdownMenu,
@@ -68,6 +61,10 @@ import {
 } from "@/components/ui/table.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast"
+import {
+  type CanonicalEquipment,
+  toCanonicalEquipment,
+} from "@/lib/canonicalEquipment.ts"
 import {
   fromSelectAll,
   SELECT_ALL_VALUE,
@@ -110,19 +107,21 @@ function getScheduleStatus(
   return "ok"
 }
 
-/** Статус строки графика ТО: при «на обслуживании» показываем «В ремонте». */
+/** Статус строки графика ТО: при «на обслуживании» показываем canonical статус. */
 function resolveRowStatus(
-  equipment: EquipmentPublic,
+  equipment: CanonicalEquipment,
   engineHours: number | null,
   nextAt: number | null,
   remindBeforeHours: number,
 ): ScheduleStatus {
-  if (equipment.current_status === "maintenance") return "in_repair"
+  if (equipment.inMaintenance || equipment.currentStatus === "maintenance") {
+    return "in_repair"
+  }
   return getScheduleStatus(engineHours, nextAt, remindBeforeHours)
 }
 
 interface RowData {
-  equipment: EquipmentPublic
+  equipment: CanonicalEquipment
   engineHours: number | null
   lastMaintenanceAtHours: number | null
   nextServiceAtHours: number | null
@@ -168,8 +167,8 @@ function chainTagClass(colorTag: string): string {
 
 type ScheduleSortField =
   | "equipment"
-  | "serial_number"
-  | "garage_number"
+  | "code"
+  | "zone"
   | "primaryChainName"
   | "lastMaintenanceAtHours"
   | "engineHours"
@@ -239,66 +238,6 @@ function ScheduleSortableHeader({
   )
 }
 
-function EquipmentMaintenanceRecordsList({
-  equipmentId,
-  onOpenCard,
-}: {
-  equipmentId: string
-  onOpenCard: () => void
-}) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["equipment-maintenance-records", equipmentId],
-    queryFn: () => equipmentApi.maintenanceRecords(equipmentId),
-  })
-  const records = data?.data ?? []
-
-  return (
-    <div>
-      <div className="mb-3 flex justify-end">
-        <Button size="sm" variant="outline" onClick={onOpenCard}>
-          Перейти в карточку техники
-        </Button>
-      </div>
-      {isLoading && <p className="text-muted-foreground">Загрузка…</p>}
-      {!isLoading && records.length === 0 && (
-        <p className="text-muted-foreground">
-          Проведённых ТО по этой единице техники пока нет.
-        </p>
-      )}
-      {!isLoading && records.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Дата</TableHead>
-              <TableHead>Интервал (м/ч)</TableHead>
-              <TableHead>Моточасы на момент ТО</TableHead>
-              <TableHead className="whitespace-normal">Комментарий</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {records.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell>
-                  {new Date(r.performed_at).toLocaleDateString("ru-RU")}
-                </TableCell>
-                <TableCell>{r.interval_hours}</TableCell>
-                <TableCell>
-                  {r.engine_hours_at_service != null
-                    ? r.engine_hours_at_service
-                    : "—"}
-                </TableCell>
-                <TableCell className="whitespace-normal">
-                  {r.comment ?? "—"}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
-    </div>
-  )
-}
-
 /** Панель «Записать проведённое ТО», привязанная к бейджу статуса в строке графика. */
 function RecordMaintenanceDialog({
   equipment,
@@ -307,7 +246,7 @@ function RecordMaintenanceDialog({
   onOpenChange,
   onSuccess,
 }: {
-  equipment: EquipmentPublic | null
+  equipment: CanonicalEquipment | null
   anchorEl: HTMLElement | null
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -375,7 +314,7 @@ function RecordMaintenanceDialog({
         <form onSubmit={handleSubmit}>
           <PopoverHeader>
             <PopoverTitle>
-              Записать проведённое ТО — {equipment.brand_name} {equipment.model}
+              Записать проведённое ТО — {equipment.name}
             </PopoverTitle>
           </PopoverHeader>
           <PopoverBody>
@@ -534,11 +473,9 @@ export function MaintenanceScheduleTable() {
     () => loadFilters().sortByChain,
   )
   const [isExporting, setIsExporting] = useState(false)
-  const [selectedEquipment, setSelectedEquipment] =
-    useState<EquipmentPublic | null>(null)
   const scheduleStatusAnchorRefs = useRef<Map<string, HTMLElement>>(new Map())
   const [equipmentForRecord, setEquipmentForRecord] = useState<{
-    equipment: EquipmentPublic
+    equipment: CanonicalEquipment
     anchorEl: HTMLElement
   } | null>(null)
   const [scheduleSortBy, setScheduleSortBy] = useState<
@@ -564,10 +501,13 @@ export function MaintenanceScheduleTable() {
     }: {
       id: string
       current_status: string
-    }) => equipmentApi.patchCurrentStatus(id, current_status),
+    }) =>
+      patchSimFleetDevice(id, {
+        inMaintenance: current_status === "maintenance",
+      }),
     onSuccess: () => {
       toast.showSuccessToast("Техника переведена на обслуживание")
-      queryClient.invalidateQueries({ queryKey: ["equipment"] })
+      queryClient.invalidateQueries({ queryKey: SIM_FLEET_QUERY_KEY })
     },
     onError: (err) => {
       toast.showErrorToast(
@@ -577,7 +517,7 @@ export function MaintenanceScheduleTable() {
   })
 
   const refreshMaintenanceData = () => {
-    queryClient.invalidateQueries({ queryKey: ["equipment"] })
+    queryClient.invalidateQueries({ queryKey: SIM_FLEET_QUERY_KEY })
     queryClient.invalidateQueries({
       queryKey: ["equipment", "all-maintenance-records"],
     })
@@ -607,14 +547,25 @@ export function MaintenanceScheduleTable() {
   }, [statusFilter, typeFilter, chainFilter, sortByChain])
 
   const { data, isLoading } = useQuery({
-    queryKey: ["equipment", "schedule"],
-    queryFn: () => equipmentApi.list({ limit: 500, skip: 0 }),
+    queryKey: SIM_FLEET_QUERY_KEY,
+    queryFn: () => fetchSimFleet(false),
   })
 
+  const kindOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const device of data?.data ?? []) {
+      const row = toCanonicalEquipment(device, data?.zones ?? [])
+      map.set(row.kind, row.kindLabel)
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1], "ru"))
+  }, [data?.data, data?.zones])
+
   const rows: RowData[] = useMemo(() => {
-    const list = data?.data ?? []
+    const list = (data?.data ?? []).map((device) =>
+      toCanonicalEquipment(device, data?.zones ?? []),
+    )
     return list.map((equipment) => {
-      const engineHours = equipment.engine_hours ?? null
+      const engineHours = equipment.engineHours
       const lastAt = getLastMaintenanceAtHours(engineHours, intervalHours)
       const nextAt = getNextServiceAtHours(engineHours, intervalHours)
       const remindBefore = getRemindBeforeHoursForEquipment(
@@ -642,7 +593,7 @@ export function MaintenanceScheduleTable() {
         primaryChainName,
       }
     })
-  }, [data?.data, intervalHours, defaultRemindBefore, chains])
+  }, [data?.data, data?.zones, intervalHours, defaultRemindBefore, chains])
 
   const filteredRows = useMemo(() => {
     let list = rows
@@ -650,7 +601,7 @@ export function MaintenanceScheduleTable() {
       list = list.filter((r) => r.status === statusFilter)
     }
     if (typeFilter) {
-      list = list.filter((r) => r.equipment.equipment_type === typeFilter)
+      list = list.filter((r) => r.equipment.kind === typeFilter)
     }
     if (chainFilter) {
       const chain = chains.find((c) => c.id === chainFilter)
@@ -667,23 +618,17 @@ export function MaintenanceScheduleTable() {
         let cmp = 0
         switch (scheduleSortBy) {
           case "equipment": {
-            const sa =
-              `${a.equipment.brand_name ?? ""} ${a.equipment.model ?? ""}`.trim()
-            const sb =
-              `${b.equipment.brand_name ?? ""} ${b.equipment.model ?? ""}`.trim()
+            const sa = a.equipment.name
+            const sb = b.equipment.name
             cmp = sa.localeCompare(sb)
             break
           }
-          case "serial_number": {
-            const sa = a.equipment.serial_number ?? ""
-            const sb = b.equipment.serial_number ?? ""
-            cmp = sa.localeCompare(sb)
+          case "code": {
+            cmp = a.equipment.code.localeCompare(b.equipment.code)
             break
           }
-          case "garage_number": {
-            const sa = a.equipment.garage_number ?? ""
-            const sb = b.equipment.garage_number ?? ""
-            cmp = sa.localeCompare(sb)
+          case "zone": {
+            cmp = (a.equipment.zone ?? "").localeCompare(b.equipment.zone ?? "")
             break
           }
           case "primaryChainName":
@@ -800,11 +745,15 @@ export function MaintenanceScheduleTable() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Link to="/technique/maintenance-schedule">
-          <Button size="sm" variant="outline">
-            Перейти к расписанию ТО
-          </Button>
-        </Link>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            void navigate({ to: "/technique/maintenance-schedule" })
+          }}
+        >
+          Перейти к расписанию ТО
+        </Button>
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-4">
         <div className="flex flex-wrap gap-2">
@@ -812,7 +761,7 @@ export function MaintenanceScheduleTable() {
             Просрочено: {summary.overdue}
           </span>
           <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
-            В ремонте: {summary.inRepair}
+            {STATUS_LABELS.in_repair}: {summary.inRepair}
           </span>
           <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100">
             Скоро: {summary.dueSoon}
@@ -856,7 +805,9 @@ export function MaintenanceScheduleTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={SELECT_ALL_VALUE}>Все</SelectItem>
-              <SelectItem value="in_repair">В ремонте</SelectItem>
+              <SelectItem value="in_repair">
+                {STATUS_LABELS.in_repair}
+              </SelectItem>
               <SelectItem value="overdue">Просрочено</SelectItem>
               <SelectItem value="due_soon">Скоро</SelectItem>
               <SelectItem value="ok">Норма</SelectItem>
@@ -872,7 +823,7 @@ export function MaintenanceScheduleTable() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={SELECT_ALL_VALUE}>Все типы</SelectItem>
-              {Object.entries(EQUIPMENT_TYPE_LABELS).map(([value, label]) => (
+              {kindOptions.map(([value, label]) => (
                 <SelectItem key={value} value={value}>
                   {label}
                 </SelectItem>
@@ -915,43 +866,8 @@ export function MaintenanceScheduleTable() {
       <p className="mb-2 text-sm text-muted-foreground">
         Следующее ТО рассчитывается по моточасам (интервал из «Календарь ТО»:{" "}
         {intervalHours} м/ч). Статус «Скоро» настраивается в последовательности
-        ТО (за N м/ч до ТО). Клик по строке — список проведённых ТО по этой
-        технике.
+        ТО (за N м/ч до ТО). Клик по строке открывает карточку оборудования.
       </p>
-
-      <DialogRoot
-        open={selectedEquipment != null}
-        onOpenChange={(e) => {
-          if (!e.open) setSelectedEquipment(null)
-        }}
-        placement="center"
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {selectedEquipment
-                ? `${selectedEquipment.brand_name ?? ""} ${selectedEquipment.model ?? ""}`.trim() ||
-                  "Техника"
-                : "Проведённые ТО"}
-            </DialogTitle>
-          </DialogHeader>
-          <DialogBody>
-            {selectedEquipment && (
-              <EquipmentMaintenanceRecordsList
-                equipmentId={selectedEquipment.id}
-                onOpenCard={() => {
-                  setSelectedEquipment(null)
-                  navigate({
-                    to: "/technique/equipment/$equipmentId",
-                    params: { equipmentId: selectedEquipment.id },
-                  })
-                }}
-              />
-            )}
-          </DialogBody>
-          <DialogCloseTrigger />
-        </DialogContent>
-      </DialogRoot>
 
       <RecordMaintenanceDialog
         equipment={equipmentForRecord?.equipment ?? null}
@@ -978,15 +894,15 @@ export function MaintenanceScheduleTable() {
                   onSort={handleScheduleSort}
                 />
                 <ScheduleSortableHeader
-                  label="Серийный номер"
-                  sortKey="serial_number"
+                  label="Код"
+                  sortKey="code"
                   currentSort={scheduleSortBy}
                   currentOrder={scheduleSortOrder}
                   onSort={handleScheduleSort}
                 />
                 <ScheduleSortableHeader
-                  label="Гаражный номер"
-                  sortKey="garage_number"
+                  label="Зона"
+                  sortKey="zone"
                   currentSort={scheduleSortBy}
                   currentOrder={scheduleSortOrder}
                   onSort={handleScheduleSort}
@@ -1055,26 +971,24 @@ export function MaintenanceScheduleTable() {
                     <TableRow
                       key={equipment.id}
                       className="cursor-pointer"
-                      onClick={() => setSelectedEquipment(equipment)}
+                      onClick={() => {
+                        void navigate({
+                          to: "/equipment/$deviceId",
+                          params: { deviceId: equipment.id },
+                        })
+                      }}
                     >
                       <TableCell>
-                        <span className="font-medium">
-                          {equipment.brand_name} {equipment.model}
-                        </span>
+                        <span className="font-medium">{equipment.name}</span>
                         <p className="text-xs text-muted-foreground">
-                          {EQUIPMENT_TYPE_LABELS[equipment.equipment_type] ??
-                            equipment.equipment_type}
+                          {equipment.kindLabel}
                         </p>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm">
-                          {equipment.serial_number || "—"}
-                        </span>
+                        <span className="font-mono text-sm">{equipment.code}</span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-sm">
-                          {equipment.garage_number || "—"}
-                        </span>
+                        <span className="text-sm">{equipment.zone || "—"}</span>
                       </TableCell>
                       <TableCell>
                         {primaryChainName ? (
@@ -1173,7 +1087,7 @@ export function MaintenanceScheduleTable() {
                                 }}
                                 disabled={
                                   updateStatusMutation.isPending ||
-                                  equipment.current_status === "maintenance"
+                                  equipment.inMaintenance
                                 }
                               >
                                 Перевести на обслуживание

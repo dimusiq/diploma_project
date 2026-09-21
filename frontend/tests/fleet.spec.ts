@@ -18,7 +18,26 @@ test("оборудование: существующий парк, вкладк�
   await page.goto("/equipment")
   await expect(page.getByRole("heading", { name: "Оборудование" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Оборудование" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Парк", exact: true })).toHaveCount(0)
   await expect(page.getByRole("link", { name: "Парк техники" })).toHaveCount(0)
+
+  await page.goto("/fleet")
+  await expect(page).toHaveURL(/\/equipment\/?$/)
+
+  await page.goto("/technique")
+  await expect(page).toHaveURL(/\/equipment\/?$/)
+  await expect(page.getByRole("heading", { name: "Оборудование" })).toBeVisible()
+
+  await page.goto("/technique/maintenance")
+  await expect(page.getByRole("heading", { name: "ТО", exact: true })).toBeVisible()
+
+  await page.goto("/technique/work-orders")
+  await expect(page.getByRole("heading", { name: "Наряды", exact: true })).toBeVisible()
+
+  await page.goto("/technique/analytics")
+  await expect(page.getByRole("heading", { name: "Аналитика", exact: true })).toBeVisible()
+
+  await page.goto("/equipment")
 
   await expect(page.getByText("AGV-01")).toBeVisible()
 
@@ -35,6 +54,7 @@ test("оборудование: существующий парк, вкладк�
   await page.getByRole("button", { name: "AGV-01" }).click()
   await expect(page.getByRole("heading", { name: "AGV-01" })).toBeVisible()
   await expect(page.getByText("Техническое обслуживание")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Все наряды" })).toBeVisible()
   await page.getByRole("button", { name: "← Оборудование" }).click()
 
   const code = `agv-e2e-${Date.now().toString().slice(-6)}`
@@ -57,7 +77,7 @@ test("оборудование: существующий парк, вкладк�
   await page.getByRole("button", { name }).click()
   await expect(page.getByRole("heading", { name })).toBeVisible()
   await page.getByRole("button", { name: "Редактировать" }).click()
-  await page.getByDisplayValue(name).fill(`${name} Twin`)
+  await page.locator(`input[value="${name}"]`).fill(`${name} Twin`)
   await page.getByRole("button", { name: "Сохранить" }).click()
   await expect(page.getByRole("heading", { name: `${name} Twin` })).toBeVisible()
 
@@ -66,6 +86,25 @@ test("оборудование: существующий парк, вкладк�
   await page.getByRole("button", { name: "Сохранить" }).click()
   await expect(page.getByText("Плановое ТО e2e")).toBeVisible()
 
+  const deviceUrl = page.url()
+  const deviceId = deviceUrl.match(/\/equipment\/([^/?#]+)/)?.[1]
+  expect(deviceId).toBeTruthy()
+
+  await page.goto("/technique/maintenance")
+  await expect(page.getByRole("heading", { name: "ТО", exact: true })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Список техники" })).toHaveCount(0)
+  await expect(page.getByText(`${name} Twin`)).toBeVisible()
+  await page.getByText(`${name} Twin`, { exact: true }).click()
+  await expect(page).toHaveURL(new RegExp(`/equipment/${deviceId}`))
+  await expect(page.getByRole("heading", { name: `${name} Twin` })).toBeVisible()
+  await expect(page.getByText("Плановое ТО e2e")).toBeVisible()
+
+  await page.goto(`/technique/equipment/${deviceId}`)
+  await expect(page).toHaveURL(new RegExp(`/equipment/${deviceId}`))
+  await page.goto("/technique/equipment/new")
+  await expect(page).toHaveURL(/\/equipment\/?$/)
+
+  await page.goto(`/equipment/${deviceId}`)
   await page.getByRole("button", { name: "Показать на карте" }).click()
   await expect(page.getByRole("heading", { name: "Digital Twin" })).toBeVisible()
 

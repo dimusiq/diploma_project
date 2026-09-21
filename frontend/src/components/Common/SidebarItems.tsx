@@ -37,6 +37,7 @@ import {
   sidebarMenuButtonVariants,
 } from "@/components/ui/sidebar.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
+import { isTechniqueSidebarItemActive } from "@/lib/techniqueNav.ts"
 import { cn } from "@/lib/utils"
 import { canAccessWarehouseSim } from "@/lib/warehouseSimAccess.ts"
 
@@ -122,7 +123,6 @@ const managementItemsBase: Item[] = [
     path: null,
     children: [
       { path: "/equipment", title: "Оборудование" },
-      { path: "/technique", title: "Парк" },
       { path: "/technique/maintenance", title: "ТО" },
       { path: "/technique/work-orders", title: "Наряды" },
       { path: "/technique/analytics", title: "Аналитика" },
@@ -142,9 +142,7 @@ function isExpandable(item: Item): item is ItemExpandable {
 
 function groupShouldOpen(item: ItemExpandable, pathname: string): boolean {
   return item.children.some((sub) =>
-    sub.path === "/technique"
-      ? pathname === "/technique" || pathname.startsWith("/technique/")
-      : pathname === sub.path || pathname.startsWith(`${sub.path}/`),
+    isTechniqueSidebarItemActive(sub.path, pathname),
   )
 }
 
@@ -254,11 +252,10 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
             <CollapsibleContent>
               <SidebarMenuSub>
                 {item.children.map((sub) => {
-                  const isActive =
-                    sub.path === "/technique"
-                      ? pathname === "/technique" || pathname === "/technique/"
-                      : pathname === sub.path ||
-                        pathname.startsWith(`${sub.path}/`)
+                  const isActive = isTechniqueSidebarItemActive(
+                    sub.path,
+                    pathname,
+                  )
                   return (
                     <SidebarMenuSubItem key={sub.path}>
                       <SidebarMenuSubButton
