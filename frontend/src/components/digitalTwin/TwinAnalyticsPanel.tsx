@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts"
 import { fetchTwinSummary, postTwinWhatIf } from "@/api/warehouseTwin.ts"
+import { EventZoneHeatmap } from "@/components/digitalTwin/EventZoneHeatmap.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Input } from "@/components/ui/input.tsx"
@@ -220,6 +221,7 @@ export function TwinAnalyticsPanel() {
           )}
         </>
       ) : null}
+      <EventZoneHeatmap />
     </div>
   )
 }

@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router"
-
-import { Dashboard } from "./dashboard.tsx"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/_layout/")({
-  component: Dashboard,
+  beforeLoad: () => {
+    throw redirect({ to: "/control-tower" })
+  },
 })

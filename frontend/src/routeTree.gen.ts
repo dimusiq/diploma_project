@@ -22,6 +22,7 @@ import { Route as LayoutDashboardRouteImport } from './routes/_layout/dashboard'
 import { Route as LayoutDeviceServerRouteImport } from './routes/_layout/device-server'
 import { Route as LayoutDigitalTwinRouteImport } from './routes/_layout/digital-twin'
 import { Route as LayoutEquipmentRouteImport } from './routes/_layout/equipment'
+import { Route as LayoutEventsRouteImport } from './routes/_layout/events'
 import { Route as LayoutFleetRouteImport } from './routes/_layout/fleet'
 import { Route as LayoutInboundOrdersRouteImport } from './routes/_layout/inbound-orders'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
@@ -115,6 +116,11 @@ const LayoutDigitalTwinRoute = LayoutDigitalTwinRouteImport.update({
 const LayoutEquipmentRoute = LayoutEquipmentRouteImport.update({
   id: '/equipment',
   path: '/equipment',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutEventsRoute = LayoutEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutFleetRoute = LayoutFleetRouteImport.update({
@@ -294,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/device-server': typeof LayoutDeviceServerRoute
   '/digital-twin': typeof LayoutDigitalTwinRoute
   '/equipment': typeof LayoutEquipmentRouteWithChildren
+  '/events': typeof LayoutEventsRoute
   '/fleet': typeof LayoutFleetRoute
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
@@ -335,6 +342,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof LayoutDashboardRoute
   '/device-server': typeof LayoutDeviceServerRoute
   '/digital-twin': typeof LayoutDigitalTwinRoute
+  '/events': typeof LayoutEventsRoute
   '/fleet': typeof LayoutFleetRoute
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
@@ -381,6 +389,7 @@ export interface FileRoutesById {
   '/_layout/device-server': typeof LayoutDeviceServerRoute
   '/_layout/digital-twin': typeof LayoutDigitalTwinRoute
   '/_layout/equipment': typeof LayoutEquipmentRouteWithChildren
+  '/_layout/events': typeof LayoutEventsRoute
   '/_layout/fleet': typeof LayoutFleetRoute
   '/_layout/inbound-orders': typeof LayoutInboundOrdersRoute
   '/_layout/items': typeof LayoutItemsRoute
@@ -428,6 +437,7 @@ export interface FileRouteTypes {
     | '/device-server'
     | '/digital-twin'
     | '/equipment'
+    | '/events'
     | '/fleet'
     | '/inbound-orders'
     | '/items'
@@ -469,6 +479,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/device-server'
     | '/digital-twin'
+    | '/events'
     | '/fleet'
     | '/inbound-orders'
     | '/items'
@@ -514,6 +525,7 @@ export interface FileRouteTypes {
     | '/_layout/device-server'
     | '/_layout/digital-twin'
     | '/_layout/equipment'
+    | '/_layout/events'
     | '/_layout/fleet'
     | '/_layout/inbound-orders'
     | '/_layout/items'
@@ -645,6 +657,13 @@ declare module '@tanstack/react-router' {
       path: '/equipment'
       fullPath: '/equipment'
       preLoaderRoute: typeof LayoutEquipmentRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/events': {
+      id: '/_layout/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof LayoutEventsRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/fleet': {
@@ -923,6 +942,7 @@ interface LayoutRouteChildren {
   LayoutDeviceServerRoute: typeof LayoutDeviceServerRoute
   LayoutDigitalTwinRoute: typeof LayoutDigitalTwinRoute
   LayoutEquipmentRoute: typeof LayoutEquipmentRouteWithChildren
+  LayoutEventsRoute: typeof LayoutEventsRoute
   LayoutFleetRoute: typeof LayoutFleetRoute
   LayoutInboundOrdersRoute: typeof LayoutInboundOrdersRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
@@ -948,6 +968,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutDeviceServerRoute: LayoutDeviceServerRoute,
   LayoutDigitalTwinRoute: LayoutDigitalTwinRoute,
   LayoutEquipmentRoute: LayoutEquipmentRouteWithChildren,
+  LayoutEventsRoute: LayoutEventsRoute,
   LayoutFleetRoute: LayoutFleetRoute,
   LayoutInboundOrdersRoute: LayoutInboundOrdersRoute,
   LayoutItemsRoute: LayoutItemsRoute,

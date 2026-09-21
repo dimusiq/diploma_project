@@ -32,6 +32,19 @@ interface SearchResult {
     title: string;
     status?: string;
   }>;
+  orders?: Array<{
+    id: string;
+    code: string;
+    status?: string;
+    direction: "inbound" | "outbound";
+  }>;
+  tasks?: Array<{ id: string; task_type: string; status?: string }>;
+  events?: Array<{
+    id: string;
+    seq: number;
+    event_type: string;
+    message: string;
+  }>;
 }
 
 export function GlobalSearch() {
@@ -104,7 +117,10 @@ export function GlobalSearch() {
     results &&
     (results.items.length > 0 ||
       results.equipment.length > 0 ||
-      results.work_orders.length > 0);
+      results.work_orders.length > 0 ||
+      (results.orders?.length ?? 0) > 0 ||
+      (results.tasks?.length ?? 0) > 0 ||
+      (results.events?.length ?? 0) > 0);
 
   return (
     <>
@@ -130,7 +146,7 @@ export function GlobalSearch() {
               ref={inputRef}
               value={query}
               onChange={(e) => handleChange(e.target.value)}
-              placeholder='Поиск товаров, техники, заявок...'
+              placeholder='Поиск оборудования, заказов, заданий, событий...'
               className='h-11 border-0 bg-transparent shadow-none focus-visible:ring-0'
               autoFocus
             />
@@ -185,7 +201,7 @@ export function GlobalSearch() {
                 {results.equipment.length > 0 && (
                   <div className='mb-2'>
                     <p className='mb-1 px-2 text-xs font-medium text-muted-foreground'>
-                      Техника
+                      Оборудование
                     </p>
                     {results.equipment.map((eq) => (
                       <button
@@ -230,6 +246,66 @@ export function GlobalSearch() {
                             {getWorkOrderStatusLabel(wo.status)}
                           </span>
                         )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {(results.orders?.length ?? 0) > 0 && (
+                  <div className='mb-2'>
+                    <p className='mb-1 px-2 text-xs font-medium text-muted-foreground'>
+                      Заказы
+                    </p>
+                    {results.orders?.map((order) => (
+                      <button
+                        key={order.id}
+                        type='button'
+                        className='flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
+                        onClick={() =>
+                          go(
+                            order.direction === "inbound"
+                              ? "/inbound-orders"
+                              : "/outbound-orders",
+                          )
+                        }
+                      >
+                        <FiBox className='size-4 shrink-0 text-muted-foreground' />
+                        <span className='truncate'>{order.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {(results.tasks?.length ?? 0) > 0 && (
+                  <div className='mb-2'>
+                    <p className='mb-1 px-2 text-xs font-medium text-muted-foreground'>
+                      Задания
+                    </p>
+                    {results.tasks?.map((task) => (
+                      <button
+                        key={task.id}
+                        type='button'
+                        className='flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
+                        onClick={() => go("/warehouse-tasks")}
+                      >
+                        <FiClipboard className='size-4 shrink-0 text-muted-foreground' />
+                        <span className='truncate'>{task.task_type}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {(results.events?.length ?? 0) > 0 && (
+                  <div className='mb-2'>
+                    <p className='mb-1 px-2 text-xs font-medium text-muted-foreground'>
+                      События
+                    </p>
+                    {results.events?.map((event) => (
+                      <button
+                        key={event.id}
+                        type='button'
+                        className='flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
+                        onClick={() => go("/events")}
+                      >
+                        <FiSearch className='size-4 shrink-0 text-muted-foreground' />
+                        <span className='truncate'>{event.message}</span>
                       </button>
                     ))}
                   </div>

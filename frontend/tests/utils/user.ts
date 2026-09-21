@@ -22,9 +22,9 @@ export async function logInUser(page: Page, email: string, password: string) {
   await page.getByPlaceholder("Email").fill(email)
   await page.getByPlaceholder("Пароль", { exact: true }).fill(password)
   await page.getByRole("button", { name: "Войти" }).click()
-  await page.waitForURL("/")
+  await page.waitForURL("**/control-tower")
   await expect(
-    page.getByRole("heading", { name: "Панель управления" }),
+    page.getByRole("heading", { name: "Control Tower" }),
   ).toBeVisible()
 }
 

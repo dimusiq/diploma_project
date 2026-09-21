@@ -79,17 +79,23 @@ describe("WarehouseTasksView labels", () => {
   it("shows Russian labels and keeps API enum values for filtering", async () => {
     await renderView()
     await waitFor(() => {
-      expect(screen.getByText("Ожидает")).toBeTruthy()
+      expect(screen.getByText("Отбор")).toBeTruthy()
     })
-    expect(screen.getByText("Заблокировано")).toBeTruthy()
-    expect(screen.getByText("Отбор")).toBeTruthy()
+    expect(screen.getAllByText("Ожидает").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Заблокировано").length).toBeGreaterThan(0)
     expect(screen.getByText("Размещение")).toBeTruthy()
+    expect(screen.getByText("Всего")).toBeTruthy()
     expect(screen.queryByText("pending")).toBeNull()
     expect(screen.queryByText("blocked")).toBeNull()
     expect(warehouseTasksApi.fetchWarehouseTasks).toHaveBeenCalledWith(
       expect.objectContaining({
         status: undefined,
         limit: 100,
+      }),
+    )
+    expect(warehouseTasksApi.fetchWarehouseTasks).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 200,
       }),
     )
   })

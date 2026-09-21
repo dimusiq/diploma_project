@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu.tsx"
+import { demoStepFromEvents } from "@/lib/demoFlow.ts"
 import { getSimulationStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils"
 import { formatSimClock } from "./simFormat.ts"
@@ -157,6 +158,7 @@ export function SimControlBar() {
   const stopped = data.state === "STOPPED"
   const emergencyActive = offline > 0
 
+  const demo = demoStepFromEvents(data.events)
   const stateLabel = getSimulationStatusLabel(data.state, { uppercase: true })
 
   return (
@@ -347,6 +349,22 @@ export function SimControlBar() {
           </Button>
         </div>
       </div>
+      {demo ? (
+        <div className="mt-2 border-t pt-2">
+          <div className="mb-1 flex items-center justify-between text-xs">
+            <span className="font-semibold tracking-wide">DEMO</span>
+            <span>
+              Шаг {demo.index + 1} / {demo.total} · {demo.title}
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded bg-muted">
+            <div
+              className="h-full bg-primary"
+              style={{ width: `${((demo.index + 1) / demo.total) * 100}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,7 +1,10 @@
 /** Поток событий генератора: живой журнал с фильтрами и разбивкой по типам. */
 
+import { useQuery } from "@tanstack/react-query"
+import { Link as RouterLink } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
 import { FiPause, FiPlay } from "react-icons/fi"
+import { fetchSimEvents } from "@/api/deviceServer.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Input } from "@/components/ui/input.tsx"
@@ -29,20 +32,73 @@ const SEVERITY_FILTERS: Array<{
   { value: "error", label: "Ошибки" },
 ]
 
+function toSimEvent(event: {
+  id: number
+  at: number
+  type: string
+  severity: string
+  message: string
+  deviceId?: string | null
+  entityId?: string | null
+  zoneId?: string | null
+  taskId?: string | null
+  orderId?: string | null
+}): SimEvent {
+  return {
+    id: event.id,
+    at: event.at,
+    type: event.type,
+    severity: (event.severity as SimEventSeverity) || "info",
+    message: event.message,
+    deviceId: event.deviceId ?? null,
+    entityId: event.entityId ?? null,
+    zoneId: event.zoneId ?? null,
+    taskId: event.taskId ?? null,
+    orderId: event.orderId ?? null,
+  }
+}
+
+function mergeEventLogs(live: SimEvent[], persisted: SimEvent[]): SimEvent[] {
+  const merged = new Map<number, SimEvent>()
+  for (const event of persisted) merged.set(event.id, event)
+  for (const event of live) merged.set(event.id, event)
+  return [...merged.values()].sort((a, b) => b.id - a.id)
+}
+
 export function EventStreamPanel({
   variant = "technical",
   deviceId = null,
+  persistHistory = false,
 }: {
   variant?: "technical" | "operator"
   deviceId?: string | null
+  persistHistory?: boolean
 }) {
   const data = useSimData()
+  const historyQ = useQuery({
+    queryKey: ["sim-events-history", deviceId],
+    queryFn: () =>
+      fetchSimEvents({
+        limit: 400,
+        device_id: deviceId ?? undefined,
+      }),
+    enabled: persistHistory,
+    refetchInterval: persistHistory ? 15_000 : false,
+  })
   const [severity, setSeverity] = useState<SimEventSeverity | "all">("all")
   const [category, setCategory] = useState<OperatorEventCategory>("all")
   const [query, setQuery] = useState("")
   const [frozen, setFrozen] = useState<SimEvent[] | null>(null)
-  const source = frozen ?? data.events
+  const persisted = useMemo(
+    () => (historyQ.data?.data ?? []).map(toSimEvent),
+    [historyQ.data],
+  )
+  const liveSource = persistHistory
+    ? mergeEventLogs(data.events, persisted)
+    : data.events
+  const source = frozen ?? liveSource
   const operator = variant === "operator"
+  const showLinks = persistHistory || operator
 
   const events = useMemo(() => {
     const needle = query.trim().toLowerCase()
@@ -107,7 +163,7 @@ export function EventStreamPanel({
           <Button
             size="xs"
             variant={frozen ? "default" : "outline"}
-            onClick={() => setFrozen(frozen ? null : data.events)}
+            onClick={() => setFrozen(frozen ? null : liveSource)}
           >
             {frozen ? (
               <>
@@ -120,7 +176,11 @@ export function EventStreamPanel({
             )}
           </Button>
           <span className="text-xs text-muted-foreground">
-            {events.length} из {data.metrics.eventsTotal} событий
+            {events.length} из{" "}
+            {persistHistory
+              ? (historyQ.data?.count ?? liveSource.length)
+              : data.metrics.eventsTotal}{" "}
+            событий
           </span>
         </div>
 
@@ -145,11 +205,41 @@ export function EventStreamPanel({
                         </>
                       )}
                       {formatSimClock(event.at, deviceSimulation.dayStartSec)}
-                      {event.deviceId ? ` · ${event.deviceId}` : ""}
+                      {event.zoneId ? ` · ${event.zoneId}` : ""}
                       {!operator && event.entityId
                         ? ` · ${event.entityId}`
                         : ""}
                     </p>
+                    {showLinks &&
+                    (event.deviceId || event.taskId || event.orderId) ? (
+                      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {event.deviceId ? (
+                          <RouterLink
+                            className="text-primary hover:underline"
+                            to="/equipment/$deviceId"
+                            params={{ deviceId: event.deviceId }}
+                          >
+                            Оборудование
+                          </RouterLink>
+                        ) : null}
+                        {event.taskId ? (
+                          <RouterLink
+                            className="text-primary hover:underline"
+                            to="/warehouse-tasks"
+                          >
+                            Задание
+                          </RouterLink>
+                        ) : null}
+                        {event.orderId ? (
+                          <RouterLink
+                            className="text-primary hover:underline"
+                            to="/outbound-orders"
+                          >
+                            Заказ
+                          </RouterLink>
+                        ) : null}
+                      </p>
+                    ) : null}
                   </div>
                   {operator ? null : (
                     <span className={cn("text-xs", severityTone(event.severity))}>
@@ -160,7 +250,9 @@ export function EventStreamPanel({
               ))}
               {events.length === 0 && (
                 <li className="px-4 py-6 text-center text-sm text-muted-foreground">
-                  Событий по заданным фильтрам нет
+                  {persistHistory && historyQ.isPending
+                    ? "Загрузка истории событий…"
+                    : "Нет событий за выбранный период"}
                 </li>
               )}
             </ul>

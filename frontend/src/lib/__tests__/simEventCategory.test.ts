@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { matchesEventCategory } from "@/lib/simEventCategory.ts"
+import {
+  matchesEventCategory,
+  OPERATOR_EVENT_CATEGORY_LABELS,
+} from "@/lib/simEventCategory.ts"
 
 describe("matchesEventCategory", () => {
   it("keeps every event in all", () => {
@@ -20,14 +23,14 @@ describe("matchesEventCategory", () => {
     ).toBe(false)
   })
 
-  it("splits orders, receiving, warehouse and simulation", () => {
+  it("splits orders, warehouse, simulation and system", () => {
     expect(
       matchesEventCategory({ type: "ITEM_SHIPPED", severity: "success" }, "orders"),
     ).toBe(true)
     expect(
       matchesEventCategory(
         { type: "RECEIVING_STARTED", severity: "info" },
-        "receiving",
+        "warehouse",
       ),
     ).toBe(true)
     expect(
@@ -35,9 +38,27 @@ describe("matchesEventCategory", () => {
     ).toBe(true)
     expect(
       matchesEventCategory(
-        { type: "SYSTEM_STARTED", severity: "info" },
+        { type: "SENSOR_READING", severity: "info" },
         "simulation",
       ),
     ).toBe(true)
+    expect(
+      matchesEventCategory(
+        { type: "SYSTEM_STARTED", severity: "info" },
+        "system",
+      ),
+    ).toBe(true)
+  })
+
+  it("подписывает категории событий по-русски", () => {
+    expect(OPERATOR_EVENT_CATEGORY_LABELS).toEqual({
+      all: "Все",
+      errors: "Аварии",
+      equipment: "Оборудование",
+      warehouse: "Склад",
+      orders: "Заказы",
+      simulation: "Симуляция",
+      system: "Система",
+    })
   })
 })

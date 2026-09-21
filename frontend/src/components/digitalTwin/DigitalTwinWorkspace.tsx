@@ -84,7 +84,11 @@ export function DigitalTwinWorkspace({
         </TabsContent>
 
         <TabsContent value="events">
-          <EventStreamPanel variant="operator" deviceId={selectedDeviceId} />
+          <EventStreamPanel
+            variant="operator"
+            deviceId={selectedDeviceId}
+            persistHistory
+          />
         </TabsContent>
 
         <TabsContent value="analytics">

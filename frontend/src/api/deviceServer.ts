@@ -102,6 +102,43 @@ export async function postDemoReset<T = Record<string, unknown>>(): Promise<T> {
   return request<T>(`${BASE}/demo/reset`, { method: "POST" })
 }
 
+export type SimEventLogItem = {
+  id: number
+  at: number
+  type: string
+  severity: string
+  message: string
+  deviceId?: string | null
+  entityId?: string | null
+  zoneId?: string | null
+  taskId?: string | null
+  orderId?: string | null
+}
+
+export type SimEventLog = {
+  data: SimEventLogItem[]
+  count: number
+}
+
+export async function fetchSimEvents(params?: {
+  skip?: number
+  limit?: number
+  q?: string
+  device_id?: string
+  severity?: string
+  event_type?: string
+}): Promise<SimEventLog> {
+  const query = new URLSearchParams()
+  if (params?.skip != null) query.set("skip", String(params.skip))
+  if (params?.limit != null) query.set("limit", String(params.limit))
+  if (params?.q) query.set("q", params.q)
+  if (params?.device_id) query.set("device_id", params.device_id)
+  if (params?.severity) query.set("severity", params.severity)
+  if (params?.event_type) query.set("event_type", params.event_type)
+  const suffix = query.toString()
+  return request<SimEventLog>(`${BASE}/events${suffix ? `?${suffix}` : ""}`)
+}
+
 export type SimScenarioDef = {
   code: string
   name: string

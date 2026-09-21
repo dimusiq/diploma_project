@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import {
   FiActivity,
   FiArrowDownRight,
-  FiBarChart2,
   FiBox,
   FiChevronDown,
   FiCpu,
@@ -65,7 +64,6 @@ type Item = ItemLink | ItemExpandable
 const controlItems: Item[] = [
   { icon: FiTarget, title: "Control Tower", path: "/control-tower" },
   { icon: FiLayers, title: "Digital Twin", path: "/digital-twin" },
-  { icon: FiBarChart2, title: "Дашборд", path: "/" },
 ]
 
 const operationsItems: Item[] = [
@@ -103,8 +101,21 @@ const monitoringItems: Item[] = [
   {
     icon: FiActivity,
     title: "События",
-    path: "/digital-twin",
-    search: { tab: "events", view: "2d" },
+    path: "/events",
+  },
+]
+
+const equipmentItems: Item[] = [
+  {
+    icon: TbForklift,
+    title: "Оборудование",
+    path: null,
+    children: [
+      { path: "/equipment", title: "Каталог" },
+      { path: "/technique/maintenance", title: "ТО" },
+      { path: "/technique/work-orders", title: "Наряды" },
+      { path: "/technique/analytics", title: "Аналитика" },
+    ],
   },
 ]
 
@@ -117,17 +128,6 @@ const simulationItems: Item[] = [
 ]
 
 const managementItemsBase: Item[] = [
-  {
-    icon: TbForklift,
-    title: "Техника",
-    path: null,
-    children: [
-      { path: "/equipment", title: "Оборудование" },
-      { path: "/technique/maintenance", title: "ТО" },
-      { path: "/technique/work-orders", title: "Наряды" },
-      { path: "/technique/analytics", title: "Аналитика" },
-    ],
-  },
   { icon: FiMessageCircle, title: "Ассистент", path: "/assistant" },
   { icon: FiSettings, title: "Настройки Пользователя", path: "/settings" },
 ]
@@ -158,9 +158,6 @@ function pathIsActive(
       : pathname === path || pathname.startsWith(`${path}/`)
   if (!pathMatch) return false
   if (!search) {
-    if (path === "/digital-twin" && currentSearch?.tab === "events") {
-      return false
-    }
     return true
   }
   return Object.entries(search).every(
@@ -178,7 +175,11 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
   useEffect(() => {
     setOpenGroups((prev) => {
       const next = { ...prev }
-      for (const item of [...operationsItems, ...managementItemsBase]) {
+      for (const item of [
+        ...operationsItems,
+        ...equipmentItems,
+        ...managementItemsBase,
+      ]) {
         if (isExpandable(item) && groupShouldOpen(item, pathname)) {
           next[item.title] = true
         }
@@ -312,6 +313,12 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
         <SidebarGroupLabel>Мониторинг</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>{monitoringItems.map(renderItem)}</SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+      <SidebarGroup>
+        <SidebarGroupLabel>Оборудование</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>{equipmentItems.map(renderItem)}</SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
       <SidebarGroup>

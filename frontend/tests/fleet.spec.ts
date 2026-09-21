@@ -13,11 +13,16 @@ test("оборудование: существующий парк, вкладк�
     .getByPlaceholder("Пароль", { exact: true })
     .fill(firstSuperuserPassword)
   await page.getByRole("button", { name: "Войти" }).click()
-  await page.waitForURL("/")
+  await page.waitForURL("**/control-tower")
+  await expect(page.getByRole("heading", { name: "Control Tower" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "События" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Дашборд" })).toHaveCount(0)
+  await expect(page.getByRole("link", { name: "Парк", exact: true })).toHaveCount(0)
 
   await page.goto("/equipment")
   await expect(page.getByRole("heading", { name: "Оборудование" })).toBeVisible()
-  await expect(page.getByRole("link", { name: "Оборудование" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "Каталог" })).toBeVisible()
+  await expect(page.getByRole("link", { name: "ТО" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Парк", exact: true })).toHaveCount(0)
   await expect(page.getByRole("link", { name: "Парк техники" })).toHaveCount(0)
 

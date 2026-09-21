@@ -1,17 +1,17 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link, useLocation } from "@tanstack/react-router"
 import {
-  FiBarChart2,
   FiBox,
   FiList,
   FiMessageCircle,
   FiMoreHorizontal,
+  FiTarget,
 } from "react-icons/fi"
 import { fetchAgentPermissions } from "@/api/agent.ts"
 import { cn } from "@/lib/utils"
 
 const baseNavItems = [
-  { icon: FiBarChart2, label: "Дашборд", path: "/", requiresAssistant: false },
+  { icon: FiTarget, label: "Tower", path: "/control-tower", requiresAssistant: false },
   { icon: FiBox, label: "Склад", path: "/warehouse", requiresAssistant: false },
   { icon: FiList, label: "Задания", path: "/warehouse-tasks", requiresAssistant: false },
   { icon: FiMessageCircle, label: "Ассистент", path: "/assistant", requiresAssistant: true },
@@ -38,8 +38,8 @@ export function BottomNav() {
       <div className="flex h-14 items-center justify-around">
         {navItems.map((item) => {
           const isActive =
-            item.path === "/"
-              ? pathname === "/"
+            item.path === "/control-tower"
+              ? pathname === "/control-tower" || pathname === "/"
               : pathname.startsWith(item.path)
           return (
             <Link

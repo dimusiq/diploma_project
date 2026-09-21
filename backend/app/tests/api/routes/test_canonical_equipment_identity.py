@@ -33,7 +33,7 @@ def test_rename_and_status_propagate_to_maintenance_and_work_orders(
     match = next(row for row in listed.json()["data"] if row["id"] == device_id)
     assert match["name"] == original_name
 
-    new_name = "AGV Погрузчик №1"
+    new_name = f"AGV Identity {uuid4().hex[:6]}"
     new_code = f"sn-{uuid4().hex[:8]}"
     patched = client.patch(
         f"{_fleet_url()}/{device_id}",

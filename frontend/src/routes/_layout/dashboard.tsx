@@ -152,7 +152,7 @@ export function Dashboard() {
     return (
       <div className="mx-auto w-full max-w-full px-4">
         <h1 className="pb-6 pt-12 font-heading text-2xl font-semibold tracking-tight">
-          Панель управления
+          Аналитика запасов
         </h1>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -173,7 +173,7 @@ export function Dashboard() {
     return (
       <div className="mx-auto w-full max-w-full px-4">
         <h1 className="pb-4 pt-12 font-heading text-2xl font-semibold tracking-tight">
-          Панель управления
+          Аналитика запасов
         </h1>
         <Card>
           <CardContent>
@@ -245,7 +245,7 @@ export function Dashboard() {
     <div className="mx-auto w-full max-w-full px-4">
       <div className="flex flex-wrap items-center justify-between gap-3 pb-6 pt-12">
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
-          Панель управления
+          Аналитика запасов
         </h1>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -49,10 +49,10 @@ test("Log in with valid email and password ", async ({ page }) => {
   await fillForm(page, firstSuperuser, firstSuperuserPassword)
   await page.getByRole("button", { name: "Войти" }).click()
 
-  await page.waitForURL("/")
+  await page.waitForURL("**/control-tower")
 
   await expect(
-    page.getByRole("heading", { name: "Панель управления" }),
+    page.getByRole("heading", { name: "Control Tower" }),
   ).toBeVisible()
 })
 
@@ -84,10 +84,10 @@ test("Successful log out", async ({ page }) => {
   await fillForm(page, firstSuperuser, firstSuperuserPassword)
   await page.getByRole("button", { name: "Войти" }).click()
 
-  await page.waitForURL("/")
+  await page.waitForURL("**/control-tower")
 
   await expect(
-    page.getByRole("heading", { name: "Панель управления" }),
+    page.getByRole("heading", { name: "Control Tower" }),
   ).toBeVisible()
 
   await page.getByTestId("user-menu").click()
@@ -101,10 +101,10 @@ test("Logged-out user cannot access protected routes", async ({ page }) => {
   await fillForm(page, firstSuperuser, firstSuperuserPassword)
   await page.getByRole("button", { name: "Войти" }).click()
 
-  await page.waitForURL("/")
+  await page.waitForURL("**/control-tower")
 
   await expect(
-    page.getByRole("heading", { name: "Панель управления" }),
+    page.getByRole("heading", { name: "Control Tower" }),
   ).toBeVisible()
 
   await page.getByTestId("user-menu").click()

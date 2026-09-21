@@ -12,7 +12,7 @@ test("страница отгрузки показывает operational empty s
     .getByPlaceholder("Пароль", { exact: true })
     .fill(firstSuperuserPassword)
   await page.getByRole("button", { name: "Войти" }).click()
-  await page.waitForURL("/")
+  await page.waitForURL("**/control-tower")
 
   await page.goto("/shipment")
   await expect(page.getByRole("heading", { name: "Отгрузка" })).toBeVisible()

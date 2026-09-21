@@ -12,7 +12,7 @@ test("страница аналитики двойника открываетс�
     .getByPlaceholder("Пароль", { exact: true })
     .fill(firstSuperuserPassword)
   await page.getByRole("button", { name: "Войти" }).click()
-  await page.waitForURL("/")
+  await page.waitForURL("**/control-tower")
 
   await page.goto("/warehouse-twin")
   await page.waitForURL(/\/digital-twin/)

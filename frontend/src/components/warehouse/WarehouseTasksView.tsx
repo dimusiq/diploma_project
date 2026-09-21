@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link as RouterLink } from "@tanstack/react-router"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { FiColumns, FiList } from "react-icons/fi"
 import {
   fetchWarehouseTasks,
@@ -10,6 +10,7 @@ import {
 import { ApiError } from "@/client/index.ts"
 import { PullToRefresh } from "@/components/Common/PullToRefresh.tsx"
 import { WarehouseHubNav } from "@/components/Common/WarehouseHubNav.tsx"
+import { StatCard } from "@/components/deviceServer/SimKpiStrip.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import {
   Select,
@@ -77,6 +78,25 @@ export function WarehouseTasksView({
   const [statusFilter, setStatusFilter] = useState("")
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table")
 
+  const kpiQ = useQuery({
+    queryKey: ["warehouse-tasks", "kpi-strip"],
+    queryFn: () => fetchWarehouseTasks({ limit: 200 }),
+  })
+
+  const kpiCounts = useMemo(() => {
+    const rows = kpiQ.data?.data ?? []
+    const byStatus = (status: string) =>
+      rows.filter((task) => task.status === status).length
+    return {
+      total: kpiQ.data?.count ?? rows.length,
+      pending: byStatus("pending"),
+      inProgress: byStatus("in_progress"),
+      completed: byStatus("completed"),
+      blocked: byStatus("blocked"),
+      failed: byStatus("failed"),
+    }
+  }, [kpiQ.data])
+
   const handleRefresh = useCallback(async () => {
     await qc.invalidateQueries({ queryKey: ["warehouse-tasks"] })
   }, [qc])
@@ -121,6 +141,32 @@ export function WarehouseTasksView({
           warehouse.tasks.*.
         </p>
       )}
+
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6 [&>*]:min-w-0">
+        <StatCard label="Всего" value={kpiCounts.total} />
+        <StatCard
+          label={getTaskStatusLabel("pending")}
+          value={kpiCounts.pending}
+        />
+        <StatCard
+          label={getTaskStatusLabel("in_progress")}
+          value={kpiCounts.inProgress}
+        />
+        <StatCard
+          label={getTaskStatusLabel("completed")}
+          value={kpiCounts.completed}
+        />
+        <StatCard
+          label={getTaskStatusLabel("blocked")}
+          value={kpiCounts.blocked}
+          tone={kpiCounts.blocked > 0 ? "warning" : "default"}
+        />
+        <StatCard
+          label={getTaskStatusLabel("failed")}
+          value={kpiCounts.failed}
+          tone={kpiCounts.failed > 0 ? "danger" : "default"}
+        />
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Select

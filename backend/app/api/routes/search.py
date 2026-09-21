@@ -7,8 +7,8 @@ from sqlalchemy import or_
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import Item, WorkOrder
-from app.warehouse_sim.models import SimDevice
+from app.models import InboundOrder, Item, OutboundOrder, WarehouseTask, WorkOrder
+from app.warehouse_sim.models import SimEvent, SimDevice
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -69,4 +69,60 @@ def global_search(
         for w in session.exec(wo_stmt).all()
     ]
 
-    return {"items": items, "equipment": equipment, "work_orders": work_orders}
+    orders = [
+        {"id": str(row.id), "code": row.code, "status": row.status, "direction": "inbound"}
+        for row in session.exec(
+            select(InboundOrder).where(col(InboundOrder.code).ilike(pattern)).limit(LIMIT)
+        ).all()
+    ]
+    orders.extend(
+        {
+            "id": str(row.id),
+            "code": row.code,
+            "status": row.status,
+            "direction": "outbound",
+        }
+        for row in session.exec(
+            select(OutboundOrder).where(col(OutboundOrder.code).ilike(pattern)).limit(LIMIT)
+        ).all()
+    )
+
+    tasks = [
+        {
+            "id": str(row.id),
+            "task_type": row.task_type,
+            "status": row.status,
+        }
+        for row in session.exec(
+            select(WarehouseTask).where(col(WarehouseTask.task_type).ilike(pattern)).limit(LIMIT)
+        ).all()
+    ]
+
+    events = [
+        {
+            "id": str(row.id),
+            "seq": row.seq,
+            "event_type": row.event_type,
+            "message": row.message,
+        }
+        for row in session.exec(
+            select(SimEvent)
+            .where(
+                or_(
+                    col(SimEvent.message).ilike(pattern),
+                    col(SimEvent.event_type).ilike(pattern),
+                )
+            )
+            .order_by(col(SimEvent.seq).desc())
+            .limit(LIMIT)
+        ).all()
+    ]
+
+    return {
+        "items": items,
+        "equipment": equipment,
+        "work_orders": work_orders,
+        "orders": orders,
+        "tasks": tasks,
+        "events": events,
+    }

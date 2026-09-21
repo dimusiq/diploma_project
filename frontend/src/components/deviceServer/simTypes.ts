@@ -292,6 +292,8 @@ export interface SimEvent {
   deviceId: string | null
   entityId: string | null
   zoneId: string | null
+  taskId?: string | null
+  orderId?: string | null
 }
 
 export interface SimMetrics {

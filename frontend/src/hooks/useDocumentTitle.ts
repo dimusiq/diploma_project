@@ -3,7 +3,10 @@ import { useEffect } from "react"
 const APP_TITLE = "Склад"
 
 const PATH_TITLES: Record<string, string> = {
-  "/": "Дашборд",
+  "/": "Control Tower",
+  "/control-tower": "Control Tower",
+  "/dashboard": "Аналитика запасов",
+  "/events": "События",
   "/items": "Поступления",
   "/warehouse": "Товары",
   "/warehouse-3d": "3D Склад",
