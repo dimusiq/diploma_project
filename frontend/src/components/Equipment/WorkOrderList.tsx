@@ -37,11 +37,22 @@ import {
 } from "@/lib/selectAllValue.ts"
 import { getPriorityLabel, getWorkOrderStatusLabel } from "@/lib/statusLabels.ts"
 
-export function WorkOrderList() {
+export function WorkOrderList({
+  selectedId = null,
+  onSelectedIdChange,
+}: {
+  selectedId?: string | null
+  onSelectedIdChange?: (id: string | null) => void
+} = {}) {
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [priorityFilter, setPriorityFilter] = useState<string>("")
   const [createOpen, setCreateOpen] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [localSelectedId, setLocalSelectedId] = useState<string | null>(null)
+  const activeId = onSelectedIdChange ? selectedId : localSelectedId
+  const setActiveId = (id: string | null) => {
+    if (onSelectedIdChange) onSelectedIdChange(id)
+    else setLocalSelectedId(id)
+  }
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: [
@@ -127,11 +138,11 @@ export function WorkOrderList() {
         users={users}
       />
 
-      {selectedId && (
+      {activeId && (
         <WorkOrderDetailDrawer
-          workOrderId={selectedId}
-          open={!!selectedId}
-          onOpenChange={(open) => !open && setSelectedId(null)}
+          workOrderId={activeId}
+          open={!!activeId}
+          onOpenChange={(open) => !open && setActiveId(null)}
         />
       )}
 
@@ -161,7 +172,7 @@ export function WorkOrderList() {
                 <TableRow
                   key={order.id}
                   className="cursor-pointer"
-                  onClick={() => setSelectedId(order.id)}
+                  onClick={() => setActiveId(order.id)}
                 >
                   <TableCell>
                     <span className="font-medium">

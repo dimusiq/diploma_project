@@ -43,6 +43,7 @@ function toSimEvent(event: {
   zoneId?: string | null
   taskId?: string | null
   orderId?: string | null
+  wmsOrderId?: string | null
 }): SimEvent {
   return {
     id: event.id,
@@ -55,13 +56,28 @@ function toSimEvent(event: {
     zoneId: event.zoneId ?? null,
     taskId: event.taskId ?? null,
     orderId: event.orderId ?? null,
+    wmsOrderId: event.wmsOrderId ?? null,
   }
+}
+
+const UUID_RE = /^[0-9a-f-]{36}$/i
+
+function orderLinkId(event: SimEvent): string | null {
+  if (event.wmsOrderId && UUID_RE.test(event.wmsOrderId)) return event.wmsOrderId
+  if (event.orderId && UUID_RE.test(event.orderId)) return event.orderId
+  return null
 }
 
 function mergeEventLogs(live: SimEvent[], persisted: SimEvent[]): SimEvent[] {
   const merged = new Map<number, SimEvent>()
   for (const event of persisted) merged.set(event.id, event)
-  for (const event of live) merged.set(event.id, event)
+  for (const event of live) {
+    const previous = merged.get(event.id)
+    merged.set(event.id, {
+      ...event,
+      wmsOrderId: event.wmsOrderId ?? previous?.wmsOrderId ?? null,
+    })
+  }
   return [...merged.values()].sort((a, b) => b.id - a.id)
 }
 
@@ -69,10 +85,12 @@ export function EventStreamPanel({
   variant = "technical",
   deviceId = null,
   persistHistory = false,
+  focusEventId = null,
 }: {
   variant?: "technical" | "operator"
   deviceId?: string | null
   persistHistory?: boolean
+  focusEventId?: string | null
 }) {
   const data = useSimData()
   const historyQ = useQuery({
@@ -188,7 +206,16 @@ export function EventStreamPanel({
           <CardContent className="max-h-[560px] min-h-[320px] overflow-y-auto px-0 py-0">
             <ul className="divide-y">
               {events.map((event) => (
-                <li key={event.id} className="flex items-start gap-3 px-4 py-2">
+                <li
+                  key={event.id}
+                  id={`sim-event-${event.id}`}
+                  className={cn(
+                    "flex items-start gap-3 px-4 py-2",
+                    focusEventId != null &&
+                      String(event.id) === focusEventId &&
+                      "bg-primary/10",
+                  )}
+                >
                   <span
                     className={cn(
                       "mt-1.5 size-2 shrink-0 rounded-full",
@@ -226,14 +253,16 @@ export function EventStreamPanel({
                           <RouterLink
                             className="text-primary hover:underline"
                             to="/warehouse-tasks"
+                            search={{ task: event.taskId }}
                           >
                             Задание
                           </RouterLink>
                         ) : null}
-                        {event.orderId ? (
+                        {orderLinkId(event) ? (
                           <RouterLink
                             className="text-primary hover:underline"
                             to="/outbound-orders"
+                            search={{ order: orderLinkId(event) as string }}
                           >
                             Заказ
                           </RouterLink>

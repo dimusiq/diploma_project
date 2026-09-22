@@ -59,6 +59,25 @@ function Task3dLink({ task }: { task: WarehouseTask }) {
   )
 }
 
+function TaskOrderLink({
+  payload,
+}: {
+  payload: Record<string, unknown> | null
+}) {
+  const raw = payload?.order_id ?? payload?.orderId
+  const orderId = typeof raw === "string" ? raw : ""
+  if (!/^[0-9a-f-]{36}$/i.test(orderId)) return null
+  return (
+    <RouterLink
+      className="text-xs text-primary hover:underline"
+      to="/outbound-orders"
+      search={{ order: orderId }}
+    >
+      Заказ
+    </RouterLink>
+  )
+}
+
 const STATUS_OPTIONS = [
   { value: SELECT_ALL_VALUE, label: "Все статусы" },
   { value: "pending", label: getTaskStatusLabel("pending") },
@@ -70,8 +89,10 @@ const STATUS_OPTIONS = [
 
 export function WarehouseTasksView({
   showChrome = true,
+  highlightTaskId = null,
 }: {
   showChrome?: boolean
+  highlightTaskId?: string | null
 }) {
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const qc = useQueryClient()
@@ -225,8 +246,14 @@ export function WarehouseTasksView({
             </TableHeader>
             <TableBody>
               {(listQ.data?.data ?? []).map((t: WarehouseTask) => (
-                <TableRow key={t.id}>
-                  <TableCell>{getTaskTypeLabel(t.task_type)}</TableCell>
+                <TableRow
+                  key={t.id}
+                  className={cn(t.id === highlightTaskId && "bg-primary/10")}
+                >
+                  <TableCell>
+                    <div>{getTaskTypeLabel(t.task_type)}</div>
+                    <TaskOrderLink payload={t.payload} />
+                  </TableCell>
                   <TableCell>
                     <span
                       className={cn(
@@ -282,6 +309,7 @@ export function WarehouseTasksView({
       ) : (
         <KanbanBoard
           tasks={listQ.data?.data ?? []}
+          highlightTaskId={highlightTaskId}
           onStatusChange={(id, status) => patchMut.mutate({ id, status })}
           isPending={patchMut.isPending}
         />
@@ -335,10 +363,12 @@ function priorityLabel(p: number) {
 
 function KanbanBoard({
   tasks,
+  highlightTaskId = null,
   onStatusChange,
   isPending,
 }: {
   tasks: WarehouseTask[]
+  highlightTaskId?: string | null
   onStatusChange: (id: string, status: string) => void
   isPending: boolean
 }) {
@@ -369,6 +399,7 @@ function KanbanBoard({
                   <KanbanCard
                     key={task.id}
                     task={task}
+                    highlighted={task.id === highlightTaskId}
                     onStatusChange={onStatusChange}
                     isPending={isPending}
                   />
@@ -384,16 +415,23 @@ function KanbanBoard({
 
 function KanbanCard({
   task,
+  highlighted = false,
   onStatusChange,
   isPending,
 }: {
   task: WarehouseTask
+  highlighted?: boolean
   onStatusChange: (id: string, status: string) => void
   isPending: boolean
 }) {
   const prio = priorityLabel(task.priority)
   return (
-    <div className="rounded-md border border-border bg-background p-3 shadow-sm transition-shadow hover:shadow-md">
+    <div
+      className={cn(
+        "rounded-md border border-border bg-background p-3 shadow-sm transition-shadow hover:shadow-md",
+        highlighted && "ring-2 ring-primary",
+      )}
+    >
       <div className="mb-1 flex items-center justify-between">
         <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", prio.cls)}>
           {prio.text}

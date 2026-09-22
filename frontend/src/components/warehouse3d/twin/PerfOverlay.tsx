@@ -19,7 +19,12 @@ export const twinPerfSnapshot: TwinPerfSnapshot = {
   objects: 0,
 }
 
-/** Samples renderer.info. Mount inside the Canvas. HUD is DEV-only. */
+/**
+ * Samples renderer.info. Mount inside the Canvas.
+ * Visible in dev and with ?perf=1.
+ * Record four scenes separately: idle warehouse, full fleet, running simulation, moving fleet.
+ * One FPS sample is an observation for that browser and scene, not a score.
+ */
 export function TwinPerfSampler({ enabled }: { enabled: boolean }) {
   const { gl, scene } = useThree()
   const acc = useRef({ t: 0, frames: 0 })
@@ -54,7 +59,7 @@ export function TwinPerfSampler({ enabled }: { enabled: boolean }) {
 }
 
 export function TwinPerfHud({ enabled }: { enabled: boolean }) {
-  const shown = enabled && import.meta.env.DEV
+  const shown = enabled
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!shown && ref.current) ref.current.textContent = ""

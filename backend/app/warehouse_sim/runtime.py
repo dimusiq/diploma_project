@@ -27,6 +27,7 @@ from sqlalchemy import and_, func, or_
 from sqlmodel import Session, select
 
 from app.core.db import engine
+from app.services.outbound_fulfillment import annotate_event_orders
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.devices import DeviceServer
 from app.warehouse_sim.models import (
@@ -659,7 +660,9 @@ def query_event_log(
         merged[int(row.seq)] = _row_to_event(row)
     for event in memory:
         merged[int(event["id"])] = event
-    ordered = sorted(merged.values(), key=lambda item: int(item["id"]), reverse=True)
+    ordered = annotate_event_orders(
+        session, sorted(merged.values(), key=lambda item: int(item["id"]), reverse=True)
+    )
     sensor_count = sum(1 for event in memory if event.get("type") == ev.SENSOR_READING)
     return {
         "data": ordered[skip : skip + limit],

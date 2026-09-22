@@ -6,7 +6,7 @@ import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import { useSimData } from "@/components/deviceServer/useDeviceSimulation.ts"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { request } from "@/lib/apiClient.ts"
-import { validateWarehouseLayout } from "@/lib/layoutValidation.ts"
+import { layoutSummary, validateWarehouseLayout } from "@/lib/layoutValidation.ts"
 import { getEventTypeLabel, getSimulationStatusLabel } from "@/lib/statusLabels.ts"
 
 function useSseConnected(): boolean {
@@ -94,6 +94,20 @@ export function RuntimeStatusCard() {
             label="Устройства"
             value={`${kpi.online} / ${data.devices.length}`}
           />
+          <Row label="SSE-клиенты" value="Недоступно" />
+          <Row
+            label="События/мин"
+            value={
+              data.events.length < 2
+                ? "Недоступно"
+                : String(
+                    data.events.filter(
+                      (event) => data.events[0].at - event.at <= 60,
+                    ).length,
+                  )
+            }
+          />
+          <Row label="Лаг записи" value="Недоступно" />
         </dl>
         {layoutIssues.length > 0 ? (
           <ul className="mt-3 space-y-1 text-xs text-amber-700 dark:text-amber-300">
@@ -103,7 +117,7 @@ export function RuntimeStatusCard() {
           </ul>
         ) : (
           <p className="mt-3 text-xs text-muted-foreground">
-            Планировка: предупреждений нет
+            Планировка PASS: {layoutSummary(data.topology)}
           </p>
         )}
       </CardContent>

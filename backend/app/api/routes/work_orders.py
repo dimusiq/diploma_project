@@ -3,7 +3,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from app.core.audit import get_client_ip, log_audit
 from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -196,6 +198,7 @@ def list_work_order_events(
 @router.post("", response_model=WorkOrderPublic)
 def create_work_order(
     session: SessionDep,
+    request: Request,
     current_user: CurrentUser,
     body: WorkOrderCreate,
 ) -> Any:
@@ -236,6 +239,15 @@ def create_work_order(
         comment="Создана заявка",
     )
     session.add(hist)
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="work_order.create",
+        resource_type="work_order",
+        resource_id=wo.id,
+        details={"title": wo.title, "status": wo.status, "equipment_id": str(wo.equipment_id)},
+        ip_address=get_client_ip(request),
+    )
     session.commit()
 
     assigned_email = None
@@ -248,6 +260,7 @@ def create_work_order(
 @router.post("/from-maintenance-event", response_model=WorkOrderDetailPublic)
 def create_work_order_from_maintenance_event(
     session: SessionDep,
+    request: Request,
     current_user: CurrentUser,
     body: WorkOrderFromMaintenanceEventCreate,
 ) -> Any:
@@ -393,6 +406,15 @@ def create_work_order_from_maintenance_event(
             )
             delta_reserved[req.spare_part_id] = delta_reserved.get(req.spare_part_id, 0) + req.quantity
 
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="work_order.create",
+        resource_type="work_order",
+        resource_id=wo.id,
+        details={"title": wo.title, "status": wo.status, "equipment_id": str(wo.equipment_id)},
+        ip_address=get_client_ip(request),
+    )
     session.commit()
     # Вернём полный detail, чтобы UI календаря мог сразу открыть drawer.
     return get_work_order(session, current_user, wo.id)

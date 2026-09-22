@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { FiPlus, FiTrash2 } from "react-icons/fi"
+import { z } from "zod"
 import {
   type InboundOrderCreate,
   type InboundOrderPublic,
@@ -47,7 +48,12 @@ import {
 } from "@/lib/selectAllValue.ts"
 import { getInboundOrderStatusLabel } from "@/lib/statusLabels.ts"
 
+const inboundOrdersSearchSchema = z.object({
+  order: z.string().uuid().optional().catch(undefined),
+})
+
 export const Route = createFileRoute("/_layout/inbound-orders")({
+  validateSearch: (search) => inboundOrdersSearchSchema.parse(search),
   component: InboundOrdersPage,
 })
 
@@ -88,6 +94,8 @@ function linesCount(lines: Record<string, unknown> | null): number {
 }
 
 function InboundOrdersPage() {
+  const { order: openOrderId } = Route.useSearch()
+  const navigate = useNavigate()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState("")
@@ -221,6 +229,18 @@ function InboundOrdersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() =>
+                            void navigate({
+                              to: "/inbound-orders",
+                              search: { order: order.id },
+                            })
+                          }
+                        >
+                          Карточка
+                        </Button>
                         <Button size="xs" variant="outline" onClick={() => setEditOrder(order)}>
                           Изменить
                         </Button>
@@ -261,6 +281,13 @@ function InboundOrdersPage() {
           )}
         </>
       )}
+
+      {openOrderId ? (
+        <InboundOrderDetailDialog
+          orderId={openOrderId}
+          onClose={() => void navigate({ to: "/inbound-orders", search: {} })}
+        />
+      ) : null}
 
       {editOrder && (
         <DialogRoot open onOpenChange={({ open }) => { if (!open) setEditOrder(null) }} size="md">
@@ -360,5 +387,76 @@ function InboundOrderForm({
         </Button>
       </DialogFooter>
     </form>
+  )
+}
+
+function formatInboundLine(line: unknown): string {
+  if (!line || typeof line !== "object") return String(line)
+  const row = line as Record<string, unknown>
+  const title = row.title ?? row.product
+  const sku = row.sku ?? row.sku_id ?? "—"
+  const qty = row.quantity ?? row.qty ?? "—"
+  return `${title ? `${String(title)} · ` : ""}SKU ${String(sku)} · ${String(qty)}`
+}
+
+function InboundOrderDetailDialog({
+  orderId,
+  onClose,
+}: {
+  orderId: string
+  onClose: () => void
+}) {
+  const q = useQuery({
+    queryKey: ["inbound-orders", orderId],
+    queryFn: () => inboundOrdersApi.get(orderId),
+  })
+  const order = q.data
+  const lineRows = Array.isArray(order?.lines)
+    ? order.lines
+    : Array.isArray(order?.lines?.items)
+      ? (order.lines.items as unknown[])
+      : []
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border bg-background p-5 shadow-lg">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <h2 className="font-heading text-lg font-semibold">
+            {order ? `Заказ #${order.code}` : "Заказ"}
+          </h2>
+          <Button size="sm" variant="outline" onClick={onClose}>
+            Закрыть
+          </Button>
+        </div>
+        {q.isPending ? (
+          <Skeleton className="h-40" />
+        ) : q.isError || !order ? (
+          <p className="text-sm text-destructive">Не удалось загрузить заказ</p>
+        ) : (
+          <div className="space-y-4 text-sm">
+            <p>Статус: {getInboundOrderStatusLabel(order.status)}</p>
+            <p>Создан: {new Date(order.created_at).toLocaleString("ru-RU")}</p>
+            <section>
+              <h3 className="font-heading mb-2 font-semibold">Позиции</h3>
+              {lineRows.length === 0 ? (
+                <p className="text-muted-foreground">Состав заказа не указан</p>
+              ) : (
+                <ul className="divide-y rounded-md border">
+                  {lineRows.map((line, index) => (
+                    <li key={index} className="px-3 py-2">
+                      {formatInboundLine(line)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+            <p className="text-muted-foreground">
+              Задания, техника и события входящего заказа появляются после
+              приёмки в журнале событий и заданиях склада.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

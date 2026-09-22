@@ -84,5 +84,55 @@ export function validateWarehouseLayout(
       message: "Размер склада отличается от канонического плана",
     })
   }
+  if (topology.racks.length !== 16) {
+    issues.push({
+      level: "error",
+      code: "rack.count",
+      message: `Стеллажей ${topology.racks.length}, ожидается 16`,
+    })
+  }
+  const blockCount = topology.blocks?.length ?? seen.size / 2
+  if (blockCount !== 8) {
+    issues.push({
+      level: "error",
+      code: "rack.blocks",
+      message: `Блоков ${blockCount}, ожидается 8`,
+    })
+  }
+  if (topology.docks.length !== EXPECTED_DOCKS.length) {
+    issues.push({
+      level: "error",
+      code: "dock.count",
+      message: `Ворот ${topology.docks.length}, ожидается ${EXPECTED_DOCKS.length}`,
+    })
+  }
+  const zoneCodes = new Set(topology.zones.map((zone) => zone.code))
+  for (const code of ["RECV", "STOR", "PICK", "PACK", "SHIP", "CHRG"]) {
+    if (!zoneCodes.has(code)) {
+      issues.push({
+        level: "error",
+        code: "zone.missing",
+        message: `Нет зоны ${code}`,
+      })
+    }
+  }
+  for (const dock of topology.docks) {
+    const facesWarehouse =
+      dock.direction === "inbound" ? dock.yardPos.x < 0 : dock.yardPos.x > WAREHOUSE_WIDTH
+    if (!facesWarehouse) {
+      issues.push({
+        level: "warning",
+        code: "truck.heading",
+        message: `Кабина ${dock.code} не обращена к воротам`,
+      })
+    }
+  }
   return issues
+}
+
+export function layoutSummary(topology: SimTopology = buildTopology()): string {
+  const blocks =
+    topology.blocks?.length ??
+    topology.racks.filter((rack) => rack.backToBackWith).length / 2
+  return `${blocks} блоков, ${topology.racks.length} стеллажей, ${topology.docks.length} ворот`
 }

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { Link as RouterLink } from "@tanstack/react-router"
 import {
   type OutboundFulfillmentPublic,
   outboundOrdersApi,
@@ -7,7 +8,9 @@ import { outboundStatusBadge, stepLabel } from "@/components/outbound/outboundLa
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Skeleton } from "@/components/ui/skeleton.tsx"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.tsx"
 import {
+  getEventTypeLabel,
   getItemStatusLabel,
   getShipmentStatusLabel,
   getTaskStatusLabel,
@@ -137,19 +140,26 @@ export function OutboundOrderDetailDialog({
         ) : q.isError || !order ? (
           <p className="text-sm text-destructive">Не удалось загрузить заказ</p>
         ) : (
-          <div className="space-y-5 text-sm">
-            <div className="grid grid-cols-2 gap-2">
+          <Tabs defaultValue="general" className="text-sm">
+            <TabsList className="flex h-auto flex-wrap">
+              <TabsTrigger value="general">Общее</TabsTrigger>
+              <TabsTrigger value="items">Позиции</TabsTrigger>
+              <TabsTrigger value="timeline">Хронология</TabsTrigger>
+              <TabsTrigger value="tasks">Задания</TabsTrigger>
+              <TabsTrigger value="equipment">Техника</TabsTrigger>
+              <TabsTrigger value="shipment">Отгрузка</TabsTrigger>
+              <TabsTrigger value="events">События</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general" className="grid grid-cols-2 gap-2">
+              <p>Номер: {order.code}</p>
               <p>Клиент: {order.customer ?? "—"}</p>
-              <p>
-                Транспорт:{" "}
-                {order.transport_assigned
-                  ? (order.transport_label ?? "Назначен")
-                  : "Не назначен"}
-              </p>
-            </div>
-            <section>
-              <h3 className="font-heading mb-2 font-semibold">Позиции</h3>
-              {order.line_items.length === 0 ? (
+              <p>Создан: {new Date(order.created_at).toLocaleString("ru-RU")}</p>
+              <p>Позиций: {order.items_count}</p>
+              <p>Количество: {order.total_quantity}</p>
+              <p>Паллет: {order.pallets_count}</p>
+            </TabsContent>
+            <TabsContent value="items">
+              {order.line_items.length === 0 && order.items.length === 0 ? (
                 <p className="text-muted-foreground">Состав заказа не указан</p>
               ) : (
                 <ul className="divide-y rounded-md border">
@@ -159,13 +169,6 @@ export function OutboundOrderDetailDialog({
                       {line.quantity} · отобрано {line.picked}
                     </li>
                   ))}
-                </ul>
-              )}
-            </section>
-            {order.items.length > 0 ? (
-              <section>
-                <h3 className="font-heading mb-2 font-semibold">Товары WMS</h3>
-                <ul className="divide-y rounded-md border">
                   {order.items.map((item) => (
                     <li key={item.id} className="px-3 py-2">
                       {item.title} · {item.sku ?? "без SKU"} ·{" "}
@@ -173,23 +176,9 @@ export function OutboundOrderDetailDialog({
                     </li>
                   ))}
                 </ul>
-              </section>
-            ) : null}
-            {order.tasks.length > 0 ? (
-              <section>
-                <h3 className="font-heading mb-2 font-semibold">Задания</h3>
-                <ul className="divide-y rounded-md border">
-                  {order.tasks.map((task) => (
-                    <li key={task.id} className="px-3 py-2">
-                      {getTaskTypeLabel(task.task_type)} ·{" "}
-                      {getTaskStatusLabel(task.status)}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            <section>
-              <h3 className="font-heading mb-2 font-semibold">Хронология</h3>
+              )}
+            </TabsContent>
+            <TabsContent value="timeline">
               {order.timeline.length === 0 ? (
                 <p className="text-muted-foreground">Событий пока нет</p>
               ) : (
@@ -204,8 +193,85 @@ export function OutboundOrderDetailDialog({
                   ))}
                 </ol>
               )}
-            </section>
-          </div>
+            </TabsContent>
+            <TabsContent value="tasks">
+              {order.tasks.length === 0 ? (
+                <p className="text-muted-foreground">Связанных заданий нет</p>
+              ) : (
+                <ul className="divide-y rounded-md border">
+                  {order.tasks.map((task) => (
+                    <li key={task.id} className="px-3 py-2">
+                      {getTaskTypeLabel(task.task_type)} · {getTaskStatusLabel(task.status)}
+                      {task.source ? ` · ${task.source}` : ""}
+                      {task.destination ? ` → ${task.destination}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+            <TabsContent value="equipment">
+              {(order.equipment ?? []).length === 0 ? (
+                <p className="text-muted-foreground">Техника к заказу не назначена</p>
+              ) : (
+                <ul className="divide-y rounded-md border">
+                  {(order.equipment ?? []).map((device) => (
+                    <li key={device.id} className="px-3 py-2">
+                      <RouterLink
+                        className="text-primary hover:underline"
+                        to="/equipment/$deviceId"
+                        params={{ deviceId: device.id }}
+                      >
+                        {device.name}
+                        {device.code ? ` · ${device.code}` : ""}
+                      </RouterLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+            <TabsContent value="shipment" className="space-y-1">
+              <p>
+                Статус отбора:{" "}
+                {stepLabel(order.picking_status === "complete", "Отобрано", "Ожидает отбора")}
+              </p>
+              <p>
+                Статус упаковки:{" "}
+                {stepLabel(order.packing_status === "complete", "Упаковано", "Ожидает упаковки")}
+              </p>
+              <p>
+                Транспорт:{" "}
+                {order.transport_assigned
+                  ? (order.transport_label ?? "Назначен")
+                  : "Не назначен"}
+              </p>
+              <p>
+                Статус транспорта:{" "}
+                {order.transport_status
+                  ? getShipmentStatusLabel(order.transport_status)
+                  : "—"}
+              </p>
+              <RouterLink className="text-primary hover:underline" to="/shipment">
+                Открыть отгрузки
+              </RouterLink>
+            </TabsContent>
+            <TabsContent value="events">
+              {(order.events ?? []).length === 0 ? (
+                <p className="text-muted-foreground">Событий по заказу нет</p>
+              ) : (
+                <ul className="divide-y rounded-md border">
+                  {(order.events ?? []).map((event) => (
+                    <li key={event.id} className="px-3 py-2">
+                      <p>{event.message}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {getEventTypeLabel(event.event_type)} ·{" "}
+                        {new Date(event.at).toLocaleString("ru-RU")}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>

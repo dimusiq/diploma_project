@@ -35,7 +35,10 @@ type CameraCommand = "reset" | "top" | "agv" | "rack"
 
 const INITIAL_CAMERA: [number, number, number] = [48, 98, 86]
 const INITIAL_TARGET: [number, number, number] = [0, 1.4, 0]
-const DEV_PERF = import.meta.env.DEV
+const DEV_PERF =
+  import.meta.env.DEV ||
+  (typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("perf") === "1")
 
 function CameraCommands({
   command,

@@ -24,6 +24,7 @@ from app.services.outbound_fulfillment import (
     SHIPPED_STATUS,
     list_board,
     related_tasks,
+    resolve_outbound_id,
     ship_order,
     to_detail,
 )
@@ -89,6 +90,19 @@ def list_shipped_board(
         transport=transport,
         ready_date=ready_date,
     )
+
+
+@router.get("/resolve")
+def resolve_outbound_order(
+    session: SessionDep,
+    _current_user: CurrentUser,
+    sim_id: str = Query(min_length=1, max_length=128),
+) -> Any:
+    """Строковый идентификатор симуляции → UUID исходящего заказа WMS."""
+    found = resolve_outbound_id(session, sim_id)
+    if found is None:
+        raise HTTPException(status_code=404, detail="Исходящий заказ не найден")
+    return {"id": str(found)}
 
 
 @router.get("/", response_model=OutboundOrderList)

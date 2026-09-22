@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { FiPlus, FiTrash2 } from "react-icons/fi"
+import { z } from "zod"
 import {
   type OutboundOrderCreate,
   type OutboundOrderPublic,
@@ -9,6 +10,7 @@ import {
   outboundOrdersApi,
 } from "@/api/outboundOrders.ts"
 import { ApiError } from "@/client/index.ts"
+import { OutboundOrderDetailDialog } from "@/components/outbound/OutboundOrderCard.tsx"
 import { outboundStatusBadge } from "@/components/outbound/outboundLabels.tsx"
 import {
   DialogBody,
@@ -47,7 +49,12 @@ import {
 } from "@/lib/selectAllValue.ts"
 import { getOrderStatusLabel } from "@/lib/statusLabels.ts"
 
+const outboundOrdersSearchSchema = z.object({
+  order: z.string().uuid().optional().catch(undefined),
+})
+
 export const Route = createFileRoute("/_layout/outbound-orders")({
+  validateSearch: (search) => outboundOrdersSearchSchema.parse(search),
   component: OutboundOrdersPage,
 })
 
@@ -72,6 +79,8 @@ function linesCount(lines: Record<string, unknown> | null): number {
 }
 
 function OutboundOrdersPage() {
+  const { order: openOrderId } = Route.useSearch()
+  const navigate = useNavigate()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const qc = useQueryClient()
   const [statusFilter, setStatusFilter] = useState("")
@@ -205,6 +214,18 @@ function OutboundOrdersPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          onClick={() =>
+                            void navigate({
+                              to: "/outbound-orders",
+                              search: { order: order.id },
+                            })
+                          }
+                        >
+                          Карточка
+                        </Button>
                         <Button size="xs" variant="outline" onClick={() => setEditOrder(order)}>
                           Изменить
                         </Button>
@@ -245,6 +266,15 @@ function OutboundOrdersPage() {
           )}
         </>
       )}
+
+      {openOrderId ? (
+        <OutboundOrderDetailDialog
+          orderId={openOrderId}
+          onClose={() =>
+            void navigate({ to: "/outbound-orders", search: {} })
+          }
+        />
+      ) : null}
 
       {editOrder && (
         <DialogRoot open onOpenChange={({ open }) => { if (!open) setEditOrder(null) }} size="md">

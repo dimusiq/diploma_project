@@ -1368,6 +1368,24 @@ class OutboundTaskView(SQLModel):
     task_type: str
     status: str
     updated_at: datetime
+    source: str | None = None
+    destination: str | None = None
+    equipment_id: str | None = None
+
+
+class OutboundEquipmentView(SQLModel):
+    id: str
+    name: str
+    code: str | None = None
+
+
+class OutboundEventView(SQLModel):
+    id: str
+    at: datetime
+    event_type: str
+    message: str
+    severity: str | None = None
+    device_id: str | None = None
 
 
 class OutboundFulfillmentPublic(SQLModel):
@@ -1401,6 +1419,8 @@ class OutboundFulfillmentDetail(OutboundFulfillmentPublic):
     tasks: list[OutboundTaskView] = []
     items: list[OutboundLinkedItem] = []
     timeline: list[OutboundTimelineEvent] = []
+    equipment: list[OutboundEquipmentView] = []
+    events: list[OutboundEventView] = []
 
 
 class OutboundFulfillmentList(SQLModel):

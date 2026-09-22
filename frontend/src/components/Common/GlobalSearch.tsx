@@ -110,7 +110,9 @@ export function GlobalSearch() {
     setOpen(false);
     setQuery('');
     setResults(null);
-    navigate({ to: path });
+    const [pathname, rawSearch] = path.split('?');
+    const search = Object.fromEntries(new URLSearchParams(rawSearch ?? ''));
+    void navigate({ to: pathname as never, search: search as never });
   };
 
   const hasResults =
@@ -234,7 +236,7 @@ export function GlobalSearch() {
                         type='button'
                         className='flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
                         onClick={() =>
-                          go(`/technique/work-orders`)
+                          go(`/technique/work-orders?workOrder=${wo.id}`)
                         }
                       >
                         <FiClipboard className='size-4 shrink-0 text-muted-foreground' />
@@ -263,8 +265,8 @@ export function GlobalSearch() {
                         onClick={() =>
                           go(
                             order.direction === "inbound"
-                              ? "/inbound-orders"
-                              : "/outbound-orders",
+                              ? `/inbound-orders?order=${order.id}`
+                              : `/outbound-orders?order=${order.id}`,
                           )
                         }
                       >
@@ -284,7 +286,7 @@ export function GlobalSearch() {
                         key={task.id}
                         type='button'
                         className='flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
-                        onClick={() => go("/warehouse-tasks")}
+                        onClick={() => go(`/warehouse-tasks?task=${task.id}`)}
                       >
                         <FiClipboard className='size-4 shrink-0 text-muted-foreground' />
                         <span className='truncate'>{task.task_type}</span>
@@ -302,7 +304,9 @@ export function GlobalSearch() {
                         key={event.id}
                         type='button'
                         className='flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted'
-                        onClick={() => go("/events")}
+                        onClick={() =>
+                          go(`/events?event=${event.seq ?? event.id}`)
+                        }
                       >
                         <FiSearch className='size-4 shrink-0 text-muted-foreground' />
                         <span className='truncate'>{event.message}</span>

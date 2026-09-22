@@ -128,9 +128,21 @@ def list_fleet(
 
 
 @router.post("/fleet")
-def create_fleet(session: SessionDep, _user: SimAdmin, body: DeviceFleetCreate) -> dict[str, Any]:
+def create_fleet(
+    session: SessionDep, request: Request, user: SimAdmin, body: DeviceFleetCreate
+) -> dict[str, Any]:
     row = create_fleet_device(session, body.model_dump())
     get_runtime().sync_fleet_device(row)
+    log_audit(
+        session,
+        user_id=user.id,
+        action="fleet.create",
+        resource_type="wsim_device",
+        resource_id=row.id,
+        details={"code": row.code, "name": row.name},
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
     return serialize_fleet_device(row, _runtime_by_code().get(row.code))
 
 
@@ -415,34 +427,65 @@ def list_scenarios(_user: SimAdmin) -> dict[str, Any]:
     return {"data": SCENARIO_DEFS, "count": len(SCENARIO_DEFS)}
 
 
+def _audit_sim(
+    session: SessionDep,
+    request: Request,
+    user: User,
+    action: str,
+    details: dict[str, Any],
+) -> None:
+    log_audit(
+        session,
+        user_id=user.id,
+        action=action,
+        resource_type="warehouse_sim",
+        details=details,
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+
+
 @router.post("/scenarios/apply")
-def apply_scenario_route(_user: SimAdmin, body: ApplyScenarioBody) -> dict[str, Any]:
+def apply_scenario_route(
+    session: SessionDep, request: Request, user: SimAdmin, body: ApplyScenarioBody
+) -> dict[str, Any]:
     try:
-        return get_runtime().apply_scenario(body.code)
+        result = get_runtime().apply_scenario(body.code)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Сценарий не найден") from exc
+    _audit_sim(session, request, user, "simulation.scenario", {"code": body.code})
+    return result
 
 
 @router.post("/demo/start")
-def start_demo(_user: SimAdmin) -> dict[str, Any]:
-    return get_runtime().start_demo()
+def start_demo(session: SessionDep, request: Request, user: SimAdmin) -> dict[str, Any]:
+    result = get_runtime().start_demo()
+    _audit_sim(session, request, user, "simulation.demo_start", {})
+    return result
 
 
 @router.post("/demo/reset")
-def reset_demo(_user: SimAdmin) -> dict[str, Any]:
-    return get_runtime().reset_demo()
+def reset_demo(session: SessionDep, request: Request, user: SimAdmin) -> dict[str, Any]:
+    result = get_runtime().reset_demo()
+    _audit_sim(session, request, user, "simulation.demo_reset", {})
+    return result
 
 
 @router.post("/control")
-def control(_user: SimAdmin, body: SimControlBody) -> dict[str, Any]:
+def control(
+    session: SessionDep, request: Request, user: SimAdmin, body: SimControlBody
+) -> dict[str, Any]:
     rt = get_runtime()
     if body.action == "start":
-        return rt.start()
-    if body.action == "pause":
-        return rt.pause()
-    if body.action == "stop":
-        return rt.stop()
-    return rt.reset(body.config)
+        result = rt.start()
+    elif body.action == "pause":
+        result = rt.pause()
+    elif body.action == "stop":
+        result = rt.stop()
+    else:
+        result = rt.reset(body.config)
+    _audit_sim(session, request, user, f"simulation.{body.action}", {"action": body.action})
+    return result
 
 
 @router.post("/speed")

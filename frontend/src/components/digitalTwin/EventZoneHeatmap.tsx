@@ -12,7 +12,14 @@ const MODES = [
 ] as const
 
 type Mode = (typeof MODES)[number]["id"]
-type RangeId = "shift" | "day" | "h24"
+type RangeId = "live" | "m15" | "hour" | "day"
+
+const RANGES: Array<{ id: RangeId; label: string; sec: number }> = [
+  { id: "live", label: "Сейчас", sec: 60 },
+  { id: "m15", label: "15 мин", sec: 900 },
+  { id: "hour", label: "Час", sec: 3600 },
+  { id: "day", label: "Сегодня", sec: 24 * 3600 },
+]
 
 function matchesMode(type: string, severity: string, mode: Mode): boolean {
   const value = type.toUpperCase()
@@ -34,7 +41,7 @@ export function EventZoneHeatmap() {
 
   const rows = useMemo(() => {
     if (mode === "utilization") return []
-    const windowSec = range === "shift" ? 8 * 3600 : range === "h24" ? 24 * 3600 : 24 * 3600
+    const windowSec = RANGES.find((item) => item.id === range)?.sec ?? 3600
     const from = data.timeSec - windowSec
     const counts = new Map<string, number>()
     for (const event of data.events) {
@@ -55,7 +62,9 @@ export function EventZoneHeatmap() {
       <CardContent className="px-4 py-4">
         <h2 className="font-heading mb-1 text-sm font-semibold">Тепловая карта</h2>
         <p className="mb-3 text-xs text-muted-foreground">
-          Только события с зоной. Если зона не записана, показывается пустое состояние.
+          Уровень агрегации: зона. В событиях нет координат прохода и стеллажа,
+          поэтому плотность не накладывается на планировку. Пустые зоны не
+          заполняются нулями.
         </p>
         <div className="mb-3 flex flex-wrap gap-1">
           {MODES.map((item) => (
@@ -68,14 +77,14 @@ export function EventZoneHeatmap() {
               {item.label}
             </Button>
           ))}
-          {(["shift", "day", "h24"] as const).map((item) => (
+          {RANGES.map((item) => (
             <Button
-              key={item}
+              key={item.id}
               size="xs"
-              variant={range === item ? "secondary" : "ghost"}
-              onClick={() => setRange(item)}
+              variant={range === item.id ? "secondary" : "ghost"}
+              onClick={() => setRange(item.id)}
             >
-              {item === "shift" ? "Смена" : item === "day" ? "Сутки" : "24 ч"}
+              {item.label}
             </Button>
           ))}
         </div>

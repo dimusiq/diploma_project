@@ -10,12 +10,15 @@ from fastapi import HTTPException
 from sqlalchemy import String, cast, or_
 from sqlmodel import Session, col, func, select
 
+from app.core.audit import log_audit
 from app.core.permissions import can_change_status
 from app.events import catalog
 from app.models import (
     DomainEvent,
     Item,
     ItemHistory,
+    OutboundEquipmentView,
+    OutboundEventView,
     OutboundFulfillmentDetail,
     OutboundFulfillmentList,
     OutboundFulfillmentPublic,
@@ -36,6 +39,7 @@ from app.realtime.twin_stream_hub import (
 )
 from app.services.domain_events import EVENT_ITEM_STATUS_CHANGED, emit_domain_event
 from app.services.warehouse_slot_projection import sync_projection_for_item
+from app.warehouse_sim.models import SimDevice, SimEvent
 
 READY_STATUS = "packed"
 SHIPPED_STATUS = "shipped"
@@ -83,6 +87,50 @@ def customer_of(order: OutboundOrder) -> str | None:
     return text or None
 
 
+def resolve_outbound_id(session: Session, token: str) -> uuid.UUID | None:
+    """WMS UUID исходящего заказа по UUID или строковому sim_id из extra."""
+    text = token.strip()
+    if not text:
+        return None
+    try:
+        parsed = uuid.UUID(text)
+    except ValueError:
+        parsed = None
+    if parsed is not None:
+        row = session.get(OutboundOrder, parsed)
+        if row is not None:
+            return row.id
+    row = session.exec(
+        select(OutboundOrder).where(OutboundOrder.extra.contains({"sim_id": text}))
+    ).first()
+    return row.id if row is not None else None
+
+
+def annotate_event_orders(
+    session: Session, events: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Добавляет wmsOrderId в ответ, не меняя сохранённый payload события."""
+    mapping: dict[str, str] = {}
+    for event in events:
+        raw = event.get("orderId")
+        if not raw:
+            continue
+        token = str(raw)
+        if token in mapping:
+            continue
+        found = resolve_outbound_id(session, token)
+        if found is not None:
+            mapping[token] = str(found)
+    annotated: list[dict[str, Any]] = []
+    for event in events:
+        copy = dict(event)
+        raw = copy.get("orderId")
+        if raw and str(raw) in mapping:
+            copy["wmsOrderId"] = mapping[str(raw)]
+        annotated.append(copy)
+    return annotated
+
+
 def sim_order_id(order: OutboundOrder) -> str | None:
     extra = order.extra if isinstance(order.extra, dict) else {}
     raw = extra.get("sim_id")
@@ -91,17 +139,113 @@ def sim_order_id(order: OutboundOrder) -> str | None:
 
 def related_tasks(session: Session, order: OutboundOrder) -> list[WarehouseTask]:
     sid = sim_order_id(order)
-    if not sid:
-        return []
+    oid = str(order.id)
     rows = session.exec(
         select(WarehouseTask).where(WarehouseTask.warehouse_id == order.warehouse_id)
     ).all()
     matched: list[WarehouseTask] = []
     for task in rows:
         payload = task.payload if isinstance(task.payload, dict) else {}
-        if str(payload.get("sim_order_id") or "") == sid:
+        refs = {
+            str(payload.get("sim_order_id") or ""),
+            str(payload.get("order_id") or ""),
+            str(payload.get("orderId") or ""),
+        }
+        refs.discard("")
+        if (sid and sid in refs) or oid in refs:
             matched.append(task)
     return matched
+
+
+def _payload_text(payload: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        raw = payload.get(key)
+        if raw:
+            return str(raw)
+    return None
+
+
+def related_equipment(
+    session: Session, tasks: list[WarehouseTask]
+) -> list[OutboundEquipmentView]:
+    raw_ids: list[str] = []
+    for task in tasks:
+        payload = task.payload if isinstance(task.payload, dict) else {}
+        token = _payload_text(payload, "equipment_id", "device_id", "deviceId")
+        if token:
+            raw_ids.append(token)
+    found: list[OutboundEquipmentView] = []
+    seen: set[str] = set()
+    for token in raw_ids:
+        if token in seen:
+            continue
+        seen.add(token)
+        device = None
+        try:
+            device = session.get(SimDevice, uuid.UUID(token))
+        except ValueError:
+            device = session.exec(select(SimDevice).where(SimDevice.code == token)).first()
+        if device is None:
+            continue
+        found.append(
+            OutboundEquipmentView(id=str(device.id), name=device.name, code=device.code)
+        )
+    return found
+
+
+def related_order_events(
+    session: Session,
+    order: OutboundOrder,
+    domain_events: list[DomainEvent],
+) -> list[OutboundEventView]:
+    rows: list[OutboundEventView] = []
+    seen: set[str] = set()
+    for event in domain_events:
+        token = str(event.id)
+        seen.add(token)
+        rows.append(
+            OutboundEventView(
+                id=token,
+                at=event.occurred_at,
+                event_type=event.event_type,
+                message=str((event.payload or {}).get("message") or event.event_type),
+                severity=None,
+                device_id=None,
+            )
+        )
+    needles = [str(order.id)]
+    sim_id = sim_order_id(order)
+    if sim_id:
+        needles.append(sim_id)
+    sim_rows = session.exec(
+        select(SimEvent)
+        .where(
+            or_(
+                SimEvent.order_id == order.id,
+                *[SimEvent.payload.contains({"orderId": needle}) for needle in needles],
+            )
+        )
+        .order_by(SimEvent.seq.desc())
+        .limit(40)
+    ).all()
+    for event in sim_rows:
+        token = str(event.id)
+        if token in seen:
+            continue
+        seen.add(token)
+        payload = event.payload or {}
+        rows.append(
+            OutboundEventView(
+                id=token,
+                at=event.occurred_at,
+                event_type=event.event_type,
+                message=event.message,
+                severity=event.severity,
+                device_id=str(event.device_id or payload.get("deviceId") or "") or None,
+            )
+        )
+    rows.sort(key=lambda row: row.at)
+    return rows[-40:]
 
 
 def picking_complete(order: OutboundOrder, tasks: list[WarehouseTask]) -> bool:
@@ -299,6 +443,13 @@ def to_detail(
                 task_type=task.task_type,
                 status=task.status,
                 updated_at=task.updated_at,
+                source=_payload_text(task.payload or {}, "source", "from_zone", "source_zone"),
+                destination=_payload_text(
+                    task.payload or {}, "destination", "to_zone", "destination_zone"
+                ),
+                equipment_id=_payload_text(
+                    task.payload or {}, "equipment_id", "device_id", "deviceId"
+                ),
             )
             for task in tasks
         ],
@@ -313,6 +464,8 @@ def to_detail(
             for item in items
         ],
         timeline=_timeline(order, tasks, events),
+        equipment=related_equipment(session, tasks),
+        events=related_order_events(session, order, list(events)),
     )
 
 
@@ -529,6 +682,14 @@ def ship_order(session: Session, user: User, order_id: uuid.UUID) -> OutboundFul
             },
         },
         strict_payload=False,
+    )
+    log_audit(
+        session,
+        user_id=user.id,
+        action="outbound.ship",
+        resource_type="outbound_order",
+        resource_id=order.id,
+        details={"code": order.code, "status": SHIPPED_STATUS},
     )
     session.commit()
     session.refresh(order)

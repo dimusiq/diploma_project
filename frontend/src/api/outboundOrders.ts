@@ -72,6 +72,24 @@ export interface OutboundTaskView {
   task_type: string
   status: string
   updated_at: string
+  source?: string | null
+  destination?: string | null
+  equipment_id?: string | null
+}
+
+export interface OutboundEquipmentView {
+  id: string
+  name: string
+  code?: string | null
+}
+
+export interface OutboundEventView {
+  id: string
+  at: string
+  event_type: string
+  message: string
+  severity?: string | null
+  device_id?: string | null
 }
 
 export interface OutboundLinkedItem {
@@ -93,6 +111,8 @@ export interface OutboundFulfillmentDetail extends OutboundFulfillmentPublic {
   tasks: OutboundTaskView[]
   items: OutboundLinkedItem[]
   timeline: OutboundTimelineEvent[]
+  equipment?: OutboundEquipmentView[]
+  events?: OutboundEventView[]
 }
 
 export type OutboundBoardParams = {

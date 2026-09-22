@@ -294,6 +294,7 @@ export interface SimEvent {
   zoneId: string | null
   taskId?: string | null
   orderId?: string | null
+  wmsOrderId?: string | null
 }
 
 export interface SimMetrics {

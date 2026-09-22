@@ -35,7 +35,7 @@ describe("fetchAllItems", () => {
 
     const all = await fetchAllItems()
     expect(all).toHaveLength(501)
-    expect(all.at(-1)?.id).toBe("last")
+    expect(all[all.length - 1]?.id).toBe("last")
     expect(spy).toHaveBeenCalledTimes(2)
   })
 
