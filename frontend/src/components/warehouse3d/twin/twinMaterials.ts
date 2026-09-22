@@ -13,6 +13,7 @@ export const TWIN_GEOM = {
   wheel: new CylinderGeometry(1, 1, 1, 12),
   post: new CylinderGeometry(1, 1, 1, 10),
   dome: new CylinderGeometry(1, 0.65, 1, 12),
+  frustum: new CylinderGeometry(0.15, 0.55, 1, 8, 1, true),
 }
 
 export const TWIN_MAT = {
@@ -112,5 +113,19 @@ export const TWIN_MAT = {
     color: "#f59e0b",
     metalness: 0.32,
     roughness: 0.46,
+  }),
+  frustum: new MeshStandardMaterial({
+    color: "#38bdf8",
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false,
+    side: 2,
+  }),
+  frustumAlert: new MeshStandardMaterial({
+    color: "#ef4444",
+    transparent: true,
+    opacity: 0.35,
+    depthWrite: false,
+    side: 2,
   }),
 }

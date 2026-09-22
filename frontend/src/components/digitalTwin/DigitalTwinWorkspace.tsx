@@ -74,7 +74,10 @@ export function DigitalTwinWorkspace({
                 sceneActive={tab === "map"}
                 title={null}
               />
-              <DeviceInspector deviceId={selectedDeviceId} />
+              <DeviceInspector
+                deviceId={selectedDeviceId}
+                onShowCameraInWorld={() => onViewChange("3d")}
+              />
             </div>
           </div>
         </TabsContent>

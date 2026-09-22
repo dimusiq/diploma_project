@@ -3,12 +3,32 @@
  * Позиции техники — только из simStore / SSE, без собственной симуляции.
  */
 import { OrbitControls } from "@react-three/drei"
-import { Canvas, useThree } from "@react-three/fiber"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { useTheme } from "next-themes"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import { MathUtils } from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
+import { AgvCameraProbe } from "@/components/digitalTwin/AgvCameraProbe.tsx"
+import { CAMERA_VIEW_HZ } from "@/components/digitalTwin/sceneDetection.ts"
+import {
+  consumeFocusDetection,
+  getSceneDetections,
+  getShowCameraFrustum,
+  requestFocusDetection,
+  requestOpenSmartCamera,
+  setShowCameraFrustum,
+  subscribeFocusDetection,
+  subscribeSceneDetections,
+  subscribeCameraFrustum,
+} from "@/components/digitalTwin/agvCameraBridge.ts"
+import {
+  consumeAgvCameraView,
+  requestAgvCameraView,
+  subscribeAgvCameraView,
+} from "@/components/digitalTwin/twinCameraFollow.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { DynamicFleet } from "@/components/warehouse3d/twin/DynamicFleet.tsx"
+import { TwinPeople } from "@/components/warehouse3d/twin/TwinPeople.tsx"
 import { OccupancySystem } from "@/components/warehouse3d/twin/OccupancySystem.tsx"
 import { TwinPerfHud, TwinPerfSampler } from "@/components/warehouse3d/twin/PerfOverlay.tsx"
 import { TwinStaticScene } from "@/components/warehouse3d/twin/TwinStaticScene.tsx"
@@ -31,7 +51,7 @@ import type { SimDevice } from "./simTypes.ts"
 import { occupiedCellKeysFromIds } from "./twinOccupancy.ts"
 import { useSimData } from "./useDeviceSimulation.ts"
 
-type CameraCommand = "reset" | "top" | "agv" | "rack"
+type CameraCommand = "reset" | "top" | "agv" | "rack" | "follow" | "focus"
 
 const INITIAL_CAMERA: [number, number, number] = [48, 98, 86]
 const INITIAL_TARGET: [number, number, number] = [0, 1.4, 0]
@@ -44,14 +64,43 @@ function CameraCommands({
   command,
   selectedDeviceId,
   rackTarget,
+  focusPoint,
   onConsumed,
 }: {
   command: CameraCommand | null
   selectedDeviceId: string | null
   rackTarget: [number, number, number]
+  focusPoint: [number, number, number] | null
   onConsumed: () => void
 }) {
   const { camera, controls } = useThree()
+  const heading = useRef(0)
+  const last = useRef<{ x: number; z: number } | null>(null)
+  const goal = useRef<{
+    px: number
+    py: number
+    pz: number
+    tx: number
+    ty: number
+    tz: number
+  } | null>(null)
+
+  useFrame((_, dt) => {
+    const orbit = controls as OrbitControlsImpl | null
+    const target = goal.current
+    if (!orbit || !target) return
+    camera.position.x = MathUtils.damp(camera.position.x, target.px, 3.5, dt)
+    camera.position.y = MathUtils.damp(camera.position.y, target.py, 3.5, dt)
+    camera.position.z = MathUtils.damp(camera.position.z, target.pz, 3.5, dt)
+    orbit.target.x = MathUtils.damp(orbit.target.x, target.tx, 3.5, dt)
+    orbit.target.y = MathUtils.damp(orbit.target.y, target.ty, 3.5, dt)
+    orbit.target.z = MathUtils.damp(orbit.target.z, target.tz, 3.5, dt)
+    orbit.update()
+    const settled =
+      Math.abs(camera.position.x - target.px) < 0.4 &&
+      Math.abs(camera.position.z - target.pz) < 0.4
+    if (settled) goal.current = null
+  })
 
   useEffect(() => {
     if (!command) return
@@ -82,10 +131,36 @@ function CameraCommands({
     } else if (command === "rack") {
       camera.position.set(rackTarget[0] + 8, 9, rackTarget[2] + 12)
       orbit.target.set(rackTarget[0], 2.2, rackTarget[2])
+    } else if (command === "focus" && focusPoint) {
+      camera.position.set(focusPoint[0] + 16, focusPoint[1] + 10, focusPoint[2] + 16)
+      orbit.target.set(focusPoint[0], focusPoint[1], focusPoint[2])
+    } else if (command === "follow") {
+      const snap = deviceSimulation.getMotionSnapshot()
+      const mobile = snap.devices.find((device) => device.id === selectedDeviceId)
+      if (mobile) {
+        const x = planToWorldX(mobile.x)
+        const z = planToWorldZ(mobile.z)
+        const prev = last.current
+        if (prev && Math.abs(x - prev.x) + Math.abs(z - prev.z) > 0.2) {
+          heading.current = Math.atan2(x - prev.x, z - prev.z)
+        }
+        last.current = { x, z }
+        const fx = Math.sin(heading.current)
+        const fz = Math.cos(heading.current)
+        goal.current = {
+          px: x - fx * 28,
+          py: 8,
+          pz: z - fz * 28,
+          tx: x + fx * 8,
+          ty: 1.2,
+          tz: z + fz * 8,
+        }
+      }
     }
+    if (command !== "follow") goal.current = null
     orbit.update()
     onConsumed()
-  }, [command, camera, controls, onConsumed, rackTarget, selectedDeviceId])
+  }, [command, camera, controls, onConsumed, rackTarget, selectedDeviceId, focusPoint])
   return null
 }
 
@@ -96,6 +171,7 @@ function TwinScene({
   onSelectCell,
   darkMode,
   cameraCommand,
+  focusPoint,
   onCameraConsumed,
 }: {
   selectedDeviceId: string | null
@@ -104,6 +180,7 @@ function TwinScene({
   onSelectCell: (info: CellInfo | null) => void
   darkMode?: boolean
   cameraCommand: CameraCommand | null
+  focusPoint: [number, number, number] | null
   onCameraConsumed: () => void
 }) {
   const geom = useWarehouseGeometry()
@@ -128,6 +205,8 @@ function TwinScene({
         onSelectDevice={onSelectDevice}
         darkMode={darkMode}
       />
+      <TwinPeople />
+      <AgvCameraProbe />
       <OrbitControls
         makeDefault
         enablePan
@@ -141,6 +220,7 @@ function TwinScene({
         command={cameraCommand}
         selectedDeviceId={selectedDeviceId}
         rackTarget={rackTarget}
+        focusPoint={focusPoint}
         onConsumed={onCameraConsumed}
       />
       <TwinPerfSampler enabled={DEV_PERF} />
@@ -152,6 +232,46 @@ function cellCaption(info: CellInfo): string {
   const rack = getFloorPlanRacks()[info.row]
   const code = rack?.code ?? `R${String(info.row + 1).padStart(2, "0")}`
   return `${code}-L${info.level + 1}-C${String(info.cellX + 1).padStart(2, "0")}`
+}
+
+function AgvCameraStatus({
+  online,
+  detections,
+  onOpen,
+  onFollow,
+  onFocus,
+}: {
+  online: boolean
+  detections: Array<{ class_name: string }>
+  onOpen: () => void
+  onFollow: () => void
+  onFocus: () => void
+}) {
+  const people = detections.filter((item) => item.class_name === "person").length
+  const pallets = detections.filter((item) => item.class_name === "pallet").length
+  const obstacles = detections.filter((item) => item.class_name === "obstacle").length
+  return (
+    <div className="space-y-1 border-t pt-1">
+      <p className="font-semibold">Camera</p>
+      <InspectorRow label="Status" value={online ? "ONLINE" : "OFFLINE"} />
+      <InspectorRow label="FPS" value={online ? String(CAMERA_VIEW_HZ) : "0"} />
+      <InspectorRow label="Objects" value={String(detections.length)} />
+      <InspectorRow label="People" value={String(people)} />
+      <InspectorRow label="Pallets" value={String(pallets)} />
+      <InspectorRow label="Obstacles" value={String(obstacles)} />
+      <div className="flex flex-wrap gap-1 pt-1">
+        <Button type="button" size="xs" variant="outline" onClick={onOpen}>
+          Открыть камеру
+        </Button>
+        <Button type="button" size="xs" variant="outline" onClick={onFollow}>
+          Следить за AGV
+        </Button>
+        <Button type="button" size="xs" variant="outline" onClick={onFocus} disabled={detections.length === 0}>
+          Перейти к объекту
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 function InspectorRow({ label, value }: { label: string; value: string }) {
@@ -177,7 +297,35 @@ export function Warehouse3D({
   const data = useSimData()
   const [selectedCell, setSelectedCell] = useState<CellInfo | null>(null)
   const [cameraCommand, setCameraCommand] = useState<CameraCommand | null>(null)
+  const [focusPoint, setFocusPoint] = useState<[number, number, number] | null>(null)
+  const showFrustum = useSyncExternalStore(
+    subscribeCameraFrustum,
+    getShowCameraFrustum,
+    getShowCameraFrustum,
+  )
+  const sceneDetections = useSyncExternalStore(
+    subscribeSceneDetections,
+    getSceneDetections,
+    getSceneDetections,
+  )
   const consumeCamera = useCallback(() => setCameraCommand(null), [])
+
+  useEffect(() => {
+    return subscribeAgvCameraView((deviceId) => {
+      onSelectDevice(deviceId)
+      setCameraCommand("follow")
+      consumeAgvCameraView()
+    })
+  }, [onSelectDevice])
+
+  useEffect(() => {
+    return subscribeFocusDetection(() => {
+      const point = consumeFocusDetection()
+      if (!point) return
+      setFocusPoint([point.x, point.y, point.z])
+      setCameraCommand("focus")
+    })
+  }, [])
 
   const selectedDevice: SimDevice | undefined = data.devices.find(
     (device) => device.id === selectedDeviceId,
@@ -227,6 +375,14 @@ export function Warehouse3D({
         <Button type="button" size="xs" variant="outline" onClick={() => setCameraCommand("rack")}>
           Focus Rack
         </Button>
+        <label className="flex items-center gap-1 rounded-md border bg-background px-2 py-1 text-[11px]">
+          <input
+            type="checkbox"
+            checked={showFrustum}
+            onChange={(event) => setShowCameraFrustum(event.target.checked)}
+          />
+          Show camera frustum
+        </label>
       </div>
       <div className="h-[min(62vh,640px)] w-full min-h-[420px]">
         <Canvas
@@ -247,6 +403,7 @@ export function Warehouse3D({
               onSelectCell={setSelectedCell}
               darkMode={darkMode}
               cameraCommand={cameraCommand}
+              focusPoint={focusPoint}
               onCameraConsumed={consumeCamera}
             />
           </WarehouseGeometryProvider>
@@ -287,6 +444,18 @@ export function Warehouse3D({
                 label="Position"
                 value={`${selectedDevice.pos.x.toFixed(1)}, ${selectedDevice.pos.z.toFixed(1)}`}
               />
+              {selectedDevice.camera?.installed ? (
+                <AgvCameraStatus
+                  online={Boolean(selectedDevice.camera.online)}
+                  detections={sceneDetections}
+                  onOpen={() => requestOpenSmartCamera()}
+                  onFollow={() => requestAgvCameraView(selectedDevice.id)}
+                  onFocus={() => {
+                    const target = sceneDetections[0]
+                    if (target) requestFocusDetection(target.world_position)
+                  }}
+                />
+              ) : null}
             </div>
           )}
           {selectedCell && selectedRack && (

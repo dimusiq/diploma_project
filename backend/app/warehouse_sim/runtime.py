@@ -163,6 +163,13 @@ class WarehouseSimRuntime:
         self._last_data = build_data(self.world, self.state, self.speed, self.version)
         self.devices.bind(self.world)
 
+    def _drain_vision(self) -> None:
+        with self._lock:
+            pending = list(self.world.get("vision_outbox") or [])
+            self.world["vision_outbox"] = []
+        for item in pending:
+            self._publish(str(item.get("type") or "camera.status"), item.get("payload") or {})
+
     def _flush_integration(self) -> None:
         with self._lock:
             world = self.world
@@ -275,8 +282,14 @@ class WarehouseSimRuntime:
                 "Демонстрационный сценарий склада запущен",
             )
             self.state = SIM_RUNNING
+            from app.warehouse_sim.vision.service import ensure_camera, start_camera
+
+            agv = self.world["deviceById"].get("agv-1")
+            if agv is not None and ensure_camera(agv) is not None:
+                start_camera(self.world, agv)
             self._refresh()
             self._publish("data", self._last_data)
+            self._drain_vision()
         self._seed_domain_inventory()
         self._flush_integration()
         return self.data()
@@ -438,6 +451,7 @@ class WarehouseSimRuntime:
                 else:
                     data = None
             self._flush_integration()
+            self._drain_vision()
             if motion is not None:
                 self._broadcast(
                     {

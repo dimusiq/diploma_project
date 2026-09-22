@@ -24,6 +24,12 @@ function EquipmentDetailRoute() {
           search: { tab: "map", view: "2d", deviceId: code },
         })
       }}
+      onShowCameraInWorld={(code) => {
+        void navigate({
+          to: "/digital-twin",
+          search: { tab: "map", view: "3d", deviceId: code },
+        })
+      }}
       onShowEvents={(code) => {
         void navigate({
           to: "/digital-twin",

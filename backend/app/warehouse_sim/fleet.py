@@ -394,6 +394,11 @@ def serialize_fleet_device(
             engine_hours = None
     elif rt.get("busySec"):
         engine_hours = int(float(rt["busySec"]) // 3600)
+    camera_public = None
+    if isinstance(rt.get("camera"), dict) and rt["camera"].get("installed"):
+        from app.warehouse_sim.vision.service import public_camera
+
+        camera_public = public_camera(rt)
     return {
         "id": str(row.id),
         "code": row.code,
@@ -417,6 +422,7 @@ def serialize_fleet_device(
             "metricMax": meta.get("metricMax"),
             "metric": meta.get("metric"),
             "inMaintenance": in_maintenance,
+            "camera": camera_public,
         },
         "runtime": {
             "status": status,
@@ -432,6 +438,7 @@ def serialize_fleet_device(
             "busySec": rt.get("busySec"),
             "inSimulation": bool(rt),
             "inMaintenance": in_maintenance,
+            "camera": camera_public,
         },
         "maintenance": maintenance,
         "engine_hours": engine_hours,

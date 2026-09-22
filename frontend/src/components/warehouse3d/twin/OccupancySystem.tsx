@@ -1,5 +1,7 @@
 import { useFrame } from "@react-three/fiber"
-import { useLayoutEffect, useMemo, useRef } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
+import { setSceneFixtures } from "@/components/digitalTwin/agvCameraBridge.ts"
+import type { SceneOccluder, SceneTarget } from "@/components/digitalTwin/sceneDetection.ts"
 import {
   type Group,
   type InstancedMesh,
@@ -22,6 +24,7 @@ import {
 } from "@/components/warehouse3d/twin/occupancyInstances.ts"
 import { CELL_SELECTED_COLOR } from "@/components/warehouse3d/warehouse3dColors.ts"
 import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
+import { getFloorPlanRacks } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 import { useWarehouseGeometry } from "@/components/warehouse3d/warehouseGeometry.tsx"
 
 const dummy = new Object3D()
@@ -57,6 +60,53 @@ export function OccupancySystem({
       ),
     [geom, occupancySig],
   )
+  useEffect(() => {
+    const racks = getFloorPlanRacks()
+    const fixtures: SceneTarget[] = []
+    const blockers: SceneOccluder[] = []
+    for (let index = 0; index < packed.cells.length; index += 1) {
+      const cell = packed.cells[index]
+      const hit = packed.hitboxes[index]
+      if (!cell?.filled || !hit) continue
+      const code = racks[cell.row]?.code ?? `R${String(cell.row + 1).padStart(2, "0")}`
+      const entityId = `${code}-L${cell.level + 1}-C${String(cell.cellX + 1).padStart(2, "0")}`
+      fixtures.push({
+        id: `inventory:${entityId}`,
+        className: "pallet",
+        entityType: "inventory",
+        entityId,
+        position: { x: hit.position[0], y: hit.position[1], z: hit.position[2] },
+        half: {
+          x: (hit.scale?.[0] ?? 0.8) / 2,
+          y: (hit.scale?.[1] ?? 1) / 2,
+          z: (hit.scale?.[2] ?? 0.8) / 2,
+        },
+      })
+    }
+    for (let row = 0; row < geom.rackRows; row += 1) {
+      const code = racks[row]?.code ?? `rack-${row}`
+      const cx = geom.getRackBaseX(row)
+      const cz = geom.getRowZ(row)
+      const hx = geom.rackLength / 2
+      const hz = geom.rackDepth / 2
+      const hy = geom.levels * geom.levelHeight
+      blockers.push({
+        id: `rack-box-${row}`,
+        min: { x: cx - hx, y: 0, z: cz - hz },
+        max: { x: cx + hx, y: hy, z: cz + hz },
+      })
+      fixtures.push({
+        id: `rack:${code}`,
+        className: "rack",
+        entityType: "rack",
+        entityId: code,
+        position: { x: cx, y: hy / 2, z: cz },
+        half: { x: hx, y: hy / 2, z: hz },
+      })
+    }
+    setSceneFixtures({ pallets: fixtures, occluders: blockers })
+  }, [geom, packed])
+
   const hitbox = useRef<InstancedMesh>(null)
   const cargoGroup = useRef<Group>(null)
   const pointerDown = useRef<{ x: number; y: number } | null>(null)

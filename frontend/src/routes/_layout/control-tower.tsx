@@ -217,6 +217,27 @@ function ControlTowerPage() {
             tone={kpi.faults > 0 ? "danger" : "default"}
           />
         </div>
+        <div className="mt-3 space-y-2">
+          <p className="text-sm font-medium">
+            Камеры: {data.devices.filter((item) => item.camera?.obstacle).length}
+          </p>
+          {data.devices.filter((item) => item.camera?.obstacle).length === 0 ? (
+            <p className="text-sm text-muted-foreground">Нет препятствий</p>
+          ) : (
+            data.devices
+              .filter((item) => item.camera?.obstacle)
+              .map((item) => (
+                <Link
+                  key={item.id}
+                  to="/digital-twin"
+                  search={{ tab: "map", view: "3d", deviceId: item.id }}
+                  className="block text-sm text-red-600 dark:text-red-400"
+                >
+                  {item.name} — Обнаружено препятствие
+                </Link>
+              ))
+          )}
+        </div>
       </section>
 
       <div className="flex flex-wrap gap-2">

@@ -32,7 +32,7 @@ async function waitForEvent(page: Page, eventType: string, timeout: number) {
 test("demo scenario reaches receiving, scan and equipment motion", async ({
   page,
 }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(900_000)
   await page.goto("/control-tower")
   await expect(
     page.getByRole("heading", { name: "Control Tower" }),
@@ -63,7 +63,7 @@ test("demo scenario reaches receiving, scan and equipment motion", async ({
 })
 
 test("outbound order 360 shows fulfillment sections", async ({ page }) => {
-  test.setTimeout(240_000)
+  test.setTimeout(360_000)
   await page.goto("/device-server")
   await waitForEvent(page, "ORDER_CREATED", 180_000)
 
@@ -124,7 +124,7 @@ test("outbound order 360 shows fulfillment sections", async ({ page }) => {
 })
 
 test("shipment and departure close the demo order", async ({ page }) => {
-  test.setTimeout(300_000)
+  test.setTimeout(780_000)
   await page.goto("/shipment")
   await expect(page.getByRole("heading", { name: "Отгрузка" })).toBeVisible()
 

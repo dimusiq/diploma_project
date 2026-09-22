@@ -105,6 +105,39 @@ export type SensorMetric =
   | "co2"
   | "photo_eye"
 
+export interface SimCameraDetection {
+  id: string
+  camera_id: string
+  equipment_id: string
+  timestamp: string
+  class_name: string
+  confidence: number
+  bbox: { x: number; y: number; width: number; height: number }
+  track_id: string | null
+  severity: string
+}
+
+export interface SimCameraState {
+  installed: boolean
+  equipment_id?: string
+  camera_id?: string
+  enabled?: boolean
+  online?: boolean
+  source?: string
+  model?: string
+  fps?: number
+  inference_ms?: number
+  frame_index?: number
+  detection_count?: number
+  detections?: SimCameraDetection[]
+  obstacle?: boolean
+  description?: string
+  status?: string
+  confidence_threshold?: number
+  mode?: string
+  log?: Array<Pick<SimCameraDetection, "timestamp" | "class_name" | "confidence" | "track_id">>
+}
+
 export interface SimDevice {
   id: string
   kind: DeviceKind
@@ -140,6 +173,8 @@ export interface SimDevice {
   /** Таймер восстановления после отказа/замятия. */
   repairTimer: number
   lastEventAt: number
+  cameraHold?: boolean
+  camera?: SimCameraState | null
 }
 
 export interface SimSku {

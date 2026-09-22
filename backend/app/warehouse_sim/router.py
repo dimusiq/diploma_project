@@ -40,6 +40,7 @@ from app.warehouse_sim.runtime import get_runtime, query_event_log, sse_stream
 from app.warehouse_sim.scenarios import SCENARIO_DEFS
 from app.warehouse_sim.schemas import (
     ApplyScenarioBody,
+    CameraControlBody,
     DeviceCommandBody,
     DeviceFleetCreate,
     DeviceFleetPatch,
@@ -91,6 +92,97 @@ def read_device(_user: CurrentUser, device_id: str) -> dict[str, Any]:
         return get_runtime().devices.get_device_telemetry(device_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Устройство не найдено") from exc
+
+
+def _camera_device(session: SessionDep, equipment_id: str) -> dict[str, Any]:
+    world = get_runtime().world
+    device = world["deviceById"].get(equipment_id)
+    if device is None:
+        try:
+            device_uuid = uuid.UUID(equipment_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail="Устройство не найдено") from exc
+        row = get_device_row(session, device_uuid)
+        device = world["deviceById"].get(row.code)
+    if device is None:
+        raise HTTPException(status_code=404, detail="Устройство не найдено")
+    return device
+
+
+def _require_camera(device: dict[str, Any]) -> dict[str, Any]:
+    camera = device.get("camera")
+    if not isinstance(camera, dict) or not camera.get("installed"):
+        raise HTTPException(status_code=404, detail="Камера не установлена")
+    return camera
+
+
+@router.get("/equipment/{equipment_id}/camera")
+@router.get("/equipment/{equipment_id}/camera/status")
+def read_equipment_camera(
+    session: SessionDep, _user: CurrentUser, equipment_id: str
+) -> dict[str, Any]:
+    from app.warehouse_sim.vision.service import public_camera
+
+    return public_camera(_camera_device(session, equipment_id))
+
+
+@router.get("/equipment/{equipment_id}/camera/detections")
+def read_equipment_camera_detections(
+    session: SessionDep, _user: CurrentUser, equipment_id: str
+) -> dict[str, Any]:
+    device = _camera_device(session, equipment_id)
+    camera = _require_camera(device)
+    detections = list(camera.get("detections") or [])
+    return {
+        "data": detections,
+        "count": len(detections),
+        "description": camera.get("description") or "",
+        "obstacle": bool(camera.get("obstacle")),
+    }
+
+
+@router.get("/equipment/{equipment_id}/camera/frame")
+def read_equipment_camera_frame(
+    session: SessionDep, _user: CurrentUser, equipment_id: str
+) -> dict[str, Any]:
+    from app.warehouse_sim.vision.service import frame_payload
+
+    device = _camera_device(session, equipment_id)
+    _require_camera(device)
+    return frame_payload(device)
+
+
+@router.post("/equipment/{equipment_id}/camera/control")
+def control_equipment_camera(
+    session: SessionDep,
+    _admin: SimAdmin,
+    equipment_id: str,
+    body: CameraControlBody,
+) -> dict[str, Any]:
+    from app.warehouse_sim.vision.service import control_camera
+
+    device = _camera_device(session, equipment_id)
+    _require_camera(device)
+    rt = get_runtime()
+    try:
+        with rt._lock:
+            live = rt.world["deviceById"].get(device["id"])
+            if live is None:
+                raise HTTPException(status_code=404, detail="Устройство не найдено")
+            status = control_camera(
+                rt.world,
+                live,
+                body.action,
+                body.confidence_threshold,
+                body.class_name,
+                body.entity_id,
+            )
+            rt._refresh()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    rt._drain_vision()
+    rt._flush_integration()
+    return status
 
 
 def _runtime_by_code() -> dict[str, dict[str, Any]]:

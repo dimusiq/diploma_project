@@ -98,6 +98,13 @@ class DeviceMaintenanceCreate(BaseModel):
     notes: str | None = Field(default=None, max_length=2048)
 
 
+class CameraControlBody(BaseModel):
+    action: Literal["start", "stop", "enable", "disable", "threshold", "seen", "lost"]
+    confidence_threshold: float | None = Field(default=None, ge=0, le=1)
+    class_name: str | None = Field(default=None, max_length=32)
+    entity_id: str | None = Field(default=None, max_length=64)
+
+
 class DeviceMaintenancePatch(BaseModel):
     type: str | None = Field(default=None, max_length=24)
     status: str | None = Field(default=None, max_length=24)

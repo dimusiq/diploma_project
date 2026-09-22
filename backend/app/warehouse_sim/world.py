@@ -183,6 +183,10 @@ def _create_devices(config: dict, topology: dict) -> list[dict]:
                 zoneId=ZONE_STORAGE,
             )
         )
+        if i == 1:
+            from app.warehouse_sim.vision.service import camera_spec
+
+            devices[-1]["camera"] = camera_spec(installed=True)
     for i in range(1, int(config["amrs"]) + 1):
         devices.append(
             create_device(
@@ -339,6 +343,13 @@ def create_world(
         "bridge": empty_bridge(),
     }
     _seed_inventory(world)
+    agv = world["deviceById"].get("agv-1")
+    if agv is not None and not (
+        isinstance(agv.get("camera"), dict) and agv["camera"].get("installed")
+    ):
+        from app.warehouse_sim.vision.service import camera_spec
+
+        agv["camera"] = camera_spec(installed=True)
     return world
 
 

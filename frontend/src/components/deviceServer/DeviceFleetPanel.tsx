@@ -1,6 +1,7 @@
 /** Реестр виртуальных устройств и карточка выбранного устройства. */
 
 import { type ReactNode, useMemo, useState } from "react"
+import { CameraEquipmentSection } from "@/components/digitalTwin/SmartCameraView.tsx"
 import { Badge } from "@/components/ui/badge.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
@@ -21,6 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table.tsx"
 import { cn } from "@/lib/utils"
+import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
+import { canAccessWarehouseSim } from "@/lib/warehouseSimAccess.ts"
 import {
   deviceKindLabel,
   deviceStatusLabel,
@@ -283,10 +286,12 @@ function Sparkline({ values }: { values: number[] }) {
 
 interface DeviceInspectorProps {
   deviceId: string | null
+  onShowCameraInWorld?: (deviceId: string) => void
 }
 
-export function DeviceInspector({ deviceId }: DeviceInspectorProps) {
+export function DeviceInspector({ deviceId, onShowCameraInWorld }: DeviceInspectorProps) {
   const data = useSimData()
+  const currentUser = useCurrentUser()
   const device = data.devices.find((item) => item.id === deviceId) ?? null
 
   if (!device) {
@@ -360,6 +365,15 @@ export function DeviceInspector({ deviceId }: DeviceInspectorProps) {
             <InspectorRow label="Оператор">{worker.name}</InspectorRow>
           )}
         </dl>
+
+        <CameraEquipmentSection
+          equipmentId={device.id}
+          name={device.name}
+          camera={device.camera}
+          held={device.cameraHold}
+          canControl={canAccessWarehouseSim(currentUser)}
+          onShowInWorld={onShowCameraInWorld}
+        />
 
         {device.history.length > 1 && (
           <div>

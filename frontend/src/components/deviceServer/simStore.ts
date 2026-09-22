@@ -21,6 +21,8 @@ import { buildTopology } from "./simLayout.ts"
 import type {
   DeviceKind,
   DeviceStatus,
+  SimCameraDetection,
+  SimCameraState,
   SimCommand,
   SimConfig,
   SimDevice,
@@ -38,6 +40,15 @@ export const SPEED_OPTIONS = [0.5, 1, 2, 5, 10, 50] as const
 export type SimSpeed = (typeof SPEED_OPTIONS)[number]
 
 export type SimRunState = "STOPPED" | "RUNNING" | "PAUSED"
+
+type CameraStreamPayload = {
+  equipment_id?: string
+  detections?: SimCameraDetection[]
+  description?: string
+  obstacle?: boolean
+  frame_index?: number
+  status?: SimCameraState
+}
 
 export interface DeviceMotion {
   id: string
@@ -277,6 +288,45 @@ class DeviceSimulationClient {
     this.notifyMotion()
   }
 
+  private applyCamera(type: string, payload: CameraStreamPayload | undefined): void {
+    if (!payload) return
+    const equipmentId = payload.equipment_id ?? payload.status?.equipment_id
+    if (!equipmentId) return
+    const devices = this.dataSnapshot.devices.map((device) => {
+      if (device.id !== equipmentId) return device
+      const current = device.camera ?? { installed: true }
+      if (type === "camera.detection_cleared") {
+        return {
+          ...device,
+          cameraHold: false,
+          camera: {
+            ...current,
+            obstacle: false,
+            detections: [],
+            detection_count: 0,
+            description: "Обнаружено:\nнет объектов",
+          },
+        }
+      }
+      const detections = payload.detections ?? current.detections
+      return {
+        ...device,
+        cameraHold: payload.obstacle ?? payload.status?.obstacle ?? device.cameraHold,
+        camera: {
+          ...current,
+          ...(payload.status ?? {}),
+          detections,
+          detection_count: detections?.length ?? current.detection_count,
+          description: payload.description ?? current.description,
+          obstacle: payload.obstacle ?? payload.status?.obstacle ?? current.obstacle,
+          frame_index: payload.frame_index ?? current.frame_index,
+        },
+      }
+    })
+    this.dataSnapshot = { ...this.dataSnapshot, devices }
+    this.notifyData()
+  }
+
   private async ensureStarted(): Promise<void> {
     if (this.started) return
     this.started = true
@@ -334,6 +384,13 @@ class DeviceSimulationClient {
                 this.applyData(msg.payload as DataSnapshot)
               } else if (msg.type === "motion" && msg.payload) {
                 this.applyMotion(msg.payload as MotionSnapshot)
+              } else if (
+                msg.type === "camera.status" ||
+                msg.type === "camera.detection" ||
+                msg.type === "camera.detection_cleared" ||
+                msg.type === "camera.frame"
+              ) {
+                this.applyCamera(msg.type, msg.payload as CameraStreamPayload)
               }
             } catch {
               /* ignore */

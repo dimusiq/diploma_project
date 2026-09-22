@@ -1311,7 +1311,8 @@ def process_devices(world: dict, dt: float) -> None:
             continue
         task = find_task(world, device.get("taskId"))
         if device["status"] in ("moving", "waiting"):
-            advance_along_path(device, dt, world)
+            if not device.get("cameraHold"):
+                advance_along_path(device, dt, world)
             device["busySec"] += dt
             if device["battery"] is not None:
                 device["battery"] = max(0.0, device["battery"] - drain * dt)
@@ -1320,7 +1321,7 @@ def process_devices(world: dict, dt: float) -> None:
                 pallet = world["pallets"].get(device["palletId"])
                 if pallet:
                     pallet["pos"] = dict(device["pos"])
-            if device["status"] == "waiting":
+            if device.get("cameraHold") or device["status"] == "waiting":
                 continue
             if not device["path"] and task:
                 if device["phase"] == "to_source":
@@ -1556,6 +1557,9 @@ def step_world(world: dict, dt: float) -> None:
     process_workers(world, dt)
     process_congestion(world, dt)
     trim_history(world)
+    from app.warehouse_sim.vision.service import tick_cameras
+
+    tick_cameras(world, dt)
 
 
 def advance_world(world: dict, seconds: float) -> None:

@@ -267,6 +267,17 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   RECEIVING_COMPLETED: "Приёмка завершена",
   TRUCK_ARRIVED: "Машина прибыла",
   TRUCK_DEPARTED: "Машина уехала",
+  CAMERA_ONLINE: "Камера в сети",
+  CAMERA_OFFLINE: "Камера не в сети",
+  OBJECT_DETECTED: "Объект обнаружен",
+  PERSON_DETECTED: "Обнаружен человек",
+  OBSTACLE_DETECTED: "Обнаружено препятствие",
+  CAMERA_DETECTION_CLEARED: "Препятствие исчезло",
+  CAMERA_OBJECT_DETECTED: "Камера: объект обнаружен",
+  CAMERA_OBJECT_LOST: "Камера: объект потерян",
+  CAMERA_PERSON_DETECTED: "Камера: обнаружен человек",
+  CAMERA_OBSTACLE_DETECTED: "Камера: обнаружено препятствие",
+  CAMERA_OBSTACLE_CLEARED: "Камера: препятствие исчезло",
   STORAGE_FULL: "Зона хранения заполнена",
   SYSTEM_STARTED: "Система запущена",
   SYSTEM_STOPPED: "Система остановлена",
@@ -468,6 +479,17 @@ export function getWorkerStatusLabel(status: string): string {
 
 export function getStepStatusLabel(status: string): string {
   return lookup(STEP_STATUS_LABELS, status, "step.status")
+}
+
+export const CAMERA_STATUS_LABELS: Record<string, string> = {
+  online: "В сети",
+  offline: "Не в сети",
+  running: "Выполняется",
+  stopped: "Остановлено",
+}
+
+export function getCameraStatusLabel(status: string): string {
+  return lookup(CAMERA_STATUS_LABELS, status, "camera.status")
 }
 
 export function getConnectionStatusLabel(status: string): string {

@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Wrench } from "lucide-react"
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import {
   archiveSimFleetDevice,
   createDeviceMaintenance,
@@ -22,7 +22,10 @@ import type { ApiError } from "@/client/index.ts"
 import { ConfirmDialog } from "@/components/Common/ConfirmDialog.tsx"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
 import { deviceKindLabel } from "@/components/deviceServer/simFormat.ts"
+import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import type { DeviceKind } from "@/components/deviceServer/simTypes.ts"
+import { useSimData } from "@/components/deviceServer/useDeviceSimulation.ts"
+import { CameraEquipmentSection } from "@/components/digitalTwin/SmartCameraView.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import {
@@ -115,6 +118,7 @@ export function EquipmentDetailPage({
   canManage,
   onBack,
   onShowOnMap,
+  onShowCameraInWorld,
   onShowEvents,
   onShowWorkOrders,
 }: {
@@ -122,6 +126,7 @@ export function EquipmentDetailPage({
   canManage: boolean
   onBack: () => void
   onShowOnMap: (code: string) => void
+  onShowCameraInWorld?: (code: string) => void
   onShowEvents?: (code: string) => void
   onShowWorkOrders?: () => void
 }) {
@@ -172,6 +177,12 @@ export function EquipmentDetailPage({
   })
 
   const device = deviceQuery.data
+  const sim = useSimData()
+  const live = sim.devices.find((item) => item.id === device?.code) ?? null
+
+  useEffect(() => {
+    deviceSimulation.autoStart()
+  }, [])
   const summary = maintenanceQuery.data?.summary ?? device?.maintenance
   const records = maintenanceQuery.data?.data ?? []
   const Icon = CATEGORY_ICONS[categoryOf(device?.kind ?? "agv")] ?? CATEGORY_ICONS.other
@@ -440,6 +451,17 @@ export function EquipmentDetailPage({
             value={device.runtime.inSimulation ? "Да" : "Нет"}
           />
         </dl>
+      </Section>
+
+      <Section title="Smart Camera">
+        <CameraEquipmentSection
+          equipmentId={live?.id ?? device.code}
+          name={device.name}
+          camera={live?.camera ?? device.runtime.camera ?? device.configuration.camera}
+          held={live?.cameraHold}
+          canControl={canManage}
+          onShowInWorld={onShowCameraInWorld}
+        />
       </Section>
 
       <Section title="Техническое обслуживание">

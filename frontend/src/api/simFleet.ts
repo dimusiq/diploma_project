@@ -69,8 +69,11 @@ export type FleetDevice = {
     metricMax?: number | null
     metric?: number | null
     inMaintenance?: boolean
+    camera?: import("@/components/deviceServer/simTypes.ts").SimCameraState | null
   }
-  runtime: FleetRuntime
+  runtime: FleetRuntime & {
+    camera?: import("@/components/deviceServer/simTypes.ts").SimCameraState | null
+  }
   maintenance?: FleetMaintenanceSummary | null
   engine_hours?: number | null
   deferredUntilRestart?: string[]

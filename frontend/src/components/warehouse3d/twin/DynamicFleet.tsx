@@ -1,7 +1,14 @@
 import { Html } from "@react-three/drei"
-import { useFrame } from "@react-three/fiber"
-import { memo, useMemo, useRef } from "react"
-import { type Group, MathUtils, Vector3 } from "three"
+import { useFrame, useThree } from "@react-three/fiber"
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react"
+import { CameraHelper, type Group, MathUtils, PerspectiveCamera, Vector3 } from "three"
+import {
+  getAgvCamera,
+  getShowCameraFrustum,
+  registerAgvCamera,
+  subscribeCameraFrustum,
+} from "@/components/digitalTwin/agvCameraBridge.ts"
+import { AGV_CAMERA_LOCAL } from "@/components/digitalTwin/sceneDetection.ts"
 import { taskKindLabel } from "@/components/deviceServer/simFormat.ts"
 import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import type { DeviceKind, SimTask } from "@/components/deviceServer/simTypes.ts"
@@ -11,6 +18,7 @@ import { palletCargoVariant } from "@/components/warehouse3d/palletRackLayout.ts
 import { AGVModel } from "@/components/warehouse3d/twin/AGVModel.tsx"
 import { ForkliftModel } from "@/components/warehouse3d/twin/ForkliftModel.tsx"
 import { TruckModel } from "@/components/warehouse3d/twin/TruckModel.tsx"
+import { TWIN_GEOM, TWIN_MAT } from "@/components/warehouse3d/twin/twinMaterials.ts"
 import {
   planToWorldX,
   planToWorldZ,
@@ -36,6 +44,10 @@ function LiveMobile({
   name,
   selected,
   task,
+  hasCamera,
+  obstacle,
+  held,
+  palletConfidence,
   onSelect,
 }: {
   id: string
@@ -43,6 +55,10 @@ function LiveMobile({
   name: string
   selected: boolean
   task: SimTask | undefined
+  hasCamera: boolean
+  obstacle: boolean
+  held: boolean
+  palletConfidence: number | null
   onSelect: () => void
 }) {
   const group = useRef<Group>(null)
@@ -50,7 +66,39 @@ function LiveMobile({
   const current = useRef(new Vector3())
   const heading = useRef(0)
   const inited = useRef(false)
+  const showFrustum = useSyncExternalStore(subscribeCameraFrustum, getShowCameraFrustum, getShowCameraFrustum)
+  const helperRef = useRef<CameraHelper | null>(null)
+  const { scene } = useThree()
   const color = deviceColor(kind, "idle", true, false)
+  const detectClass = kind === "forklift" ? "forklift" : kind === "amr" ? "amr" : "agv"
+
+  useLayoutEffect(() => {
+    if (!hasCamera || !group.current) return
+    const camera = new PerspectiveCamera(55, 640 / 360, 0.12, 40)
+    camera.name = "agv-smart-camera"
+    camera.position.set(...AGV_CAMERA_LOCAL.position)
+    camera.rotation.y = AGV_CAMERA_LOCAL.rotationY
+    group.current.add(camera)
+    registerAgvCamera(id, camera)
+    return () => {
+      group.current?.remove(camera)
+      registerAgvCamera(id, null)
+    }
+  }, [hasCamera, id])
+
+  useEffect(() => {
+    if (!hasCamera || !showFrustum) return
+    const camera = getAgvCamera(id)
+    if (!camera) return
+    const helper = new CameraHelper(camera)
+    helperRef.current = helper
+    scene.add(helper)
+    return () => {
+      helperRef.current = null
+      scene.remove(helper)
+      helper.dispose()
+    }
+  }, [hasCamera, id, scene, showFrustum])
 
   useFrame((_, dt) => {
     const device = deviceSimulation
@@ -74,11 +122,21 @@ function LiveMobile({
     node.position.copy(current.current)
     node.rotation.y = MathUtils.damp(node.rotation.y, heading.current, 8, dt)
     if (load.current) load.current.visible = device.carrying
+    helperRef.current?.update()
   })
 
   return (
     <group
       ref={group}
+      userData={{
+        detect: {
+          className: detectClass,
+          entityType: "device",
+          entityId: id,
+          half: { x: 0.7, y: 0.7, z: 1.1 },
+          center: { x: 0, y: 0.55, z: 0 },
+        },
+      }}
       onClick={(event) => {
         event.stopPropagation()
         onSelect()
@@ -108,7 +166,29 @@ function LiveMobile({
           maxHeight={0.7}
           lanes={1}
         />
+        {palletConfidence != null ? (
+          <Html position={[0, 0.9, 0]} center distanceFactor={28} zIndexRange={[11, 0]}>
+            <span className="rounded-sm bg-black/80 px-1 font-mono text-[10px] text-emerald-200">
+              PALLET {palletConfidence.toFixed(2)}
+            </span>
+          </Html>
+        ) : null}
       </group>
+      {hasCamera && showFrustum ? (
+        <mesh
+          geometry={TWIN_GEOM.frustum}
+          material={obstacle ? TWIN_MAT.frustumAlert : TWIN_MAT.frustum}
+          position={[0, 0.55, 0.95]}
+          rotation={[Math.PI / 2, 0, 0]}
+        />
+      ) : null}
+      {hasCamera ? (
+        <Html position={[0, 1.7, 0.2]} center distanceFactor={28} zIndexRange={[12, 0]}>
+          <span className="rounded-sm bg-black/75 px-1 font-mono text-[10px] text-white">
+            📷{held ? " HOLD" : ""}
+          </span>
+        </Html>
+      ) : null}
       {selected && (
         <Html
           position={[0, kind === "forklift" ? 2.15 : 1.45, 0]}
@@ -159,7 +239,18 @@ function LiveTruck({
   })
 
   return (
-    <group ref={group}>
+    <group
+      ref={group}
+      userData={{
+        detect: {
+          className: "truck",
+          entityType: "truck",
+          entityId: id,
+          half: { x: 1.3, y: 1.5, z: 3 },
+          center: { x: 0, y: 1.4, z: 0 },
+        },
+      }}
+    >
       <TruckModel plate={plate} direction={direction} darkMode={darkMode} />
     </group>
   )
@@ -182,6 +273,21 @@ export const DynamicFleet = memo(function DynamicFleet({
         .map((device) => ({ id: device.id, kind: device.kind, name: device.name })),
     [data.devices],
   )
+  const cameraById = useMemo(() => {
+    const map = new Map<string, { obstacle: boolean; held: boolean; palletConfidence: number | null }>()
+    for (const device of data.devices) {
+      if (!device.camera?.installed) continue
+      const pallet = device.palletId
+        ? device.camera.detections?.find((item) => item.class_name === "pallet")
+        : undefined
+      map.set(device.id, {
+        obstacle: Boolean(device.camera.obstacle),
+        held: Boolean(device.cameraHold),
+        palletConfidence: pallet ? pallet.confidence : null,
+      })
+    }
+    return map
+  }, [data.devices])
   const tasksByDevice = useMemo(() => {
     const map = new Map<string, SimTask>()
     for (const task of data.tasks) {
@@ -210,6 +316,10 @@ export const DynamicFleet = memo(function DynamicFleet({
           name={device.name}
           selected={device.id === selectedDeviceId}
           task={tasksByDevice.get(device.id)}
+          hasCamera={cameraById.has(device.id)}
+          obstacle={cameraById.get(device.id)?.obstacle ?? false}
+          held={cameraById.get(device.id)?.held ?? false}
+          palletConfidence={cameraById.get(device.id)?.palletConfidence ?? null}
           onSelect={() =>
             onSelectDevice(device.id === selectedDeviceId ? null : device.id)
           }
