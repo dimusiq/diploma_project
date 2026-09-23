@@ -11,11 +11,12 @@ import {
   WAREHOUSE_DEPTH,
   WAREHOUSE_WIDTH,
 } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
+import { AISLE_WIDTH } from "@/components/deviceServer/simLayout.ts"
 
 const CELL_SIZE = 0.72
 const CELL_GAP = 0.12
 const LEVEL_HEIGHT = 0.82
-const PASSAGE_WIDTH = 2.5
+const PASSAGE_WIDTH = AISLE_WIDTH
 
 /** Метры на ячейку в режиме плана симулятора (48 м / 12 ячеек). */
 const FLOOR_PLAN_BAY_WIDTH = 4

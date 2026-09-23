@@ -18,6 +18,7 @@ const PATH_TITLES: Record<string, string> = {
   "/equipment": "Оборудование",
   "/digital-twin": "Digital Twin",
   "/assistant": "Ассистент",
+  "/personnel": "Персонал",
   "/device-server": "Device Monitor",
   "/settings": "Настройки",
   "/admin": "Администрирование",

@@ -9,8 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.warehouse_sim.vehicle_dimensions import (
+    MAX_VEHICLE_WIDTH,
+    REQUIRED_AISLE_WIDTH,
+)
+
 WAREHOUSE_WIDTH = 104.0
-WAREHOUSE_DEPTH = 64.0
 WEST_CORRIDOR_X = 22.0
 EAST_CORRIDOR_X = 78.0
 STORAGE_MIN_X = 26.0
@@ -23,10 +27,16 @@ RACK_LEVELS = 3
 BACK_GAP = 0.2
 BLOCK_COUNT = 8
 BLOCK_DEPTH = 2 * RACK_DEPTH + BACK_GAP
-AISLE_WIDTH = 2.5
+# 2 * maxWidth + зазор до стеллажа с каждой стороны. См. vehicle_dimensions.
+AISLE_WIDTH = REQUIRED_AISLE_WIDTH
 PITCH = BLOCK_DEPTH + AISLE_WIDTH
-FIRST_BLOCK_Z = 3.0
-APPROACH_OFFSET = 1.2
+# Северный проезд той же ширины, что и проезды между блоками.
+FIRST_BLOCK_Z = AISLE_WIDTH
+# Точка подъезда — центр проезда, а не 1.2 м от стеллажа:
+# при шаге сетки 1 м клетка, которую стеллаж лишь задевает, непроходима.
+APPROACH_OFFSET = AISLE_WIDTH / 2
+# 8 блоков + 9 проездов не помещаются в 64 м при этой ширине проезда.
+WAREHOUSE_DEPTH = BLOCK_COUNT * BLOCK_DEPTH + (BLOCK_COUNT + 1) * AISLE_WIDTH
 
 
 def _block_origin_z(index: int) -> float:
@@ -188,7 +198,7 @@ def build_zones() -> list[dict]:
             "x": 22,
             "z": 2,
             "w": 56,
-            "d": 60,
+            "d": WAREHOUSE_DEPTH - 4,
         },
         {
             "id": ZONE_PICKING,
@@ -198,7 +208,7 @@ def build_zones() -> list[dict]:
             "x": 74,
             "z": 2,
             "w": 6,
-            "d": 60,
+            "d": WAREHOUSE_DEPTH - 4,
         },
         {
             "id": ZONE_PACKING,
@@ -369,3 +379,62 @@ def build_topology() -> dict:
         "aisleZ": list(AISLE_Z),
         "corridorX": list(CORRIDOR_X),
     }
+
+
+def work_aisle_gaps(racks: list[dict] | None = None) -> list[dict]:
+    """Ширина каждого рабочего проезда: кромка стеллажа до кромки следующего."""
+    if racks is None:
+        racks = build_racks()
+    by_id = {rack["id"]: rack for rack in racks}
+    gaps: list[dict] = []
+    first = by_id["rack-1-A"]
+    gaps.append(
+        {
+            "id": "A01",
+            "width": round(float(first["z"]), 4),
+            "center": AISLE_Z[0],
+        }
+    )
+    for index in range(BLOCK_COUNT - 1):
+        south = by_id[f"rack-{index + 1}-B"]
+        north = by_id[f"rack-{index + 2}-A"]
+        south_edge = float(south["z"]) + float(south["d"])
+        north_edge = float(north["z"])
+        gaps.append(
+            {
+                "id": f"A{index + 2:02d}",
+                "width": round(north_edge - south_edge, 4),
+                "center": (south_edge + north_edge) / 2,
+            }
+        )
+    last = by_id[f"rack-{BLOCK_COUNT}-B"]
+    south_edge = float(last["z"]) + float(last["d"])
+    gaps.append(
+        {
+            "id": f"A{BLOCK_COUNT + 1:02d}",
+            "width": round(WAREHOUSE_DEPTH - south_edge, 4),
+            "center": AISLE_Z[-1],
+        }
+    )
+    return gaps
+
+
+def clearance_report(racks: list[dict] | None = None) -> list[str]:
+    """Строки проверки геометрии проезда. Пустой список не возвращается: каждая строка PASS или FAIL."""
+    if racks is None:
+        racks = build_racks()
+    gaps = work_aisle_gaps(racks)
+    blocks = build_blocks(racks)
+    min_width = min(float(gap["width"]) for gap in gaps)
+    passing = round(min_width - REQUIRED_AISLE_WIDTH, 4)
+    lines = [
+        f"{'PASS' if len(blocks) == 8 else 'FAIL'}: 8 блоков",
+        f"{'PASS' if len(racks) == 16 else 'FAIL'}: 16 стеллажей",
+        f"{'PASS' if all(gap['width'] + 1e-6 >= REQUIRED_AISLE_WIDTH for gap in gaps) else 'FAIL'}: все основные проезды доступны",
+        f"{'PASS' if min_width + 1e-6 >= REQUIRED_AISLE_WIDTH else 'FAIL'}: minimum aisle width >= required aisle width",
+        f"PASS: maximum vehicle width = {MAX_VEHICLE_WIDTH:.2f} м",
+        f"PASS: required aisle width = {REQUIRED_AISLE_WIDTH:.2f} м",
+        f"PASS: actual minimum aisle width = {min_width:.2f} м",
+        f"PASS: vehicle passing clearance = {passing:.2f} м",
+    ]
+    return lines

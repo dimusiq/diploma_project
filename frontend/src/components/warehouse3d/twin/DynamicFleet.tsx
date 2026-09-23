@@ -63,6 +63,7 @@ function LiveMobile({
 }) {
   const group = useRef<Group>(null)
   const load = useRef<Group>(null)
+  const speedRef = useRef<HTMLSpanElement>(null)
   const current = useRef(new Vector3())
   const heading = useRef(0)
   const inited = useRef(false)
@@ -121,6 +122,14 @@ function LiveMobile({
     current.current.z = MathUtils.damp(current.current.z, tz, 10, dt)
     node.position.copy(current.current)
     node.rotation.y = MathUtils.damp(node.rotation.y, heading.current, 8, dt)
+    if (speedRef.current) {
+      const currentSpeed = device.speed ?? 0
+      const targetSpeed = device.targetSpeed ?? currentSpeed
+      const waiting = device.waitingSeconds ?? 0
+      const yieldTo = device.waitingFor ? ` → ${device.waitingFor}` : ""
+      const waitText = waiting > 0 ? ` wait ${waiting.toFixed(1)}s` : ""
+      speedRef.current.textContent = `${currentSpeed.toFixed(1)}/${targetSpeed.toFixed(1)} m/s${waitText}${yieldTo}`
+    }
     if (load.current) load.current.visible = device.carrying
     helperRef.current?.update()
   })
@@ -133,6 +142,7 @@ function LiveMobile({
           className: detectClass,
           entityType: "device",
           entityId: id,
+          sceneRole: "dynamic_entity",
           half: { x: 0.7, y: 0.7, z: 1.1 },
           center: { x: 0, y: 0.55, z: 0 },
         },
@@ -189,6 +199,11 @@ function LiveMobile({
           </span>
         </Html>
       ) : null}
+      <Html position={[0, kind === "forklift" ? 2.55 : 1.85, 0]} center distanceFactor={42} zIndexRange={[8, 0]}>
+        <span ref={speedRef} className="whitespace-nowrap rounded-sm bg-black/70 px-1 font-mono text-[10px] text-white">
+          {name}
+        </span>
+      </Html>
       {selected && (
         <Html
           position={[0, kind === "forklift" ? 2.15 : 1.45, 0]}
@@ -246,6 +261,7 @@ function LiveTruck({
           className: "truck",
           entityType: "truck",
           entityId: id,
+          sceneRole: "dynamic_entity",
           half: { x: 1.3, y: 1.5, z: 3 },
           center: { x: 0, y: 1.4, z: 0 },
         },

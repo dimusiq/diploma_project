@@ -2,7 +2,12 @@ import {
   buildTopology,
   WAREHOUSE_DEPTH,
   WAREHOUSE_WIDTH,
+  workAisleGaps,
 } from "@/components/deviceServer/simLayout.ts"
+import {
+  MAX_VEHICLE_WIDTH,
+  REQUIRED_AISLE_WIDTH,
+} from "@/components/warehouse3d/vehiclePhysicalDimensions.ts"
 import type { SimDock, SimTopology } from "@/components/deviceServer/simTypes.ts"
 
 export type LayoutIssue = {
@@ -82,6 +87,18 @@ export function validateWarehouseLayout(
       level: "warning",
       code: "warehouse.size",
       message: "Размер склада отличается от канонического плана",
+    })
+  }
+  const gaps = workAisleGaps()
+  const minAisle = gaps.reduce(
+    (min, gap) => Math.min(min, gap.width),
+    Number.POSITIVE_INFINITY,
+  )
+  if (gaps.length !== 9 || minAisle + 1e-6 < REQUIRED_AISLE_WIDTH) {
+    issues.push({
+      level: "error",
+      code: "aisle.width",
+      message: `Проезд ${minAisle.toFixed(2)} м уже требуемых ${REQUIRED_AISLE_WIDTH.toFixed(2)} м (техника ${MAX_VEHICLE_WIDTH.toFixed(2)} м)`,
     })
   }
   if (topology.racks.length !== 16) {

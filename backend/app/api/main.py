@@ -21,6 +21,7 @@ from app.api.routes import (
     maintenance_templates,
     notifications,
     outbound_orders,
+    personnel,
     private,
     projections,
     roles,
@@ -64,6 +65,7 @@ api_router.include_router(integrations.router)
 api_router.include_router(items.router)
 api_router.include_router(inbound_orders.router)
 api_router.include_router(outbound_orders.router)
+api_router.include_router(personnel.router)
 api_router.include_router(equipment.router)
 api_router.include_router(maintenance_schedule.router)
 api_router.include_router(maintenance_templates.router)

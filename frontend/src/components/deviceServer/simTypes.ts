@@ -303,7 +303,7 @@ export type WorkerRole =
   | "operator"
   | "supervisor"
 
-export type WorkerStatus = "idle" | "busy" | "break" | "off_shift"
+export type WorkerStatus = "idle" | "busy" | "break" | "off_shift" | "walking"
 
 export interface SimWorker {
   id: string
@@ -314,6 +314,18 @@ export interface SimWorker {
   taskId: string | null
   tasksDone: number
   breakTimer: number
+  code?: string | null
+  pos?: { x: number; z: number }
+  heading?: number
+  speed?: number
+  target?: string | null
+  current_zone?: string | null
+  employeeCode?: string | null
+  workerId?: string | null
+  displayName?: string | null
+  positionTitle?: string | null
+  shift?: string | null
+  spawned?: boolean
 }
 
 export type SimEventSeverity = "info" | "success" | "warning" | "error"

@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react"
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react"
 import {
   useCameraControl,
   type CameraDetection,
@@ -7,14 +7,22 @@ import type { SimCameraState } from "@/components/deviceServer/simTypes.ts"
 import {
   bindCameraCanvas,
   consumeOpenSmartCamera,
+  getCameraDebug,
   getDetectionLog,
   getSceneDetections,
   requestFocusDetection,
+  subscribeCameraDebug,
   setCameraViewActive,
   subscribeOpenSmartCamera,
   subscribeSceneDetections,
 } from "@/components/digitalTwin/agvCameraBridge.ts"
-import { CAMERA_VIEW_HEIGHT, CAMERA_VIEW_WIDTH } from "@/components/digitalTwin/sceneDetection.ts"
+import {
+  CAMERA_VIEW_HEIGHT,
+  CAMERA_VIEW_HZ,
+  CAMERA_VIEW_WIDTH,
+  clampDetectionBox,
+  placeDetectionLabel,
+} from "@/components/digitalTwin/sceneDetection.ts"
 import { requestAgvCameraView } from "@/components/digitalTwin/twinCameraFollow.ts"
 import { Button } from "@/components/ui/button.tsx"
 import {
@@ -22,11 +30,35 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog.tsx"
+import { useSimMotion } from "@/components/deviceServer/useDeviceSimulation.ts"
+import { describeDetection } from "@/lib/personnel.ts"
 import { getCameraStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils.ts"
 
 const FRAME_WIDTH = CAMERA_VIEW_WIDTH
 const FRAME_HEIGHT = CAMERA_VIEW_HEIGHT
+const LABEL_WIDTH = 132
+const LABEL_HEIGHT = 32
+const HISTORY_PREVIEW = 3
+
+const VIEWPORT_STYLE: CSSProperties = {
+  position: "relative",
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+  minHeight: 180,
+  aspectRatio: "16 / 9",
+  overflow: "hidden",
+}
+
+const OVERLAY_STYLE: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  overflow: "hidden",
+  pointerEvents: "none",
+}
+
+type Availability = "live" | "offline" | "disabled"
 
 type BoxDetection = CameraDetection & {
   world_position?: { x: number; y: number; z: number }
@@ -38,10 +70,9 @@ function useLiveDetections() {
   return { detections, log }
 }
 
-function modelLabel(model: string, source: string): string {
-  if (source === "scene" || model === "scene-camera") return "Scene camera"
-  if (model === "yolo-demo") return "Demo Detector"
-  return model
+function modelLabel(model: string, sceneViewport: boolean): string {
+  if (sceneViewport || model === "scene-camera" || model === "yolo-demo") return "Scene camera"
+  return model || "Scene camera"
 }
 
 function tone(className: string): string {
@@ -51,12 +82,6 @@ function tone(className: string): string {
   return "border-amber-400 text-amber-50"
 }
 
-function cameraMode(online: boolean, source: string): "LIVE" | "DEMO" | "OFFLINE" {
-  if (!online) return "OFFLINE"
-  if (source === "live" || source === "scene") return "LIVE"
-  return "DEMO"
-}
-
 function clock(timestamp: string | undefined): string {
   if (!timestamp) return ""
   const date = new Date(timestamp)
@@ -64,13 +89,18 @@ function clock(timestamp: string | undefined): string {
   return date.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
 }
 
+export function cameraAvailability(camera: SimCameraState | null | undefined, equipmentOnline: boolean): Availability {
+  if (camera?.enabled === false) return "disabled"
+  if (!equipmentOnline) return "offline"
+  return "live"
+}
+
 export function SmartCameraView({
   name,
   online,
+  availability,
   model,
   fps,
-  threshold = 0.5,
-  source = "demo",
   detections,
   log = [],
   description,
@@ -78,20 +108,14 @@ export function SmartCameraView({
   sceneViewport = false,
   obstacle,
   held,
-  canControl,
-  pending,
-  onClose,
-  onStartDemo,
-  onStop,
   onShowInWorld,
   onFocus,
 }: {
   name: string
   online: boolean
+  availability?: Availability
   model: string
   fps: number
-  threshold?: number
-  source?: string
   detections: BoxDetection[]
   sceneViewport?: boolean
   log?: Array<Pick<CameraDetection, "timestamp" | "class_name" | "confidence" | "track_id">>
@@ -99,15 +123,13 @@ export function SmartCameraView({
   imageSrc?: string | null
   obstacle: boolean
   held?: boolean
-  canControl?: boolean
-  pending?: boolean
-  onClose?: () => void
-  onStartDemo?: () => void
-  onStop?: () => void
   onShowInWorld?: () => void
   onFocus?: (position: { x: number; y: number; z: number }) => void
 }) {
   const live = useLiveDetections()
+  const peopleMotion = useSimMotion().workers ?? []
+  const debug = useSyncExternalStore(subscribeCameraDebug, getCameraDebug, getCameraDebug)
+  const [showAll, setShowAll] = useState(false)
   const [stamp, setStamp] = useState(() => new Date().toISOString().slice(0, 19).replace("T", " "))
   useEffect(() => {
     if (!sceneViewport) return
@@ -120,178 +142,226 @@ export function SmartCameraView({
       window.clearInterval(timer)
     }
   }, [sceneViewport])
-  const shown = sceneViewport ? live.detections : detections
-  const rows = (sceneViewport && live.log.length > 0 ? live.log : log.length > 0 ? log : shown)
-    .slice(-8)
-    .map((item) => ({
-      timestamp: "timestamp" in item ? item.timestamp : "",
-      class_name: item.class_name,
-      confidence: item.confidence,
-      track_id: item.track_id,
-    }))
-  const mode = cameraMode(online, source)
-  const obstacleHit = shown.find((item) => item.class_name === "obstacle")
-  const personHit = shown.find((item) => item.class_name === "person")
+  const state = availability ?? (online ? "live" : "offline")
+  const liveView = state === "live"
+  const shown = liveView ? (sceneViewport ? live.detections : detections) : []
+  const rows = (sceneViewport && live.log.length > 0 ? live.log : log.length > 0 ? log : shown).map((item) => ({
+    timestamp: "timestamp" in item ? item.timestamp : "",
+    class_name: item.class_name,
+    confidence: item.confidence,
+    track_id: item.track_id,
+  }))
+  const visibleRows = showAll ? rows : rows.slice(-HISTORY_PREVIEW)
+  const shownFps = !liveView ? 0 : fps > 0 ? fps : sceneViewport ? CAMERA_VIEW_HZ : 0
   const people = shown.filter((item) => item.class_name === "person").length
   const pallets = shown.filter((item) => item.class_name === "pallet").length
+  const personHit = shown.some((item) => item.class_name === "person")
 
   return (
-    <div className="flex flex-col gap-3 text-stone-100">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] tracking-[0.14em] text-stone-400">SMART CAMERA</p>
-          <h2 className="font-heading text-lg font-semibold text-stone-50">{name}</h2>
-          <p className="mt-1 flex flex-wrap items-center gap-3 font-mono text-xs">
-            <span className={online ? "text-emerald-400" : "text-stone-400"}>
-              {online ? "● ONLINE" : "○ OFFLINE"}
-            </span>
-            <span>{mode === "DEMO" ? "● DEMO" : mode === "LIVE" ? "● LIVE" : "○ OFFLINE"}</span>
-            <span>{online ? `${fps} FPS` : "0 FPS"}</span>
-          </p>
-        </div>
-        {onClose ? (
-          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
-            Закрыть
-          </Button>
-        ) : null}
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px]">
-        <div
-          className="relative overflow-hidden rounded-md bg-stone-950 ring-1 ring-stone-700"
-          style={{ aspectRatio: `${FRAME_WIDTH} / ${FRAME_HEIGHT}` }}
-        >
-          {sceneViewport ? (
-            <canvas
-              ref={bindCameraCanvas}
-              width={FRAME_WIDTH}
-              height={FRAME_HEIGHT}
-              data-testid="agv-camera-viewport"
-              className="absolute inset-0 h-full w-full"
-            />
-          ) : imageSrc ? (
-            <img alt="" src={imageSrc} className="absolute inset-0 h-full w-full object-cover" />
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-3 overflow-hidden text-stone-100">
+      <header className="pr-8">
+        <p className="text-[11px] tracking-[0.14em] text-stone-400">SMART CAMERA</p>
+        <h2 className="font-heading text-lg font-semibold text-stone-50">{name}</h2>
+        <p className="mt-1 flex flex-wrap items-center gap-3 font-mono text-xs">
+          {state === "disabled" ? (
+            <span className="text-stone-400">○ DISABLED</span>
+          ) : liveView ? (
+            <>
+              <span className="text-emerald-400">● ONLINE</span>
+              <span className="text-emerald-300">● LIVE</span>
+              <span>{shownFps} FPS</span>
+            </>
           ) : (
-            <div className="absolute inset-0 bg-stone-900" />
+            <span className="text-stone-400">○ OFFLINE</span>
           )}
-          {online && sceneViewport ? (
-            <div className="pointer-events-none absolute inset-0">
+        </p>
+      </header>
+
+      <div
+        data-testid="camera-viewport"
+        className="w-full rounded-md bg-stone-950 ring-1 ring-stone-700"
+        style={VIEWPORT_STYLE}
+      >
+        {sceneViewport ? (
+          <canvas
+            ref={bindCameraCanvas}
+            width={FRAME_WIDTH}
+            height={FRAME_HEIGHT}
+            data-testid="agv-camera-viewport"
+            className="h-full w-full"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          />
+        ) : imageSrc ? (
+          <img
+            alt=""
+            src={imageSrc}
+            className="h-full w-full object-cover"
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          />
+        ) : (
+          <div className="bg-stone-900" style={{ position: "absolute", inset: 0 }} />
+        )}
+        <div data-testid="camera-overlay" style={OVERLAY_STYLE}>
+          {liveView && sceneViewport ? (
+            <>
               <div className="absolute top-2 left-2 font-mono text-[10px] leading-tight text-white/90">
                 <div>CAM-{name}</div>
-                <div className="text-red-400">REC ●</div>
+                <div className="text-red-400">● REC</div>
                 <div>{stamp}</div>
-                <div>{shown.length} OBJ</div>
+                <div>{shownFps.toFixed(1)} FPS</div>
               </div>
-              <div className="absolute top-1/2 left-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 border border-white/35" />
-              <div
-                className="absolute inset-0 opacity-[0.05]"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(0deg, #fff 0, #fff 1px, transparent 1px, transparent 4px)",
-                }}
-              />
-            </div>
+              <div className="absolute top-2 right-2 bg-black/70 px-2 py-0.5 font-mono text-[10px] text-emerald-300">
+                LIVE
+              </div>
+            </>
           ) : null}
-          {online
-            ? shown.map((item) =>
-                item.bbox ? (
-                <div
-                  key={item.id}
-                  data-testid="detection-box"
-                  className={cn("absolute border-2", tone(item.class_name))}
-                  style={{
-                    left: `${(item.bbox.x / FRAME_WIDTH) * 100}%`,
-                    top: `${(item.bbox.y / FRAME_HEIGHT) * 100}%`,
-                    width: `${(item.bbox.width / FRAME_WIDTH) * 100}%`,
-                    height: `${(item.bbox.height / FRAME_HEIGHT) * 100}%`,
-                  }}
-                >
-                  <button
-                    type="button"
-                    data-testid="focus-object"
-                    className="absolute top-0 left-0 bg-black/80 px-1 text-left font-mono text-[10px] leading-tight"
-                    onClick={() => item.world_position && onFocus?.(item.world_position)}
-                  >
-                    {item.class_name.toUpperCase()}
-                    {item.track_id ? ` #${item.track_id}` : ""}
-                    <br />
-                    {item.confidence.toFixed(2)}
-                  </button>
-                </div>
-                ) : null,
-              )
+          {liveView
+            ? shown.map((item) => {
+                if (!item.bbox) return null
+                const box = clampDetectionBox(item.bbox, FRAME_WIDTH, FRAME_HEIGHT)
+                if (!box) return null
+                const label = placeDetectionLabel(box, FRAME_WIDTH, FRAME_HEIGHT, LABEL_WIDTH, LABEL_HEIGHT)
+                return (
+                  <Fragment key={item.id}>
+                    <div
+                      data-testid="detection-box"
+                      className={cn("border-2", tone(item.class_name))}
+                      style={{
+                        position: "absolute",
+                        boxSizing: "border-box",
+                        left: `${(box.x / FRAME_WIDTH) * 100}%`,
+                        top: `${(box.y / FRAME_HEIGHT) * 100}%`,
+                        width: `${(box.width / FRAME_WIDTH) * 100}%`,
+                        height: `${(box.height / FRAME_HEIGHT) * 100}%`,
+                      }}
+                    />
+                    <button
+                      type="button"
+                      data-testid="focus-object"
+                      className="max-w-[40%] overflow-hidden bg-black/80 px-1 text-left font-mono text-[10px] text-ellipsis whitespace-nowrap"
+                      style={{
+                        position: "absolute",
+                        left: `${(label.x / FRAME_WIDTH) * 100}%`,
+                        top: `${(label.y / FRAME_HEIGHT) * 100}%`,
+                        pointerEvents: "auto",
+                      }}
+                      onClick={() => item.world_position && onFocus?.(item.world_position)}
+                    >
+                      {(() => {
+                        const caption = describeDetection(item, peopleMotion)
+                        return caption.detail ? `${caption.primary} ${caption.detail}` : caption.primary
+                      })()}
+                    </button>
+                  </Fragment>
+                )
+              })
             : (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-stone-200">
-                {getCameraStatusLabel("offline")}
+              <div
+                className="flex items-center justify-center text-sm text-stone-200"
+                style={{ position: "absolute", inset: 0 }}
+              >
+                {state === "disabled" ? "Камера отключена" : getCameraStatusLabel("offline")}
               </div>
             )}
-          {online && personHit ? (
-            <div className="absolute top-2 right-2 bg-sky-950/90 px-2 py-1 font-mono text-[11px] text-sky-100">
+          {liveView && personHit ? (
+            <div
+              className="bg-sky-950/90 px-2 py-1 font-mono text-[11px] text-sky-100"
+              style={{ position: "absolute", top: 28, right: 8 }}
+            >
               PERSON DETECTED
             </div>
           ) : null}
-          {online && obstacle ? (
-            <div className="absolute right-2 bottom-2 left-2 bg-red-950/90 px-2 py-1 font-mono text-[11px] text-red-100">
+          {liveView && obstacle ? (
+            <div
+              className="bg-red-950/90 px-2 py-1 font-mono text-[11px] text-red-100"
+              style={{ position: "absolute", right: 8, bottom: 8, left: 8 }}
+            >
               ⚠ ОБЪЕКТ НА ТРАЕКТОРИИ
             </div>
           ) : null}
+          {debug ? (
+            <pre
+              data-testid="camera-debug"
+              className="m-0 max-w-full overflow-hidden font-mono text-[9px] leading-tight text-lime-200"
+              style={{ position: "absolute", right: 4, bottom: 28, left: 4 }}
+            >
+              {`CAM ${debug.position.x.toFixed(1)} ${debug.position.y.toFixed(1)} ${debug.position.z.toFixed(1)} fwd ${debug.forward.x.toFixed(2)} ${debug.forward.y.toFixed(2)} ${debug.forward.z.toFixed(2)} near ${debug.near} far ${debug.far} fov ${debug.fov.toFixed(0)}`}
+              {debug.person
+                ? `\n${debug.person.className} world ${debug.person.world.x.toFixed(1)} ${debug.person.world.y.toFixed(1)} ${debug.person.world.z.toFixed(1)} cam ${debug.person.cameraSpace.x.toFixed(2)} ${debug.person.cameraSpace.y.toFixed(2)} ${debug.person.cameraSpace.z.toFixed(2)} ${debug.person.reason} frustum ${debug.person.frustum} occluded ${debug.person.occluded}`
+                : ""}
+            </pre>
+          ) : null}
         </div>
-
-        <aside className="space-y-2 rounded-md bg-stone-900 p-3 text-xs text-stone-200">
-          <p>Model: {modelLabel(model, source)}</p>
-          <p>Threshold: {threshold.toFixed(2)}</p>
-          <p>Objects: {online ? shown.length : 0}</p>
-          <p>People: {online ? people : 0}</p>
-          <p>Pallets: {online ? pallets : 0}</p>
-          <p>{mode}</p>
-        </aside>
       </div>
 
-      <div>
-        <p className="mb-1 text-xs text-stone-400">Detection log</p>
-        <ul className="max-h-28 space-y-0.5 overflow-hidden font-mono text-[11px] text-stone-300">
-          {rows.length === 0 ? <li>нет объектов</li> : null}
-          {rows.map((item, index) => (
-            <li key={`${item.timestamp}-${item.class_name}-${index}`}>
-              {clock(item.timestamp)} {item.class_name.toUpperCase()}
-              {item.track_id ? ` #${item.track_id}` : ""} {item.confidence.toFixed(2)}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <p className="text-sm whitespace-pre-line text-stone-400">
-        {online ? description || "Обнаружено:\nнет объектов" : "Камера не передаёт кадр"}
-      </p>
-      {online && shown.length === 0 ? <p className="text-sm text-stone-200">Нет препятствий</p> : null}
-      {obstacle ? (
-        <div className="rounded-md border border-red-500/60 bg-red-950/40 px-3 py-2 text-sm text-red-100">
-          <p className="font-medium">⚠ OBSTACLE DETECTED</p>
-          <p>Остановлено камерой</p>
-          <p>Причина: препятствие</p>
-          <p>Camera: {name}</p>
-          <p>Confidence: {(obstacleHit?.confidence ?? 0).toFixed(2)}</p>
-          {held ? <p>AGV STOPPED</p> : null}
+      {liveView && (personHit || obstacle) ? (
+        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
+          {personHit ? <span className="text-sky-200">PERSON DETECTED</span> : null}
+          {obstacle ? <span className="text-red-200">⚠ ОБЪЕКТ НА ТРАЕКТОРИИ</span> : null}
+          {held ? <span className="text-red-100">AGV остановлен</span> : null}
         </div>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        {onShowInWorld ? (
-          <Button type="button" size="sm" variant="outline" onClick={onShowInWorld}>
-            Показать камеру в 3D
+      <dl
+        data-testid="camera-telemetry"
+        className="grid grid-cols-3 gap-x-3 gap-y-1 text-[11px] text-stone-300 sm:grid-cols-6"
+      >
+        <div>
+          <dt className="text-stone-500">CAMERA</dt>
+          <dd>{modelLabel(model, sceneViewport)}</dd>
+        </div>
+        <div>
+          <dt className="text-stone-500">STATUS</dt>
+          <dd>{state === "live" ? "LIVE" : state === "disabled" ? "DISABLED" : "OFFLINE"}</dd>
+        </div>
+        <div>
+          <dt className="text-stone-500">OBJECTS</dt>
+          <dd>{shown.length}</dd>
+        </div>
+        <div>
+          <dt className="text-stone-500">PEOPLE</dt>
+          <dd>{people}</dd>
+        </div>
+        <div>
+          <dt className="text-stone-500">PALLETS</dt>
+          <dd>{pallets}</dd>
+        </div>
+        <div>
+          <dt className="text-stone-500">FPS</dt>
+          <dd>{shownFps}</dd>
+        </div>
+      </dl>
+
+      <section data-testid="detection-list" className="min-w-0 max-h-28 overflow-y-auto">
+        <div className="mb-1 flex items-center justify-between gap-2 text-xs text-stone-400">
+          <p>DETECTIONS · {shown.length}</p>
+          {rows.length > HISTORY_PREVIEW ? (
+            <button type="button" className="text-stone-300 underline-offset-2 hover:underline" onClick={() => setShowAll((value) => !value)}>
+              {showAll ? "Свернуть" : "Показать все"}
+            </button>
+          ) : null}
+        </div>
+        <ul className="space-y-0.5 font-mono text-[11px] text-stone-300">
+          {visibleRows.length === 0 ? <li>{liveView ? description || "нет объектов" : "Камера не передаёт кадр"}</li> : null}
+          {visibleRows.map((item, index) => (
+            <li key={`${item.timestamp}-${item.class_name}-${item.track_id}-${index}`}>
+              {clock(item.timestamp)}{" "}
+              {(() => {
+                const caption = describeDetection(item, peopleMotion)
+                return caption.detail ? `${caption.primary} ${caption.detail}` : caption.primary
+              })()}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {onShowInWorld ? (
+        <div>
+          <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs text-stone-400" onClick={onShowInWorld}>
+            Открыть в Digital Twin
           </Button>
-        ) : null}
-        {canControl ? (
-          <>
-            <Button type="button" size="sm" disabled={pending || online} onClick={onStartDemo}>
-              Запустить демо
-            </Button>
-            <Button type="button" size="sm" variant="outline" disabled={pending || !online} onClick={onStop}>
-              Остановить
-            </Button>
-          </>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -302,6 +372,7 @@ export function CameraEquipmentSection({
   camera,
   held,
   canControl,
+  equipmentOnline = true,
   onShowInWorld,
 }: {
   equipmentId: string
@@ -309,16 +380,24 @@ export function CameraEquipmentSection({
   camera?: SimCameraState | null
   held?: boolean
   canControl: boolean
+  equipmentOnline?: boolean
   onShowInWorld?: (equipmentId: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const installed = Boolean(camera?.installed)
   const control = useCameraControl(equipmentId)
+  const availability = cameraAvailability(camera, equipmentOnline)
+  const armed = useRef(false)
   const detections = camera?.detections ?? []
   useEffect(() => {
     if (consumeOpenSmartCamera()) setOpen(true)
     return subscribeOpenSmartCamera(() => setOpen(true))
   }, [])
+  useEffect(() => {
+    if (!installed || availability !== "live" || camera?.online || !canControl || armed.current) return
+    armed.current = true
+    control.mutate("start")
+  }, [availability, camera?.online, canControl, control, installed])
 
   if (!installed) {
     return (
@@ -333,19 +412,26 @@ export function CameraEquipmentSection({
     requestAgvCameraView(equipmentId)
     onShowInWorld?.(equipmentId)
   }
+  const shownFps = availability === "live" ? camera?.fps || CAMERA_VIEW_HZ : 0
 
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-medium">Smart Camera</h3>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
         <div>Статус</div>
-        <div>{camera?.online ? getCameraStatusLabel("online") : getCameraStatusLabel("offline")}</div>
+        <div>
+          {availability === "disabled"
+            ? "Отключена"
+            : availability === "live"
+              ? getCameraStatusLabel("online")
+              : getCameraStatusLabel("offline")}
+        </div>
         <div>Режим</div>
-        <div>{cameraMode(Boolean(camera?.online), camera?.source || "demo")}</div>
+        <div>{availability === "live" ? "LIVE" : availability === "disabled" ? "DISABLED" : "OFFLINE"}</div>
         <div>Модель</div>
-        <div>{modelLabel(camera?.model || "", camera?.source || "demo")}</div>
+        <div>{modelLabel(camera?.model || "", true)}</div>
         <div>FPS</div>
-        <div>{camera?.online ? camera?.fps ?? 0 : 0}</div>
+        <div>{shownFps}</div>
         <div>Обнаружения</div>
         <div>{camera?.detection_count ?? detections.length}</div>
       </dl>
@@ -354,31 +440,28 @@ export function CameraEquipmentSection({
           📷 Smart Camera
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={showInWorld}>
-          Показать камеру в 3D
+          Открыть в Digital Twin
         </Button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl border-stone-700 bg-stone-950 text-stone-100">
+        <DialogContent
+          data-testid="smart-camera-dialog"
+          className="max-h-[calc(100vh-48px)] w-[min(1200px,calc(100vw-48px))] max-w-[min(1200px,calc(100vw-48px))] overflow-y-auto border-stone-700 bg-stone-950 text-stone-100 sm:max-w-[min(1200px,calc(100vw-48px))]"
+        >
           <DialogTitle className="sr-only">Smart Camera {name}</DialogTitle>
           <SmartCameraView
             name={name}
-            online={Boolean(camera?.online)}
-            model={camera?.model || "yolo-demo"}
-            fps={camera?.fps ?? 0}
-            threshold={camera?.confidence_threshold ?? 0.5}
-            source={camera?.source || "demo"}
-            detections={camera?.online ? detections : []}
+            online={availability === "live"}
+            availability={availability}
+            model={camera?.model || "scene-camera"}
+            fps={shownFps}
+            detections={detections}
             log={camera?.log}
             description={camera?.description || ""}
             sceneViewport
             obstacle={Boolean(camera?.obstacle)}
             onFocus={requestFocusDetection}
             held={held}
-            canControl={canControl}
-            pending={control.isPending}
-            onClose={() => setOpen(false)}
-            onStartDemo={() => control.mutate("start")}
-            onStop={() => control.mutate("stop")}
             onShowInWorld={showInWorld}
           />
         </DialogContent>

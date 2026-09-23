@@ -1,6 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber"
 import { useRef } from "react"
 import {
+  Box3,
   Color,
   type Object3D,
   Vector3,
@@ -8,8 +9,10 @@ import {
   WebGLRenderTarget,
 } from "three"
 import {
+  cameraDebugEnabled,
   cameraViewActive,
   getAgvCamera,
+  publishCameraDebug,
   getCameraCanvas,
   getPalletTargets,
   getRackOccluders,
@@ -21,9 +24,12 @@ import {
   CAMERA_VIEW_HEIGHT,
   CAMERA_VIEW_HZ,
   CAMERA_VIEW_WIDTH,
+  type CameraDebugSnapshot,
   DETECTION_HZ,
   type DetectMeta,
   detectInView,
+  formatPersonDebug,
+  isDetectionCandidate,
   type SceneTarget,
   stabilizeTracks,
   type ViewDetection,
@@ -37,6 +43,8 @@ const savedClear = new Color()
 const viewClear = new Color("#1c1917")
 const worldPoint = new Vector3()
 const localCenter = new Vector3()
+const bounds = new Box3()
+const boundsSize = new Vector3()
 
 function paintViewport(gl: WebGLRenderer, scene: Object3D, camera: Object3D) {
   const canvas = getCameraCanvas()
@@ -67,22 +75,36 @@ function paintViewport(gl: WebGLRenderer, scene: Object3D, camera: Object3D) {
 function collectTargets(scene: Object3D): SceneTarget[] {
   const targets: SceneTarget[] = []
   scene.traverse((object) => {
+    if (object.userData.cameraDebug) return
     const meta = readDetectMeta(object.userData as { detect?: DetectMeta })
-    if (!meta) return
+    if (!meta || !isDetectionCandidate(meta)) return
     object.updateWorldMatrix(true, false)
-    localCenter.set(meta.center?.x ?? 0, meta.center?.y ?? 0, meta.center?.z ?? 0)
-    object.localToWorld(localCenter)
-    worldPoint.copy(localCenter)
+    bounds.setFromObject(object)
+    let half = meta.half
+    if (bounds.isEmpty()) {
+      localCenter.set(meta.center?.x ?? 0, meta.center?.y ?? 0, meta.center?.z ?? 0)
+      object.localToWorld(localCenter)
+      worldPoint.copy(localCenter)
+    } else {
+      bounds.getCenter(worldPoint)
+      bounds.getSize(boundsSize)
+      half = { x: boundsSize.x / 2, y: boundsSize.y / 2, z: boundsSize.z / 2 }
+    }
     targets.push({
       id: `${meta.entityType}:${meta.entityId}`,
       className: meta.className,
       entityType: meta.entityType,
       entityId: meta.entityId,
       position: { x: worldPoint.x, y: worldPoint.y, z: worldPoint.z },
-      half: meta.half,
+      half,
+      objectUuid: object.uuid,
+      sceneRole: meta.sceneRole,
     })
   })
-  for (const pallet of getPalletTargets()) targets.push(pallet)
+  for (const pallet of getPalletTargets()) {
+    if (!isDetectionCandidate(pallet)) continue
+    targets.push(pallet)
+  }
   return targets
 }
 
@@ -107,15 +129,49 @@ export function AgvCameraProbe() {
     detectAcc.current += dt
     if (detectAcc.current < 1 / DETECTION_HZ) return
     detectAcc.current = 0
+    camera.parent?.updateWorldMatrix(true, false)
+    camera.updateMatrixWorld(true)
+    const debug: CameraDebugSnapshot | undefined = cameraDebugEnabled()
+      ? {
+          position: { x: 0, y: 0, z: 0 },
+          rotation: { x: 0, y: 0, z: 0 },
+          forward: { x: 0, y: 0, z: 0 },
+          near: camera.near,
+          far: camera.far,
+          fov: camera.fov,
+          person: null,
+        }
+      : undefined
+    const targets = collectTargets(scene)
+    if (debug) {
+      const seen = new Map<string, string[]>()
+      for (const target of targets) {
+        if (target.className !== "person" || !target.objectUuid) continue
+        const uuids = seen.get(target.entityId) ?? []
+        uuids.push(target.objectUuid)
+        seen.set(target.entityId, uuids)
+      }
+      for (const [entityId, uuids] of seen) {
+        if (uuids.length < 2) continue
+        console.info(
+          `[PERSON TRACE] stage=DUPLICATE entityId=${entityId} objectUuid=${uuids.join(",")} source=scene-traverse`,
+        )
+      }
+    }
     const next = detectInView({
       camera,
-      targets: collectTargets(scene),
+      targets,
       occluders: getRackOccluders(),
       width: CAMERA_VIEW_WIDTH,
       height: CAMERA_VIEW_HEIGHT,
       equipmentId: EQUIPMENT_ID,
+      debug,
     })
-    const stable = stabilizeTracks(active.current, missing.current, next)
+    if (debug) {
+      publishCameraDebug(debug)
+      console.info(formatPersonDebug(debug))
+    }
+    const stable = stabilizeTracks(active.current, missing.current, next, 2)
     const prev = published.current
     published.current = stable
     publishSceneDetections(stable)

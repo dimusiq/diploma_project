@@ -2,7 +2,7 @@
 
 from app.warehouse_sim.simulation import advance_world
 from app.warehouse_sim.vision.detector import DemoDetector
-from app.warehouse_sim.vision.service import note_scene_detection, public_camera, start_camera
+from app.warehouse_sim.vision.service import note_scene_detection, public_camera, start_camera, tick_cameras
 from app.warehouse_sim.world import create_world
 
 
@@ -16,6 +16,17 @@ def test_demo_detection_is_deterministic() -> None:
     second = detector.detect(8)
     assert [item["class_name"] for item in second] == ["person", "pallet"]
     assert detector.detect(8) == second
+
+
+def test_simulation_tick_does_not_invent_a_person() -> None:
+    world = create_world({"seed": 1})
+    device = world["deviceById"]["agv-1"]
+    start_camera(world, device)
+    tick_cameras(world, 1.0)
+    advance_world(world, 16)
+    assert device["camera"]["detections"] == []
+    assert device["camera"]["obstacle"] is False
+    assert device.get("cameraHold") is False
 
 
 def test_detection_schema_and_equipment_link() -> None:

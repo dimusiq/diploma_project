@@ -27,6 +27,7 @@ import { Route as LayoutFleetRouteImport } from './routes/_layout/fleet'
 import { Route as LayoutInboundOrdersRouteImport } from './routes/_layout/inbound-orders'
 import { Route as LayoutItemsRouteImport } from './routes/_layout/items'
 import { Route as LayoutOutboundOrdersRouteImport } from './routes/_layout/outbound-orders'
+import { Route as LayoutPersonnelRouteImport } from './routes/_layout/personnel'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutShipmentRouteImport } from './routes/_layout/shipment'
 import { Route as LayoutShippedRouteImport } from './routes/_layout/shipped'
@@ -141,6 +142,11 @@ const LayoutItemsRoute = LayoutItemsRouteImport.update({
 const LayoutOutboundOrdersRoute = LayoutOutboundOrdersRouteImport.update({
   id: '/outbound-orders',
   path: '/outbound-orders',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutPersonnelRoute = LayoutPersonnelRouteImport.update({
+  id: '/personnel',
+  path: '/personnel',
   getParentRoute: () => LayoutRoute,
 } as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
@@ -305,6 +311,7 @@ export interface FileRoutesByFullPath {
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
   '/outbound-orders': typeof LayoutOutboundOrdersRoute
+  '/personnel': typeof LayoutPersonnelRoute
   '/settings': typeof LayoutSettingsRoute
   '/shipment': typeof LayoutShipmentRoute
   '/shipped': typeof LayoutShippedRoute
@@ -347,6 +354,7 @@ export interface FileRoutesByTo {
   '/inbound-orders': typeof LayoutInboundOrdersRoute
   '/items': typeof LayoutItemsRoute
   '/outbound-orders': typeof LayoutOutboundOrdersRoute
+  '/personnel': typeof LayoutPersonnelRoute
   '/settings': typeof LayoutSettingsRoute
   '/shipment': typeof LayoutShipmentRoute
   '/shipped': typeof LayoutShippedRoute
@@ -394,6 +402,7 @@ export interface FileRoutesById {
   '/_layout/inbound-orders': typeof LayoutInboundOrdersRoute
   '/_layout/items': typeof LayoutItemsRoute
   '/_layout/outbound-orders': typeof LayoutOutboundOrdersRoute
+  '/_layout/personnel': typeof LayoutPersonnelRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/shipment': typeof LayoutShipmentRoute
   '/_layout/shipped': typeof LayoutShippedRoute
@@ -442,6 +451,7 @@ export interface FileRouteTypes {
     | '/inbound-orders'
     | '/items'
     | '/outbound-orders'
+    | '/personnel'
     | '/settings'
     | '/shipment'
     | '/shipped'
@@ -484,6 +494,7 @@ export interface FileRouteTypes {
     | '/inbound-orders'
     | '/items'
     | '/outbound-orders'
+    | '/personnel'
     | '/settings'
     | '/shipment'
     | '/shipped'
@@ -530,6 +541,7 @@ export interface FileRouteTypes {
     | '/_layout/inbound-orders'
     | '/_layout/items'
     | '/_layout/outbound-orders'
+    | '/_layout/personnel'
     | '/_layout/settings'
     | '/_layout/shipment'
     | '/_layout/shipped'
@@ -692,6 +704,13 @@ declare module '@tanstack/react-router' {
       path: '/outbound-orders'
       fullPath: '/outbound-orders'
       preLoaderRoute: typeof LayoutOutboundOrdersRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/personnel': {
+      id: '/_layout/personnel'
+      path: '/personnel'
+      fullPath: '/personnel'
+      preLoaderRoute: typeof LayoutPersonnelRouteImport
       parentRoute: typeof LayoutRoute
     }
     '/_layout/settings': {
@@ -947,6 +966,7 @@ interface LayoutRouteChildren {
   LayoutInboundOrdersRoute: typeof LayoutInboundOrdersRoute
   LayoutItemsRoute: typeof LayoutItemsRoute
   LayoutOutboundOrdersRoute: typeof LayoutOutboundOrdersRoute
+  LayoutPersonnelRoute: typeof LayoutPersonnelRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutShipmentRoute: typeof LayoutShipmentRoute
   LayoutShippedRoute: typeof LayoutShippedRoute
@@ -973,6 +993,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutInboundOrdersRoute: LayoutInboundOrdersRoute,
   LayoutItemsRoute: LayoutItemsRoute,
   LayoutOutboundOrdersRoute: LayoutOutboundOrdersRoute,
+  LayoutPersonnelRoute: LayoutPersonnelRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutShipmentRoute: LayoutShipmentRoute,
   LayoutShippedRoute: LayoutShippedRoute,

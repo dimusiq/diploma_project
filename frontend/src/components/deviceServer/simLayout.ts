@@ -1,7 +1,8 @@
 /**
  * Геометрия склада: зоны, стеллажи, ячейки, ворота и маршрутизация по проездам.
  *
- * План склада 104 × 64 м. Ось x — длина стеллажа (запад → восток),
+ * План склада 104 м по X. Глубина по Z следует из 8 блоков и ширины проездов.
+ * Ось x — длина стеллажа (запад → восток),
  * ось z — между сдвоенными блоками (сверху вниз).
  * 8 back-to-back блоков: R01A спиной к R01B, проезд только снаружи.
  */
@@ -14,9 +15,9 @@ import type {
   SimZone,
   Vec2,
 } from "./simTypes.ts"
+import { REQUIRED_AISLE_WIDTH } from "@/components/warehouse3d/vehiclePhysicalDimensions.ts"
 
 export const WAREHOUSE_WIDTH = 104
-export const WAREHOUSE_DEPTH = 64
 
 export const WEST_CORRIDOR_X = 22
 export const EAST_CORRIDOR_X = 78
@@ -32,10 +33,14 @@ const RACK_LEVELS = 3
 const BACK_GAP = 0.2
 const BLOCK_COUNT = 8
 const BLOCK_DEPTH = 2 * RACK_DEPTH + BACK_GAP
-const AISLE_WIDTH = 2.5
+/** 2 × maxWidth + зазор до стеллажа с каждой стороны. Тот же расчёт, что в layout.py. */
+export const AISLE_WIDTH = REQUIRED_AISLE_WIDTH
 const PITCH = BLOCK_DEPTH + AISLE_WIDTH
-const FIRST_BLOCK_Z = 3
-const APPROACH_OFFSET = 1.2
+const FIRST_BLOCK_Z = AISLE_WIDTH
+/** 8 блоков и 9 проездов этой ширины не помещаются в прежние 64 м. */
+export const WAREHOUSE_DEPTH =
+  BLOCK_COUNT * BLOCK_DEPTH + (BLOCK_COUNT + 1) * AISLE_WIDTH
+const APPROACH_OFFSET = AISLE_WIDTH / 2
 
 function blockOriginZ(index: number): number {
   return FIRST_BLOCK_Z + index * PITCH
@@ -53,6 +58,36 @@ function workAisleCenters(): number[] {
 }
 
 const AISLE_Z = workAisleCenters()
+
+export function workAisleGaps(): Array<{ id: string; width: number; center: number }> {
+  const racks = buildRacks()
+  const byId = new Map(racks.map((rack) => [rack.id, rack]))
+  const gaps: Array<{ id: string; width: number; center: number }> = []
+  const first = byId.get("rack-1-A")
+  if (!first) return gaps
+  gaps.push({ id: "A01", width: first.z, center: AISLE_Z[0] })
+  for (let index = 0; index < BLOCK_COUNT - 1; index += 1) {
+    const south = byId.get(`rack-${index + 1}-B`)
+    const north = byId.get(`rack-${index + 2}-A`)
+    if (!south || !north) continue
+    const southEdge = south.z + south.d
+    gaps.push({
+      id: `A${String(index + 2).padStart(2, "0")}`,
+      width: north.z - southEdge,
+      center: (southEdge + north.z) / 2,
+    })
+  }
+  const last = byId.get(`rack-${BLOCK_COUNT}-B`)
+  if (last) {
+    const southEdge = last.z + last.d
+    gaps.push({
+      id: `A${String(BLOCK_COUNT + 1).padStart(2, "0")}`,
+      width: WAREHOUSE_DEPTH - southEdge,
+      center: AISLE_Z[AISLE_Z.length - 1],
+    })
+  }
+  return gaps
+}
 const CORRIDOR_X = [WEST_CORRIDOR_X, EAST_CORRIDOR_X]
 
 export const ZONES: SimZone[] = [
@@ -84,7 +119,7 @@ export const ZONES: SimZone[] = [
     x: 22,
     z: 2,
     w: 56,
-    d: 60,
+    d: WAREHOUSE_DEPTH - 4,
   },
   {
     id: "zone-pick",
@@ -94,7 +129,7 @@ export const ZONES: SimZone[] = [
     x: 74,
     z: 2,
     w: 6,
-    d: 60,
+    d: WAREHOUSE_DEPTH - 4,
   },
   {
     id: "zone-pack",

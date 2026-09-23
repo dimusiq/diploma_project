@@ -215,6 +215,42 @@ export const WORKER_STATUS_LABELS: Record<string, string> = {
   busy: "Занят",
   break: "Перерыв",
   off_shift: "Не в смене",
+  walking: "Идёт",
+}
+
+export const EMPLOYEE_STATUS_LABELS: Record<string, string> = {
+  active: "Активен",
+  inactive: "Неактивен",
+  on_leave: "В отпуске",
+  terminated: "Уволен",
+}
+
+export const SHIFT_LABELS: Record<string, string> = {
+  morning: "Утренняя",
+  day: "Дневная",
+  night: "Ночная",
+}
+
+export const PERSONNEL_MOTION_LABELS: Record<string, string> = {
+  walking: "Перемещается",
+  idle: "Ожидает",
+  busy: "Занят",
+  break: "Перерыв",
+  off_shift: "Не в смене",
+}
+
+export const PERSON_ZONE_LABELS: Record<string, string> = {
+  "aisle-2": "Aisle 2",
+  "staff-entrance": "Вход персонала",
+  receiving: "Приёмка",
+  packing: "Упаковка",
+  "break-exit": "Выход",
+  warehouse: "Склад",
+  "rack-area": "Стеллажи",
+  workstation: "Рабочее место",
+  outbound: "Отгрузка",
+  inspection: "Контроль",
+  station: "Станция",
 }
 
 export const STEP_STATUS_LABELS: Record<string, string> = {
@@ -271,6 +307,7 @@ export const EVENT_TYPE_LABELS: Record<string, string> = {
   CAMERA_OFFLINE: "Камера не в сети",
   OBJECT_DETECTED: "Объект обнаружен",
   PERSON_DETECTED: "Обнаружен человек",
+  PERSON_DETECTED_IN_PATH: "Человек на пути техники",
   OBSTACLE_DETECTED: "Обнаружено препятствие",
   CAMERA_DETECTION_CLEARED: "Препятствие исчезло",
   CAMERA_OBJECT_DETECTED: "Камера: объект обнаружен",

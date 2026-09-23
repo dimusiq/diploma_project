@@ -6,6 +6,7 @@ import {
   normalizeSlotKey,
   planToWorldX,
   planToWorldZ,
+  WAREHOUSE_DEPTH,
   resolveFloorPlanLayoutSpec,
   simCellIdToSlotKey,
   slotKeyToSimCellId,
@@ -48,7 +49,7 @@ describe("warehouseFloorPlanAdapter", () => {
     expect(geom.levels).toBe(3)
     expect(geom.cellsLength).toBe(12)
     expect(planToWorldX(52)).toBeCloseTo(0)
-    expect(planToWorldZ(32)).toBeCloseTo(0)
+    expect(planToWorldZ(WAREHOUSE_DEPTH / 2)).toBeCloseTo(0)
     expect(WAREHOUSE_FACADE_X.west).toBeCloseTo(-52)
     expect(WAREHOUSE_FACADE_X.east).toBeCloseTo(52)
     expect(dockFacadeWorldX("inbound")).toBe(WAREHOUSE_FACADE_X.west)

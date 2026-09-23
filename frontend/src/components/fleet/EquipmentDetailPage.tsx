@@ -459,6 +459,7 @@ export function EquipmentDetailPage({
           name={device.name}
           camera={live?.camera ?? device.runtime.camera ?? device.configuration.camera}
           held={live?.cameraHold}
+          equipmentOnline={live ? live.online : false}
           canControl={canManage}
           onShowInWorld={onShowCameraInWorld}
         />

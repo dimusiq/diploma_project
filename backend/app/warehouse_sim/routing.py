@@ -10,6 +10,7 @@ from app.warehouse_sim.layout import (
     WAREHOUSE_WIDTH,
     route_between,
 )
+from app.warehouse_sim.vehicle_dimensions import VEHICLE_BLOCK_RADIUS
 
 GRID_M = 1.0
 NEIGHBORS = ((1, 0), (-1, 0), (0, 1), (0, -1))
@@ -140,8 +141,14 @@ def astar_path(
 def path_blocked_by_device(
     next_point: dict[str, float],
     others: Iterable[dict],
-    radius: float = 1.6,
+    radius: float = VEHICLE_BLOCK_RADIUS,
 ) -> bool:
+    """Близость к другой машине. Радиус выведен из габарита, не из ширины проезда.
+
+    Две машины в соседних полосах одного проезда разведены на ширину корпуса.
+    Радиус меньше этого расстояния, поэтому разъезд не считается блокировкой.
+    Встречные на одной оси по-прежнему останавливаются.
+    """
     nx, nz = next_point["x"], next_point["z"]
     for other in others:
         dx = other["x"] - nx

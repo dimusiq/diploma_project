@@ -18,6 +18,8 @@ const Warehouse3D = lazy(async () => {
 export function WarehouseDigitalTwin({
   selectedDeviceId,
   onSelectDevice,
+  selectedPersonId = null,
+  onSelectPerson,
   view: viewProp,
   onViewChange,
   sceneActive = true,
@@ -25,6 +27,8 @@ export function WarehouseDigitalTwin({
 }: {
   selectedDeviceId: string | null
   onSelectDevice: (deviceId: string | null) => void
+  selectedPersonId?: string | null
+  onSelectPerson?: (personId: string | null) => void
   view?: TwinViewMode
   onViewChange?: (view: TwinViewMode) => void
   sceneActive?: boolean
@@ -71,6 +75,8 @@ export function WarehouseDigitalTwin({
             <Warehouse3D
               selectedDeviceId={selectedDeviceId}
               onSelectDevice={onSelectDevice}
+              selectedPersonId={selectedPersonId}
+              onSelectPerson={onSelectPerson}
               active={view === "3d" && sceneActive}
             />
           </Suspense>

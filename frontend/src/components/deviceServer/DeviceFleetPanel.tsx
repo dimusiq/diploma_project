@@ -371,6 +371,7 @@ export function DeviceInspector({ deviceId, onShowCameraInWorld }: DeviceInspect
           name={device.name}
           camera={device.camera}
           held={device.cameraHold}
+          equipmentOnline={device.online}
           canControl={canAccessWarehouseSim(currentUser)}
           onShowInWorld={onShowCameraInWorld}
         />

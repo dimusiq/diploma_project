@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.warehouse_sim.layout import ZONE_PACKING, ZONE_RECEIVING, ZONE_SHIPPING
+from app.warehouse_sim.traffic import current_speed
 from app.warehouse_sim.world import DAY_START_SEC
 
 
@@ -52,8 +53,33 @@ def build_motion(world: dict, running: bool, version: int) -> dict:
                 "alarm": d["alarm"],
                 "online": d["online"],
                 "carrying": d.get("palletId") is not None,
+                "speed": round(current_speed(d), 2),
+                "targetSpeed": float(d.get("speed") or 0.0),
+                "waitingFor": d.get("waitingFor"),
+                "waitingSeconds": round(float(d.get("waitingDuration") or 0.0), 2),
             }
             for d in world["devices"]
+        ],
+        "workers": [
+            {
+                "id": w["id"],
+                "code": w.get("code"),
+                "name": w["name"],
+                "x": w["pos"]["x"],
+                "z": w["pos"]["z"],
+                "heading": float(w.get("heading") or 0.0),
+                "speed": float(w.get("speed") or 0.0) if w.get("status") == "walking" else 0.0,
+                "status": w.get("status"),
+                "target": w.get("target"),
+                "currentZone": w.get("current_zone"),
+                "employeeCode": w.get("employeeCode"),
+                "workerId": w.get("workerId"),
+                "displayName": w.get("displayName"),
+                "positionTitle": w.get("positionTitle"),
+                "shift": w.get("shift"),
+            }
+            for w in world["workers"]
+            if w.get("pos")
         ],
         "trucks": [
             {

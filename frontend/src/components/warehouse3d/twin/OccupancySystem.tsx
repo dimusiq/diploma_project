@@ -1,7 +1,7 @@
 import { useFrame } from "@react-three/fiber"
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
-import { setSceneFixtures } from "@/components/digitalTwin/agvCameraBridge.ts"
-import type { SceneOccluder, SceneTarget } from "@/components/digitalTwin/sceneDetection.ts"
+import { cameraDebugEnabled, setSceneFixtures } from "@/components/digitalTwin/agvCameraBridge.ts"
+import type { SceneOccluder } from "@/components/digitalTwin/sceneDetection.ts"
 import {
   type Group,
   type InstancedMesh,
@@ -62,29 +62,37 @@ export function OccupancySystem({
   )
   useEffect(() => {
     const racks = getFloorPlanRacks()
-    const fixtures: SceneTarget[] = []
     const blockers: SceneOccluder[] = []
+    const debug = cameraDebugEnabled()
     for (let index = 0; index < packed.cells.length; index += 1) {
       const cell = packed.cells[index]
       const hit = packed.hitboxes[index]
       if (!cell?.filled || !hit) continue
       const code = racks[cell.row]?.code ?? `R${String(cell.row + 1).padStart(2, "0")}`
       const entityId = `${code}-L${cell.level + 1}-C${String(cell.cellX + 1).padStart(2, "0")}`
-      fixtures.push({
+      const hx = (hit.scale?.[0] ?? 0.8) / 2
+      const hy = (hit.scale?.[1] ?? 1) / 2
+      const hz = (hit.scale?.[2] ?? 0.8) / 2
+      blockers.push({
         id: `inventory:${entityId}`,
-        className: "pallet",
-        entityType: "inventory",
-        entityId,
-        position: { x: hit.position[0], y: hit.position[1], z: hit.position[2] },
-        half: {
-          x: (hit.scale?.[0] ?? 0.8) / 2,
-          y: (hit.scale?.[1] ?? 1) / 2,
-          z: (hit.scale?.[2] ?? 0.8) / 2,
+        min: {
+          x: hit.position[0] - hx,
+          y: hit.position[1] - hy,
+          z: hit.position[2] - hz,
+        },
+        max: {
+          x: hit.position[0] + hx,
+          y: hit.position[1] + hy,
+          z: hit.position[2] + hz,
         },
       })
+      if (debug) {
+        console.info(
+          `class=pallet\nsceneRole=storage_content\ndetectable=false\nreason=STORAGE_CONTENT\nentity=${entityId}`,
+        )
+      }
     }
     for (let row = 0; row < geom.rackRows; row += 1) {
-      const code = racks[row]?.code ?? `rack-${row}`
       const cx = geom.getRackBaseX(row)
       const cz = geom.getRowZ(row)
       const hx = geom.rackLength / 2
@@ -95,16 +103,8 @@ export function OccupancySystem({
         min: { x: cx - hx, y: 0, z: cz - hz },
         max: { x: cx + hx, y: hy, z: cz + hz },
       })
-      fixtures.push({
-        id: `rack:${code}`,
-        className: "rack",
-        entityType: "rack",
-        entityId: code,
-        position: { x: cx, y: hy / 2, z: cz },
-        half: { x: hx, y: hy / 2, z: hz },
-      })
     }
-    setSceneFixtures({ pallets: fixtures, occluders: blockers })
+    setSceneFixtures({ pallets: [], occluders: blockers })
   }, [geom, packed])
 
   const hitbox = useRef<InstancedMesh>(null)

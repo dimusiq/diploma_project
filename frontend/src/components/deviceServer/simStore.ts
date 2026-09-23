@@ -61,6 +61,28 @@ export interface DeviceMotion {
   alarm: boolean
   online: boolean
   carrying: boolean
+  speed?: number
+  targetSpeed?: number
+  waitingFor?: string | null
+  waitingSeconds?: number
+}
+
+export interface WorkerMotion {
+  id: string
+  code?: string | null
+  name: string
+  x: number
+  z: number
+  heading: number
+  speed: number
+  status: string
+  target?: string | null
+  currentZone?: string | null
+  employeeCode?: string | null
+  workerId?: string | null
+  displayName?: string | null
+  positionTitle?: string | null
+  shift?: string | null
 }
 
 export interface TruckMotion {
@@ -84,6 +106,7 @@ export interface MotionSnapshot {
   running: boolean
   devices: DeviceMotion[]
   trucks: TruckMotion[]
+  workers?: WorkerMotion[]
   rackFill: RackFill[]
   zonePallets: Record<string, number>
 }

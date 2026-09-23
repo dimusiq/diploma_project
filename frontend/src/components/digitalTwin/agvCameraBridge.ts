@@ -3,6 +3,7 @@ import { controlCamera } from "@/api/smartCamera.ts"
 import {
   CAMERA_VIEW_HEIGHT,
   CAMERA_VIEW_WIDTH,
+  type CameraDebugSnapshot,
   type DetectMeta,
   detectionKey,
   diffDetections,
@@ -18,6 +19,7 @@ const detectionListeners = new Set<Listener>()
 const frustumListeners = new Set<Listener>()
 const focusListeners = new Set<Listener>()
 const openListeners = new Set<Listener>()
+const debugListeners = new Set<Listener>()
 
 let detections: ViewDetection[] = []
 let log: Array<{ timestamp: string; class_name: string; confidence: number; track_id: string }> = []
@@ -28,6 +30,7 @@ let pallets: SceneTarget[] = []
 let occluders: SceneOccluder[] = []
 let focus: ViewDetection["world_position"] | null = null
 let openRequested = false
+let cameraDebug: CameraDebugSnapshot | null = null
 const posted = new Map<string, "seen" | "lost">()
 
 export function registerAgvCamera(equipmentId: string, camera: PerspectiveCamera | null): void {
@@ -85,6 +88,20 @@ export function publishSceneDetections(next: ViewDetection[]): void {
     })
   if (!changed) return
   const transition = diffDetections(prev, next)
+  if (cameraDebugEnabled()) {
+    for (const item of transition.appeared) {
+      if (item.class_name !== "person") continue
+      console.info(
+        `[PERSON TRACE] stage=STORE_ADD entityId=${item.entity_id} objectUuid=${item.object_uuid ?? ""} trackId=${item.track_id} source=scene-detection`,
+      )
+    }
+    for (const item of transition.lost) {
+      if (item.class_name !== "person") continue
+      console.info(
+        `[PERSON TRACE] stage=STORE_REMOVE entityId=${item.entity_id} objectUuid=${item.object_uuid ?? ""} trackId=${item.track_id} source=scene-detection`,
+      )
+    }
+  }
   if (transition.appeared.length > 0 || transition.lost.length > 0) {
     const stamp = new Date().toISOString()
     const lines = [
@@ -179,6 +196,25 @@ export function consumeFocusDetection(): ViewDetection["world_position"] | null 
 export function subscribeFocusDetection(listener: Listener): () => void {
   focusListeners.add(listener)
   return () => focusListeners.delete(listener)
+}
+
+export function cameraDebugEnabled(): boolean {
+  if (typeof window === "undefined") return false
+  return new URLSearchParams(window.location.search).get("cameraDebug") === "1"
+}
+
+export function getCameraDebug(): CameraDebugSnapshot | null {
+  return cameraDebug
+}
+
+export function publishCameraDebug(next: CameraDebugSnapshot): void {
+  cameraDebug = next
+  for (const listener of debugListeners) listener()
+}
+
+export function subscribeCameraDebug(listener: Listener): () => void {
+  debugListeners.add(listener)
+  return () => debugListeners.delete(listener)
 }
 
 export function requestOpenSmartCamera(): void {

@@ -1,4 +1,4 @@
-from app.warehouse_sim.layout import route_between
+from app.warehouse_sim.layout import AISLE_Z, route_between
 from app.warehouse_sim.routing import astar_path, blocked_cells
 from app.warehouse_sim.scenarios import apply_scenario
 from app.warehouse_sim.simulation import (
@@ -29,7 +29,7 @@ def test_astar_avoids_racks() -> None:
     world = create_world({"seed": 1, **FAST})
     racks = world["topology"]["racks"]
     blocked = blocked_cells(racks)
-    path = astar_path({"x": 14, "z": 24}, {"x": 50, "z": 9}, racks)
+    path = astar_path({"x": 14, "z": 24}, {"x": 50, "z": AISLE_Z[1]}, racks)
     assert path
     for point in path[:-1]:
         cell = (int(round(point["x"])), int(round(point["z"])))

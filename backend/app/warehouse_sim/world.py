@@ -5,9 +5,12 @@ from __future__ import annotations
 import uuid
 
 from app.warehouse_sim.layout import (
+    AISLE_Z,
+    EAST_CORRIDOR_X,
     PACKING_POINT,
     RECEIVING_STAGING,
     SHIPPING_STAGING,
+    WEST_CORRIDOR_X,
     ZONE_CHARGING,
     ZONE_PACKING,
     ZONE_RECEIVING,
@@ -77,9 +80,9 @@ WORKER_NAMES = [
 WORKER_ROLE_CYCLE = ["receiver", "picker", "picker", "loader", "operator", "supervisor"]
 
 SENSOR_SPECS = [
-    {"code": "T-01", "name": "Температура, хранение А", "zoneId": ZONE_STORAGE, "pos": {"x": 34, "z": 9}, "metricKind": "temperature", "unit": "°C", "value": 19, "min": 14, "max": 26},
-    {"code": "T-02", "name": "Температура, холодная зона", "zoneId": ZONE_STORAGE, "pos": {"x": 60, "z": 54}, "metricKind": "temperature", "unit": "°C", "value": 4.5, "min": 1, "max": 8},
-    {"code": "H-01", "name": "Влажность, хранение B", "zoneId": ZONE_STORAGE, "pos": {"x": 48, "z": 39}, "metricKind": "humidity", "unit": "%", "value": 48, "min": 30, "max": 68},
+    {"code": "T-01", "name": "Температура, хранение А", "zoneId": ZONE_STORAGE, "pos": {"x": 34, "z": AISLE_Z[1]}, "metricKind": "temperature", "unit": "°C", "value": 19, "min": 14, "max": 26},
+    {"code": "T-02", "name": "Температура, холодная зона", "zoneId": ZONE_STORAGE, "pos": {"x": 60, "z": AISLE_Z[7]}, "metricKind": "temperature", "unit": "°C", "value": 4.5, "min": 1, "max": 8},
+    {"code": "H-01", "name": "Влажность, хранение B", "zoneId": ZONE_STORAGE, "pos": {"x": 48, "z": AISLE_Z[4]}, "metricKind": "humidity", "unit": "%", "value": 48, "min": 30, "max": 68},
     {"code": "V-01", "name": "Вибрация, конвейер упаковки", "zoneId": ZONE_PACKING, "pos": {"x": 88, "z": 18}, "metricKind": "vibration", "unit": "мм/с", "value": 0.6, "min": 0, "max": 2.2},
     {"code": "C-01", "name": "CO₂, приёмка", "zoneId": ZONE_RECEIVING, "pos": {"x": 8, "z": 16}, "metricKind": "co2", "unit": "ppm", "value": 520, "min": 350, "max": 1100},
     {"code": "W-01", "name": "Весы паллетные, упаковка", "zoneId": ZONE_PACKING, "pos": {"x": 84, "z": 22}, "metricKind": "weight", "unit": "кг", "value": 420, "min": 0, "max": 1450},
@@ -152,6 +155,13 @@ def create_device(did: str, kind: str, name: str, pos: dict, **overrides) -> dic
         "temperature": 24.0 if kind in ("agv", "amr", "forklift", "conveyor") else None,
         "lastSeen": 0.0,
         "inMaintenance": False,
+        "waitingFor": None,
+        "waitingSince": None,
+        "waitingDuration": 0.0,
+        "moveStartedAt": None,
+        "passSide": 0,
+        "cruise": 1.0,
+        "personInPath": False,
     }
     device.update(overrides)
     return device
@@ -177,7 +187,7 @@ def _create_devices(config: dict, topology: dict) -> list[dict]:
                 f"agv-{i}",
                 "agv",
                 f"AGV-{i:02d}",
-                {"x": 22, "z": 9 + (i - 1) * 15},
+                {"x": WEST_CORRIDOR_X, "z": AISLE_Z[1 + (i - 1) * 2]},
                 speed=1.5,
                 battery=65 + ((i * 11) % 30),
                 zoneId=ZONE_STORAGE,
@@ -193,7 +203,7 @@ def _create_devices(config: dict, topology: dict) -> list[dict]:
                 f"amr-{i}",
                 "amr",
                 f"AMR-{i:02d}",
-                {"x": 78, "z": 24 + (i - 1) * 15},
+                {"x": EAST_CORRIDOR_X, "z": AISLE_Z[2 + (i - 1) * 2]},
                 speed=1.9,
                 battery=60 + ((i * 13) % 35),
                 zoneId=ZONE_STORAGE,
@@ -301,6 +311,9 @@ def create_world(
                 "breakTimer": 0.0,
             }
         )
+    from app.warehouse_sim.pedestrians import seed_workers
+
+    seed_workers(workers, topology["racks"])
     world: dict = {
         "config": config,
         "topology": topology,

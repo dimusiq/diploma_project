@@ -25,7 +25,9 @@ from app.warehouse_sim.rng import (
     rand_pick,
     rand_range,
 )
-from app.warehouse_sim.routing import astar_path, path_blocked_by_device
+from app.warehouse_sim.pedestrians import advance_workers
+from app.warehouse_sim.routing import astar_path
+from app.warehouse_sim.traffic import PASS_SHIFT_M, resolve_traffic
 from app.warehouse_sim.world import format_sscc
 
 MAX_SUBSTEP_SEC = 1.0
@@ -1029,26 +1031,49 @@ def handling_time(world: dict, kind: str, at_source: bool) -> float:
 
 
 def advance_along_path(device: dict, dt: float, world: dict) -> None:
-    others = [
-        d["pos"]
-        for d in world["devices"]
-        if is_mobile_kind(d["kind"]) and d["id"] != device["id"] and d["status"] in ("moving", "waiting", "loading", "unloading")
-    ]
-    budget = device["speed"] * dt
-    while budget > 0 and device["path"]:
+    """Шаг position += direction * speed * dt. Ожидание решает resolve_traffic, не эта функция."""
+    if device.get("personInPath") or device.get("status") == "waiting":
+        return
+    scale = float(device.get("cruise") if device.get("cruise") is not None else 1.0)
+    if scale <= 0:
+        return
+    budget = float(device["speed"]) * scale * dt
+    off = float(device.get("passSide") or 0.0) * PASS_SHIFT_M
+    moved = False
+    while budget > 1e-6 and device["path"]:
         target = device["path"][0]
-        if path_blocked_by_device(target, others):
-            device["status"] = "waiting"
-            return
-        if device["status"] == "waiting":
-            device["status"] = "moving"
-        dx = target["x"] - device["pos"]["x"]
-        dz = target["z"] - device["pos"]["z"]
+        raw_dx = float(target["x"]) - float(device["pos"]["x"])
+        raw_dz = float(target["z"]) - float(device["pos"]["z"])
+        if abs(raw_dx) >= abs(raw_dz):
+            goal_x = float(target["x"])
+            goal_z = float(target["z"]) + off
+            err = goal_z - float(device["pos"]["z"])
+            if abs(err) > 0.12:
+                step = min(abs(err), budget)
+                device["pos"]["z"] = float(device["pos"]["z"]) + (step if err > 0 else -step)
+                budget -= step
+                moved = True
+                if budget <= 1e-6:
+                    break
+        else:
+            goal_x = float(target["x"]) + off
+            goal_z = float(target["z"])
+            err = goal_x - float(device["pos"]["x"])
+            if abs(err) > 0.12:
+                step = min(abs(err), budget)
+                device["pos"]["x"] = float(device["pos"]["x"]) + (step if err > 0 else -step)
+                budget -= step
+                moved = True
+                if budget <= 1e-6:
+                    break
+        dx = goal_x - float(device["pos"]["x"])
+        dz = goal_z - float(device["pos"]["z"])
         remaining = (dx * dx + dz * dz) ** 0.5
-        if remaining <= budget:
-            device["pos"] = dict(target)
+        if remaining <= max(budget, 0.05):
+            device["pos"] = {"x": goal_x, "z": goal_z}
             device["path"].pop(0)
-            budget -= remaining
+            budget -= min(budget, remaining)
+            moved = True
         else:
             ratio = budget / remaining
             device["pos"] = {
@@ -1056,6 +1081,11 @@ def advance_along_path(device: dict, dt: float, world: dict) -> None:
                 "z": device["pos"]["z"] + dz * ratio,
             }
             budget = 0
+            moved = True
+    if moved and device.get("moveStartedAt") is None:
+        device["moveStartedAt"] = world.get("timeSec", 0.0)
+    if moved and device.get("status") == "waiting":
+        device["status"] = "moving"
 
 
 def pick_up_pallet(world: dict, device: dict, task: dict) -> None:
@@ -1287,6 +1317,17 @@ def repair_device(world: dict, device: dict, auto: bool) -> None:
 
 
 def process_devices(world: dict, dt: float) -> None:
+    for item in resolve_traffic(world):
+        device = item["device"]
+        worker = item["worker"]
+        emit(
+            world,
+            ev.PERSON_DETECTED_IN_PATH,
+            "warning",
+            f"{device['name']}: человек {worker.get('code') or worker['id']} на пути",
+            device_id=device["id"],
+            entity_id=worker["id"],
+        )
     drain = world["config"]["batteryDrainPerMin"] / 60.0
     for device in world["devices"]:
         device["lastSeen"] = world["timeSec"]
@@ -1505,6 +1546,7 @@ def process_replenishment(world: dict, dt: float) -> None:
 
 def process_workers(world: dict, dt: float) -> None:
     world["accumulators"]["shift"] += dt
+    advance_workers(world, dt)
     for worker in world["workers"]:
         if worker["status"] == "break":
             worker["breakTimer"] -= dt

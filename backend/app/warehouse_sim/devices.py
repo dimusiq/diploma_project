@@ -72,7 +72,14 @@ class DeviceServer:
             "x": device["pos"]["x"],
             "y": device["pos"]["z"],
             "z": device["pos"]["z"],
-            "speed": device["speed"] if device["status"] in ("moving", "waiting") else 0.0,
+            "speed": (
+                0.0
+                if device.get("personInPath") or device["status"] == "waiting" or device["status"] != "moving"
+                else float(device.get("speed") or 0.0) * float(device.get("cruise") or 1.0)
+            ),
+            "targetSpeed": float(device.get("speed") or 0.0),
+            "waitingFor": device.get("waitingFor"),
+            "waitingSeconds": round(float(device.get("waitingDuration") or 0.0), 2),
             "currentTask": device.get("taskId"),
             "temperature": device.get("temperature"),
             "lastSeen": device.get("lastSeen"),

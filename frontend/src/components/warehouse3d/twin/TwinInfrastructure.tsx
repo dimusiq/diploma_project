@@ -89,8 +89,8 @@ function EmergencyCabinets() {
   const spots: Array<[number, number, number]> = [
     [planToWorldX(24), 1.1, planToWorldZ(2.4)],
     [planToWorldX(80), 1.1, planToWorldZ(2.4)],
-    [planToWorldX(24), 1.1, planToWorldZ(61.6)],
-    [planToWorldX(80), 1.1, planToWorldZ(61.6)],
+    [planToWorldX(24), 1.1, planToWorldZ(WAREHOUSE_DEPTH - 2.4)],
+    [planToWorldX(80), 1.1, planToWorldZ(WAREHOUSE_DEPTH - 2.4)],
   ]
   return (
     <>

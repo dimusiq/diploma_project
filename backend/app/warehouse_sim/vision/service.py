@@ -5,19 +5,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.warehouse_sim.vision.demo_source import (
-    FRAME_HEIGHT,
-    FRAME_WIDTH,
-    describe,
-    phase_index,
-)
+from app.warehouse_sim.vision.demo_source import FRAME_HEIGHT, FRAME_WIDTH
 from app.warehouse_sim.vision.detector import DemoDetector
 
 CAMERA_CLASSES = ("person", "forklift", "agv", "truck", "pallet", "box", "obstacle", "rack")
 HOLD_CLASSES = ("person", "obstacle")
 SCENE_VIEW_FPS = 24
 _EPOCH = datetime(2026, 1, 1, tzinfo=timezone.utc)
-_detector = DemoDetector()
 
 
 def camera_spec(*, installed: bool = False) -> dict[str, Any]:
@@ -82,36 +76,6 @@ def public_camera(device: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _stamp(
-    device: dict[str, Any],
-    elapsed: float,
-    items: list[dict[str, Any]],
-    threshold: float,
-    time_sec: float,
-) -> list[dict[str, Any]]:
-    frame = phase_index(elapsed)
-    when = (_EPOCH + timedelta(seconds=float(time_sec))).isoformat().replace("+00:00", "Z")
-    stamped: list[dict[str, Any]] = []
-    for item in items:
-        if float(item["confidence"]) < threshold:
-            continue
-        name = str(item["class_name"])
-        stamped.append(
-            {
-                "id": f"{device['id']}:{frame}:{name}",
-                "camera_id": f"{device['id']}-cam",
-                "equipment_id": device["id"],
-                "timestamp": when,
-                "class_name": name,
-                "confidence": float(item["confidence"]),
-                "bbox": dict(item["bbox"]),
-                "track_id": item.get("track_id"),
-                "severity": item.get("severity") or "info",
-            }
-        )
-    return stamped
-
-
 def _publish(world: dict[str, Any], kind: str, payload: dict[str, Any]) -> None:
     world.setdefault("vision_outbox", []).append({"type": kind, "payload": payload})
 
@@ -120,77 +84,6 @@ def _emit(world: dict[str, Any], event_type: str, severity: str, message: str, d
     from app.warehouse_sim.simulation import emit
 
     emit(world, event_type, severity, message, device_id=device["id"], entity_id=f"{device['id']}-cam")
-
-
-def _apply_frame(world: dict[str, Any], device: dict[str, Any], camera: dict[str, Any]) -> None:
-    from app.warehouse_sim import events as ev
-
-    threshold = float(camera.get("confidence_threshold") or 0.45)
-    detections = _stamp(
-        device,
-        float(camera["elapsed"]),
-        _detector.detect(float(camera["elapsed"])),
-        threshold,
-        float(world.get("timeSec") or 0),
-    )
-    previous = set(camera.get("seen_classes") or [])
-    current = {item["class_name"] for item in detections}
-    camera["detections"] = detections
-    camera["detection_count"] = len(detections)
-    camera["frame_index"] = phase_index(float(camera["elapsed"]))
-    camera["description"] = describe(detections)
-    log = list(camera.get("log") or [])
-    for item in detections:
-        log.append(
-            {
-                "timestamp": item["timestamp"],
-                "class_name": item["class_name"],
-                "confidence": item["confidence"],
-                "track_id": item["track_id"],
-                "bbox": dict(item["bbox"]),
-            }
-        )
-    camera["log"] = log[-12:]
-    camera["inference_ms"] = 12.0
-    camera["fps"] = int(camera.get("target_fps") or 8)
-    obstacle = "obstacle" in current
-    camera["obstacle"] = obstacle
-    device["cameraHold"] = obstacle
-    payload = {
-        "equipment_id": device["id"],
-        "camera_id": f"{device['id']}-cam",
-        "frame_index": camera["frame_index"],
-        "detections": detections,
-        "description": camera["description"],
-        "obstacle": obstacle,
-        "status": public_camera(device),
-    }
-    _publish(world, "camera.detection", payload)
-    for name in sorted(current - previous):
-        sample = next(item for item in detections if item["class_name"] == name)
-        if name == "person":
-            _emit(world, ev.PERSON_DETECTED, "info", "Обнаружен человек", device)
-        elif name == "obstacle":
-            _emit(world, ev.OBSTACLE_DETECTED, "warning", "Обнаружено препятствие", device)
-        else:
-            _emit(world, ev.OBJECT_DETECTED, "info", f"Обнаружен объект: {name}", device)
-        _publish(
-            world,
-            "camera.detection",
-            {
-                "equipment_id": device["id"],
-                "camera_id": sample["camera_id"],
-                "class_name": name,
-                "confidence": sample["confidence"],
-                "bbox": sample["bbox"],
-            },
-        )
-    if "obstacle" in previous and "obstacle" not in current:
-        device["cameraHold"] = False
-        camera["obstacle"] = False
-        _emit(world, ev.CAMERA_DETECTION_CLEARED, "success", "Препятствие исчезло", device)
-        _publish(world, "camera.detection_cleared", {"equipment_id": device["id"], "camera_id": f"{device['id']}-cam"})
-    camera["seen_classes"] = sorted(current)
 
 
 def tick_cameras(world: dict[str, Any], dt: float) -> None:

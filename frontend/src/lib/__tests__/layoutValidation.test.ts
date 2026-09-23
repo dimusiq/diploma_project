@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { buildDocks, buildTopology } from "@/components/deviceServer/simLayout.ts"
+import {
+  AISLE_WIDTH,
+  buildDocks,
+  buildTopology,
+  workAisleGaps,
+} from "@/components/deviceServer/simLayout.ts"
+import { REQUIRED_AISLE_WIDTH } from "@/components/warehouse3d/vehiclePhysicalDimensions.ts"
 import {
   dockWorldPose,
   truckWorldPose,
@@ -11,6 +17,24 @@ describe("validateWarehouseLayout", () => {
     const topology = buildTopology()
     expect(validateWarehouseLayout(topology)).toEqual([])
     expect(layoutSummary(topology)).toBe("8 блоков, 16 стеллажей, 6 ворот")
+    const gaps = workAisleGaps()
+    expect(gaps.map((gap) => gap.id)).toEqual([
+      "A01",
+      "A02",
+      "A03",
+      "A04",
+      "A05",
+      "A06",
+      "A07",
+      "A08",
+      "A09",
+    ])
+    for (const gap of gaps) {
+      expect(gap.width).toBeGreaterThanOrEqual(REQUIRED_AISLE_WIDTH - 1e-6)
+    }
+    expect(AISLE_WIDTH).toBe(REQUIRED_AISLE_WIDTH)
+    const minAisle = Math.min(...gaps.map((gap) => gap.width))
+    expect(minAisle - REQUIRED_AISLE_WIDTH).toBeGreaterThanOrEqual(-1e-6)
   })
 
   it("keeps trucks outside the facade with the cabin turned outward", () => {

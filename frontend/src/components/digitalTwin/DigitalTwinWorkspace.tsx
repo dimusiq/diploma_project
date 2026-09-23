@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react"
 import { DeviceInspector } from "@/components/deviceServer/DeviceFleetPanel.tsx"
+import { taskKindLabel } from "@/components/deviceServer/simFormat.ts"
 import { EventStreamPanel } from "@/components/deviceServer/EventStreamPanel.tsx"
+import { useSimData, useSimMotion } from "@/components/deviceServer/useDeviceSimulation.ts"
 import { WarehouseDigitalTwin } from "@/components/deviceServer/WarehouseDigitalTwin.tsx"
+import { PersonnelRuntimePanel } from "@/components/personnel/PersonnelRuntimePanel.tsx"
 import { DigitalTwinOverview } from "@/components/digitalTwin/DigitalTwinOverview.tsx"
 import { TwinAnalyticsPanel } from "@/components/digitalTwin/TwinAnalyticsPanel.tsx"
 import {
@@ -32,10 +35,19 @@ export function DigitalTwinWorkspace({
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(
     deviceId ?? null,
   )
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (deviceId) setSelectedDeviceId(deviceId)
+    if (deviceId) {
+      setSelectedDeviceId(deviceId)
+      setSelectedPersonId(null)
+    }
   }, [deviceId])
+
+  function selectDevice(next: string | null) {
+    setSelectedDeviceId(next)
+    if (next) setSelectedPersonId(null)
+  }
 
   return (
     <div className="mx-auto w-full max-w-[1600px] px-4 py-6 md:py-8">
@@ -68,16 +80,22 @@ export function DigitalTwinWorkspace({
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
               <WarehouseDigitalTwin
                 selectedDeviceId={selectedDeviceId}
-                onSelectDevice={setSelectedDeviceId}
+                onSelectDevice={selectDevice}
+                selectedPersonId={selectedPersonId}
+                onSelectPerson={setSelectedPersonId}
                 view={view}
                 onViewChange={onViewChange}
                 sceneActive={tab === "map"}
                 title={null}
               />
-              <DeviceInspector
-                deviceId={selectedDeviceId}
-                onShowCameraInWorld={() => onViewChange("3d")}
-              />
+              {selectedPersonId ? (
+                <SelectedPersonPanel personId={selectedPersonId} />
+              ) : (
+                <DeviceInspector
+                  deviceId={selectedDeviceId}
+                  onShowCameraInWorld={() => onViewChange("3d")}
+                />
+              )}
             </div>
           </div>
         </TabsContent>
@@ -99,5 +117,26 @@ export function DigitalTwinWorkspace({
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+function SelectedPersonPanel({ personId }: { personId: string }) {
+  const motion = useSimMotion()
+  const data = useSimData()
+  const person = motion.workers?.find((item) => item.id === personId)
+  if (!person) {
+    return (
+      <aside className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+        Сотрудник вне смены
+      </aside>
+    )
+  }
+  const worker = data.workers.find((item) => item.id === personId)
+  const task = data.tasks.find((item) => item.id === worker?.taskId || item.workerId === personId)
+  return (
+    <PersonnelRuntimePanel
+      person={person}
+      taskTitle={task ? taskKindLabel(task.kind) : null}
+    />
   )
 }

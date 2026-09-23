@@ -9,21 +9,17 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { MathUtils } from "three"
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib"
 import { AgvCameraProbe } from "@/components/digitalTwin/AgvCameraProbe.tsx"
-import { CAMERA_VIEW_HZ } from "@/components/digitalTwin/sceneDetection.ts"
+import { CameraDebugMarkers } from "@/components/digitalTwin/CameraDebugMarkers.tsx"
 import {
+  cameraDebugEnabled,
   consumeFocusDetection,
-  getSceneDetections,
   getShowCameraFrustum,
-  requestFocusDetection,
-  requestOpenSmartCamera,
   setShowCameraFrustum,
   subscribeFocusDetection,
-  subscribeSceneDetections,
   subscribeCameraFrustum,
 } from "@/components/digitalTwin/agvCameraBridge.ts"
 import {
   consumeAgvCameraView,
-  requestAgvCameraView,
   subscribeAgvCameraView,
 } from "@/components/digitalTwin/twinCameraFollow.ts"
 import { Button } from "@/components/ui/button.tsx"
@@ -45,9 +41,7 @@ import {
   WarehouseGeometryProvider,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import { cn } from "@/lib/utils"
-import { deviceStatusLabel, taskKindLabel } from "./simFormat.ts"
 import { deviceSimulation } from "./simStore.ts"
-import type { SimDevice } from "./simTypes.ts"
 import { occupiedCellKeysFromIds } from "./twinOccupancy.ts"
 import { useSimData } from "./useDeviceSimulation.ts"
 
@@ -167,6 +161,8 @@ function CameraCommands({
 function TwinScene({
   selectedDeviceId,
   onSelectDevice,
+  selectedPersonId,
+  onSelectPerson,
   selectedCell,
   onSelectCell,
   darkMode,
@@ -176,6 +172,8 @@ function TwinScene({
 }: {
   selectedDeviceId: string | null
   onSelectDevice: (deviceId: string | null) => void
+  selectedPersonId: string | null
+  onSelectPerson: (personId: string | null) => void
   selectedCell: CellInfo | null
   onSelectCell: (info: CellInfo | null) => void
   darkMode?: boolean
@@ -205,8 +203,15 @@ function TwinScene({
         onSelectDevice={onSelectDevice}
         darkMode={darkMode}
       />
-      <TwinPeople />
+      <TwinPeople
+        selectedId={selectedPersonId}
+        onSelect={(personId) => {
+          onSelectDevice(null)
+          onSelectPerson(personId)
+        }}
+      />
       <AgvCameraProbe />
+      {cameraDebugEnabled() ? <CameraDebugMarkers /> : null}
       <OrbitControls
         makeDefault
         enablePan
@@ -234,46 +239,6 @@ function cellCaption(info: CellInfo): string {
   return `${code}-L${info.level + 1}-C${String(info.cellX + 1).padStart(2, "0")}`
 }
 
-function AgvCameraStatus({
-  online,
-  detections,
-  onOpen,
-  onFollow,
-  onFocus,
-}: {
-  online: boolean
-  detections: Array<{ class_name: string }>
-  onOpen: () => void
-  onFollow: () => void
-  onFocus: () => void
-}) {
-  const people = detections.filter((item) => item.class_name === "person").length
-  const pallets = detections.filter((item) => item.class_name === "pallet").length
-  const obstacles = detections.filter((item) => item.class_name === "obstacle").length
-  return (
-    <div className="space-y-1 border-t pt-1">
-      <p className="font-semibold">Camera</p>
-      <InspectorRow label="Status" value={online ? "ONLINE" : "OFFLINE"} />
-      <InspectorRow label="FPS" value={online ? String(CAMERA_VIEW_HZ) : "0"} />
-      <InspectorRow label="Objects" value={String(detections.length)} />
-      <InspectorRow label="People" value={String(people)} />
-      <InspectorRow label="Pallets" value={String(pallets)} />
-      <InspectorRow label="Obstacles" value={String(obstacles)} />
-      <div className="flex flex-wrap gap-1 pt-1">
-        <Button type="button" size="xs" variant="outline" onClick={onOpen}>
-          Открыть камеру
-        </Button>
-        <Button type="button" size="xs" variant="outline" onClick={onFollow}>
-          Следить за AGV
-        </Button>
-        <Button type="button" size="xs" variant="outline" onClick={onFocus} disabled={detections.length === 0}>
-          Перейти к объекту
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 function InspectorRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-6">
@@ -286,10 +251,14 @@ function InspectorRow({ label, value }: { label: string; value: string }) {
 export function Warehouse3D({
   selectedDeviceId,
   onSelectDevice,
+  selectedPersonId = null,
+  onSelectPerson = () => undefined,
   active = true,
 }: {
   selectedDeviceId: string | null
   onSelectDevice: (deviceId: string | null) => void
+  selectedPersonId?: string | null
+  onSelectPerson?: (personId: string | null) => void
   active?: boolean
 }) {
   const { resolvedTheme } = useTheme()
@@ -302,11 +271,6 @@ export function Warehouse3D({
     subscribeCameraFrustum,
     getShowCameraFrustum,
     getShowCameraFrustum,
-  )
-  const sceneDetections = useSyncExternalStore(
-    subscribeSceneDetections,
-    getSceneDetections,
-    getSceneDetections,
   )
   const consumeCamera = useCallback(() => setCameraCommand(null), [])
 
@@ -327,13 +291,6 @@ export function Warehouse3D({
     })
   }, [])
 
-  const selectedDevice: SimDevice | undefined = data.devices.find(
-    (device) => device.id === selectedDeviceId,
-  )
-  const selectedTask = data.tasks.find(
-    (task) =>
-      task.deviceId === selectedDeviceId && task.status !== "done",
-  )
   const selectedRack =
     selectedCell != null ? getFloorPlanRacks()[selectedCell.row] : undefined
   const occupiedKeys = useMemo(
@@ -354,11 +311,6 @@ export function Warehouse3D({
   }, [occupiedKeys, selectedRack, selectedCell?.row])
   const rackOccupancyPct =
     rackTotal > 0 ? Math.round((rackOccupied / rackTotal) * 1000) / 10 : 0
-  const showMobileInspector =
-    selectedDevice &&
-    (selectedDevice.kind === "agv" ||
-      selectedDevice.kind === "amr" ||
-      selectedDevice.kind === "forklift")
 
   return (
     <div className="relative overflow-hidden rounded-lg border bg-card">
@@ -398,7 +350,12 @@ export function Warehouse3D({
           <WarehouseGeometryProvider spec={FLOOR_PLAN_LAYOUT_SPEC}>
             <TwinScene
               selectedDeviceId={selectedDeviceId}
-              onSelectDevice={onSelectDevice}
+              onSelectDevice={(deviceId) => {
+                if (deviceId) onSelectPerson(null)
+                onSelectDevice(deviceId)
+              }}
+              selectedPersonId={selectedPersonId}
+              onSelectPerson={onSelectPerson}
               selectedCell={selectedCell}
               onSelectCell={setSelectedCell}
               darkMode={darkMode}
@@ -410,75 +367,16 @@ export function Warehouse3D({
         </Canvas>
       </div>
       <TwinPerfHud enabled={DEV_PERF} />
-      {(showMobileInspector || selectedCell) && (
-        <div className="absolute bottom-8 left-2 max-w-sm space-y-3 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
-          {showMobileInspector && selectedDevice && (
-            <div className="space-y-1">
-              <p className="font-semibold">{selectedDevice.name}</p>
-              <InspectorRow label="Код" value={selectedDevice.id} />
-              <InspectorRow
-                label="Status"
-                value={deviceStatusLabel(selectedDevice.status)}
-              />
-              <InspectorRow
-                label="Task"
-                value={
-                  selectedTask
-                    ? `${taskKindLabel(selectedTask.kind)} → ${selectedTask.toLabel}`
-                    : "—"
-                }
-              />
-              <InspectorRow
-                label="Speed"
-                value={`${selectedDevice.speed.toFixed(2)} m/s`}
-              />
-              <InspectorRow
-                label="Battery"
-                value={
-                  selectedDevice.battery !== null
-                    ? `${Math.round(selectedDevice.battery)}%`
-                    : "—"
-                }
-              />
-              <InspectorRow
-                label="Position"
-                value={`${selectedDevice.pos.x.toFixed(1)}, ${selectedDevice.pos.z.toFixed(1)}`}
-              />
-              {selectedDevice.camera?.installed ? (
-                <AgvCameraStatus
-                  online={Boolean(selectedDevice.camera.online)}
-                  detections={sceneDetections}
-                  onOpen={() => requestOpenSmartCamera()}
-                  onFollow={() => requestAgvCameraView(selectedDevice.id)}
-                  onFocus={() => {
-                    const target = sceneDetections[0]
-                    if (target) requestFocusDetection(target.world_position)
-                  }}
-                />
-              ) : null}
-            </div>
-          )}
-          {selectedCell && selectedRack && (
-            <div className="space-y-1">
-              <p className="font-semibold">{cellCaption(selectedCell)}</p>
-              <InspectorRow label="Rack ID" value={selectedRack.code} />
-              <InspectorRow label="Block" value={selectedRack.blockId ?? "—"} />
-              <InspectorRow label="Side" value={selectedRack.side ?? "—"} />
-              <InspectorRow
-                label="Levels"
-                value={String(selectedRack.levels)}
-              />
-              <InspectorRow label="Total cells" value={String(rackTotal)} />
-              <InspectorRow
-                label="Occupied cells"
-                value={String(rackOccupied)}
-              />
-              <InspectorRow
-                label="Occupancy %"
-                value={`${rackOccupancyPct}%`}
-              />
-            </div>
-          )}
+      {selectedCell && selectedRack && (
+        <div className="absolute bottom-8 left-2 max-w-sm space-y-1 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm">
+          <p className="font-semibold">{cellCaption(selectedCell)}</p>
+          <InspectorRow label="Rack ID" value={selectedRack.code} />
+          <InspectorRow label="Block" value={selectedRack.blockId ?? "—"} />
+          <InspectorRow label="Side" value={selectedRack.side ?? "—"} />
+          <InspectorRow label="Levels" value={String(selectedRack.levels)} />
+          <InspectorRow label="Total cells" value={String(rackTotal)} />
+          <InspectorRow label="Occupied cells" value={String(rackOccupied)} />
+          <InspectorRow label="Occupancy %" value={`${rackOccupancyPct}%`} />
         </div>
       )}
       <TwinLegend />

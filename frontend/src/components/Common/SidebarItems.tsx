@@ -36,6 +36,7 @@ import {
   sidebarMenuButtonVariants,
 } from "@/components/ui/sidebar.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
+import { canViewPersonnel } from "@/lib/personnelAccess.ts"
 import { isTechniqueSidebarItemActive } from "@/lib/techniqueNav.ts"
 import { cn } from "@/lib/utils"
 import { canAccessWarehouseSim } from "@/lib/warehouseSimAccess.ts"
@@ -128,6 +129,7 @@ const simulationItems: Item[] = [
 ]
 
 const managementItemsBase: Item[] = [
+  { icon: FiUsers, title: "Персонал", path: "/personnel" },
   { icon: FiMessageCircle, title: "Ассистент", path: "/assistant" },
   { icon: FiSettings, title: "Настройки Пользователя", path: "/settings" },
 ]
@@ -197,6 +199,9 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
     if (!isExpandable(item) && item.path === "/assistant") {
       if (agentPermPending) return false
       return agentPerm?.can_use === true
+    }
+    if (!isExpandable(item) && item.path === "/personnel") {
+      return canViewPersonnel(currentUser)
     }
     return true
   })

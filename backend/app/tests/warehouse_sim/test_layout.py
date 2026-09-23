@@ -1,18 +1,24 @@
 from app.warehouse_sim.layout import (
     AISLE_WIDTH,
+    AISLE_Z,
+    APPROACH_OFFSET,
     BACK_GAP,
     BLOCK_COUNT,
     BLOCK_DEPTH,
+    WEST_CORRIDOR_X,
     build_blocks,
     build_cells,
     build_racks,
     build_topology,
+    clearance_report,
     route_between,
+    work_aisle_gaps,
 )
 from app.warehouse_sim.routing import astar_path, blocked_cells
+from app.warehouse_sim.vehicle_dimensions import REQUIRED_AISLE_WIDTH
 from app.warehouse_sim.world import create_world
 
-AGV_START = {"x": 22.0, "z": 9.0}
+AGV_START = {"x": WEST_CORRIDOR_X, "z": AISLE_Z[1]}
 
 
 def _cell_pos(cells: list[dict], cell_id: str) -> dict[str, float]:
@@ -64,8 +70,8 @@ def test_spine_is_not_navigable_but_work_aisles_are() -> None:
         mid_x = rack_a["x"] + rack_a["w"] / 2
         mid_z = rack_a["z"] + rack_a["d"] + BACK_GAP / 2
         assert _grid({"x": mid_x, "z": mid_z}) in blocked
-        north = {"x": mid_x, "z": rack_a["z"] - 1.2}
-        south = {"x": mid_x, "z": rack_b["z"] + rack_b["d"] + 1.2}
+        north = {"x": mid_x, "z": rack_a["z"] - APPROACH_OFFSET}
+        south = {"x": mid_x, "z": rack_b["z"] + rack_b["d"] + APPROACH_OFFSET}
         assert _grid(north) not in blocked, block["id"]
         assert _grid(south) not in blocked, block["id"]
     for i, block in enumerate(build_blocks(racks)[:-1]):
@@ -117,8 +123,8 @@ def test_astar_does_not_cross_racks_or_spine() -> None:
     }
     assert _grid(spine) in blocked
     through = astar_path(
-        {"x": spine["x"], "z": rack_a["z"] - 1.2},
-        {"x": spine["x"], "z": rack_a["z"] + BLOCK_DEPTH + 1.2},
+        {"x": spine["x"], "z": rack_a["z"] - APPROACH_OFFSET},
+        {"x": spine["x"], "z": rack_a["z"] + BLOCK_DEPTH + APPROACH_OFFSET},
         racks,
     )
     for point in through[:-1]:
@@ -136,6 +142,17 @@ def test_cross_aisles_connect_all_work_aisles() -> None:
         start = {"x": west, "z": topology["aisleZ"][0]}
         path2 = astar_path(start, {"x": west, "z": z}, racks)
         assert path2, z
+
+
+def test_aisle_width_lets_two_max_vehicles_pass() -> None:
+    gaps = work_aisle_gaps()
+    assert len(gaps) == 9
+    assert AISLE_WIDTH == REQUIRED_AISLE_WIDTH
+    report = clearance_report()
+    assert all(line.startswith("PASS") for line in report), report
+    for gap in gaps:
+        assert gap["width"] + 1e-6 >= REQUIRED_AISLE_WIDTH, gap
+        assert abs(gap["center"] - AISLE_Z[int(gap["id"][1:]) - 1]) < 1e-6
 
 
 def test_world_cells_follow_sixteen_racks() -> None:
