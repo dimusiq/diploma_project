@@ -84,6 +84,16 @@ export const TWIN_MAT = {
     metalness: 0.08,
     roughness: 0.88,
   }),
+  gate: new MeshStandardMaterial({
+    color: "#D9D9D6",
+    roughness: 0.86,
+    metalness: 0.04,
+  }),
+  gateFrame: new MeshStandardMaterial({
+    color: "#555B60",
+    roughness: 0.74,
+    metalness: 0.16,
+  }),
   wall: new MeshStandardMaterial({
     color: "#d6d3d1",
     roughness: 0.86,

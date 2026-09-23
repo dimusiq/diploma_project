@@ -3,7 +3,7 @@
  * и движущаяся техника. Перерисовывается 20 раз в секунду из снимка движения.
  */
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import {
   PACKING_POINT,
@@ -17,6 +17,7 @@ import { deviceSimulation } from "./simStore.ts"
 import type { ZoneKind } from "./simTypes.ts"
 import { occupiedCellKeysForTwin } from "./twinOccupancy.ts"
 import { useSimData, useSimMotion } from "./useDeviceSimulation.ts"
+import { fitWarehouseToWidth } from "./warehouseMapViewport.ts"
 
 const ZONE_TONE: Record<ZoneKind, string> = {
   receiving: "fill-sky-500/10 stroke-sky-500/40",
@@ -212,14 +213,37 @@ export function WarehouseLiveMap({
     [occupiedCellKeys, data.occupiedCellIds, motion.rackFill],
   )
 
+  const hostRef = useRef<HTMLDivElement>(null)
+  const [fitted, setFitted] = useState(() => fitWarehouseToWidth(960))
+
+  useEffect(() => {
+    const node = hostRef.current
+    if (!node) return
+    let lastWidth = -1
+    const apply = (width: number) => {
+      if (width < 8 || Math.abs(width - lastWidth) < 0.5) return
+      lastWidth = width
+      setFitted(fitWarehouseToWidth(width))
+    }
+    apply(node.clientWidth)
+    const observer = new ResizeObserver((entries) => {
+      apply(entries[0]?.contentRect.width ?? 0)
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <div className="rounded-lg border bg-card p-2">
-      <svg
-        viewBox={`-26 -7 ${WAREHOUSE_WIDTH + 52} ${WAREHOUSE_DEPTH + 14}`}
-        className="h-auto w-full"
-        role="img"
-        aria-label="План склада в реальном времени"
-      >
+    <div className="flex w-full min-w-0 flex-col rounded-lg border bg-card">
+      <div ref={hostRef} className="min-h-0 w-full min-w-0">
+        <svg
+          viewBox={fitted.viewBox}
+          preserveAspectRatio="xMidYMid meet"
+          className="block w-full"
+          style={{ height: fitted.pixelHeight }}
+          role="img"
+          aria-label="План склада в реальном времени"
+        >
         {/* Контур здания */}
         <rect
           x={0}
@@ -482,7 +506,8 @@ export function WarehouseLiveMap({
             </g>
           )
         })}
-      </svg>
+        </svg>
+      </div>
       <MapLegend />
     </div>
   )

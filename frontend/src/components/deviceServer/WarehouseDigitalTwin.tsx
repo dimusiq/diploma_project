@@ -45,7 +45,7 @@ export function WarehouseDigitalTwin({
   }, [view])
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         {title ? (
           <h2 className="font-heading text-lg font-semibold tracking-tight">
@@ -56,7 +56,7 @@ export function WarehouseDigitalTwin({
         )}
         <WarehouseViewSwitcher value={view} onChange={setView} />
       </div>
-      <div className={view === "2d" ? undefined : "hidden"}>
+      <div className={view === "2d" ? "min-w-0" : "hidden"}>
         <WarehouseLiveMap
           selectedDeviceId={selectedDeviceId}
           onSelectDevice={onSelectDevice}

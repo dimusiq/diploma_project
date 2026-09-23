@@ -7,114 +7,109 @@ import { SafetyBollard } from "@/components/warehouse3d/twin/SafetyBarrier.tsx"
 import {
   DOCK_DOOR_WIDTH,
   DOCK_FRAME_WIDTH,
+  DOCK_GATE_HEIGHT,
+  DOCK_GATE_TOP,
+  DOCK_HEADER_H,
+  DOCK_INNER_FACE_Z,
+  DOCK_JAMB_W,
+  dockBollardLocals,
+  dockHazardLocal,
   dockWorldPose,
   TWIN_WALL_HEIGHT,
   TWIN_WALL_THICKNESS,
 } from "@/components/warehouse3d/twin/twinLayout.ts"
 import { TWIN_GEOM, TWIN_MAT } from "@/components/warehouse3d/twin/twinMaterials.ts"
 
-const JAMB_W = 0.22
-const HEADER_H = 0.36
-const DOOR_CLOSED_H = 3.2
-const FACADE_EPS = 0.02
+const DOOR_THICKNESS = 0.05
+const OPEN_LIFT = 2.4
+const LINTEL_TUCK = 0.012
 
 function DockDoor({ dockId }: { dockId: string }) {
   const ref = useRef<Mesh>(null)
+  const closed = DOCK_GATE_HEIGHT + LINTEL_TUCK
+  const top = DOCK_GATE_TOP + LINTEL_TUCK
   useFrame(() => {
     const door = deviceSimulation
       .getMotionSnapshot()
       .devices.find((device) => device.id === dockId)
-    const lift = door?.status === "occupied" ? 2.4 : 0.15
+    const lift = door?.status === "occupied" ? OPEN_LIFT : 0
+    const height = Math.max(0.2, closed - lift)
     const node = ref.current
     if (!node) return
-    node.position.y = 0.36 + (DOOR_CLOSED_H - lift) / 2
-    node.scale.y = Math.max(0.2, DOOR_CLOSED_H - lift)
+    node.scale.y = height
+    node.position.y = top - height / 2
   })
   return (
     <mesh
       ref={ref}
       geometry={TWIN_GEOM.box}
-      material={TWIN_MAT.darkMetal}
-      position={[0, 0.36 + DOOR_CLOSED_H / 2, FACADE_EPS]}
-      scale={[DOCK_DOOR_WIDTH, DOOR_CLOSED_H, 0.08]}
+      material={TWIN_MAT.gate}
+      position={[0, top - closed / 2, DOCK_INNER_FACE_Z - DOOR_THICKNESS / 2]}
+      scale={[DOCK_DOOR_WIDTH, closed, DOOR_THICKNESS]}
     />
   )
 }
 
-function DockFrame({ darkMode }: { darkMode?: boolean }) {
-  const mat = darkMode ? TWIN_MAT.wallDark : TWIN_MAT.steel
-  const jambX = (DOCK_FRAME_WIDTH - JAMB_W) / 2
+function DockFrame() {
+  const jambX = (DOCK_FRAME_WIDTH - DOCK_JAMB_W) / 2
   return (
     <group>
       <mesh
         geometry={TWIN_GEOM.box}
-        material={mat}
+        material={TWIN_MAT.gateFrame}
         position={[-jambX, TWIN_WALL_HEIGHT / 2, 0]}
-        scale={[JAMB_W, TWIN_WALL_HEIGHT, TWIN_WALL_THICKNESS]}
+        scale={[DOCK_JAMB_W, TWIN_WALL_HEIGHT, TWIN_WALL_THICKNESS]}
       />
       <mesh
         geometry={TWIN_GEOM.box}
-        material={mat}
+        material={TWIN_MAT.gateFrame}
         position={[jambX, TWIN_WALL_HEIGHT / 2, 0]}
-        scale={[JAMB_W, TWIN_WALL_HEIGHT, TWIN_WALL_THICKNESS]}
+        scale={[DOCK_JAMB_W, TWIN_WALL_HEIGHT, TWIN_WALL_THICKNESS]}
       />
       <mesh
         geometry={TWIN_GEOM.box}
-        material={mat}
-        position={[0, TWIN_WALL_HEIGHT - HEADER_H / 2, 0]}
-        scale={[DOCK_FRAME_WIDTH, HEADER_H, TWIN_WALL_THICKNESS]}
+        material={TWIN_MAT.gateFrame}
+        position={[0, TWIN_WALL_HEIGHT - DOCK_HEADER_H / 2, 0]}
+        scale={[DOCK_FRAME_WIDTH, DOCK_HEADER_H, TWIN_WALL_THICKNESS]}
       />
     </group>
   )
 }
 
-export function DockModel({
-  dock,
-  darkMode,
-}: {
-  dock: SimDock
-  darkMode?: boolean
-}) {
-  const pose = dockWorldPose(dock)
+function DockHazard() {
+  const hazard = dockHazardLocal()
   return (
-    <group position={[pose.x, 0, pose.z]} rotation={[0, pose.rotationY, 0]}>
-      <mesh
-        geometry={TWIN_GEOM.box}
-        material={TWIN_MAT.darkMetal}
-        position={[0, 0.18, -1.15]}
-        scale={[3.6, 0.36, 2.3]}
-      />
+    <group>
       <mesh
         geometry={TWIN_GEOM.box}
         material={TWIN_MAT.safetyYellow}
-        position={[0, 0.02, -2.35]}
-        scale={[3.8, 0.02, 2.5]}
+        position={[0, 0.012, hazard.centerZ]}
+        scale={[hazard.width, 0.012, hazard.depth]}
       />
-      {[-1.1, -0.35, 0.35, 1.1].map((x) => (
+      {hazard.stripeXs.map((x) => (
         <mesh
           key={x}
           geometry={TWIN_GEOM.box}
           material={TWIN_MAT.safetyBlack}
-          position={[x, 0.025, -2.35]}
-          scale={[0.28, 0.012, 2.3]}
+          position={[x, 0.02, hazard.centerZ]}
+          scale={[0.22, 0.008, hazard.depth - 0.12]}
         />
       ))}
-      <DockFrame darkMode={darkMode} />
+    </group>
+  )
+}
+
+export function DockModel({ dock }: { dock: SimDock; darkMode?: boolean }) {
+  const pose = dockWorldPose(dock)
+  const bollards = dockBollardLocals()
+  return (
+    <group position={[pose.x, 0, pose.z]} rotation={[0, pose.rotationY, 0]}>
+      <DockHazard />
+      {bollards.map((position) => (
+        <SafetyBollard key={position.join(",")} position={position} />
+      ))}
+      <DockFrame />
       <DockDoor dockId={dock.id} />
-      <mesh
-        geometry={TWIN_GEOM.box}
-        material={TWIN_MAT.steel}
-        position={[0, TWIN_WALL_HEIGHT - HEADER_H / 2, 0.12]}
-        scale={[0.22, 0.12, 0.12]}
-      />
-      <SafetyBollard position={[-1.9, 0, -1.2]} />
-      <SafetyBollard position={[1.9, 0, -1.2]} />
-      <mesh
-        geometry={TWIN_GEOM.box}
-        material={TWIN_MAT.safetyYellow}
-        position={[0, 0.02, -3.55]}
-        scale={[1.4, 0.01, 0.4]}
-      />
     </group>
   )
 }

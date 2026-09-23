@@ -10,8 +10,17 @@ import {
   chargingSlotPlanPositions,
   DOCK_DOOR_WIDTH,
   DOCK_FRAME_WIDTH,
+  DOCK_GATE_HEIGHT,
+  DOCK_GATE_TOP,
+  DOCK_HEADER_H,
+  DOCK_INNER_FACE_Z,
   DOCK_OPENING_HALF,
+  dockBollardLocals,
+  dockHazardLocal,
+  dockLocalToWorld,
+  dockPointInsideWarehouse,
   dockWorldPose,
+  TWIN_WALL_HEIGHT,
   truckWorldPose,
   wallSegments,
   ZONE_LABELS,
@@ -96,6 +105,49 @@ describe("twin layout helpers", () => {
     const segs = wallSegments(32, [-10, 0, 10], 2.5)
     expect(segs.length).toBeGreaterThanOrEqual(2)
     expect(segs.every((s) => s.length > 0)).toBe(true)
+  })
+
+  it("aligns the closed gate with the facade lintel", () => {
+    expect(DOCK_GATE_TOP).toBeCloseTo(TWIN_WALL_HEIGHT - DOCK_HEADER_H)
+    expect(DOCK_GATE_HEIGHT).toBeCloseTo(DOCK_GATE_TOP)
+    expect(DOCK_HEADER_H).toBeLessThan(TWIN_WALL_HEIGHT * 0.2)
+    expect(DOCK_GATE_HEIGHT).toBeGreaterThan(3)
+  })
+
+  it("keeps bollards and hazard paint inside the warehouse, clear of the opening", () => {
+    const docks = getFloorPlanDocks()
+    const hazard = dockHazardLocal()
+    const near = hazard.centerZ - hazard.depth / 2
+    const far = hazard.centerZ + hazard.depth / 2
+    expect(near).toBeGreaterThan(DOCK_INNER_FACE_Z)
+    expect(hazard.centerZ).toBeGreaterThan(0)
+    expect(far).toBeGreaterThan(near)
+    for (const bollard of dockBollardLocals()) {
+      expect(Math.abs(bollard[0])).toBeGreaterThan(DOCK_OPENING_HALF)
+      expect(bollard[2]).toBeGreaterThan(DOCK_INNER_FACE_Z)
+      expect(bollard[2]).toBeLessThan(near)
+    }
+    for (const dock of docks) {
+      expect(dockWorldPose(dock).x).toBeCloseTo(
+        dock.direction === "inbound"
+          ? WAREHOUSE_FACADE_X.west
+          : WAREHOUSE_FACADE_X.east,
+      )
+      for (const bollard of dockBollardLocals()) {
+        expect(
+          dockPointInsideWarehouse(dock, { x: bollard[0], z: bollard[2] }),
+        ).toBe(true)
+      }
+      for (const z of [near, far]) {
+        expect(dockPointInsideWarehouse(dock, { x: 0, z })).toBe(true)
+        const world = dockLocalToWorld(dock, { x: 0, z })
+        if (dock.direction === "inbound") {
+          expect(world.x).toBeGreaterThan(WAREHOUSE_FACADE_X.west)
+        } else {
+          expect(world.x).toBeLessThan(WAREHOUSE_FACADE_X.east)
+        }
+      }
+    }
   })
 
   it("leaves a centered opening at each dock z on the facade span", () => {

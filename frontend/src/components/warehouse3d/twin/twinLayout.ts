@@ -7,6 +7,7 @@ import {
   dockFacadeWorldX,
   planToWorldX,
   planToWorldZ,
+  WAREHOUSE_FACADE_X,
 } from "@/components/warehouse3d/warehouseFloorPlanAdapter.ts"
 
 /** Высота и толщина внешней стены Twin (единый фасад для стен и ворот). */
@@ -20,6 +21,15 @@ export const TWIN_WALL_THICKNESS = 0.18
 export const DOCK_OPENING_HALF = 1.74
 export const DOCK_FRAME_WIDTH = 3.56
 export const DOCK_DOOR_WIDTH = 3.05
+export const DOCK_JAMB_W = 0.22
+export const DOCK_HEADER_H = 0.36
+
+/** Нижняя кромка перемычки. Закрытое полотно доходит до неё без щели. */
+export const DOCK_GATE_TOP = TWIN_WALL_HEIGHT - DOCK_HEADER_H
+export const DOCK_GATE_HEIGHT = DOCK_GATE_TOP
+
+/** Внутренняя грань фасада. Локальный +Z модели ворот смотрит внутрь склада. */
+export const DOCK_INNER_FACE_Z = TWIN_WALL_THICKNESS / 2
 
 export const ZONE_LABELS: Record<string, string> = {
   receiving: "RECEIVING",
@@ -102,6 +112,54 @@ export function chargingSlotPlanPositions(zone: SimZone, count = 4) {
 
 export function aisleLabel(index: number): string {
   return `A${String(index + 1).padStart(2, "0")}`
+}
+
+/** Столбики у рамы, на внутреннем полу, вне проёма. */
+export function dockBollardLocals(): Array<[number, number, number]> {
+  const lateral = DOCK_FRAME_WIDTH / 2 + 0.28
+  const z = DOCK_INNER_FACE_Z + 0.45
+  return [
+    [-lateral, 0, z],
+    [lateral, 0, z],
+  ]
+}
+
+/** Жёлтая зона перед воротами: целиком на внутреннем полу, симметрично проёму. */
+export function dockHazardLocal() {
+  const depth = 2.15
+  const near = DOCK_INNER_FACE_Z + 1.05
+  return {
+    width: DOCK_FRAME_WIDTH + 0.24,
+    depth,
+    centerZ: near + depth / 2,
+    stripeXs: [-1.15, -0.38, 0.38, 1.15] as const,
+  }
+}
+
+/** Локальная точка ворот в мире. +Z модели — внутрь склада на обоих фасадах. */
+export function dockLocalToWorld(
+  dock: SimDock,
+  local: { x: number; z: number },
+): { x: number; z: number } {
+  const pose = dockWorldPose(dock)
+  const cos = Math.cos(pose.rotationY)
+  const sin = Math.sin(pose.rotationY)
+  return {
+    x: pose.x + local.x * cos + local.z * sin,
+    z: pose.z - local.x * sin + local.z * cos,
+  }
+}
+
+export function dockPointInsideWarehouse(
+  dock: SimDock,
+  local: { x: number; z: number },
+): boolean {
+  const world = dockLocalToWorld(dock, local)
+  const margin = TWIN_WALL_THICKNESS / 2
+  return (
+    world.x > WAREHOUSE_FACADE_X.west + margin - 1e-4 &&
+    world.x < WAREHOUSE_FACADE_X.east - margin + 1e-4
+  )
 }
 
 export function wallSegments(
