@@ -83,11 +83,13 @@ import type {
   WarehouseTwinEnrichment,
 } from '@/components/warehouse3d/WarehouseScene.tsx';
 import {
+  cellInfoFromHighlightSlot,
   cellInfoToSearch,
   clampSearchToLayout,
   parseCellFilter,
   searchToCellInfo,
   validateWarehouse3dSearch,
+  withRecommendedCellHeat,
   type Warehouse3dSearch,
 } from '@/components/warehouse3d/warehouse3dSearch.ts';
 import { resolveFloorPlanLayoutSpec } from '@/components/warehouse3d/warehouseFloorPlanAdapter.ts';
@@ -130,7 +132,8 @@ function warehouse3dSearchEqual(
     a.cellX === b.cellX &&
     a.cellZ === b.cellZ &&
     (a.filter ?? 'all') === (b.filter ?? 'all') &&
-    a.taskId === b.taskId
+    a.taskId === b.taskId &&
+    a.highlightSlot === b.highlightSlot
   );
 }
 
@@ -342,10 +345,12 @@ function Warehouse3DPage() {
       search,
       layoutSpecResolved,
     );
-    if (fromUrl) {
-      setSelectedCell(fromUrl);
+    const highlighted = cellInfoFromHighlightSlot(search.highlightSlot);
+    const nextCell = fromUrl ?? highlighted;
+    if (nextCell) {
+      setSelectedCell(nextCell);
       if (!skipFocusFromSelfRef.current) {
-        setFocusCell(fromUrl);
+        setFocusCell(nextCell);
       }
     } else if (
       search.row == null &&
@@ -359,7 +364,8 @@ function Warehouse3DPage() {
     search.row, 
     search.level, 
     search.cellX, 
-    search.cellZ, 
+    search.cellZ,
+    search.highlightSlot,
     layoutSpecResolved, search
   ]);
 
@@ -370,10 +376,11 @@ function Warehouse3DPage() {
       navigateSearch(
         cellInfoToSearch(cell, cellFilter, {
           taskId: search.taskId,
+          highlightSlot: search.highlightSlot,
         }),
       );
     },
-    [navigateSearch, cellFilter, search.taskId],
+    [navigateSearch, cellFilter, search.taskId, search.highlightSlot],
   );
 
   const setCellFilter = useCallback(
@@ -382,10 +389,11 @@ function Warehouse3DPage() {
       navigateSearch(
         cellInfoToSearch(selectedCell, filter, {
           taskId: search.taskId,
+          highlightSlot: search.highlightSlot,
         }),
       );
     },
-    [navigateSearch, selectedCell, search.taskId],
+    [navigateSearch, selectedCell, search.taskId, search.highlightSlot],
   );
 
   useEffect(() => {
@@ -479,7 +487,10 @@ function Warehouse3DPage() {
       });
       skipFocusFromSelfRef.current = true;
       navigateSearch(
-        cellInfoToSearch(selectedCell, cellFilter),
+        cellInfoToSearch(selectedCell, cellFilter, {
+          taskId: search.taskId,
+          highlightSlot: search.highlightSlot,
+        }),
       );
     },
     onError: (e: unknown) => {
@@ -690,7 +701,10 @@ function Warehouse3DPage() {
           ? null
           : liveEquipment,
         useRouteGraph,
-        twinHeatByCellKey,
+        twinHeatByCellKey: withRecommendedCellHeat(
+          twinHeatByCellKey,
+          search.highlightSlot,
+        ),
         twinHazardByCellKey,
         twinLayerVisibility,
       }),
@@ -704,6 +718,7 @@ function Warehouse3DPage() {
         viewingHistory,
         useRouteGraph,
         twinHeatByCellKey,
+        search.highlightSlot,
         twinHazardByCellKey,
         twinLayerVisibility,
       ],

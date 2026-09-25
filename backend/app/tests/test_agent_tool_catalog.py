@@ -1,6 +1,7 @@
 """Каталог инструментов агента и фильтрация по правам."""
 
 from app.agent.tool_catalog import CATALOG_BY_NAME, tools_for_user
+from app.agent.tool_safety import ToolSafetyClass
 
 
 def test_catalog_contains_core_read_tools() -> None:
@@ -16,9 +17,19 @@ def test_catalog_contains_core_read_tools() -> None:
 
 def test_catalog_contains_act_and_admin_tools() -> None:
     assert "create_transfer_task" in CATALOG_BY_NAME
+    assert CATALOG_BY_NAME["create_transfer_task"].safety == ToolSafetyClass.ACT
     assert "slot_key" in CATALOG_BY_NAME["create_transfer_task"].parameters
     assert "item_id" in CATALOG_BY_NAME["create_transfer_task"].parameters
     assert "publish_layout_version" in CATALOG_BY_NAME
+
+
+def test_slotting_tools_are_read() -> None:
+    names = {t.name for t in tools_for_user(is_superuser=False, has_audit_read=False)}
+    for name in ("recommend_slotting", "compare_slotting_scenarios"):
+        spec = CATALOG_BY_NAME[name]
+        assert spec.safety == ToolSafetyClass.READ
+        assert name in names
+    assert CATALOG_BY_NAME["create_transfer_task"].safety == ToolSafetyClass.ACT
 
 
 def test_get_recent_events_requires_audit_in_payload_filter() -> None:

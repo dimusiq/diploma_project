@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link as RouterLink } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import {
@@ -11,6 +11,7 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from "recharts"
+import { createPendingAction } from "@/api/agent.ts"
 import {
   fetchKpiSnapshot,
   fetchSimulationScenarios,
@@ -19,8 +20,13 @@ import {
   postSimulationRun,
   postSimulationScenario,
   postSimulationScenarioRun,
+  postSlottingCompare,
+  type SimulationKpis,
   type SimulationRunBody,
+  type SlottingCompareResult,
+  type SlottingMove,
 } from "@/api/warehouseSimulation.ts"
+import { parseSlotKeyZeroBased } from "@/components/warehouse3d/twin3dDerived.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
@@ -138,9 +144,73 @@ function WarehouseSimulationPage() {
     onError: (e: Error) => showErrorToast(e.message),
   })
 
+  const buildCompareBody = (): SimulationRunBody => {
+    const body = buildRunBody()
+    const { putaway_rule: _rule, layout_travel_scale: _scale, ...shared } = body
+    return shared
+  }
+
+  const compareMut = useMutation({
+    mutationFn: () => postSlottingCompare(buildCompareBody()),
+    onError: (e: Error) => showErrorToast(e.message),
+  })
+
+  const queueMoveMut = useMutation({
+    mutationFn: (move: SlottingMove) =>
+      createPendingAction({
+        tool_name: "create_transfer_task",
+        arguments: {
+          task_type: "move",
+          item_id: move.item_id,
+          slot_key: move.slot_key,
+          priority: move.priority ?? 0,
+          note: move.note,
+        },
+        rationale: move.note || "Рекомендация AI slotting",
+      }),
+    onSuccess: () =>
+      showSuccessToast("Перемещение поставлено в очередь согласования"),
+    onError: (e: Error) => showErrorToast(e.message),
+  })
+
   const scenariosQ = useQuery({
     queryKey: ["simulation-scenarios"],
     queryFn: fetchSimulationScenarios,
+  })
+
+  const saveSlottingMut = useMutation({
+    mutationFn: async () => {
+      const data = compareMut.data
+      if (!data) throw new Error("Сначала запустите сравнение")
+      const shared = buildCompareBody()
+      const stamp = new Date().toISOString().slice(0, 16)
+      const rows = [
+        { key: "random" as const, title: "случайно" },
+        { key: "nearest" as const, title: "ближайшая" },
+        { key: "ai" as const, title: "AI" },
+      ]
+      for (const row of rows) {
+        const policy = data[row.key]
+        await postSimulationScenario({
+          name: `Слоттинг ${row.title} · seed ${shared.seed ?? ""} · ${stamp}`.slice(
+            0,
+            255,
+          ),
+          description: "Сравнение random / nearest / AI на общих входах",
+          config: {
+            ...shared,
+            putaway_rule: policy.putaway_rule,
+            layout_travel_scale: policy.layout_travel_scale,
+          },
+          baseline_kpis: policy.kpis,
+        })
+      }
+    },
+    onSuccess: () => {
+      showSuccessToast("Три сценария сохранены")
+      void scenariosQ.refetch()
+    },
+    onError: (e: Error) => showErrorToast(e.message),
   })
 
   const saveScenarioMut = useMutation({
@@ -181,7 +251,8 @@ function WarehouseSimulationPage() {
 
   const lastSimResult = runMut.data ?? runSavedMut.data
   const k = lastSimResult?.kpis
-  const isSimulating = runMut.isPending || runSavedMut.isPending
+  const isSimulating =
+    runMut.isPending || runSavedMut.isPending || compareMut.isPending
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-6 md:py-10">
@@ -443,6 +514,16 @@ function WarehouseSimulationPage() {
             >
               {runMut.isPending ? "Вычисляем…" : "Запустить симуляцию"}
             </Button>
+            <Button
+              size="sm"
+              disabled={isSimulating}
+              loading={compareMut.isPending}
+              onClick={() => compareMut.mutate()}
+            >
+              {compareMut.isPending
+                ? "Считаем три политики…"
+                : "Сравнить случайную, ближайшую и AI"}
+            </Button>
             <Field label="Имя сценария">
               <Input
                 className="h-7 w-[200px] text-sm"
@@ -503,6 +584,16 @@ function WarehouseSimulationPage() {
           )}
         </CardContent>
       </Card>
+
+      {compareMut.data && (
+        <SlottingComparePanel
+          data={compareMut.data}
+          saving={saveSlottingMut.isPending}
+          queueing={queueMoveMut.isPending}
+          onSave={() => saveSlottingMut.mutate()}
+          onQueue={(move) => queueMoveMut.mutate(move)}
+        />
+      )}
 
       <ScenarioComparisonSection
         scenarios={scenariosQ.data?.data ?? []}
@@ -585,6 +676,169 @@ function WarehouseSimulationPage() {
       )}
       </div>
     </div>
+  )
+}
+
+function highlightSearch(slotKey: string) {
+  const parsed = parseSlotKeyZeroBased(slotKey)
+  if (!parsed) return { highlightSlot: slotKey }
+  const [row, level, cellX, cellZ] = parsed
+  return {
+    row: row + 1,
+    level: level + 1,
+    cellX: cellX + 1,
+    cellZ: cellZ + 1,
+    highlightSlot: slotKey,
+  }
+}
+
+function kpiCell(kpis: SimulationKpis | null, key: string, isRatio: boolean): string {
+  if (!kpis) return "—"
+  const value = (kpis as unknown as Record<string, number | null | undefined>)[key]
+  if (value == null) return "—"
+  return isRatio ? pct(value) : fmt(value)
+}
+
+function SlottingComparePanel({
+  data,
+  saving,
+  queueing,
+  onSave,
+  onQueue,
+}: {
+  data: SlottingCompareResult
+  saving: boolean
+  queueing: boolean
+  onSave: () => void
+  onQueue: (move: SlottingMove) => void
+}) {
+  const cols = [
+    { key: "random" as const, title: "Случайно" },
+    { key: "nearest" as const, title: "Ближайшая" },
+    { key: "ai" as const, title: "AI" },
+  ]
+  const moves = data.recommendations.length > 0 ? data.recommendations : data.top
+  return (
+    <Card className="mb-8 bg-muted/30 ring-foreground/5">
+      <CardContent className="space-y-4 pt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-heading text-sm font-semibold">
+            Сравнение random / nearest / AI
+          </h2>
+          <Button
+            size="sm"
+            variant="outline"
+            loading={saving}
+            disabled={!data.simulation_enabled || data.random.kpis == null}
+            onClick={onSave}
+          >
+            Сохранить три сценария
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Общие длительность, зерно, ресурсы и стартовые очереди. Отличаются
+          правило размещения и масштаб пути. Сырой коэффициент счётчика и
+          масштаб, ушедший в модель, показаны отдельно: коридор модели 0.25…4.
+          Улучшение AI относительно ближайшей: {data.improvement.toFixed(3)}.
+          {data.below_min_improvement
+            ? " Порог улучшения не пройден, перемещения не предлагаются."
+            : ""}
+          {!data.simulation_enabled
+            ? " Симуляция выключена: в таблице только оценки счётчика."
+            : ""}
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="py-1 pr-2 text-left font-medium">Показатель</th>
+                {cols.map((col) => (
+                  <th key={col.key} className="py-1 text-right font-medium">
+                    {col.title}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="py-1 pr-2">Средний путь счётчика</td>
+                {cols.map((col) => (
+                  <td key={col.key} className="py-1 text-right">
+                    {data[col.key].mean_path.toFixed(3)}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="py-1 pr-2">Сырой коэффициент пути</td>
+                {cols.map((col) => (
+                  <td key={col.key} className="py-1 text-right">
+                    {data[col.key].raw_path_ratio.toFixed(3)}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <td className="py-1 pr-2">Масштаб пути в модели</td>
+                {cols.map((col) => (
+                  <td key={col.key} className="py-1 text-right">
+                    {data[col.key].layout_travel_scale.toFixed(3)}
+                  </td>
+                ))}
+              </tr>
+              {KPI_META.map((meta) => (
+                <tr key={meta.key}>
+                  <td className="py-1 pr-2">{meta.label}</td>
+                  {cols.map((col) => (
+                    <td key={col.key} className="py-1 text-right">
+                      {kpiCell(data[col.key].kpis, meta.key, meta.isRatio)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">Рекомендованные ячейки</h3>
+          {moves.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Счётчик не предложил перемещений.
+            </p>
+          ) : (
+            moves.map((move) => (
+              <div
+                key={`${move.item_id}-${move.slot_key}`}
+                className="flex flex-wrap items-center justify-between gap-2 text-sm"
+              >
+                <span>
+                  {move.item_id.slice(0, 8)} · {move.current_slot_key ?? "—"} →{" "}
+                  {move.slot_key} · оценка {move.score.toFixed(3)}
+                  {move.below_min_improvement ? " · ниже порога" : ""}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="xs" variant="outline" asChild>
+                    <RouterLink
+                      to="/warehouse-3d"
+                      search={highlightSearch(move.slot_key)}
+                    >
+                      Показать в 3D
+                    </RouterLink>
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    disabled={move.below_min_improvement || queueing}
+                    loading={queueing}
+                    onClick={() => onQueue(move)}
+                  >
+                    На согласование
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

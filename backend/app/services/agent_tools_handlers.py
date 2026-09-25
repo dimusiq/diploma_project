@@ -13,6 +13,8 @@ from sqlalchemy import and_
 from sqlmodel import Session, col, func, select
 
 from app.agent.tool_safety import AgentToolContext, ToolSafetyClass
+from app.api.routes.warehouse_simulation import SimulationRunBody
+from app.core.config import settings
 from app.core.permissions import can_read_audit, can_see_all_items
 from app.models import (
     EQUIPMENT_TYPES,
@@ -36,15 +38,22 @@ from app.models import (
     WarehouseZone,
     WorkOrder,
 )
+from app.optimization.constraints import validate_transfer_slot
+from app.optimization.schemas import compare_result_dict
+from app.optimization.simulation_compare import compare_policies
+from app.optimization.slotting import recommend
 from app.schemas.warehouse_topology import (
     default_topology_from_layout_spec,
     parse_topology_from_spec,
 )
-from app.services.maintenance_calendar_query import build_maintenance_calendar_event_list
 from app.services.agent_knowledge_embed import embed_all_chunks
+from app.services.maintenance_calendar_query import (
+    build_maintenance_calendar_event_list,
+)
 from app.services.notification_service import create_notification
 from app.services.warehouse_slot_projection import refresh_warehouse_slot_projection
 from app.simulation.des_engine import SimulationConfig, run_discrete_event_simulation
+from app.simulation.twin_seed import TwinSeedResolutionError
 
 
 def _json(obj: Any) -> str:
@@ -662,13 +671,19 @@ def handle_create_transfer_task(session: Session, user: User, args: dict[str, An
         prio = int(args.get("priority") or 0)
     except (TypeError, ValueError):
         prio = 0
+    slot_key = str(args.get("slot_key") or "").strip() or None
+    item_id = str(args.get("item_id") or "").strip() or None
+    if slot_key:
+        slot_error = validate_transfer_slot(session, slot_key, item_id, wh_id)
+        if slot_error:
+            return _json({"error": slot_error})
     payload = {
         "task_type": str(args.get("task_type") or "move"),
         "note": str(args.get("note") or ""),
         "priority": prio,
         "requested_by": str(user.id),
-        "slot_key": str(args.get("slot_key") or "").strip() or None,
-        "item_id": str(args.get("item_id") or "").strip() or None,
+        "slot_key": slot_key,
+        "item_id": item_id,
     }
     gated = _act_gate(ctx, tool_name="create_transfer_task", payload=payload)
     if gated:
@@ -1043,6 +1058,85 @@ def handle_reindex_knowledge(session: Session, _user: User, args: dict[str, Any]
     )
 
 
+def _optional_uuid(raw: object) -> uuid.UUID | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    return uuid.UUID(text)
+
+
+def _slotting_limit(raw: object) -> int | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def handle_recommend_slotting(session: Session, user: User, args: dict[str, Any], _ctx: Any) -> str:
+    """Пересчитывает слоты сам. Координаты из аргументов модели не используются."""
+    try:
+        warehouse_id = _optional_uuid(args.get("warehouse_id"))
+    except ValueError:
+        return _json({"error": "Некорректный warehouse_id"})
+    try:
+        seed = int(args.get("seed") or 42)
+    except (TypeError, ValueError):
+        seed = 42
+    recommendation = recommend(
+        session,
+        user,
+        warehouse_id=warehouse_id,
+        seed=seed,
+        limit=_slotting_limit(args.get("limit")),
+    )
+    payload = recommendation.as_dict()
+    payload["note"] = "Ячейки выбрал recommend_slotting. Модель оптимум не считает."
+    return _json(payload)
+
+
+def handle_compare_slotting_scenarios(
+    session: Session, user: User, args: dict[str, Any], _ctx: Any
+) -> str:
+    if not bool(settings.AI_SLOTTING_SIMULATION_ENABLED):
+        return _json({"error": "симуляция отключена"})
+    data: dict[str, Any] = {}
+    for key in (
+        "duration_hours",
+        "seed",
+        "dock_bays",
+        "num_forklifts",
+        "num_operators",
+        "truck_arrival_rate_per_hour",
+        "mean_dock_service_min",
+        "pick_orders_per_hour",
+        "mean_pick_duration_min",
+        "mean_putaway_duration_min",
+        "replenishment_trips_per_hour",
+        "mean_replenishment_min",
+        "sandbox_extra_putaway_min",
+        "seed_from_twin",
+    ):
+        if args.get(key) is not None and args.get(key) != "":
+            data[key] = args.get(key)
+    try:
+        data["warehouse_id"] = _optional_uuid(args.get("warehouse_id"))
+    except ValueError:
+        return _json({"error": "Некорректный warehouse_id"})
+    if data["warehouse_id"] is None:
+        data.pop("warehouse_id")
+    try:
+        body = SimulationRunBody.model_validate(data)
+    except Exception as exc:
+        return _json({"error": f"Некорректные параметры сравнения: {exc}"})
+    try:
+        result = compare_policies(session, user, body)
+    except TwinSeedResolutionError as exc:
+        return _json({"error": exc.detail})
+    return _json(compare_result_dict(result))
+
+
 def handle_enqueue_integration_inbox(session: Session, _user: User, args: dict[str, Any], _ctx: Any) -> str:
     source = str(args.get("source") or "").strip()
     event_type = str(args.get("event_type") or "").strip()
@@ -1100,6 +1194,8 @@ HANDLERS: dict[str, Any] = {
     "get_layout_topology": handle_get_layout_topology,
     "enqueue_integration_inbox": handle_enqueue_integration_inbox,
     "run_what_if_simulation": handle_run_what_if_simulation,
+    "recommend_slotting": handle_recommend_slotting,
+    "compare_slotting_scenarios": handle_compare_slotting_scenarios,
     "create_transfer_task": handle_create_transfer_task,
     "reserve_slot": handle_reserve_slot,
     "create_cycle_count_task": handle_create_cycle_count_task,
