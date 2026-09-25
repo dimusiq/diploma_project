@@ -31,6 +31,8 @@ _READ_TASKS = "get_open_tasks"
 _READ_EXPIRING = "get_expiring_inventory"
 _READ_EVENTS = "get_recent_events"
 _READ_ZONE = "list_zone_congestion"
+_READ_SLOTTING = "recommend_slotting"
+_READ_SLOTTING_COMPARE = "compare_slotting_scenarios"
 
 
 def _msg_lower(msg: str) -> str:
@@ -117,6 +119,16 @@ def _wants_congestion(text: str) -> bool:
     )
 
 
+def _wants_slotting(text: str) -> bool:
+    return bool(
+        re.search(
+            r"(слотт|slotting|размещен|putaway)",
+            text,
+            re.I,
+        )
+    )
+
+
 def _max_tools_cap() -> int:
     n = int(getattr(settings, "AGENT_CODE_ORCH_MAX_TOOLS", 5) or 5)
     return max(1, min(n, 10))
@@ -147,6 +159,11 @@ def plan_read_tools(user_message: str, router: dict[str, Any] | None) -> list[tu
         if any(n == name for n, _ in out):
             return
         out.append((name, args))
+
+    if _wants_slotting(msg):
+        add(_READ_SLOTTING)
+        if bool(getattr(settings, "AI_SLOTTING_SIMULATION_ENABLED", True)):
+            add(_READ_SLOTTING_COMPARE)
 
     def apply_keywords() -> None:
         if _wants_inventory(msg):

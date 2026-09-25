@@ -9,12 +9,14 @@ import {
   parseSlotKeyZeroBased,
 } from "@/components/warehouse3d/twin3dDerived.ts"
 import {
+  cellInfoFromHighlightSlot,
   cellInfoToSearch,
   cellMatchesFilter,
   clampSearchToLayout,
   parseCellFilter,
   searchToCellInfo,
   validateWarehouse3dSearch,
+  withRecommendedCellHeat,
 } from "@/components/warehouse3d/warehouse3dSearch.ts"
 import {
   buildWarehouseGeometry,
@@ -162,6 +164,25 @@ describe("item cell keys", () => {
 
   it("formats expired days", () => {
     expect(formatExpiredDaysLabel(21)).toBe("21 день")
+  })
+})
+
+describe("slotting highlight", () => {
+  it("selects and heats the recommended slot without replacing other heat", () => {
+    const search = validateWarehouse3dSearch({ highlightSlot: "1-2-3-0" })
+    expect(search.highlightSlot).toBe("1-2-3-0")
+    expect(cellInfoFromHighlightSlot(search.highlightSlot)).toEqual({
+      row: 1,
+      level: 2,
+      cellX: 3,
+      cellZ: 0,
+      filled: false,
+    })
+    const base = new Map<string, number>([["0-0-0-0", 0.4]])
+    const heat = withRecommendedCellHeat(base, search.highlightSlot)
+    expect(heat.get("0-0-0-0")).toBe(0.4)
+    expect(heat.get("1-2-3-0")).toBe(1)
+    expect(base.has("1-2-3-0")).toBe(false)
   })
 })
 
