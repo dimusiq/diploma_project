@@ -1,5 +1,4 @@
 from app.agent.tool_orchestrator import plan_read_tools
-from app.core.config import settings
 
 
 def test_plan_intent_inventory() -> None:
@@ -39,18 +38,3 @@ def test_plan_question_technique_tab_keyword() -> None:
 def test_plan_other_empty_when_no_match() -> None:
     names = [n for n, _ in plan_read_tools("расскажи анекдот", {"intent": "other"})]
     assert names == []
-
-
-def test_plan_slotting_is_read_only(monkeypatch: object) -> None:
-    monkeypatch.setattr(settings, "AI_SLOTTING_SIMULATION_ENABLED", True)  # type: ignore[attr-defined]
-    names = [n for n, _ in plan_read_tools("предложи слоттинг размещения", {"intent": "question"})]
-    assert "recommend_slotting" in names
-    assert "compare_slotting_scenarios" in names
-    assert "create_transfer_task" not in names
-
-
-def test_plan_slotting_skips_compare_when_simulation_disabled(monkeypatch: object) -> None:
-    monkeypatch.setattr(settings, "AI_SLOTTING_SIMULATION_ENABLED", False)  # type: ignore[attr-defined]
-    names = [n for n, _ in plan_read_tools("слоттинг", {"intent": "other"})]
-    assert "recommend_slotting" in names
-    assert "compare_slotting_scenarios" not in names

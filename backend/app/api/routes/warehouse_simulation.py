@@ -11,8 +11,6 @@ from sqlmodel import Session, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import User, Warehouse
-from app.optimization.schemas import compare_result_dict
-from app.optimization.simulation_compare import compare_policies
 from app.simulation.des_engine import (
     SimulationConfig,
     SimulationKpis,
@@ -79,37 +77,6 @@ class WarehouseForSimulationSeed(BaseModel):
     id: uuid.UUID
     code: str
     name: str
-
-
-class SlottingPolicyResponse(BaseModel):
-    putaway_rule: PutawayRuleApi
-    mean_path: float
-    raw_path_ratio: float
-    layout_travel_scale: float
-    kpis: SimulationKpisResponse | None
-
-
-class SlottingMoveResponse(BaseModel):
-    item_id: str
-    slot_key: str
-    current_slot_key: str | None = None
-    score: float
-    travel: float = 0.0
-    below_min_improvement: bool
-    task_type: str
-    priority: int = 0
-    note: str = ""
-
-
-class SlottingCompareResponse(BaseModel):
-    simulation_enabled: bool
-    below_min_improvement: bool
-    improvement: float
-    random: SlottingPolicyResponse
-    nearest: SlottingPolicyResponse
-    ai: SlottingPolicyResponse
-    recommendations: list[SlottingMoveResponse]
-    top: list[SlottingMoveResponse]
 
 
 def _kpis_to_response(k: SimulationKpis) -> SimulationKpisResponse:
@@ -217,17 +184,3 @@ def run_simulation(
     body: SimulationRunBody,
 ) -> Any:
     return run_simulation_for_body(session, current_user, body)
-
-
-@router.post("/slotting-compare", response_model=SlottingCompareResponse)
-def slotting_compare(
-    session: SessionDep,
-    current_user: CurrentUser,
-    body: SimulationRunBody,
-) -> SlottingCompareResponse:
-    """Три политики на общих входах. Строк item и warehouse_task не создаёт."""
-    try:
-        result = compare_policies(session, current_user, body)
-    except TwinSeedResolutionError as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail) from e
-    return SlottingCompareResponse.model_validate(compare_result_dict(result))

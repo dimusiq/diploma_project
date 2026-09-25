@@ -76,49 +76,6 @@ export function postSimulationRun(
   })
 }
 
-export interface SlottingPolicyResult {
-  putaway_rule: PutawayRule
-  mean_path: number
-  raw_path_ratio: number
-  layout_travel_scale: number
-  kpis: SimulationKpis | null
-}
-
-export interface SlottingMove {
-  item_id: string
-  slot_key: string
-  current_slot_key: string | null
-  score: number
-  travel: number
-  below_min_improvement: boolean
-  task_type: string
-  priority: number
-  note: string
-}
-
-export interface SlottingCompareResult {
-  simulation_enabled: boolean
-  below_min_improvement: boolean
-  improvement: number
-  random: SlottingPolicyResult
-  nearest: SlottingPolicyResult
-  ai: SlottingPolicyResult
-  recommendations: SlottingMove[]
-  top: SlottingMove[]
-}
-
-export function postSlottingCompare(
-  body: SimulationRunBody,
-): Promise<SlottingCompareResult> {
-  return request<SlottingCompareResult>(
-    "/api/v1/warehouse/simulation/slotting-compare",
-    {
-      method: "POST",
-      body,
-    },
-  )
-}
-
 export interface WarehouseForSimulationSeed {
   id: string
   code: string
@@ -158,7 +115,6 @@ export function postSimulationScenario(body: {
   name: string
   description?: string | null
   config: SimulationRunBody
-  baseline_kpis?: SimulationKpis | null
 }): Promise<SimulationScenario> {
   return request<SimulationScenario>(
     "/api/v1/warehouse/simulations/scenarios",

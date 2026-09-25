@@ -261,42 +261,6 @@ def _catalog() -> list[CatalogTool]:
                 "layout_travel_scale": {"type": "number"},
             },
         ),
-        CatalogTool(
-            name="recommend_slotting",
-            version="1",
-            safety=ToolSafetyClass.READ,
-            permission_code=PERM_AGENT_USE,
-            description=(
-                "Детерминированная рекомендация ячеек (read). Модель не считает слот: "
-                "числа берутся только из JSON инструмента. Переданный slot_key игнорируется."
-            ),
-            parameters={
-                "limit": {
-                    "type": "integer",
-                    "description": "Сколько пар вернуть, не выше AI_SLOTTING_TOP_K",
-                },
-                "warehouse_id": {"type": "string", "description": "UUID склада, необязательно"},
-            },
-        ),
-        CatalogTool(
-            name="compare_slotting_scenarios",
-            version="1",
-            safety=ToolSafetyClass.READ,
-            permission_code=PERM_AGENT_USE,
-            description=(
-                "Три прогона DES (random, nearest, AI) на одном SimulationConfig. "
-                "В БД не пишет. Если симуляция слоттинга выключена — отказ, без подмены KPI."
-            ),
-            parameters={
-                "duration_hours": {"type": "number"},
-                "seed": {"type": "integer"},
-                "dock_bays": {"type": "integer"},
-                "num_forklifts": {"type": "integer"},
-                "num_operators": {"type": "integer"},
-                "seed_from_twin": {"type": "boolean"},
-                "warehouse_id": {"type": "string"},
-            },
-        ),
         # --- propose / act: в чате по умолчанию только предложение или sandbox ---
         CatalogTool(
             name="create_transfer_task",

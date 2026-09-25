@@ -221,12 +221,6 @@ class Settings(BaseSettings):
     TWIN_NOTIFICATION_ROW_ITEMS_MIN: int = 30
     TWIN_NOTIFICATION_UTILIZATION_MIN: float = 0.9
 
-    # Детерминированный слоттинг. Дефолты позволяют стартовать без новых env.
-    AI_SLOTTING_MAX_CANDIDATES: int = 200
-    AI_SLOTTING_TOP_K: int = 5
-    AI_SLOTTING_MIN_IMPROVEMENT: float = 0.05
-    AI_SLOTTING_SIMULATION_ENABLED: bool = True
-
     @computed_field  # type: ignore[prop-decorator]
     @property
     def avatar_storage_dir(self) -> Path:

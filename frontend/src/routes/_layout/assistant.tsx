@@ -1,4 +1,3 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createFileRoute,
   isRedirect,
@@ -23,12 +22,7 @@ import {
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import type { StickToBottomContext } from 'use-stick-to-bottom';
-import {
-  executePendingAction,
-  fetchAgentPermissions,
-  fetchPendingActions,
-  rejectPendingAction,
-} from '@/api/agent.ts';
+import { fetchAgentPermissions } from '@/api/agent.ts';
 import {
   Attachment,
   AttachmentPreview,
@@ -166,87 +160,6 @@ async function copyText(text: string) {
   } catch {
     toast.error('Не удалось скопировать');
   }
-}
-
-function PendingTransferPanel() {
-  const qc = useQueryClient();
-  const pendingQ = useQuery({
-    queryKey: ['agent-pending-actions'],
-    queryFn: () => fetchPendingActions({ status: 'pending' }),
-  });
-  const rows = (pendingQ.data?.data ?? []).filter(
-    (row) => row.tool_name === 'create_transfer_task',
-  );
-  const invalidate = () => {
-    void qc.invalidateQueries({ queryKey: ['agent-pending-actions'] });
-  };
-  const rejectMut = useMutation({
-    mutationFn: (id: string) => rejectPendingAction(id),
-    onSuccess: () => {
-      toast.success('Перемещение отклонено');
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const executeMut = useMutation({
-    mutationFn: (id: string) => executePendingAction(id),
-    onSuccess: () => {
-      toast.success('Задание создано. Координаты товара не менялись');
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  return (
-    <div className='shrink-0 border-b border-border bg-muted/30 px-3 py-2 md:px-5'>
-      <p className='text-xs font-semibold'>Перемещения на согласовании</p>
-      {pendingQ.isPending ? (
-        <p className='mt-1 text-xs text-muted-foreground'>Загрузка очереди…</p>
-      ) : rows.length === 0 ? (
-        <p className='mt-1 text-xs text-muted-foreground'>
-          Нет заданий create_transfer_task в очереди.
-        </p>
-      ) : (
-        <div className='mt-2 flex flex-col gap-2'>
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className='flex flex-wrap items-start justify-between gap-2 rounded-md border border-border bg-background px-2 py-2'
-            >
-              <div className='min-w-0 text-xs'>
-                <p className='font-medium'>{row.tool_name}</p>
-                <p className='break-all text-muted-foreground'>
-                  {JSON.stringify(row.arguments)}
-                </p>
-                {row.rationale ? (
-                  <p className='mt-1'>{row.rationale}</p>
-                ) : null}
-              </div>
-              <div className='flex shrink-0 gap-2'>
-                <Button
-                  type='button'
-                  size='xs'
-                  variant='outline'
-                  loading={executeMut.isPending}
-                  onClick={() => executeMut.mutate(row.id)}
-                >
-                  Выполнить
-                </Button>
-                <Button
-                  type='button'
-                  size='xs'
-                  variant='outline'
-                  loading={rejectMut.isPending}
-                  onClick={() => rejectMut.mutate(row.id)}
-                >
-                  Отклонить
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function AssistantPromptAttachmentsHeader() {
@@ -661,8 +574,6 @@ function AssistantPage() {
               />
             ) : null}
           </div>
-
-          <PendingTransferPanel />
 
           <ErrorBoundary FallbackComponent={ErrorFallback}>
             <div className='relative flex min-h-0 flex-1 flex-col overflow-hidden'>
