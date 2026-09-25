@@ -1,5 +1,4 @@
 import { z } from "zod"
-import { parseSlotKeyZeroBased } from "@/components/warehouse3d/twin3dDerived.ts"
 import type { CellInfo } from "@/components/warehouse3d/warehouse3dTypes.ts"
 import {
   DEFAULT_WAREHOUSE_LAYOUT_SPEC,
@@ -34,11 +33,6 @@ export const warehouse3dSearchSchema = z.object({
     if (typeof v === "string") return v
     return undefined
   }, z.string().uuid().optional().catch(undefined)),
-  highlightSlot: z.preprocess((v) => {
-    if (v == null || v === "") return undefined
-    if (typeof v !== "string") return undefined
-    return v
-  }, z.string().optional().catch(undefined)),
 })
 
 export type Warehouse3dSearch = z.infer<typeof warehouse3dSearchSchema>
@@ -91,43 +85,16 @@ export function searchToCellInfo(
   return null
 }
 
-export function cellInfoFromHighlightSlot(
-  slotKey: string | undefined,
-): CellInfo | null {
-  if (!slotKey) return null
-  const parsed = parseSlotKeyZeroBased(slotKey)
-  if (!parsed) return null
-  const [row, level, cellX, cellZ] = parsed
-  if (row < 0 || level < 0 || cellX < 0 || cellZ < 0) return null
-  return { row, level, cellX, cellZ, filled: false }
-}
-
-export function withRecommendedCellHeat(
-  base: Map<string, number>,
-  slotKey: string | undefined,
-): Map<string, number> {
-  const cell = cellInfoFromHighlightSlot(slotKey)
-  if (!cell || !slotKey) return base
-  const next = new Map(base)
-  next.set(slotKey, 1)
-  return next
-}
-
 export function cellInfoToSearch(
   cell: CellInfo | null,
   filter: CellFilter,
-  extras?: { taskId?: string; highlightSlot?: string },
+  extras?: { taskId?: string },
 ): Warehouse3dSearch {
   const taskId = extras?.taskId
-  const highlightSlot = extras?.highlightSlot
-  const extra = {
-    ...(taskId ? { taskId } : {}),
-    ...(highlightSlot ? { highlightSlot } : {}),
-  }
   if (!cell) {
     return {
       ...(filter === "all" ? {} : { filter }),
-      ...extra,
+      ...(taskId ? { taskId } : {}),
     }
   }
   return {
@@ -136,7 +103,7 @@ export function cellInfoToSearch(
     cellX: cell.cellX + 1,
     cellZ: cell.cellZ + 1,
     ...(filter !== "all" ? { filter } : {}),
-    ...extra,
+    ...(taskId ? { taskId } : {}),
   }
 }
 
