@@ -20,8 +20,10 @@ from app.warehouse_sim.models import (
     DEVICE_CONVEYOR,
     DEVICE_DOCK,
     DEVICE_FORKLIFT,
+    DEVICE_RADIO_BEACON,
     DEVICE_SCANNER,
     DEVICE_SENSOR,
+    DEVICE_SMART_CAMERA,
     DEVICE_STATUS_IDLE,
     DEVICE_STATUS_ONLINE,
     SimDevice,
@@ -40,6 +42,8 @@ KIND_TO_TYPE = {
     "conveyor": DEVICE_CONVEYOR,
     "dock_door": DEVICE_DOCK,
     "charger": DEVICE_CHARGING_STATION,
+    "radio_beacon": DEVICE_RADIO_BEACON,
+    "smart_camera": DEVICE_SMART_CAMERA,
 }
 TYPE_TO_KIND = {v: k for k, v in KIND_TO_TYPE.items()}
 
@@ -49,6 +53,7 @@ KIND_SPEED = {
     "forklift": 2.4,
     "agv": 1.5,
     "amr": 1.9,
+    "radio_beacon": 0.0,
 }
 
 META_KEYS = (
@@ -63,6 +68,15 @@ META_KEYS = (
     "status",
     "inMaintenance",
     "engineHours",
+    "serialNumber",
+    "locationSource",
+    "locationStale",
+    "lastSignalAt",
+    "lastZone",
+    "model",
+    "resolution",
+    "targetFps",
+    "fps",
 )
 
 
@@ -170,6 +184,12 @@ def ensure_fleet_seed(session: Session) -> None:
     if changed:
         session.commit()
         logger.info("Warehouse fleet: synchronized DEMO device codes")
+    from app.warehouse_sim.bracelets import ensure_demo_bracelets
+    from app.warehouse_sim.smart_cameras import ensure_demo_smart_cameras
+
+    ensure_demo_bracelets(session, warehouse.id)
+    ensure_demo_smart_cameras(session, warehouse.id)
+    session.commit()
 
 
 def list_config_devices(session: Session, *, include_archived: bool = False) -> list[SimDevice]:
@@ -213,6 +233,8 @@ def _next_code(session: Session, warehouse_id: uuid.UUID, kind: str) -> str:
         "scanner": "scn",
         "sensor": "sns",
         "charger": "chg",
+        "radio_beacon": "rb",
+        "smart_camera": "cam",
     }.get(kind, kind[:3])
     existing = session.exec(
         select(SimDevice.code).where(SimDevice.warehouse_id == warehouse_id)
@@ -258,7 +280,7 @@ def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
     if speed is None:
         speed = KIND_SPEED.get(kind, 0.0)
     battery = body.get("battery")
-    if battery is None and kind in ("forklift", "agv", "amr"):
+    if battery is None and kind in ("forklift", "agv", "amr", "radio_beacon"):
         battery = 80.0
     configuration = body.get("configuration") if isinstance(body.get("configuration"), dict) else {}
     device_dict = create_device(
@@ -274,6 +296,8 @@ def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
         metricMin=configuration.get("metricMin"),
         metricMax=configuration.get("metricMax"),
         metric=configuration.get("metric"),
+        serialNumber=configuration.get("serialNumber") or body.get("serial_number"),
+        locationSource="unknown",
     )
     kwargs = device_to_row_kwargs(warehouse.id, device_dict)
     kwargs["description"] = str(body["description"])[:255] if body.get("description") else None
@@ -360,6 +384,12 @@ def patch_fleet_device(session: Session, device_id: uuid.UUID, body: dict[str, A
 
 
 def archive_fleet_device(session: Session, device_id: uuid.UUID) -> SimDevice:
+    from app.warehouse_sim.bracelets import active_assignment_for_device
+
+    assignment = active_assignment_for_device(session, device_id)
+    if assignment is not None:
+        assignment.unassigned_at = _utcnow()
+        session.add(assignment)
     return patch_fleet_device(session, device_id, {"archived": True, "enabled": False})
 
 
@@ -377,6 +407,8 @@ def serialize_fleet_device(
     *,
     maintenance: dict[str, Any] | None = None,
     deferred: list[str] | None = None,
+    session: Session | None = None,
+    assignments: dict | None = None,
 ) -> dict[str, Any]:
     meta = dict(row.meta or {})
     kind = str(meta.get("kind") or TYPE_TO_KIND.get(row.device_type) or "agv")
@@ -399,7 +431,7 @@ def serialize_fleet_device(
         from app.warehouse_sim.vision.service import public_camera
 
         camera_public = public_camera(rt)
-    return {
+    payload = {
         "id": str(row.id),
         "code": row.code,
         "name": row.name,
@@ -423,6 +455,7 @@ def serialize_fleet_device(
             "metric": meta.get("metric"),
             "inMaintenance": in_maintenance,
             "camera": camera_public,
+            "serialNumber": meta.get("serialNumber"),
         },
         "runtime": {
             "status": status,
@@ -439,10 +472,40 @@ def serialize_fleet_device(
             "inSimulation": bool(rt),
             "inMaintenance": in_maintenance,
             "camera": camera_public,
+            "locationSource": rt.get("locationSource") or meta.get("locationSource"),
+            "locationStale": bool(rt.get("locationStale", meta.get("locationStale"))),
+            "lastSignalAt": rt.get("lastSignalAt") or meta.get("lastSignalAt"),
+            "currentZone": rt.get("current_zone") or meta.get("lastZone"),
         },
         "maintenance": maintenance,
         "engine_hours": engine_hours,
         "deferredUntilRestart": deferred or [],
         "created_at": _iso(row.created_at),
         "updated_at": _iso(row.updated_at),
+        "serial_number": meta.get("serialNumber"),
+        "last_signal_at": rt.get("lastSignalAt") or meta.get("lastSignalAt"),
+        "location_source": rt.get("locationSource") or meta.get("locationSource"),
+        "location_stale": bool(rt.get("locationStale", meta.get("locationStale"))),
+        "assigned_employee": None,
+        "smart_camera": None,
+        "mounted_on": None,
     }
+    if session is not None:
+        from app.warehouse_sim.bracelets import enrich_fleet_payload as enrich_bracelet
+        from app.warehouse_sim.smart_cameras import enrich_fleet_payload as enrich_camera
+
+        payload = enrich_bracelet(session, payload, row, assignments=assignments)
+        camera_host_map = None
+        camera_cam_map = None
+        if isinstance(assignments, dict) and assignments.get("__smart_cameras__"):
+            maps = assignments["__smart_cameras__"]
+            camera_host_map = maps.get("by_host")
+            camera_cam_map = maps.get("by_camera")
+        return enrich_camera(
+            session,
+            payload,
+            row,
+            host_assignments=camera_host_map,
+            camera_assignments=camera_cam_map,
+        )
+    return payload

@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.t
 import type { PersonnelActivity } from "@/api/personnel.ts"
 import {
   employeeStatusLabel,
+  formatStatusDate,
   fullName,
   motionLabel,
   shiftLabel,
@@ -37,7 +38,7 @@ export function PersonnelDetail({
         <p>Должность: {employee.position}</p>
         <p>Подразделение: {employee.department}</p>
         <p>Смена: {shiftLabel(employee.shift)}</p>
-        <p>Статус: {employeeStatusLabel(employee.status)}</p>
+        <p>Статус: {employeeStatusLabel(employee.status)}{employee.status_until ? ` до ${formatStatusDate(employee.status_until)}` : ""}</p>
         <p>Телефон: {employee.phone || "—"}</p>
         <p>Email: {employee.email || "—"}</p>
         <p>Дата приёма: {employee.hire_date || "—"}</p>

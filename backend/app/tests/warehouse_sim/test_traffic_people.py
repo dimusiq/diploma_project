@@ -4,9 +4,21 @@ from copy import deepcopy
 
 from app.warehouse_sim.layout import AISLE_Z
 from app.warehouse_sim.pedestrians import path_crosses_rack, people_snapshot
-from app.warehouse_sim.simulation import advance_along_path, advance_world, process_devices, step_world
-from app.warehouse_sim.traffic import WAIT_LIMIT_SEC, resolve_traffic, traffic_snapshot
-from app.warehouse_sim.world import create_world
+from app.warehouse_sim.simulation import (
+    advance_along_path,
+    advance_world,
+    assign_tasks,
+    process_devices,
+    seed_demo_agv_task,
+    step_world,
+)
+from app.warehouse_sim.traffic import (
+    WAIT_LIMIT_SEC,
+    agv_motion_diagnostic,
+    resolve_traffic,
+    traffic_snapshot,
+)
+from app.warehouse_sim.world import DEMO_CONFIG, create_world
 
 QUIET = {
     "forklifts": 0,
@@ -170,28 +182,119 @@ def test_person_cannot_cross_rack() -> None:
         assert not path_crosses_rack([worker["pos"]], racks)
 
 
-def test_vehicle_stops_when_person_is_in_path() -> None:
-    world = create_world(QUIET)
-    agv = world["deviceById"]["agv-1"]
+def _put_person(world, agv, x: float, z: float):
     worker = world["workers"][0]
     agv["status"] = "moving"
     agv["pos"] = {"x": 30.0, "z": AISLE_Z[8]}
     agv["path"] = [{"x": 60.0, "z": AISLE_Z[8]}]
+    agv["cruise"] = 1.0
     worker["status"] = "walking"
     worker["stops"] = []
     worker["path"] = []
-    worker["pos"] = {"x": 31.2, "z": AISLE_Z[8]}
+    worker["pos"] = {"x": x, "z": z}
+    return worker
+
+
+def test_person_ahead_slows_then_resumes() -> None:
+    world = create_world(QUIET)
+    agv = world["deviceById"]["agv-1"]
+    worker = _put_person(world, agv, 31.4, AISLE_Z[8])
     held = dict(agv["pos"])
     process_devices(world, 1.0)
     assert agv["personInPath"] == worker["id"]
-    assert agv["pos"] == held
+    assert agv["cameraHold"] is False
+    assert agv["pos"]["x"] > held["x"]
+    assert agv["pos"]["x"] < held["x"] + agv["speed"]
     assert world["eventCountsByType"].get("PERSON_DETECTED_IN_PATH") == 1
     process_devices(world, 1.0)
     assert world["eventCountsByType"].get("PERSON_DETECTED_IN_PATH") == 1
-    worker["pos"] = {"x": 31.2, "z": AISLE_Z[8] + 4.0}
+    slowed = dict(agv["pos"])
+    worker["pos"] = {"x": 31.4, "z": AISLE_Z[8] + 4.0}
     process_devices(world, 1.0)
     assert not agv["personInPath"]
-    assert agv["pos"]["x"] > held["x"]
+    assert agv["cameraHold"] is False
+    assert agv["status"] == "moving"
+    assert agv["pos"]["x"] > slowed["x"]
+
+
+def test_person_directly_in_front_stops_agv() -> None:
+    world = create_world(QUIET)
+    agv = world["deviceById"]["agv-1"]
+    _put_person(world, agv, 30.6, AISLE_Z[8])
+    held = dict(agv["pos"])
+    process_devices(world, 1.0)
+    assert agv["cameraHold"] is True
+    assert agv["pos"] == held
+    assert agv["personDistance"] < 1.0
+
+
+def test_person_in_another_aisle_does_not_stop_agv() -> None:
+    world = create_world(QUIET)
+    agv = world["deviceById"]["agv-1"]
+    _put_person(world, agv, 32.0, AISLE_Z[8] + 6.0)
+    held = dict(agv["pos"])
+    process_devices(world, 1.0)
+    assert agv["cameraHold"] is False
+    assert not agv["personInPath"]
+    assert agv["pos"]["x"] > held["x"] + 1.0
+
+
+def test_person_far_ahead_does_not_slow_agv() -> None:
+    world = create_world(QUIET)
+    agv = world["deviceById"]["agv-1"]
+    _put_person(world, agv, 36.0, AISLE_Z[8])
+    held = dict(agv["pos"])
+    process_devices(world, 1.0)
+    assert agv["cameraHold"] is False
+    assert not agv["personInPath"]
+    assert agv["pos"]["x"] > held["x"] + 1.0
+
+
+def test_demo_assigns_agv_1_even_if_it_was_left_moving() -> None:
+    world = create_world(DEMO_CONFIG)
+    agv = world["deviceById"]["agv-1"]
+    agv["status"] = "moving"
+    agv["cameraHold"] = True
+    seed_demo_agv_task(world)
+    assign_tasks(world)
+    started = agv_motion_diagnostic(world)
+    assert started["taskId"] is not None
+    assert started["taskKind"] == "pick"
+    assert started["status"] == "moving"
+    assert started["pathLength"] > 0
+    assert started["cameraHold"] is False
+
+
+def test_demo_assigns_agv_1_and_it_moves() -> None:
+    world = create_world(DEMO_CONFIG)
+    seed_demo_agv_task(world)
+    assign_tasks(world)
+    agv = world["deviceById"]["agv-1"]
+    origin = dict(agv["pos"])
+    started = agv_motion_diagnostic(world)
+    assert started["taskId"] is not None
+    assert started["taskKind"] == "pick"
+    assert started["status"] == "moving"
+    assert started["pathLength"] > 0
+    assert started["cameraHold"] is False
+    advance_world(world, 10)
+    later = agv_motion_diagnostic(world)
+    assert later["taskId"] == started["taskId"]
+    assert agv["pos"] != origin
+    advance_world(world, 10)
+    assert agv_motion_diagnostic(world)["taskId"] == started["taskId"]
+
+
+def test_camera_offline_agv_still_moves() -> None:
+    world = create_world(QUIET)
+    agv = world["deviceById"]["agv-1"]
+    agv["status"] = "moving"
+    agv["camera"] = {"installed": True, "online": False, "enabled": False}
+    agv["path"] = [{"x": agv["pos"]["x"] + 20.0, "z": agv["pos"]["z"]}]
+    origin = dict(agv["pos"])
+    process_devices(world, 1.0)
+    assert agv["cameraHold"] is False
+    assert agv["pos"]["x"] > origin["x"]
 
 
 def test_pause_freezes_people_and_vehicles() -> None:

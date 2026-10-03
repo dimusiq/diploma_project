@@ -9,7 +9,7 @@ const ivanov: PersonnelRecord = {
   middle_name: "Иванович",
   position: "Кладовщик",
   department: "Склад №1",
-  status: "active",
+  status: "working",
   shift: "day",
   current_zone: "aisle-2",
   motion_status: "walking",
@@ -24,7 +24,7 @@ const petrov: PersonnelRecord = {
   middle_name: "Сергеевич",
   position: "Комплектовщик",
   shift: "night",
-  status: "inactive",
+  status: "break",
 }
 
 describe("personnel directory", () => {
@@ -36,7 +36,7 @@ describe("personnel directory", () => {
   it("filters by search, position, shift and status", () => {
     const rows = [ivanov, petrov]
     expect(filterPersonnel(rows, { q: "петров", position: "", shift: "", status: "" })).toEqual([petrov])
-    expect(filterPersonnel(rows, { q: "", position: "Кладовщик", shift: "day", status: "active" })).toEqual([ivanov])
+    expect(filterPersonnel(rows, { q: "", position: "Кладовщик", shift: "day", status: "working" })).toEqual([ivanov])
     expect(filterPersonnel(rows, { q: "", position: "", shift: "night", status: "" })).toEqual([petrov])
   })
 

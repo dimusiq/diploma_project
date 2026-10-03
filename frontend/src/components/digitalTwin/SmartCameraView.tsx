@@ -401,9 +401,9 @@ export function CameraEquipmentSection({
 
   if (!installed) {
     return (
-      <section className="space-y-2">
-        <h3 className="text-sm font-medium">Smart Camera</h3>
-        <p className="text-sm text-muted-foreground">Камера не установлена</p>
+      <section className="space-y-2" data-testid="camera-equipment-section">
+        <h3 className="text-sm font-medium">Умная камера</h3>
+        <p className="text-sm text-muted-foreground">Не назначена</p>
       </section>
     )
   }
@@ -413,11 +413,14 @@ export function CameraEquipmentSection({
     onShowInWorld?.(equipmentId)
   }
   const shownFps = availability === "live" ? camera?.fps || CAMERA_VIEW_HZ : 0
+  const cameraLabel = camera?.camera_code || camera?.camera_id || name
 
   return (
-    <section className="space-y-2">
-      <h3 className="text-sm font-medium">Smart Camera</h3>
+    <section className="space-y-2" data-testid="camera-equipment-section">
+      <h3 className="text-sm font-medium">Умная камера</h3>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+        <div>Камера</div>
+        <div className="font-mono">{cameraLabel}</div>
         <div>Статус</div>
         <div>
           {availability === "disabled"
@@ -432,8 +435,14 @@ export function CameraEquipmentSection({
         <div>{modelLabel(camera?.model || "", true)}</div>
         <div>FPS</div>
         <div>{shownFps}</div>
-        <div>Обнаружения</div>
+        <div>Детекции</div>
         <div>{camera?.detection_count ?? detections.length}</div>
+        {camera?.last_frame_at || camera?.attached_to?.name ? (
+          <>
+            <div>Последний сигнал</div>
+            <div>{clock(camera?.last_frame_at)}</div>
+          </>
+        ) : null}
       </dl>
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>

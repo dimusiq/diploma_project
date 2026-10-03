@@ -1,4 +1,3 @@
-import { Text } from "@react-three/drei"
 import { truckWorldPose } from "@/components/warehouse3d/twin/twinLayout.ts"
 import { TWIN_GEOM, TWIN_MAT } from "@/components/warehouse3d/twin/twinMaterials.ts"
 
@@ -16,13 +15,11 @@ const TRAILER_WHEELS: Array<[number, number, number]> = [
 ]
 
 export function TruckModel({
-  plate,
   direction,
   x,
   z,
-  darkMode,
 }: {
-  plate: string
+  plate?: string
   direction: "inbound" | "outbound"
   x?: number
   z?: number
@@ -89,14 +86,6 @@ export function TruckModel({
           scale={[0.42, 0.28, 0.42]}
         />
       ))}
-      <Text
-        position={[0, 3.35, -2.2]}
-        fontSize={0.28}
-        color={darkMode ? "#f8fafc" : "#0f172a"}
-        anchorX="center"
-      >
-        {plate}
-      </Text>
     </group>
   )
 }

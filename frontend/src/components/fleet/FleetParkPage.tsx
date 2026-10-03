@@ -85,6 +85,7 @@ type FormState = {
   zoneId: string
   speed: string
   battery: string
+  serialNumber: string
   metricKind: string
   metricUnit: string
   metricMin: string
@@ -99,6 +100,7 @@ const emptyForm: FormState = {
   zoneId: "",
   speed: "",
   battery: "",
+  serialNumber: "",
   metricKind: "temperature",
   metricUnit: "°C",
   metricMin: "",
@@ -221,6 +223,9 @@ export function FleetParkPage({
       const battery = form.battery.trim() ? Number(form.battery) : undefined
       const configuration: Record<string, unknown> = {}
       if (form.zoneId) configuration.zoneId = form.zoneId
+      if (formFields.includes("serialNumber") && form.serialNumber.trim()) {
+        configuration.serialNumber = form.serialNumber.trim()
+      }
       if (formFields.includes("metricKind")) {
         configuration.metricKind = form.metricKind
         configuration.metricUnit = form.metricUnit || null
@@ -301,6 +306,10 @@ export function FleetParkPage({
         device.configuration.battery != null
           ? String(device.configuration.battery)
           : "",
+      serialNumber:
+        device.serial_number || device.configuration.serialNumber
+          ? String(device.serial_number || device.configuration.serialNumber)
+          : "",
       metricKind: device.configuration.metricKind ?? "temperature",
       metricUnit: device.configuration.metricUnit ?? "",
       metricMin:
@@ -364,6 +373,26 @@ export function FleetParkPage({
         )
       case "enabled":
         return device.enabled ? "Да" : "Нет"
+      case "assignee":
+        return device.assigned_employee?.full_name ?? "Не закреплён"
+      case "smart_camera":
+        return device.smart_camera?.code ?? "Не назначена"
+      case "mounted_on":
+        return device.mounted_on
+          ? `${device.mounted_on.code} (${device.mounted_on.name})`
+          : "Свободна"
+      case "last_signal": {
+        const iso = device.last_signal_at ?? device.runtime.lastSignalAt
+        if (!iso) return "—"
+        const date = new Date(iso)
+        if (Number.isNaN(date.getTime())) return String(iso)
+        return date.toLocaleString("ru-RU", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "2-digit",
+          month: "2-digit",
+        })
+      }
       case "actions":
         return (
           <DropdownMenu>
@@ -682,6 +711,21 @@ export function FleetParkPage({
                       battery: event.target.value,
                     }))
                   }
+                />
+              </Field>
+            ) : null}
+            {formFields.includes("serialNumber") ? (
+              <Field label="Серийный номер">
+                <Input
+                  value={form.serialNumber}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      serialNumber: event.target.value,
+                    }))
+                  }
+                  placeholder="SN-RB-001"
+                  className="font-mono"
                 />
               </Field>
             ) : null}

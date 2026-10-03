@@ -1,4 +1,3 @@
-import { Html } from "@react-three/drei"
 import { useFrame, useThree } from "@react-three/fiber"
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react"
 import { CameraHelper, type Group, MathUtils, PerspectiveCamera, Vector3 } from "three"
@@ -9,9 +8,8 @@ import {
   subscribeCameraFrustum,
 } from "@/components/digitalTwin/agvCameraBridge.ts"
 import { AGV_CAMERA_LOCAL } from "@/components/digitalTwin/sceneDetection.ts"
-import { taskKindLabel } from "@/components/deviceServer/simFormat.ts"
 import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
-import type { DeviceKind, SimTask } from "@/components/deviceServer/simTypes.ts"
+import type { DeviceKind } from "@/components/deviceServer/simTypes.ts"
 import { useSimData } from "@/components/deviceServer/useDeviceSimulation.ts"
 import { PalletLoad } from "@/components/warehouse3d/PalletRackVisuals.tsx"
 import { palletCargoVariant } from "@/components/warehouse3d/palletRackLayout.ts"
@@ -41,29 +39,20 @@ function deviceColor(kind: DeviceKind, status: string, online: boolean, alarm: b
 function LiveMobile({
   id,
   kind,
-  name,
   selected,
-  task,
   hasCamera,
   obstacle,
-  held,
-  palletConfidence,
   onSelect,
 }: {
   id: string
   kind: DeviceKind
-  name: string
   selected: boolean
-  task: SimTask | undefined
   hasCamera: boolean
   obstacle: boolean
-  held: boolean
-  palletConfidence: number | null
   onSelect: () => void
 }) {
   const group = useRef<Group>(null)
   const load = useRef<Group>(null)
-  const speedRef = useRef<HTMLSpanElement>(null)
   const current = useRef(new Vector3())
   const heading = useRef(0)
   const inited = useRef(false)
@@ -122,14 +111,6 @@ function LiveMobile({
     current.current.z = MathUtils.damp(current.current.z, tz, 10, dt)
     node.position.copy(current.current)
     node.rotation.y = MathUtils.damp(node.rotation.y, heading.current, 8, dt)
-    if (speedRef.current) {
-      const currentSpeed = device.speed ?? 0
-      const targetSpeed = device.targetSpeed ?? currentSpeed
-      const waiting = device.waitingSeconds ?? 0
-      const yieldTo = device.waitingFor ? ` → ${device.waitingFor}` : ""
-      const waitText = waiting > 0 ? ` wait ${waiting.toFixed(1)}s` : ""
-      speedRef.current.textContent = `${currentSpeed.toFixed(1)}/${targetSpeed.toFixed(1)} m/s${waitText}${yieldTo}`
-    }
     if (load.current) load.current.visible = device.carrying
     helperRef.current?.update()
   })
@@ -176,13 +157,6 @@ function LiveMobile({
           maxHeight={0.7}
           lanes={1}
         />
-        {palletConfidence != null ? (
-          <Html position={[0, 0.9, 0]} center distanceFactor={28} zIndexRange={[11, 0]}>
-            <span className="rounded-sm bg-black/80 px-1 font-mono text-[10px] text-emerald-200">
-              PALLET {palletConfidence.toFixed(2)}
-            </span>
-          </Html>
-        ) : null}
       </group>
       {hasCamera && showFrustum ? (
         <mesh
@@ -192,31 +166,6 @@ function LiveMobile({
           rotation={[Math.PI / 2, 0, 0]}
         />
       ) : null}
-      {hasCamera ? (
-        <Html position={[0, 1.7, 0.2]} center distanceFactor={28} zIndexRange={[12, 0]}>
-          <span className="rounded-sm bg-black/75 px-1 font-mono text-[10px] text-white">
-            📷{held ? " HOLD" : ""}
-          </span>
-        </Html>
-      ) : null}
-      <Html position={[0, kind === "forklift" ? 2.55 : 1.85, 0]} center distanceFactor={42} zIndexRange={[8, 0]}>
-        <span ref={speedRef} className="whitespace-nowrap rounded-sm bg-black/70 px-1 font-mono text-[10px] text-white">
-          {name}
-        </span>
-      </Html>
-      {selected && (
-        <Html
-          position={[0, kind === "forklift" ? 2.15 : 1.45, 0]}
-          center
-          distanceFactor={36}
-          zIndexRange={[10, 0]}
-        >
-          <div className="whitespace-nowrap rounded-sm bg-background px-1 py-0.5 text-[10px] font-medium text-foreground shadow-sm">
-            {name}
-            {task ? ` · ${taskKindLabel(task.kind)}` : ""}
-          </div>
-        </Html>
-      )}
     </group>
   )
 }
@@ -286,32 +235,19 @@ export const DynamicFleet = memo(function DynamicFleet({
     () =>
       data.devices
         .filter((device) => MOBILE_KINDS.includes(device.kind))
-        .map((device) => ({ id: device.id, kind: device.kind, name: device.name })),
+        .map((device) => ({ id: device.id, kind: device.kind })),
     [data.devices],
   )
   const cameraById = useMemo(() => {
-    const map = new Map<string, { obstacle: boolean; held: boolean; palletConfidence: number | null }>()
+    const map = new Map<string, { obstacle: boolean }>()
     for (const device of data.devices) {
       if (!device.camera?.installed) continue
-      const pallet = device.palletId
-        ? device.camera.detections?.find((item) => item.class_name === "pallet")
-        : undefined
       map.set(device.id, {
         obstacle: Boolean(device.camera.obstacle),
-        held: Boolean(device.cameraHold),
-        palletConfidence: pallet ? pallet.confidence : null,
       })
     }
     return map
   }, [data.devices])
-  const tasksByDevice = useMemo(() => {
-    const map = new Map<string, SimTask>()
-    for (const task of data.tasks) {
-      if (!task.deviceId || task.status === "done") continue
-      map.set(task.deviceId, task)
-    }
-    return map
-  }, [data.tasks])
   const trucks = useMemo(
     () =>
       data.trucks.map((truck) => ({
@@ -329,13 +265,9 @@ export const DynamicFleet = memo(function DynamicFleet({
           key={device.id}
           id={device.id}
           kind={device.kind}
-          name={device.name}
           selected={device.id === selectedDeviceId}
-          task={tasksByDevice.get(device.id)}
           hasCamera={cameraById.has(device.id)}
           obstacle={cameraById.get(device.id)?.obstacle ?? false}
-          held={cameraById.get(device.id)?.held ?? false}
-          palletConfidence={cameraById.get(device.id)?.palletConfidence ?? null}
           onSelect={() =>
             onSelectDevice(device.id === selectedDeviceId ? null : device.id)
           }

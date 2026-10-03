@@ -17,6 +17,8 @@ from app.warehouse_sim.vehicle_dimensions import (
 WAIT_LIMIT_SEC = 1.5
 PASS_SHIFT_M = 0.64
 PERSON_LOOKAHEAD_M = 2.2
+PERSON_STOP_M = 1.0
+PERSON_SLOW_CRUISE = 0.45
 MOBILE = ("forklift", "agv", "amr")
 ACTIVE = ("moving", "waiting", "loading", "unloading")
 
@@ -126,6 +128,10 @@ def _still_passing(device: dict, other: dict | None) -> bool:
 
 
 def _person_ahead(device: dict, workers: list[dict]) -> dict | None:
+    """Человек непосредственно перед техникой, в пределах PERSON_LOOKAHEAD_M.
+
+    Человек в другом проезде или без координат сюда не попадает.
+    """
     width, _length = body_size(device.get("kind", "agv"))
     for worker in workers:
         if worker.get("status") not in ("walking", "busy"):
@@ -139,6 +145,22 @@ def _person_ahead(device: dict, workers: list[dict]) -> dict | None:
         if abs(lateral) < width / 2 + 0.35:
             return worker
     return None
+
+
+def _clear_person_hold(device: dict) -> None:
+    device["personInPath"] = False
+    device["personEventFor"] = None
+    device["personDistance"] = None
+    # cameraHold = safety stop caused by object directly in AGV path.
+    device["cameraHold"] = False
+    device["cameraHoldReason"] = None
+
+
+def _reset_safety_stop(device: dict) -> None:
+    """Снимает стоп до повторной проверки. personEventFor не трогает, чтобы событие не повторялось."""
+    device["personDistance"] = None
+    device["cameraHold"] = False
+    device["cameraHoldReason"] = None
 
 
 def resolve_traffic(world: dict) -> list[dict]:
@@ -155,6 +177,9 @@ def resolve_traffic(world: dict) -> list[dict]:
     ]
     by_id = {device["id"]: device for device in world["devices"]}
     events: list[dict] = []
+    for device in world["devices"]:
+        if device.get("kind") in MOBILE:
+            _reset_safety_stop(device)
     for device in devices:
         device["cruise"] = 1.0
         rivals = [
@@ -164,16 +189,23 @@ def resolve_traffic(world: dict) -> list[dict]:
         ]
         person = _person_ahead(device, world.get("workers") or [])
         if person is not None:
-            device["cruise"] = 0.0
+            forward, _lateral = relative(device, person["pos"])
             device["personInPath"] = person["id"]
+            device["personDistance"] = round(forward, 2)
+            if forward < PERSON_STOP_M:
+                device["cruise"] = 0.0
+                # cameraHold = safety stop caused by object directly in AGV path.
+                device["cameraHold"] = True
+                device["cameraHoldReason"] = person.get("code") or person["id"]
+            else:
+                device["cruise"] = PERSON_SLOW_CRUISE
             if device.get("personEventFor") != person["id"]:
                 device["personEventFor"] = person["id"]
                 events.append({"device": device, "worker": person})
             _clear_wait(device)
             continue
         if device.get("personInPath"):
-            device["personInPath"] = False
-            device["personEventFor"] = None
+            _clear_person_hold(device)
         if not rivals:
             other = by_id.get(device.get("passRival"))
             if _still_passing(device, other):
@@ -210,11 +242,32 @@ def resolve_traffic(world: dict) -> list[dict]:
 
 
 def current_speed(device: dict) -> float:
-    if device.get("personInPath") or device.get("status") == "waiting":
+    if device.get("cameraHold") or device.get("status") == "waiting":
         return 0.0
     if device.get("status") != "moving":
         return 0.0
     return float(device.get("speed") or 0.0) * float(device.get("cruise") or 1.0)
+
+
+def agv_motion_diagnostic(world: dict, device_id: str = "agv-1") -> dict:
+    """Снимок движения одной машины: задача отдельно от cameraHold."""
+    device = world["deviceById"][device_id]
+    task = _task(world, device)
+    return {
+        "id": device["id"],
+        "taskId": device.get("taskId"),
+        "taskKind": task["kind"] if task else None,
+        "taskStatus": task["status"] if task else None,
+        "pathLength": len(device.get("path") or []),
+        "status": device.get("status"),
+        "speed": round(current_speed(device), 2),
+        "targetSpeed": float(device.get("speed") or 0.0),
+        "cameraHold": bool(device.get("cameraHold")),
+        "cameraHoldReason": device.get("cameraHoldReason"),
+        "personDistance": device.get("personDistance"),
+        "waitingFor": device.get("waitingFor"),
+        "waitingDuration": round(float(device.get("waitingDuration") or 0.0), 2),
+    }
 
 
 def traffic_snapshot(world: dict) -> list[dict]:

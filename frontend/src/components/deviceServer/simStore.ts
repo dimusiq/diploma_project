@@ -65,6 +65,10 @@ export interface DeviceMotion {
   targetSpeed?: number
   waitingFor?: string | null
   waitingSeconds?: number
+  taskId?: string | null
+  cameraHold?: boolean
+  cameraHoldReason?: string | null
+  personDistance?: number | null
 }
 
 export interface WorkerMotion {
@@ -321,7 +325,6 @@ class DeviceSimulationClient {
       if (type === "camera.detection_cleared") {
         return {
           ...device,
-          cameraHold: false,
           camera: {
             ...current,
             obstacle: false,
@@ -334,7 +337,6 @@ class DeviceSimulationClient {
       const detections = payload.detections ?? current.detections
       return {
         ...device,
-        cameraHold: payload.obstacle ?? payload.status?.obstacle ?? device.cameraHold,
         camera: {
           ...current,
           ...(payload.status ?? {}),

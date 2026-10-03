@@ -3,6 +3,10 @@ import { WAREHOUSE_DEPTH, WAREHOUSE_WIDTH } from "../simLayout.ts"
 import {
   fitWarehouseToViewport,
   fitWarehouseToWidth,
+  MAP_LABEL,
+  mapLabelFont,
+  mapLabelPixels,
+  vehicleLabelShift,
   warehouseContentBounds,
   WAREHOUSE_MAP_PADDING_PX,
 } from "../warehouseMapViewport.ts"
@@ -52,5 +56,33 @@ describe("fitWarehouseToViewport", () => {
     expect(occupied).toBeGreaterThan(0.85)
     expect(occupied).toBeLessThanOrEqual(1)
     expect(fitted.viewBox.startsWith("-26")).toBe(false)
+  })
+})
+
+describe("map labels", () => {
+  it("keeps zone text inside 14–18 px even on a wide map", () => {
+    const wide = fitWarehouseToWidth(1600)
+    const px = mapLabelPixels(MAP_LABEL.zone, wide.scale)
+    expect(px).toBeGreaterThanOrEqual(14)
+    expect(px).toBeLessThanOrEqual(18)
+    expect(mapLabelFont(MAP_LABEL.zone, wide.scale) * wide.scale).toBeCloseTo(px)
+    expect(mapLabelPixels(MAP_LABEL.equipmentSelected, wide.scale)).toBeLessThanOrEqual(14)
+    expect(mapLabelPixels(MAP_LABEL.forklift, wide.scale)).toBeLessThanOrEqual(11)
+    expect(mapLabelPixels(MAP_LABEL.gate, wide.scale)).toBeLessThanOrEqual(12)
+  })
+
+  it("shrinks labels on a narrow map but not below the minimum", () => {
+    const narrow = mapLabelPixels(MAP_LABEL.zone, fitWarehouseToWidth(420).scale)
+    const wide = mapLabelPixels(MAP_LABEL.zone, fitWarehouseToWidth(1600).scale)
+    expect(narrow).toBeGreaterThanOrEqual(14)
+    expect(narrow).toBeLessThanOrEqual(wide)
+  })
+
+  it("shifts a nearby vehicle label off the first one", () => {
+    const first = vehicleLabelShift("agv-1", "agv", [], 1.2)
+    const second = vehicleLabelShift("agv-2", "agv", ["agv-1"], 1.2)
+    expect(first.x).toBe(0)
+    expect(second.y).toBeGreaterThan(first.y)
+    expect(second.x).not.toBe(0)
   })
 })

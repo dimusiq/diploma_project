@@ -31,6 +31,8 @@ const DEVICE_KIND_LABELS: Record<DeviceKind, string> = {
   dock_door: "Ворота",
   charger: "Зарядная станция",
   printer: "Принтер",
+  radio_beacon: "Браслет-радиомаяк",
+  smart_camera: "Умная камера",
 }
 
 const WORKER_ROLE_LABELS: Record<WorkerRole, string> = {
@@ -41,8 +43,8 @@ const WORKER_ROLE_LABELS: Record<WorkerRole, string> = {
   supervisor: "Бригадир",
 }
 
-export function deviceKindLabel(kind: DeviceKind): string {
-  return DEVICE_KIND_LABELS[kind]
+export function deviceKindLabel(kind: DeviceKind | string): string {
+  return DEVICE_KIND_LABELS[kind as DeviceKind] || kind
 }
 
 export function deviceStatusLabel(status: DeviceStatus): string {

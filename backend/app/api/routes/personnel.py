@@ -10,9 +10,19 @@ from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.audit import get_client_ip, log_audit
 from app.core.permissions import PERM_PERSONNEL_READ, PERM_PERSONNEL_WRITE
 from app.models import (
+    EMPLOYEE_DATED_STATUSES,
+    EMPLOYEE_STATUSES,
     Message,
     PersonnelActivity,
+    PersonnelBraceletAssign,
+    PersonnelBraceletHistoryItem,
+    PersonnelBraceletHistoryList,
+    PersonnelBraceletInfo,
+    PersonnelBulkDepartment,
+    PersonnelBulkIds,
+    PersonnelBulkResult,
     PersonnelCreate,
+    PersonnelDepartmentList,
     PersonnelList,
     PersonnelPublic,
     PersonnelUpdate,
@@ -22,14 +32,24 @@ from app.models import (
 router = APIRouter(prefix="/personnel", tags=["personnel"])
 
 
-def _runtime_workers() -> list[dict]:
+def _runtime_world() -> dict:
     from app.warehouse_sim.runtime import get_runtime
 
     try:
-        world = get_runtime().world
+        return get_runtime().world
     except Exception:
-        return []
-    return list(world.get("workers") or [])
+        return {}
+
+
+def _runtime_workers() -> list[dict]:
+    return list(_runtime_world().get("workers") or [])
+
+
+def _runtime_device(code: str | None) -> dict | None:
+    if not code:
+        return None
+    by_id = _runtime_world().get("deviceById") or {}
+    return by_id.get(code)
 
 
 def _match_worker(employee: WarehouseEmployee, workers: list[dict]) -> dict | None:
@@ -46,8 +66,47 @@ def _present(worker: dict | None) -> bool:
     return bool(worker and worker.get("spawned", True) and worker.get("pos"))
 
 
-def _public(employee: WarehouseEmployee, worker: dict | None) -> PersonnelPublic:
+def _bracelet_info(session: SessionDep, employee: WarehouseEmployee) -> PersonnelBraceletInfo | None:
+    from app.warehouse_sim.bracelets import bracelet_for_employee
+
+    raw = bracelet_for_employee(session, employee)
+    if raw is None:
+        return None
+    runtime = _runtime_device(raw.get("code"))
+    if runtime:
+        raw = bracelet_for_employee(session, employee, runtime=runtime) or raw
+    return PersonnelBraceletInfo(
+        device_id=uuid.UUID(raw["device_id"]),
+        code=raw["code"],
+        name=raw["name"],
+        status=raw["status"],
+        battery=raw.get("battery"),
+        last_signal_at=raw.get("last_signal_at"),
+        location_label=raw.get("location_label"),
+        location_source=raw.get("location_source"),
+        location_stale=bool(raw.get("location_stale")),
+        serial_number=raw.get("serial_number"),
+        assigned_at=raw.get("assigned_at"),
+    )
+
+
+def _public(
+    session: SessionDep,
+    employee: WarehouseEmployee,
+    worker: dict | None,
+) -> PersonnelPublic:
     present = _present(worker)
+    bracelet = _bracelet_info(session, employee)
+    zone = worker.get("current_zone") if present else None
+    location_source = None
+    location_stale = False
+    last_signal = None
+    if bracelet:
+        location_source = bracelet.location_source
+        location_stale = bracelet.location_stale
+        last_signal = bracelet.last_signal_at
+        if not zone and bracelet.location_label:
+            zone = bracelet.location_label
     return PersonnelPublic(
         id=employee.id,
         employee_code=employee.employee_code,
@@ -59,15 +118,20 @@ def _public(employee: WarehouseEmployee, worker: dict | None) -> PersonnelPublic
         phone=employee.phone,
         email=employee.email,
         status=employee.status,
+        status_until=employee.status_until,
         shift=employee.shift,
         hire_date=employee.hire_date,
         notes=employee.notes,
         created_at=employee.created_at,
         updated_at=employee.updated_at,
-        current_zone=worker.get("current_zone") if present else None,
+        current_zone=zone,
         motion_status=worker.get("status") if present else None,
         person_code=worker.get("code") if present else None,
         speed=float(worker.get("speed") or 0.0) if present and worker.get("status") == "walking" else None,
+        bracelet=bracelet,
+        location_source=location_source,
+        location_stale=location_stale,
+        last_signal_at=last_signal,
     )
 
 
@@ -76,6 +140,22 @@ def _get_or_404(session: SessionDep, employee_id: uuid.UUID) -> WarehouseEmploye
     if not employee:
         raise HTTPException(status_code=404, detail="Сотрудник не найден")
     return employee
+
+
+def _refresh_runtime_links(session: SessionDep) -> None:
+    from app.warehouse_sim.bracelets import apply_bracelet_positions, sync_runtime_links
+    from app.warehouse_sim.runtime import get_runtime
+
+    try:
+        rt = get_runtime()
+        with rt._lock:
+            sync_runtime_links(session, rt.world)
+            apply_bracelet_positions(rt.world)
+            rt._refresh()
+            rt._publish("data", rt._last_data)
+            rt._publish("motion", rt._last_motion)
+    except Exception:
+        pass
 
 
 @router.get(
@@ -93,6 +173,8 @@ def read_personnel(
 ) -> Any:
     stmt = select(WarehouseEmployee)
     if status:
+        if status not in EMPLOYEE_STATUSES:
+            raise HTTPException(status_code=422, detail="Неизвестный статус сотрудника")
         stmt = stmt.where(WarehouseEmployee.status == status)
     if position:
         stmt = stmt.where(WarehouseEmployee.position == position)
@@ -112,8 +194,142 @@ def read_personnel(
         )
     rows = list(session.exec(stmt.order_by(WarehouseEmployee.last_name, WarehouseEmployee.first_name)).all())
     workers = _runtime_workers()
-    data = [_public(row, _match_worker(row, workers)) for row in rows]
+    data = [_public(session, row, _match_worker(row, workers)) for row in rows]
     return PersonnelList(data=data, count=len(data))
+
+
+@router.get(
+    "/bracelets/available",
+    dependencies=[require_permission(PERM_PERSONNEL_READ)],
+)
+def list_available_bracelets(session: SessionDep, _current_user: CurrentUser) -> Any:
+    from app.warehouse_sim.bracelets import list_available_bracelets as available
+
+    data = available(session)
+    return {"data": data, "count": len(data)}
+
+
+@router.get(
+    "/departments",
+    response_model=PersonnelDepartmentList,
+    dependencies=[require_permission(PERM_PERSONNEL_READ)],
+)
+def list_departments(session: SessionDep, _current_user: CurrentUser) -> Any:
+    rows = list(session.exec(select(WarehouseEmployee.department).distinct()).all())
+    names = sorted({str(name).strip() for name in rows if name and str(name).strip()})
+    for preset in ("Склад №1", "Склад №2", "Склад №3"):
+        if preset not in names:
+            names.append(preset)
+    return PersonnelDepartmentList(data=names, count=len(names))
+
+
+@router.post(
+    "/bulk/department",
+    response_model=PersonnelBulkResult,
+    dependencies=[require_permission(PERM_PERSONNEL_WRITE)],
+)
+def bulk_change_department(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    body: PersonnelBulkDepartment,
+) -> Any:
+    from datetime import datetime, timezone
+
+    department = body.department.strip()
+    if not department:
+        raise HTTPException(status_code=422, detail="Укажите подразделение")
+    ids = list(dict.fromkeys(body.worker_ids))
+    employees = list(
+        session.exec(select(WarehouseEmployee).where(col(WarehouseEmployee.id).in_(ids))).all()
+    )
+    found = {row.id for row in employees}
+    missing = [str(item) for item in ids if item not in found]
+    if missing:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Сотрудники не найдены: {', '.join(missing[:5])}",
+        )
+    now = datetime.now(timezone.utc)
+    previous = sorted({row.department for row in employees})
+    for row in employees:
+        row.department = department
+        row.updated_at = now
+        session.add(row)
+    session.flush()
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="PERSONNEL_BULK_DEPARTMENT_CHANGE",
+        resource_type="worker",
+        resource_id=None,
+        details={
+            "count": len(employees),
+            "worker_ids": [str(item) for item in ids],
+            "previous_departments": previous,
+            "department": department,
+        },
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    return PersonnelBulkResult(
+        updated=len(employees),
+        worker_ids=ids,
+        department=department,
+        message=f'Сотрудники перемещены в подразделение "{department}".',
+    )
+
+
+@router.post(
+    "/bulk/delete",
+    response_model=PersonnelBulkResult,
+    dependencies=[require_permission(PERM_PERSONNEL_WRITE)],
+)
+def bulk_delete_employees(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    body: PersonnelBulkIds,
+) -> Any:
+    from app.warehouse_sim.bracelets import unassign_bracelet
+
+    ids = list(dict.fromkeys(body.worker_ids))
+    employees = list(
+        session.exec(select(WarehouseEmployee).where(col(WarehouseEmployee.id).in_(ids))).all()
+    )
+    found = {row.id for row in employees}
+    missing = [str(item) for item in ids if item not in found]
+    if missing:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Сотрудники не найдены: {', '.join(missing[:5])}",
+        )
+    codes = [row.employee_code for row in employees]
+    for row in employees:
+        unassign_bracelet(session, employee=row)
+        session.delete(row)
+    session.flush()
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="PERSONNEL_BULK_DELETE",
+        resource_type="worker",
+        resource_id=None,
+        details={
+            "count": len(employees),
+            "worker_ids": [str(item) for item in ids],
+            "employee_codes": codes,
+        },
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    return PersonnelBulkResult(
+        deleted=len(employees),
+        worker_ids=ids,
+        message=f"Удалено сотрудников: {len(employees)}",
+    )
 
 
 @router.get(
@@ -124,7 +340,139 @@ def read_personnel(
 def read_employee(session: SessionDep, _current_user: CurrentUser, employee_id: uuid.UUID) -> Any:
     employee = _get_or_404(session, employee_id)
     worker = _match_worker(employee, _runtime_workers())
-    return _public(employee, worker)
+    return _public(session, employee, worker)
+
+
+@router.get(
+    "/{employee_id}/bracelet",
+    dependencies=[require_permission(PERM_PERSONNEL_READ)],
+)
+def read_employee_bracelet(
+    session: SessionDep, _current_user: CurrentUser, employee_id: uuid.UUID
+) -> Any:
+    employee = _get_or_404(session, employee_id)
+    info = _bracelet_info(session, employee)
+    return {"bracelet": info.model_dump() if info else None}
+
+
+@router.get(
+    "/{employee_id}/bracelet/history",
+    response_model=PersonnelBraceletHistoryList,
+    dependencies=[require_permission(PERM_PERSONNEL_READ)],
+)
+def read_bracelet_history(
+    session: SessionDep, _current_user: CurrentUser, employee_id: uuid.UUID
+) -> Any:
+    from app.warehouse_sim.bracelets import assignment_history
+
+    _get_or_404(session, employee_id)
+    rows = assignment_history(session, employee_id=employee_id)
+    data = [PersonnelBraceletHistoryItem(**row) for row in rows]
+    return PersonnelBraceletHistoryList(data=data, count=len(data))
+
+
+@router.post(
+    "/{employee_id}/bracelet/assign",
+    response_model=PersonnelPublic,
+    dependencies=[require_permission(PERM_PERSONNEL_WRITE)],
+)
+def assign_employee_bracelet(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    employee_id: uuid.UUID,
+    body: PersonnelBraceletAssign,
+) -> Any:
+    from app.warehouse_sim.bracelets import assign_bracelet
+
+    employee = _get_or_404(session, employee_id)
+    assignment = assign_bracelet(
+        session, employee=employee, device_id=body.device_id, user_id=current_user.id
+    )
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="bracelet.assign",
+        resource_type="worker",
+        resource_id=employee.id,
+        details={"device_id": str(assignment.device_id), "employee_id": str(employee.id)},
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    _refresh_runtime_links(session)
+    return _public(session, employee, _match_worker(employee, _runtime_workers()))
+
+
+@router.post(
+    "/{employee_id}/bracelet/unassign",
+    response_model=PersonnelPublic,
+    dependencies=[require_permission(PERM_PERSONNEL_WRITE)],
+)
+def unassign_employee_bracelet(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    employee_id: uuid.UUID,
+) -> Any:
+    from app.warehouse_sim.bracelets import unassign_bracelet
+
+    employee = _get_or_404(session, employee_id)
+    assignment = unassign_bracelet(session, employee=employee)
+    if assignment is None:
+        raise HTTPException(status_code=404, detail="У сотрудника нет назначенного браслета")
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="bracelet.unassign",
+        resource_type="worker",
+        resource_id=employee.id,
+        details={"device_id": str(assignment.device_id), "employee_id": str(employee.id)},
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    _refresh_runtime_links(session)
+    return _public(session, employee, _match_worker(employee, _runtime_workers()))
+
+
+@router.post(
+    "/{employee_id}/bracelet/replace",
+    response_model=PersonnelPublic,
+    dependencies=[require_permission(PERM_PERSONNEL_WRITE)],
+)
+def replace_employee_bracelet(
+    *,
+    session: SessionDep,
+    request: Request,
+    current_user: CurrentUser,
+    employee_id: uuid.UUID,
+    body: PersonnelBraceletAssign,
+) -> Any:
+    from app.warehouse_sim.bracelets import replace_bracelet
+
+    employee = _get_or_404(session, employee_id)
+    assignment = replace_bracelet(
+        session, employee=employee, new_device_id=body.device_id, user_id=current_user.id
+    )
+    log_audit(
+        session,
+        user_id=current_user.id,
+        action="bracelet.replace",
+        resource_type="worker",
+        resource_id=employee.id,
+        details={
+            "device_id": str(assignment.device_id),
+            "previous_device_id": str(assignment.previous_device_id)
+            if assignment.previous_device_id
+            else None,
+            "employee_id": str(employee.id),
+        },
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    _refresh_runtime_links(session)
+    return _public(session, employee, _match_worker(employee, _runtime_workers()))
 
 
 @router.get(
@@ -138,7 +486,7 @@ def read_activity(session: SessionDep, _current_user: CurrentUser, employee_id: 
     present = _present(worker)
     return PersonnelActivity(
         present=present,
-        on_shift=present and employee.status == "active",
+        on_shift=present and employee.status in ("working", "break"),
         person_code=worker.get("code") if present else None,
         runtime_id=worker.get("id") if present else None,
         zone=worker.get("current_zone") if present else None,
@@ -180,7 +528,7 @@ def create_employee(
         ip_address=get_client_ip(request),
     )
     session.commit()
-    return _public(employee, None)
+    return _public(session, employee, None)
 
 
 @router.patch(
@@ -204,7 +552,17 @@ def update_employee(
         ).first()
         if taken:
             raise HTTPException(status_code=409, detail="Табельный номер уже занят")
-    previous = employee.status
+    status = changes.get("status", employee.status)
+    if status not in EMPLOYEE_STATUSES:
+        raise HTTPException(status_code=422, detail="Неизвестный статус сотрудника")
+    if "status" in changes or "status_until" in changes:
+        until = changes["status_until"] if "status_until" in changes else employee.status_until
+        if status in EMPLOYEE_DATED_STATUSES:
+            if until is None:
+                raise HTTPException(status_code=422, detail="Укажите дату окончания статуса")
+            changes["status_until"] = until
+        else:
+            changes["status_until"] = None
     employee.sqlmodel_update(changes)
     from datetime import datetime, timezone
 
@@ -212,18 +570,17 @@ def update_employee(
     session.add(employee)
     session.commit()
     session.refresh(employee)
-    deactivated = employee.status in ("inactive", "terminated") and employee.status != previous
     log_audit(
         session,
         user_id=current_user.id,
-        action="worker.deactivate" if deactivated else "worker.update",
+        action="worker.update",
         resource_type="worker",
         resource_id=employee.id,
         details=employee.employee_code,
         ip_address=get_client_ip(request),
     )
     session.commit()
-    return _public(employee, _match_worker(employee, _runtime_workers()))
+    return _public(session, employee, _match_worker(employee, _runtime_workers()))
 
 
 @router.delete(
@@ -231,29 +588,28 @@ def update_employee(
     response_model=Message,
     dependencies=[require_permission(PERM_PERSONNEL_WRITE)],
 )
-def deactivate_employee(
+def delete_employee(
     *,
     session: SessionDep,
     request: Request,
     current_user: CurrentUser,
     employee_id: uuid.UUID,
 ) -> Any:
-    employee = _get_or_404(session, employee_id)
-    if employee.status not in ("inactive", "terminated"):
-        employee.status = "inactive"
-        from datetime import datetime, timezone
+    from app.warehouse_sim.bracelets import unassign_bracelet
 
-        employee.updated_at = datetime.now(timezone.utc)
-        session.add(employee)
-        session.commit()
+    employee = _get_or_404(session, employee_id)
+    employee_code = employee.employee_code
+    unassign_bracelet(session, employee=employee)
+    session.delete(employee)
+    session.commit()
     log_audit(
         session,
         user_id=current_user.id,
-        action="worker.deactivate",
+        action="worker.delete",
         resource_type="worker",
-        resource_id=employee.id,
-        details=employee.employee_code,
+        resource_id=employee_id,
+        details=employee_code,
         ip_address=get_client_ip(request),
     )
     session.commit()
-    return Message(message="Сотрудник деактивирован")
+    return Message(message="Сотрудник удалён")

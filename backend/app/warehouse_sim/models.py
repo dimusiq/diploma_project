@@ -61,6 +61,8 @@ DEVICE_SENSOR = "SENSOR"
 DEVICE_CONVEYOR = "CONVEYOR"
 DEVICE_DOCK = "DOCK"
 DEVICE_CHARGING_STATION = "CHARGING_STATION"
+DEVICE_RADIO_BEACON = "RADIO_BEACON"
+DEVICE_SMART_CAMERA = "SMART_CAMERA"
 DEVICE_TYPES = (
     DEVICE_AGV,
     DEVICE_AMR,
@@ -70,6 +72,8 @@ DEVICE_TYPES = (
     DEVICE_CONVEYOR,
     DEVICE_DOCK,
     DEVICE_CHARGING_STATION,
+    DEVICE_RADIO_BEACON,
+    DEVICE_SMART_CAMERA,
 )
 #: Устройства, которые перемещаются по плану и берут транспортные задания.
 MOBILE_DEVICE_TYPES = (DEVICE_AGV, DEVICE_AMR, DEVICE_FORKLIFT)
@@ -470,6 +474,69 @@ class SimDevice(SQLModel, table=True):
     meta: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
+
+
+class SimBraceletAssignment(SQLModel, table=True):
+    """История закрепления браслета-радиомаяка за сотрудником склада.
+
+    Активное назначение: unassigned_at IS NULL.
+    В каждый момент у устройства и у сотрудника не более одного активного назначения.
+    """
+
+    __tablename__ = "wsim_bracelet_assignment"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    device_id: uuid.UUID = Field(
+        foreign_key="wsim_device.id", ondelete="CASCADE", index=True
+    )
+    employee_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="warehouse_employee.id",
+        ondelete="SET NULL",
+        index=True,
+    )
+    assigned_at: datetime = Field(default_factory=_utcnow, index=True)
+    unassigned_at: datetime | None = Field(default=None, index=True)
+    assigned_by_user_id: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+    previous_device_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="wsim_device.id",
+        ondelete="SET NULL",
+        description="При замене — предыдущий браслет",
+    )
+    notes: str | None = Field(default=None, max_length=512)
+
+
+class SimSmartCameraAssignment(SQLModel, table=True):
+    """История закрепления умной камеры за единицей техники (AGV/AMR/погрузчик).
+
+    Активное назначение: unassigned_at IS NULL.
+    Одна камера — одна техника; одна техника — одна основная камера.
+    """
+
+    __tablename__ = "wsim_smart_camera_assignment"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    camera_device_id: uuid.UUID = Field(
+        foreign_key="wsim_device.id", ondelete="CASCADE", index=True
+    )
+    host_device_id: uuid.UUID = Field(
+        foreign_key="wsim_device.id", ondelete="CASCADE", index=True
+    )
+    assigned_at: datetime = Field(default_factory=_utcnow, index=True)
+    unassigned_at: datetime | None = Field(default=None, index=True)
+    assigned_by_user_id: uuid.UUID | None = Field(
+        default=None, foreign_key="user.id", ondelete="SET NULL"
+    )
+    previous_camera_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="wsim_device.id",
+        ondelete="SET NULL",
+        description="При замене — предыдущая камера",
+    )
+    notes: str | None = Field(default=None, max_length=512)
 
 
 class SimDeviceMaintenance(SQLModel, table=True):

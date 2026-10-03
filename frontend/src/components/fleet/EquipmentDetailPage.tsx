@@ -26,6 +26,7 @@ import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import type { DeviceKind } from "@/components/deviceServer/simTypes.ts"
 import { useSimData } from "@/components/deviceServer/useDeviceSimulation.ts"
 import { CameraEquipmentSection } from "@/components/digitalTwin/SmartCameraView.tsx"
+import { EquipmentSmartCameraPanel } from "@/components/fleet/EquipmentSmartCameraPanel.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import {
@@ -412,6 +413,51 @@ export function EquipmentDetailPage({
           <Info label="Архивировано" value={device.archived ? "Да" : "Нет"} />
           <Info label="Создано" value={formatDate(device.created_at)} />
           <Info label="Изменено" value={formatDate(device.updated_at)} />
+          {device.kind === "radio_beacon" ? (
+            <>
+              <Info
+                label="Серийный номер"
+                value={device.serial_number || device.configuration.serialNumber || "—"}
+              />
+              <Info
+                label="Закреплён за"
+                value={
+                  device.assigned_employee ? (
+                    <a
+                      className="text-primary hover:underline"
+                      href={`/personnel?employee=${device.assigned_employee.id}`}
+                    >
+                      {device.assigned_employee.full_name}
+                    </a>
+                  ) : (
+                    "Не закреплён"
+                  )
+                }
+              />
+              <Info
+                label="Последний сигнал"
+                value={formatDate(device.last_signal_at ?? device.runtime.lastSignalAt)}
+              />
+              <Info
+                label="Источник координат"
+                value={
+                  device.location_source === "simulation"
+                    ? "Симуляция"
+                    : device.location_source === "radio_beacon"
+                      ? "Радиомаяк"
+                      : device.location_source || "—"
+                }
+              />
+              <Info
+                label="Местоположение"
+                value={
+                  device.runtime.currentZone
+                    ? `${device.runtime.currentZone}${device.location_stale || device.runtime.locationStale ? " (устарело)" : ""}`
+                    : "—"
+                }
+              />
+            </>
+          ) : null}
         </dl>
       </Section>
 
@@ -453,16 +499,27 @@ export function EquipmentDetailPage({
         </dl>
       </Section>
 
-      <Section title="Smart Camera">
-        <CameraEquipmentSection
-          equipmentId={live?.id ?? device.code}
-          name={device.name}
-          camera={live?.camera ?? device.runtime.camera ?? device.configuration.camera}
-          held={live?.cameraHold}
-          equipmentOnline={live ? live.online : false}
-          canControl={canManage}
-          onShowInWorld={onShowCameraInWorld}
+      <Section title="Умная камера">
+        <EquipmentSmartCameraPanel
+          device={device}
+          canEdit={canManage}
+          onDeviceChange={() => {
+            void qc.invalidateQueries({ queryKey: SIM_FLEET_QUERY_KEY })
+          }}
         />
+        {device.smart_camera || live?.camera?.installed ? (
+          <div className="mt-4">
+            <CameraEquipmentSection
+              equipmentId={live?.id ?? device.code}
+              name={device.smart_camera?.code ?? device.name}
+              camera={live?.camera ?? device.runtime.camera ?? device.configuration.camera}
+              held={live?.cameraHold}
+              equipmentOnline={live ? live.online : false}
+              canControl={canManage}
+              onShowInWorld={onShowCameraInWorld}
+            />
+          </div>
+        ) : null}
       </Section>
 
       <Section title="Техническое обслуживание">
@@ -661,6 +718,13 @@ export function EquipmentDetailPage({
                 ["no", "Нет"],
               ]}
             />
+            <EquipmentSmartCameraPanel
+              device={device}
+              canEdit={canManage}
+              onDeviceChange={() => {
+                void qc.invalidateQueries({ queryKey: SIM_FLEET_QUERY_KEY })
+              }}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
@@ -854,7 +918,7 @@ function Info({
   mono,
 }: {
   label: string
-  value: string
+  value: ReactNode
   mono?: boolean
 }) {
   return (

@@ -52,6 +52,7 @@ from app.warehouse_sim.schemas import (
     SimConfigPatch,
     SimControlBody,
     SimSpeedBody,
+    SmartCameraAssignBody,
 )
 
 SimAdmin = Annotated[User, Depends(get_current_warehouse_sim_admin)]
@@ -200,9 +201,26 @@ def list_fleet(
     rows = list_config_devices(session, include_archived=include_archived)
     runtime = _runtime_by_code()
     summaries = maintenance_summaries(session, [row.id for row in rows])
+    from app.warehouse_sim.bracelets import active_assignments_map
+    from app.warehouse_sim.smart_cameras import (
+        active_assignments_by_camera,
+        active_assignments_by_host,
+    )
+
+    assignments = active_assignments_map(session, device_ids=[row.id for row in rows])
+    assignments["__smart_cameras__"] = {
+        "by_host": active_assignments_by_host(session, host_ids=[row.id for row in rows]),
+        "by_camera": active_assignments_by_camera(
+            session, camera_ids=[row.id for row in rows]
+        ),
+    }
     data = [
         serialize_fleet_device(
-            row, runtime.get(row.code), maintenance=summaries.get(row.id)
+            row,
+            runtime.get(row.code),
+            maintenance=summaries.get(row.id),
+            session=session,
+            assignments=assignments,
         )
         for row in rows
     ]
@@ -217,6 +235,14 @@ def list_fleet(
         "kinds": list(SUPPORTED_KINDS),
         **catalog,
     }
+
+
+@router.get("/fleet/smart-cameras/available")
+def list_available_smart_cameras(session: SessionDep, _user: CurrentUser) -> dict[str, Any]:
+    from app.warehouse_sim.smart_cameras import list_available_cameras
+
+    data = list_available_cameras(session)
+    return {"data": data, "count": len(data)}
 
 
 @router.post("/fleet")
@@ -235,7 +261,7 @@ def create_fleet(
         ip_address=get_client_ip(request),
     )
     session.commit()
-    return serialize_fleet_device(row, _runtime_by_code().get(row.code))
+    return serialize_fleet_device(row, _runtime_by_code().get(row.code), session=session)
 
 
 @router.get("/fleet/{device_id}")
@@ -245,6 +271,7 @@ def read_fleet_device(session: SessionDep, _user: CurrentUser, device_id: uuid.U
         row,
         _runtime_by_code().get(row.code),
         maintenance=maintenance_summary(session, row.id),
+        session=session,
     )
 
 
@@ -297,6 +324,7 @@ def patch_fleet(
         _runtime_by_code().get(row.code) or _runtime_by_code().get(previous_code),
         maintenance=maintenance_summary(session, row.id),
         deferred=deferred,
+        session=session,
     )
 
 
@@ -316,7 +344,181 @@ def delete_fleet_device(
         ip_address=get_client_ip(request),
     )
     session.commit()
-    return serialize_fleet_device(row, _runtime_by_code().get(row.code))
+    return serialize_fleet_device(row, _runtime_by_code().get(row.code), session=session)
+
+
+@router.get("/fleet/{device_id}/smart-camera")
+def read_fleet_smart_camera(
+    session: SessionDep, _user: CurrentUser, device_id: uuid.UUID
+) -> dict[str, Any]:
+    from app.warehouse_sim.smart_cameras import (
+        camera_payload,
+        host_payload,
+        is_camera_host,
+        is_smart_camera,
+    )
+
+    row = get_device_row(session, device_id)
+    runtime = _runtime_by_code().get(row.code)
+    if is_camera_host(row):
+        return {"smart_camera": camera_payload(session, host=row, runtime=runtime)}
+    if is_smart_camera(row):
+        return {"mounted_on": host_payload(session, row), "smart_camera": None}
+    raise HTTPException(status_code=400, detail="Устройство не поддерживает умную камеру")
+
+
+def _rebind_smart_cameras() -> None:
+    from sqlmodel import Session
+
+    from app.core.db import engine
+    from app.warehouse_sim.smart_cameras import (
+        apply_camera_positions,
+        sync_runtime_camera_links,
+    )
+
+    rt = get_runtime()
+    with rt._lock:
+        with Session(engine) as session:
+            sync_runtime_camera_links(session, rt.world)
+            apply_camera_positions(rt.world)
+        rt._refresh()
+        rt._publish("data", rt._last_data)
+        rt._publish("motion", rt._last_motion)
+
+
+@router.post("/fleet/{device_id}/smart-camera/assign")
+def assign_fleet_smart_camera(
+    session: SessionDep,
+    request: Request,
+    user: SimAdmin,
+    device_id: uuid.UUID,
+    body: SmartCameraAssignBody,
+) -> dict[str, Any]:
+    from app.warehouse_sim.smart_cameras import assign_smart_camera, camera_payload
+
+    host = get_device_row(session, device_id)
+    assignment = assign_smart_camera(
+        session, host=host, camera_id=body.camera_id, user_id=user.id
+    )
+    camera = get_device_row(session, assignment.camera_device_id)
+    log_audit(
+        session,
+        user_id=user.id,
+        action="SMART_CAMERA_ASSIGNED",
+        resource_type="wsim_device",
+        resource_id=host.id,
+        details={
+            "equipment_id": str(host.id),
+            "equipment_code": host.code,
+            "camera_id": str(camera.id),
+            "camera_code": camera.code,
+        },
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    _rebind_smart_cameras()
+    return {
+        "smart_camera": camera_payload(
+            session,
+            host=host,
+            assignment=assignment,
+            runtime=_runtime_by_code().get(host.code),
+        )
+    }
+
+
+@router.post("/fleet/{device_id}/smart-camera/replace")
+def replace_fleet_smart_camera(
+    session: SessionDep,
+    request: Request,
+    user: SimAdmin,
+    device_id: uuid.UUID,
+    body: SmartCameraAssignBody,
+) -> dict[str, Any]:
+    from app.warehouse_sim.models import SimDevice
+    from app.warehouse_sim.smart_cameras import (
+        active_assignment_for_host,
+        camera_payload,
+        replace_smart_camera,
+    )
+
+    host = get_device_row(session, device_id)
+    previous = active_assignment_for_host(session, host.id)
+    previous_id = str(previous.camera_device_id) if previous else None
+    previous_code = None
+    if previous:
+        prev_cam = session.get(SimDevice, previous.camera_device_id)
+        previous_code = prev_cam.code if prev_cam else None
+    assignment = replace_smart_camera(
+        session, host=host, new_camera_id=body.camera_id, user_id=user.id
+    )
+    camera = get_device_row(session, assignment.camera_device_id)
+    log_audit(
+        session,
+        user_id=user.id,
+        action="SMART_CAMERA_REPLACED",
+        resource_type="wsim_device",
+        resource_id=host.id,
+        details={
+            "equipment_id": str(host.id),
+            "equipment_code": host.code,
+            "camera_id": str(camera.id),
+            "camera_code": camera.code,
+            "previous_camera_id": previous_id,
+            "previous_camera_code": previous_code,
+        },
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    _rebind_smart_cameras()
+    return {
+        "smart_camera": camera_payload(
+            session,
+            host=host,
+            assignment=assignment,
+            runtime=_runtime_by_code().get(host.code),
+        )
+    }
+
+
+@router.post("/fleet/{device_id}/smart-camera/unassign")
+def unassign_fleet_smart_camera(
+    session: SessionDep,
+    request: Request,
+    user: SimAdmin,
+    device_id: uuid.UUID,
+) -> dict[str, Any]:
+    from app.warehouse_sim.models import SimDevice
+    from app.warehouse_sim.smart_cameras import camera_payload, unassign_smart_camera
+
+    host = get_device_row(session, device_id)
+    assignment = unassign_smart_camera(session, host=host)
+    camera_id = str(assignment.camera_device_id) if assignment else None
+    camera_code = None
+    if assignment:
+        cam = session.get(SimDevice, assignment.camera_device_id)
+        camera_code = cam.code if cam else None
+    log_audit(
+        session,
+        user_id=user.id,
+        action="SMART_CAMERA_UNASSIGNED",
+        resource_type="wsim_device",
+        resource_id=host.id,
+        details={
+            "equipment_id": str(host.id),
+            "equipment_code": host.code,
+            "camera_id": camera_id,
+            "camera_code": camera_code,
+        },
+        ip_address=get_client_ip(request),
+    )
+    session.commit()
+    _rebind_smart_cameras()
+    return {
+        "smart_camera": camera_payload(
+            session, host=host, runtime=_runtime_by_code().get(host.code)
+        )
+    }
 
 
 @router.get("/fleet/{device_id}/tasks")

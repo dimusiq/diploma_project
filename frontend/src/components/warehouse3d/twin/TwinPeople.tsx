@@ -1,4 +1,3 @@
-import { Html } from "@react-three/drei"
 import { useFrame } from "@react-three/fiber"
 import { memo, useEffect, useRef } from "react"
 import type { Group } from "three"
@@ -41,7 +40,6 @@ function PersonMesh({
   onSelect?: (id: string) => void
 }) {
   const group = useRef<Group>(null)
-  const labelRef = useRef<HTMLButtonElement>(null)
   const heading = useRef(0)
   const inited = useRef(false)
   const traced = useRef(false)
@@ -77,10 +75,6 @@ function PersonMesh({
     const walking = snapshot.running && (motion?.status ?? "") === "walking" && (motion?.speed ?? 0) > 0.05
     node.position.y = walking ? Math.sin(clock.elapsedTime * 8) * 0.035 : 0
     node.rotation.y = MathUtils.damp(node.rotation.y, heading.current, 8, dt)
-    if (labelRef.current && motion) {
-      const title = motion.displayName ?? motion.code ?? motion.name
-      labelRef.current.textContent = `${title} ${motion.speed.toFixed(1)} m/s → ${motion.target ?? motion.status}`
-    }
     if (!traced.current) {
       traced.current = true
       tracePerson("SCENE_ADD", id, node.uuid, node.position)
@@ -104,17 +98,6 @@ function PersonMesh({
       <mesh geometry={TWIN_GEOM.box} material={TWIN_MAT.cabinBlue} position={[0, 0.85, 0]} scale={[0.42, 1.15, 0.28]} />
       <mesh geometry={TWIN_GEOM.box} material={TWIN_MAT.safetyYellow} position={[0, 1.15, 0.02]} scale={[0.46, 0.38, 0.3]} />
       <mesh geometry={TWIN_GEOM.box} material={TWIN_MAT.darkMetal} position={[0, 1.62, 0]} scale={[0.22, 0.22, 0.22]} />
-      <Html position={[0, 2.05, 0]} center distanceFactor={42} zIndexRange={[8, 0]} style={{ pointerEvents: "auto" }}>
-        <button
-          type="button"
-          ref={labelRef}
-          className="cursor-pointer whitespace-nowrap rounded-sm bg-black/70 px-1 font-mono text-[10px] text-white"
-          onClick={(event) => {
-            event.stopPropagation()
-            onSelect?.(id)
-          }}
-        />
-      </Html>
     </group>
   )
 }

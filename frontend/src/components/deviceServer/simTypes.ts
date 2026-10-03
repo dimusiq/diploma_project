@@ -78,6 +78,8 @@ export type DeviceKind =
   | "dock_door"
   | "charger"
   | "printer"
+  | "radio_beacon"
+  | "smart_camera"
 
 export type DeviceStatus =
   | "idle"
@@ -121,6 +123,9 @@ export interface SimCameraState {
   installed: boolean
   equipment_id?: string
   camera_id?: string
+  camera_code?: string
+  camera_name?: string
+  camera_device_id?: string
   enabled?: boolean
   online?: boolean
   source?: string
@@ -128,6 +133,7 @@ export interface SimCameraState {
   fps?: number
   inference_ms?: number
   frame_index?: number
+  last_frame_at?: string
   detection_count?: number
   detections?: SimCameraDetection[]
   obstacle?: boolean
@@ -135,6 +141,7 @@ export interface SimCameraState {
   status?: string
   confidence_threshold?: number
   mode?: string
+  attached_to?: { id?: string; name?: string; kind?: string }
   log?: Array<Pick<SimCameraDetection, "timestamp" | "class_name" | "confidence" | "track_id">>
 }
 
@@ -174,6 +181,10 @@ export interface SimDevice {
   repairTimer: number
   lastEventAt: number
   cameraHold?: boolean
+  cameraHoldReason?: string | null
+  personDistance?: number | null
+  waitingFor?: string | null
+  waitingDuration?: number
   camera?: SimCameraState | null
 }
 

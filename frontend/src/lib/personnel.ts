@@ -17,7 +17,26 @@ export const EMPLOYEE_POSITIONS = [
 ] as const
 
 export const EMPLOYEE_SHIFTS = ["morning", "day", "night"] as const
-export const EMPLOYEE_STATUSES = ["active", "inactive", "on_leave", "terminated"] as const
+export const EMPLOYEE_STATUSES = ["working", "sick", "vacation", "break"] as const
+export const DATED_EMPLOYEE_STATUSES = ["sick", "vacation"] as const
+
+export function statusNeedsUntil(status: string | null | undefined): boolean {
+  return status === "sick" || status === "vacation"
+}
+
+export interface PersonnelBracelet {
+  device_id: string
+  code: string
+  name: string
+  status: string
+  battery?: number | null
+  last_signal_at?: string | null
+  location_label?: string | null
+  location_source?: string | null
+  location_stale?: boolean
+  serial_number?: string | null
+  assigned_at?: string | null
+}
 
 export interface PersonnelRecord {
   id: string
@@ -30,6 +49,7 @@ export interface PersonnelRecord {
   phone?: string | null
   email?: string | null
   status: string
+  status_until?: string | null
   shift: string
   hire_date?: string | null
   notes?: string | null
@@ -39,6 +59,24 @@ export interface PersonnelRecord {
   motion_status?: string | null
   person_code?: string | null
   speed?: number | null
+  bracelet?: PersonnelBracelet | null
+  location_source?: string | null
+  location_stale?: boolean
+  last_signal_at?: string | null
+}
+
+export function locationSourceLabel(source: string | null | undefined): string {
+  if (source === "simulation") return "Симуляция"
+  if (source === "radio_beacon") return "Радиомаяк"
+  if (source === "unknown") return "Неизвестно"
+  return source || "—"
+}
+
+export function braceletDeviceStatusLabel(status: string | null | undefined): string {
+  if (status === "online") return "В сети"
+  if (status === "offline") return "Не в сети"
+  if (status === "maintenance") return "На обслуживании"
+  return status || "—"
 }
 
 export interface PersonnelFilters {
@@ -69,6 +107,13 @@ export function shortPersonName(name: string): string {
 export function employeeStatusLabel(status: string | null | undefined): string {
   if (!status) return "—"
   return EMPLOYEE_STATUS_LABELS[status] ?? status
+}
+
+export function formatStatusDate(value: string | null | undefined): string | null {
+  if (!value) return null
+  const [year, month, day] = value.slice(0, 10).split("-")
+  if (!year || !month || !day) return null
+  return `${day}.${month}.${year}`
 }
 
 export function shiftLabel(shift: string | null | undefined): string {

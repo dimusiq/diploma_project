@@ -37,7 +37,7 @@ def test_demo_staff_links_worker_to_person() -> None:
 def test_inactive_worker_is_not_spawned() -> None:
     world = create_world({**QUIET})
     roster = [dict(row) for row in DEMO_STAFF]
-    roster[1] = {**roster[1], "status": "inactive"}
+    roster[1] = {**roster[1], "status": "sick"}
     seed_workers(world["workers"], world["topology"]["racks"], roster)
     present = {worker.get("employeeCode") for worker in world["workers"] if worker.get("pos")}
     assert "EMP-001" in present
@@ -46,6 +46,18 @@ def test_inactive_worker_is_not_spawned() -> None:
     absent = next(worker for worker in world["workers"] if worker.get("employeeCode") == "EMP-002")
     assert absent["status"] == "off_shift"
     assert absent["spawned"] is False
+
+
+def test_vacation_worker_is_not_spawned_and_break_is() -> None:
+    world = create_world({**QUIET})
+    roster = [dict(row) for row in DEMO_STAFF]
+    roster[0] = {**roster[0], "status": "vacation"}
+    roster[1] = {**roster[1], "status": "break"}
+    seed_workers(world["workers"], world["topology"]["racks"], roster)
+    present = {worker.get("employeeCode") for worker in world["workers"] if worker.get("pos")}
+    assert "EMP-001" not in present
+    assert "EMP-002" in present
+    assert "EMP-003" in present
 
 
 def test_active_worker_position_updates() -> None:

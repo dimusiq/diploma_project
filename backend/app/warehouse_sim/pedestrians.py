@@ -30,7 +30,7 @@ DEMO_STAFF = (
         "position": "Кладовщик",
         "department": "Склад №1",
         "shift": "day",
-        "status": "active",
+        "status": "working",
         "speed": WALK_SPEED[0],
     },
     {
@@ -41,7 +41,7 @@ DEMO_STAFF = (
         "position": "Комплектовщик",
         "department": "Склад №1",
         "shift": "day",
-        "status": "active",
+        "status": "working",
         "speed": WALK_SPEED[1],
     },
     {
@@ -52,14 +52,16 @@ DEMO_STAFF = (
         "position": "Контролёр",
         "department": "Склад №1",
         "shift": "day",
-        "status": "active",
+        "status": "working",
         "speed": WALK_SPEED[2],
     },
 )
 
 
 def on_demo_shift(row: dict) -> bool:
-    return row.get("status", "active") == "active" and row.get("shift", DEMO_SHIFT) == DEMO_SHIFT
+    """Больничный и отпуск не выходят на смену и не получают задачи."""
+    status = row.get("status") or "working"
+    return status in ("working", "break") and row.get("shift", DEMO_SHIFT) == DEMO_SHIFT
 
 
 def match_camera_person(entity_id: str | None, workers: list[dict]) -> dict:

@@ -1,7 +1,7 @@
 /**
  * Слои digital twin: зоны топологии, проходы, граф маршрутов, маркеры техники.
  */
-import { Html, Line, Text } from "@react-three/drei"
+import { Line, Text } from "@react-three/drei"
 import { useMemo } from "react"
 import { Vector3 } from "three"
 import type { RouteGraphResponse } from "@/api/warehouseRouteGraph.ts"
@@ -24,7 +24,6 @@ import {
   type WarehouseGeometry,
 } from "@/components/warehouse3d/warehouseGeometry.tsx"
 import type { LiveEquipmentPose } from "@/hooks/useEquipmentPositionsLive.ts"
-import { getEquipmentStatusLabel } from "@/lib/statusLabels.ts"
 
 export type TwinEquipmentMarker = {
   id: string
@@ -302,8 +301,6 @@ function EquipmentMarkersLayer({
     const out: Array<{
       id: string
       pos: [number, number, number]
-      label: string
-      status: string
       kind: ReturnType<typeof equipmentTypeToKind>
     }> = []
     let i = 0
@@ -321,10 +318,6 @@ function EquipmentMarkersLayer({
       out.push({
         id,
         pos: liveWorld ?? fallback,
-        label: eq
-          ? eq.name.slice(0, 32)
-          : (live?.externalVehicleId ?? id).slice(0, 32),
-        status: eq?.current_status ?? "live",
         kind: equipmentTypeToKind(eq?.kind ?? "forklift"),
       })
       if (out.length >= 32) break
@@ -338,31 +331,6 @@ function EquipmentMarkersLayer({
       {markers.map((m) => (
         <group key={m.id} position={m.pos}>
           <WarehouseEquipmentMesh kind={m.kind} />
-          <Html
-            position={[0.6, 1.1, 0]}
-            center
-            wrapperClass="warehouse-3d-html"
-            style={{ pointerEvents: "none" }}
-          >
-            <div
-              style={{
-                background: "rgba(15,23,42,0.88)",
-                color: "#e2e8f0",
-                fontSize: 10,
-                padding: "4px 6px",
-                borderRadius: 4,
-                maxWidth: 140,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {m.label}
-              <span style={{ opacity: 0.75, marginLeft: 4 }}>
-                ({getEquipmentStatusLabel(m.status)})
-              </span>
-            </div>
-          </Html>
         </group>
       ))}
     </group>

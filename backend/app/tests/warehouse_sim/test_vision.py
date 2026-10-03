@@ -65,31 +65,26 @@ def test_detection_schema_and_equipment_link() -> None:
     assert device["cameraHold"] is False
 
 
-def test_obstacle_stops_agv_until_clearance() -> None:
-    world = create_world({"seed": 3, "faultRatePerHour": 0, "jamRatePerHour": 0})
+def test_person_sighting_without_position_does_not_stop_agv() -> None:
+    world = create_world({"seed": 3, "faultRatePerHour": 0, "jamRatePerHour": 0, "truckArrivalsPerHour": 0, "ordersPerHour": 0})
     device = world["deviceById"]["agv-1"]
-    task_id = device.get("taskId")
     start_camera(world, device)
     note_scene_detection(world, device, present=True, class_name="person", entity_id="wrk-1")
-    assert device["camera"]["obstacle"] is True
-    assert device["cameraHold"] is True
-    assert device.get("taskId") == task_id
+    assert device["camera"]["obstacle"] is False
+    assert device["cameraHold"] is False
+    assert device["camera"]["detection_count"] == 1
     assert world["eventCountsByType"].get("CAMERA_PERSON_DETECTED", 0) == 1
-    assert world["eventCountsByType"].get("CAMERA_ONLINE", 0) >= 1
     note_scene_detection(world, device, present=True, class_name="person", entity_id="wrk-1")
     assert world["eventCountsByType"].get("CAMERA_PERSON_DETECTED", 0) == 1
     device["status"] = "moving"
     device["online"] = True
+    device["taskId"] = "T-DEMO"
     device["path"] = [{"x": device["pos"]["x"] + 12, "z": device["pos"]["z"]}]
     origin = dict(device["pos"])
     advance_world(world, 2)
-    assert device["pos"] == origin
-    assert device["cameraHold"] is True
-    assert device.get("taskId") == task_id
-    assert device["path"]
+    assert device["pos"]["x"] > origin["x"]
+    assert device["cameraHold"] is False
+    assert device.get("taskId") == "T-DEMO"
     note_scene_detection(world, device, present=False, class_name="person", entity_id="wrk-1")
     assert device["cameraHold"] is False
-    assert device.get("taskId") == task_id
-    assert device["path"]
     assert world["eventCountsByType"].get("CAMERA_OBJECT_LOST", 0) >= 1
-    assert world["eventCountsByType"].get("CAMERA_OBSTACLE_CLEARED", 0) >= 1

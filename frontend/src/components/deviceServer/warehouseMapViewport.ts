@@ -66,6 +66,60 @@ export function fitWarehouseToViewport(
  * Высота контейнера следует из ширины и пропорций склада,
  * чтобы боковые поля не раздувались сильнее заданного padding.
  */
+/** Масштаб карты на контейнере 960 px. От него считается лёгкая реакция текста на zoom. */
+export const MAP_LABEL_REFERENCE_SCALE =
+  (960 - WAREHOUSE_MAP_PADDING_PX * 2) / WAREHOUSE_WIDTH
+
+export type MapLabelRange = {
+  target: number
+  min: number
+  max: number
+}
+
+/** Целевой размер в пикселях экрана. Геометрия склада не меняется. */
+export const MAP_LABEL = {
+  zone: { target: 18, min: 14, max: 18 },
+  rack: { target: 13.5, min: 11, max: 14 },
+  percent: { target: 13.5, min: 11, max: 14 },
+  equipment: { target: 12.5, min: 10, max: 13 },
+  equipmentSelected: { target: 14, min: 12, max: 14 },
+  forklift: { target: 10.5, min: 10, max: 11 },
+  gate: { target: 11.5, min: 10, max: 12 },
+  secondary: { target: 10.5, min: 10, max: 11 },
+} as const
+
+/** Пиксели подписи с min/max. При увеличении карты текст растёт слабо, при уменьшении — сжимается. */
+export function mapLabelPixels(
+  range: MapLabelRange,
+  scale: number,
+  reference = MAP_LABEL_REFERENCE_SCALE,
+): number {
+  const zoom = Math.max(scale, 0.01) / Math.max(reference, 0.01)
+  const response = zoom >= 1 ? zoom ** 0.2 : zoom ** 0.45
+  return Math.min(range.max, Math.max(range.min, range.target * response))
+}
+
+/** Размер шрифта в единицах viewBox, чтобы на экране получились заданные пиксели. */
+export function mapLabelFont(range: MapLabelRange, scale: number): number {
+  return mapLabelPixels(range, scale) / Math.max(scale, 0.01)
+}
+
+/** Подпись техники чуть ниже корпуса. Соседи получают небольшой сдвиг, чтобы не слипаться. */
+export function vehicleLabelShift(
+  id: string,
+  kind: string,
+  nearbyIds: string[],
+  font: number,
+): { x: number; y: number } {
+  const half = kind === "forklift" ? 0.9 : kind === "amr" ? 1.3 : 1.1
+  const rank = nearbyIds.filter((other) => other < id).length
+  const side = rank === 0 ? 0 : rank % 2 === 0 ? 1 : -1
+  return {
+    x: side * font * 0.9,
+    y: half + font * 0.85 + rank * font * 1.15,
+  }
+}
+
 export function fitWarehouseToWidth(
   containerWidth: number,
   bounds: WarehouseMapBounds = warehouseContentBounds(),

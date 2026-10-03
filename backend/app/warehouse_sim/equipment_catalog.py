@@ -19,6 +19,8 @@ KIND_TO_CATEGORY: dict[str, str] = {
     "sensor": "sensor",
     "dock_door": "gate",
     "charger": "charging",
+    "radio_beacon": "personnel_bracelets",
+    "smart_camera": "smart_cameras",
 }
 
 #: Участвуют в in-process simulation world (create_world / assign_tasks / telemetry).
@@ -35,6 +37,8 @@ KIND_LABELS: dict[str, str] = {
     "sensor": "Датчик",
     "dock_door": "Ворота",
     "charger": "Зарядная станция",
+    "radio_beacon": "Браслет-радиомаяк",
+    "smart_camera": "Умная камера",
 }
 
 SENSOR_METRIC_LABELS: dict[str, str] = {
@@ -56,16 +60,49 @@ KIND_FIELDS: dict[str, tuple[str, ...]] = {
     "sensor": (*COMMON_FIELDS, "metricKind", "metricUnit", "metricMin", "metricMax"),
     "dock_door": COMMON_FIELDS,
     "charger": COMMON_FIELDS,
+    "radio_beacon": (*COMMON_FIELDS, "battery", "serialNumber"),
+    "smart_camera": (*COMMON_FIELDS, "serialNumber", "model", "resolution", "targetFps"),
 }
 
 CATEGORY_COLUMNS: dict[str, tuple[str, ...]] = {
     "all": ("name", "code", "kind", "zone", "status", "task", "maintenance", "enabled", "actions"),
-    "transport": ("name", "code", "kind", "zone", "status", "battery", "task", "maintenance", "enabled", "actions"),
+    "transport": (
+        "name",
+        "code",
+        "kind",
+        "zone",
+        "status",
+        "battery",
+        "smart_camera",
+        "task",
+        "maintenance",
+        "enabled",
+        "actions",
+    ),
     "scanner": ("name", "code", "kind", "zone", "status", "enabled", "actions"),
     "conveyor": ("name", "code", "zone", "status", "enabled", "actions"),
     "sensor": ("name", "code", "subtype", "zone", "status", "value", "unit", "enabled", "actions"),
     "gate": ("name", "code", "zone", "status", "enabled", "actions"),
     "charging": ("name", "code", "zone", "status", "enabled", "actions"),
+    "personnel_bracelets": (
+        "name",
+        "code",
+        "status",
+        "assignee",
+        "last_signal",
+        "battery",
+        "enabled",
+        "actions",
+    ),
+    "smart_cameras": (
+        "name",
+        "code",
+        "status",
+        "mounted_on",
+        "last_signal",
+        "enabled",
+        "actions",
+    ),
     "other": ("name", "code", "kind", "zone", "status", "enabled", "actions"),
 }
 
@@ -77,6 +114,8 @@ CATEGORIES: tuple[dict[str, Any], ...] = (
     {"id": "sensor", "label": "Датчики"},
     {"id": "gate", "label": "Ворота"},
     {"id": "charging", "label": "Зарядные станции"},
+    {"id": "personnel_bracelets", "label": "Браслеты персонала"},
+    {"id": "smart_cameras", "label": "Умные камеры"},
     {"id": "other", "label": "Прочее"},
 )
 

@@ -43,9 +43,11 @@ from app.warehouse_sim.scenarios import apply_scenario
 from app.warehouse_sim.simulation import (
     advance_world,
     apply_command,
+    assign_tasks,
     device_command,
     emergency_stop,
     emit,
+    seed_demo_agv_task,
     spawn_inbound_truck,
 )
 from app.warehouse_sim.snapshot import build_data, build_motion
@@ -64,6 +66,26 @@ def _fleet_for_world() -> list[dict] | None:
         logger.exception("Не удалось загрузить persistent fleet, используем встроенный парк")
         return None
 
+
+def _bind_bracelet_links(world: dict[str, Any]) -> None:
+    from app.warehouse_sim.bracelets import apply_bracelet_positions, sync_runtime_links
+    from app.warehouse_sim.smart_cameras import (
+        apply_camera_positions,
+        sync_runtime_camera_links,
+    )
+
+    try:
+        with Session(engine) as session:
+            sync_runtime_links(session, world)
+            apply_bracelet_positions(world)
+            sync_runtime_camera_links(session, world)
+            apply_camera_positions(world)
+    except Exception:
+        logger.exception("Не удалось привязать браслеты/камеры к runtime")
+        world.setdefault("braceletLinks", [])
+        world.setdefault("smartCameraLinks", [])
+
+
 TICK_SEC = 0.05
 MAX_WALL_STEP = 0.25
 DATA_PUBLISH_SEC = 0.25
@@ -74,6 +96,7 @@ class WarehouseSimRuntime:
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self.world = create_world(fleet=_fleet_for_world())
+        _bind_bracelet_links(self.world)
         self.devices = DeviceServer(self.world)
         self.state = SIM_STOPPED
         self.speed = 1.0
@@ -256,6 +279,7 @@ class WarehouseSimRuntime:
         with self._lock:
             cfg = {**self.world.get("config", DEFAULT_CONFIG), **(config or {})}
             self.world = create_world(cfg, fleet=_fleet_for_world())
+            _bind_bracelet_links(self.world)
             self.devices.bind(self.world)
             self.state = SIM_STOPPED
             self._last_persisted_seq = 0
@@ -270,11 +294,14 @@ class WarehouseSimRuntime:
         self._reset_domain()
         with self._lock:
             self.world = create_world(DEMO_CONFIG, fleet=_fleet_for_world())
+            _bind_bracelet_links(self.world)
             self.devices.bind(self.world)
             self.state = SIM_STOPPED
             self.speed = 10.0
             self._last_persisted_seq = 0
             spawn_inbound_truck(self.world)
+            seed_demo_agv_task(self.world)
+            assign_tasks(self.world)
             emit(
                 self.world,
                 ev.SYSTEM_STARTED,

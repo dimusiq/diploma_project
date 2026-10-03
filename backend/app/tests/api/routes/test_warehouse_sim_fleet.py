@@ -43,6 +43,7 @@ def test_get_fleet_returns_baseline_park(
         "sensor",
         "gate",
         "charging",
+        "personnel_bracelets",
         "other",
     }
 

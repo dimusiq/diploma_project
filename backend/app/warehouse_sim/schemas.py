@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -103,6 +104,10 @@ class CameraControlBody(BaseModel):
     confidence_threshold: float | None = Field(default=None, ge=0, le=1)
     class_name: str | None = Field(default=None, max_length=32)
     entity_id: str | None = Field(default=None, max_length=64)
+
+
+class SmartCameraAssignBody(BaseModel):
+    camera_id: uuid.UUID
 
 
 class DeviceMaintenancePatch(BaseModel):

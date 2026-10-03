@@ -35,7 +35,7 @@ import {
 } from "./simFormat.ts"
 import { deviceSimulation } from "./simStore.ts"
 import type { DeviceKind, SimDevice } from "./simTypes.ts"
-import { useSimData } from "./useDeviceSimulation.ts"
+import { useSimData, useSimMotion } from "./useDeviceSimulation.ts"
 
 const KIND_ORDER: DeviceKind[] = [
   "forklift",
@@ -291,8 +291,10 @@ interface DeviceInspectorProps {
 
 export function DeviceInspector({ deviceId, onShowCameraInWorld }: DeviceInspectorProps) {
   const data = useSimData()
+  const motion = useSimMotion()
   const currentUser = useCurrentUser()
   const device = data.devices.find((item) => item.id === deviceId) ?? null
+  const live = motion.devices.find((item) => item.id === deviceId) ?? null
 
   if (!device) {
     return (
@@ -336,6 +338,41 @@ export function DeviceInspector({ deviceId, onShowCameraInWorld }: DeviceInspect
         </div>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+          {(device.kind === "agv" ||
+            device.kind === "amr" ||
+            device.kind === "forklift") && (
+            <>
+              <InspectorRow label="Статус">
+                {deviceStatusLabel(live?.status ?? device.status)}
+              </InspectorRow>
+              <InspectorRow label="Задача">
+                {live?.taskId ?? device.taskId ?? "—"}
+              </InspectorRow>
+              <InspectorRow label="Скорость">
+                {(live?.speed ?? 0).toFixed(2)} м/с
+              </InspectorRow>
+              <InspectorRow label="Целевая скорость">
+                {(live?.targetSpeed ?? device.speed).toFixed(2)} м/с
+              </InspectorRow>
+              <InspectorRow label="Ожидание">
+                {live?.waitingFor ?? device.waitingFor ?? "—"}
+              </InspectorRow>
+              <InspectorRow label="Ожидание, с">
+                {(live?.waitingSeconds ?? device.waitingDuration ?? 0).toFixed(1)}
+              </InspectorRow>
+              <InspectorRow label="Camera hold">
+                {(live?.cameraHold ?? device.cameraHold) ? "Да" : "Нет"}
+              </InspectorRow>
+              {(live?.cameraHold ?? device.cameraHold) && (
+                <InspectorRow label="Причина">
+                  {live?.cameraHoldReason ?? device.cameraHoldReason ?? "—"}
+                  {(live?.personDistance ?? device.personDistance) != null
+                    ? `, ${Number(live?.personDistance ?? device.personDistance).toFixed(1)} м`
+                    : ""}
+                </InspectorRow>
+              )}
+            </>
+          )}
           <InspectorRow label="Позиция">
             {device.pos.x.toFixed(1)} × {device.pos.z.toFixed(1)} м
           </InspectorRow>

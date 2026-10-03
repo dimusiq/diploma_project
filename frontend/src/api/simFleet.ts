@@ -15,9 +15,51 @@ export const FLEET_KINDS = [
   "conveyor",
   "dock_door",
   "charger",
+  "radio_beacon",
+  "smart_camera",
 ] as const
 
 export type FleetKind = (typeof FLEET_KINDS)[number]
+
+export type FleetAssignedEmployee = {
+  id: string
+  employee_code: string
+  full_name: string
+}
+
+export type FleetSmartCamera = {
+  device_id: string
+  code: string
+  name: string
+  status: string
+  online?: boolean
+  fps?: number
+  detection_count?: number
+  last_signal_at?: string | null
+  model?: string | null
+  resolution?: string | null
+  assigned_at?: string | null
+  host?: { id: string; code: string; name: string } | null
+  runtime?: import("@/components/deviceServer/simTypes.ts").SimCameraState | null
+}
+
+export type FleetMountedOn = {
+  id: string
+  code: string
+  name: string
+  kind: string
+}
+
+export type AvailableSmartCamera = {
+  device_id: string
+  code: string
+  name: string
+  status: string
+  model?: string | null
+  resolution?: string | null
+  fps?: number | null
+  last_signal_at?: string | null
+}
 
 export type FleetRuntime = {
   status: string | null
@@ -33,6 +75,10 @@ export type FleetRuntime = {
   busySec?: number | null
   inSimulation: boolean
   inMaintenance?: boolean
+  locationSource?: string | null
+  locationStale?: boolean
+  lastSignalAt?: string | null
+  currentZone?: string | null
 }
 
 export type MaintenanceTone = "ok" | "due_soon" | "overdue" | "in_progress"
@@ -70,6 +116,7 @@ export type FleetDevice = {
     metric?: number | null
     inMaintenance?: boolean
     camera?: import("@/components/deviceServer/simTypes.ts").SimCameraState | null
+    serialNumber?: string | null
   }
   runtime: FleetRuntime & {
     camera?: import("@/components/deviceServer/simTypes.ts").SimCameraState | null
@@ -79,6 +126,13 @@ export type FleetDevice = {
   deferredUntilRestart?: string[]
   created_at: string | null
   updated_at: string | null
+  serial_number?: string | null
+  last_signal_at?: string | null
+  location_source?: string | null
+  location_stale?: boolean
+  assigned_employee?: FleetAssignedEmployee | null
+  smart_camera?: FleetSmartCamera | null
+  mounted_on?: FleetMountedOn | null
 }
 
 export type DeviceMaintenanceRecord = {
@@ -253,4 +307,45 @@ export async function patchSimFleetDevice(
 
 export async function archiveSimFleetDevice(id: string): Promise<FleetDevice> {
   return request(`${BASE}/${encodeURIComponent(id)}`, { method: "DELETE" })
+}
+
+export async function fetchAvailableSmartCameras(): Promise<{
+  data: AvailableSmartCamera[]
+  count: number
+}> {
+  return request(`${BASE}/smart-cameras/available`)
+}
+
+export async function fetchDeviceSmartCamera(
+  id: string,
+): Promise<{ smart_camera: FleetSmartCamera | null; mounted_on?: FleetMountedOn | null }> {
+  return request(`${BASE}/${encodeURIComponent(id)}/smart-camera`)
+}
+
+export async function assignDeviceSmartCamera(
+  id: string,
+  cameraId: string,
+): Promise<{ smart_camera: FleetSmartCamera | null }> {
+  return request(`${BASE}/${encodeURIComponent(id)}/smart-camera/assign`, {
+    method: "POST",
+    body: { camera_id: cameraId },
+  })
+}
+
+export async function replaceDeviceSmartCamera(
+  id: string,
+  cameraId: string,
+): Promise<{ smart_camera: FleetSmartCamera | null }> {
+  return request(`${BASE}/${encodeURIComponent(id)}/smart-camera/replace`, {
+    method: "POST",
+    body: { camera_id: cameraId },
+  })
+}
+
+export async function unassignDeviceSmartCamera(
+  id: string,
+): Promise<{ smart_camera: FleetSmartCamera | null }> {
+  return request(`${BASE}/${encodeURIComponent(id)}/smart-camera/unassign`, {
+    method: "POST",
+  })
 }

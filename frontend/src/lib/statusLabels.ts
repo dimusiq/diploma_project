@@ -219,10 +219,10 @@ export const WORKER_STATUS_LABELS: Record<string, string> = {
 }
 
 export const EMPLOYEE_STATUS_LABELS: Record<string, string> = {
-  active: "Активен",
-  inactive: "Неактивен",
-  on_leave: "В отпуске",
-  terminated: "Уволен",
+  working: "Работает",
+  sick: "На больничном",
+  vacation: "В отпуске",
+  break: "Перерыв",
 }
 
 export const SHIFT_LABELS: Record<string, string> = {

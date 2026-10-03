@@ -356,6 +356,7 @@ def create_task(world: dict, draft: dict) -> dict:
         "cellId": draft.get("cellId"),
         "orderId": draft.get("orderId"),
         "truckId": draft.get("truckId"),
+        "preferredDeviceId": draft.get("preferredDeviceId"),
         "createdAt": world["timeSec"],
         "assignedAt": None,
         "doneAt": None,
@@ -382,6 +383,22 @@ def pick_worker(world: dict, kind: str) -> dict | None:
     return next((w for w in idle if w["role"] == role), idle[0])
 
 
+def _device_can_take(device: dict, kinds: list[str]) -> bool:
+    if device["kind"] not in kinds:
+        return False
+    if not device["online"] or device["status"] != "idle" or device["taskId"]:
+        return False
+    if device.get("enabled") is False:
+        return False
+    if device.get("inMaintenance") or device.get("status") == "maintenance":
+        return False
+    if device.get("archived"):
+        return False
+    if device["battery"] is not None and device["battery"] < 20:
+        return False
+    return True
+
+
 def assign_tasks(world: dict) -> None:
     pending = [t for t in world["tasks"] if t["status"] == "pending"]
     pending.sort(key=lambda t: (-t["priority"], t["createdAt"]))
@@ -390,26 +407,22 @@ def assign_tasks(world: dict) -> None:
         if not kinds:
             continue
         chosen = None
-        best_d = 1e18
-        for device in world["devices"]:
-            if device["kind"] not in kinds:
-                continue
-            if not device["online"] or device["status"] != "idle" or device["taskId"]:
-                continue
-            if device.get("enabled") is False:
-                continue
-            if device.get("inMaintenance") or device.get("status") == "maintenance":
-                continue
-            if device.get("archived"):
-                continue
-            if device["battery"] is not None and device["battery"] < 20:
-                continue
-            dx = device["pos"]["x"] - task["from"]["x"]
-            dz = device["pos"]["z"] - task["from"]["z"]
-            dist = dx * dx + dz * dz
-            if dist < best_d:
-                best_d = dist
-                chosen = device
+        preferred_id = task.get("preferredDeviceId")
+        if preferred_id:
+            preferred = world["deviceById"].get(preferred_id)
+            if preferred is not None and _device_can_take(preferred, kinds):
+                chosen = preferred
+        if chosen is None:
+            best_d = 1e18
+            for device in world["devices"]:
+                if not _device_can_take(device, kinds):
+                    continue
+                dx = device["pos"]["x"] - task["from"]["x"]
+                dz = device["pos"]["z"] - task["from"]["z"]
+                dist = dx * dx + dz * dz
+                if dist < best_d:
+                    best_d = dist
+                    chosen = device
         if not chosen:
             continue
         worker = None
@@ -447,6 +460,45 @@ def assign_tasks(world: dict) -> None:
             device_id=chosen["id"],
             task_id=task["id"],
         )
+
+
+def seed_demo_agv_task(world: dict) -> dict | None:
+    """Детерминированный отбор для AGV-01. Назначение идёт через assign_tasks."""
+    agv = world["deviceById"].get("agv-1")
+    if agv is None or agv.get("taskId") or not agv.get("online"):
+        return None
+    if agv.get("inMaintenance") or agv.get("status") in ("fault", "offline", "maintenance"):
+        return None
+    # Камера и сохранённый status не оставляют AGV без задачи на старте демо.
+    agv["status"] = "idle"
+    agv["path"] = []
+    agv["phase"] = None
+    agv["cameraHold"] = False
+    agv["cameraHoldReason"] = None
+    cells = [
+        cell
+        for cell in world["cells"]
+        if cell.get("palletId") and not cell.get("blocked")
+    ]
+    if not cells:
+        return None
+    cell = max(cells, key=lambda item: (float(item["pos"]["x"]), float(item["pos"]["z"]), item["id"]))
+    pallet = world["pallets"][cell["palletId"]]
+    pallet["state"] = "RESERVED"
+    return create_task(
+        world,
+        {
+            "kind": "pick",
+            "priority": TASK_PRIORITY["pick"] + 2,
+            "from": cell["pos"],
+            "to": PACKING_POINT,
+            "fromLabel": f"ячейка {cell['id']}",
+            "toLabel": "упаковка",
+            "palletId": pallet["id"],
+            "cellId": cell["id"],
+            "preferredDeviceId": "agv-1",
+        },
+    )
 
 
 def release_worker(world: dict, worker_id: str | None) -> None:
@@ -1032,7 +1084,8 @@ def handling_time(world: dict, kind: str, at_source: bool) -> float:
 
 def advance_along_path(device: dict, dt: float, world: dict) -> None:
     """Шаг position += direction * speed * dt. Ожидание решает resolve_traffic, не эта функция."""
-    if device.get("personInPath") or device.get("status") == "waiting":
+    # cameraHold = safety stop caused by object directly in AGV path.
+    if device.get("cameraHold") or device.get("status") == "waiting":
         return
     scale = float(device.get("cruise") if device.get("cruise") is not None else 1.0)
     if scale <= 0:
@@ -1547,6 +1600,11 @@ def process_replenishment(world: dict, dt: float) -> None:
 def process_workers(world: dict, dt: float) -> None:
     world["accumulators"]["shift"] += dt
     advance_workers(world, dt)
+    from app.warehouse_sim.bracelets import apply_bracelet_positions
+    from app.warehouse_sim.smart_cameras import apply_camera_positions
+
+    apply_bracelet_positions(world)
+    apply_camera_positions(world)
     for worker in world["workers"]:
         if worker["status"] == "break":
             worker["breakTimer"] -= dt

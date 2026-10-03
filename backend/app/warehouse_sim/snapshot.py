@@ -57,6 +57,10 @@ def build_motion(world: dict, running: bool, version: int) -> dict:
                 "targetSpeed": float(d.get("speed") or 0.0),
                 "waitingFor": d.get("waitingFor"),
                 "waitingSeconds": round(float(d.get("waitingDuration") or 0.0), 2),
+                "taskId": d.get("taskId"),
+                "cameraHold": bool(d.get("cameraHold")),
+                "cameraHoldReason": d.get("cameraHoldReason"),
+                "personDistance": d.get("personDistance"),
             }
             for d in world["devices"]
         ],

@@ -51,10 +51,15 @@ def public_camera(device: dict[str, Any]) -> dict[str, Any]:
     camera = device.get("camera")
     if not isinstance(camera, dict) or not camera.get("installed"):
         return {"installed": False, "equipment_id": device["id"]}
+    camera_code = camera.get("camera_code")
+    synthetic_id = camera_code or f"{device['id']}-cam"
     return {
         "installed": True,
         "equipment_id": device["id"],
-        "camera_id": f"{device['id']}-cam",
+        "camera_id": synthetic_id,
+        "camera_device_id": camera.get("deviceUuid"),
+        "camera_code": camera_code,
+        "camera_name": camera.get("camera_name"),
         "enabled": bool(camera.get("enabled")),
         "online": bool(camera.get("online")),
         "source": camera.get("source") or "demo",
@@ -73,6 +78,12 @@ def public_camera(device: dict[str, Any]) -> dict[str, Any]:
         "classes": list(camera.get("classes") or CAMERA_CLASSES),
         "offset": dict(camera.get("offset") or {}),
         "status": "online" if camera.get("online") else "offline",
+        "resolution": camera.get("resolution"),
+        "attached_to": {
+            "id": device["id"],
+            "name": device.get("name"),
+            "kind": device.get("kind"),
+        },
     }
 
 
@@ -207,13 +218,11 @@ def note_scene_detection(
             return public_camera(device)
         tracks[key] = {"class_name": class_name, "entity_id": entity_id}
         _refresh_track_view(device, camera)
+        # Детект без координат не останавливает AGV. cameraHold ставит только
+        # resolve_traffic, когда объект непосредственно на пути.
         if class_name == "person":
-            device["cameraHold"] = True
-            camera["obstacle"] = True
             _emit(world, ev.CAMERA_PERSON_DETECTED, "warning", f"{device['name']}: обнаружен человек", device)
         elif class_name == "obstacle":
-            device["cameraHold"] = True
-            camera["obstacle"] = True
             _emit(world, ev.CAMERA_OBSTACLE_DETECTED, "warning", f"{device['name']}: обнаружено препятствие", device)
         else:
             _emit(world, ev.CAMERA_OBJECT_DETECTED, "info", f"{device['name']}: обнаружен {class_name}", device)
@@ -225,12 +234,10 @@ def note_scene_detection(
     _refresh_track_view(device, camera)
     _emit(world, ev.CAMERA_OBJECT_LOST, "info", f"{device['name']}: {class_name} потерян", device)
     danger = any(item["class_name"] in HOLD_CLASSES for item in tracks.values())
-    if not danger and device.get("cameraHold"):
-        device["cameraHold"] = False
+    if not danger:
         camera["obstacle"] = False
-        cleared = ev.CAMERA_OBSTACLE_CLEARED if class_name in HOLD_CLASSES else ev.CAMERA_OBJECT_LOST
         if class_name in HOLD_CLASSES:
-            _emit(world, cleared, "success", f"{device['name']}: препятствие исчезло", device)
+            _emit(world, ev.CAMERA_OBSTACLE_CLEARED, "success", f"{device['name']}: препятствие исчезло", device)
         _publish(
             world,
             "camera.detection_cleared",
@@ -243,6 +250,7 @@ def note_scene_detection(
 
 def _refresh_track_view(device: dict[str, Any], camera: dict[str, Any]) -> None:
     when = (_EPOCH + timedelta(seconds=float(device.get("lastSeen") or 0))).isoformat().replace("+00:00", "Z")
+    cam_label = camera.get("camera_code") or f"{device['id']}-cam"
     detections = []
     for item in camera.get("tracks", {}).values():
         name = item["class_name"]
@@ -250,8 +258,10 @@ def _refresh_track_view(device: dict[str, Any], camera: dict[str, Any]) -> None:
         detections.append(
             {
                 "id": f"{device['id']}:{name}:{entity_id}",
-                "camera_id": f"{device['id']}-cam",
+                "camera_id": cam_label,
+                "camera_code": camera.get("camera_code"),
                 "equipment_id": device["id"],
+                "equipment_name": device.get("name"),
                 "timestamp": when,
                 "class_name": name,
                 "confidence": None,

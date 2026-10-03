@@ -17,7 +17,7 @@ import { deviceSimulation } from "./simStore.ts"
 import type { ZoneKind } from "./simTypes.ts"
 import { occupiedCellKeysForTwin } from "./twinOccupancy.ts"
 import { useSimData, useSimMotion } from "./useDeviceSimulation.ts"
-import { fitWarehouseToWidth } from "./warehouseMapViewport.ts"
+import { fitWarehouseToWidth, MAP_LABEL, mapLabelFont, vehicleLabelShift } from "./warehouseMapViewport.ts"
 
 const ZONE_TONE: Record<ZoneKind, string> = {
   receiving: "fill-sky-500/10 stroke-sky-500/40",
@@ -149,7 +149,7 @@ function DeviceShape({ device }: { device: DeviceMotion }) {
   }
 }
 
-function TruckShape({ truck }: { truck: TruckMotion }) {
+function TruckShape({ truck, font }: { truck: TruckMotion; font: number }) {
   return (
     <g>
       <rect
@@ -172,10 +172,10 @@ function TruckShape({ truck }: { truck: TruckMotion }) {
         className="fill-foreground/40"
       />
       <text
-        y={-2.8}
+        y={-1.8 - font * 0.35}
         textAnchor="middle"
         className="fill-muted-foreground"
-        style={{ fontSize: 1.9 }}
+        style={{ fontSize: font, fontWeight: 400 }}
       >
         {truck.plate}
       </text>
@@ -233,6 +233,20 @@ export function WarehouseLiveMap({
     return () => observer.disconnect()
   }, [])
 
+  const scale = fitted.scale
+  const zoneFont = mapLabelFont(MAP_LABEL.zone, scale)
+  const rackFont = mapLabelFont(MAP_LABEL.rack, scale)
+  const percentFont = mapLabelFont(MAP_LABEL.percent, scale)
+  const equipmentFont = mapLabelFont(MAP_LABEL.equipment, scale)
+  const selectedFont = mapLabelFont(MAP_LABEL.equipmentSelected, scale)
+  const forkliftFont = mapLabelFont(MAP_LABEL.forklift, scale)
+  const gateFont = mapLabelFont(MAP_LABEL.gate, scale)
+  const secondaryFont = mapLabelFont(MAP_LABEL.secondary, scale)
+  const mobiles = motion.devices.filter(
+    (device) =>
+      device.kind === "forklift" || device.kind === "agv" || device.kind === "amr",
+  )
+
   return (
     <div className="flex w-full min-w-0 flex-col rounded-lg border bg-card">
       <div ref={hostRef} className="min-h-0 w-full min-w-0">
@@ -270,9 +284,9 @@ export function WarehouseLiveMap({
             />
             <text
               x={zone.x + 1}
-              y={zone.z + 3}
+              y={zone.z + zoneFont * 1.15}
               className="fill-muted-foreground"
-              style={{ fontSize: 2.4, fontWeight: 600 }}
+              style={{ fontSize: zoneFont, fontWeight: 600 }}
             >
               {zone.name}
             </text>
@@ -353,19 +367,19 @@ export function WarehouseLiveMap({
                 )
               })}
               <text
-                x={rack.x - 1.2}
-                y={rack.z + rack.d / 2 + 0.8}
+                x={rack.x - rackFont * 0.35}
+                y={rack.z + rack.d / 2 + rackFont * 0.32}
                 textAnchor="end"
                 className="fill-muted-foreground"
-                style={{ fontSize: 2 }}
+                style={{ fontSize: rackFont, fontWeight: 400 }}
               >
                 {rack.code}
               </text>
               <text
-                x={rack.x + rack.w + 1.2}
-                y={rack.z + rack.d / 2 + 0.8}
+                x={rack.x + rack.w + percentFont * 0.35}
+                y={rack.z + rack.d / 2 + percentFont * 0.32}
                 className="fill-muted-foreground"
-                style={{ fontSize: 1.8 }}
+                style={{ fontSize: percentFont, fontWeight: 400 }}
               >
                 {Math.round(ratio * 100)}%
               </text>
@@ -391,10 +405,10 @@ export function WarehouseLiveMap({
               />
               <text
                 x={dock.pos.x}
-                y={dock.pos.z + 4.6}
+                y={dock.pos.z + 2.5 + gateFont * 0.95}
                 textAnchor="middle"
                 className="fill-muted-foreground"
-                style={{ fontSize: 1.8 }}
+                style={{ fontSize: gateFont, fontWeight: 400 }}
               >
                 {dock.code}
               </text>
@@ -427,7 +441,7 @@ export function WarehouseLiveMap({
               y={zone.z + zone.d - 1.5}
               textAnchor="end"
               className="fill-foreground"
-              style={{ fontSize: 2.2, fontWeight: 600 }}
+              style={{ fontSize: secondaryFont, fontWeight: 400 }}
             >
               {count} пал.
             </text>
@@ -437,7 +451,7 @@ export function WarehouseLiveMap({
         {/* Транспорт */}
         {motion.trucks.map((truck) => (
           <g key={truck.id} transform={`translate(${truck.x} ${truck.z})`}>
-            <TruckShape truck={truck} />
+            <TruckShape truck={truck} font={secondaryFont} />
           </g>
         ))}
 
@@ -488,21 +502,41 @@ export function WarehouseLiveMap({
               )}
               {(device.kind === "forklift" ||
                 device.kind === "agv" ||
-                device.kind === "amr") && (
-                <text
-                  y={3.4}
-                  textAnchor="middle"
-                  className={
-                    selected ? "fill-foreground" : "fill-foreground/60"
-                  }
-                  style={{ fontSize: 1.7, fontWeight: selected ? 700 : 400 }}
-                >
-                  {/* Заряд — только у выбранного: иначе подписи наезжают друг на друга. */}
-                  {selected && device.battery !== null
-                    ? `${device.name} ${Math.round(device.battery)}%`
-                    : device.name}
-                </text>
-              )}
+                device.kind === "amr") &&
+                (() => {
+                  const font =
+                    device.kind === "forklift"
+                      ? selected
+                        ? selectedFont
+                        : forkliftFont
+                      : selected
+                        ? selectedFont
+                        : equipmentFont
+                  const nearby = mobiles
+                    .filter((other) => {
+                      if (other.id === device.id) return false
+                      const dx = other.x - device.x
+                      const dz = other.z - device.z
+                      return dx * dx + dz * dz < 36
+                    })
+                    .map((other) => other.id)
+                  const shift = vehicleLabelShift(device.id, device.kind, nearby, font)
+                  return (
+                    <text
+                      x={shift.x}
+                      y={shift.y}
+                      textAnchor="middle"
+                      className={
+                        selected ? "fill-foreground" : "fill-foreground/60"
+                      }
+                      style={{ fontSize: font, fontWeight: selected ? 600 : 400 }}
+                    >
+                      {selected && device.battery !== null
+                        ? `${device.name} ${Math.round(device.battery)}%`
+                        : device.name}
+                    </text>
+                  )
+                })()}
             </g>
           )
         })}

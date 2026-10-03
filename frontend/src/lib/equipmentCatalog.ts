@@ -6,12 +6,14 @@
 import type { LucideIcon } from "lucide-react"
 import {
   BatteryCharging,
+  Camera,
   Cpu,
   DoorOpen,
   Forklift,
   LayoutGrid,
   ScanLine,
   Thermometer,
+  Watch,
   Workflow,
 } from "lucide-react"
 
@@ -23,6 +25,8 @@ export const EQUIPMENT_CATEGORIES = [
   { id: "sensor", label: "Датчики" },
   { id: "gate", label: "Ворота" },
   { id: "charging", label: "Зарядные станции" },
+  { id: "personnel_bracelets", label: "Браслеты персонала" },
+  { id: "smart_cameras", label: "Умные камеры" },
   { id: "other", label: "Прочее" },
 ] as const
 
@@ -37,6 +41,8 @@ export const CATEGORY_ICONS: Record<EquipmentCategoryId, LucideIcon> = {
   sensor: Thermometer,
   gate: DoorOpen,
   charging: BatteryCharging,
+  personnel_bracelets: Watch,
+  smart_cameras: Camera,
   other: Cpu,
 }
 
@@ -49,6 +55,7 @@ export const CATEGORY_COLUMNS: Record<string, string[]> = {
     "zone",
     "status",
     "battery",
+    "smart_camera",
     "task",
     "maintenance",
     "enabled",
@@ -69,6 +76,25 @@ export const CATEGORY_COLUMNS: Record<string, string[]> = {
   ],
   gate: ["name", "code", "zone", "status", "enabled", "actions"],
   charging: ["name", "code", "zone", "status", "enabled", "actions"],
+  personnel_bracelets: [
+    "name",
+    "code",
+    "status",
+    "assignee",
+    "last_signal",
+    "battery",
+    "enabled",
+    "actions",
+  ],
+  smart_cameras: [
+    "name",
+    "code",
+    "status",
+    "mounted_on",
+    "last_signal",
+    "enabled",
+    "actions",
+  ],
   other: ["name", "code", "kind", "zone", "status", "enabled", "actions"],
 }
 
@@ -86,6 +112,10 @@ export const COLUMN_LABELS: Record<string, string> = {
   unit: "Единица",
   enabled: "Активно",
   actions: "Действия",
+  assignee: "Кому выдан",
+  last_signal: "Последняя связь",
+  smart_camera: "Умная камера",
+  mounted_on: "Закреплена за",
 }
 
 export const KIND_TO_CATEGORY: Record<string, EquipmentCategoryId> = {
@@ -97,6 +127,8 @@ export const KIND_TO_CATEGORY: Record<string, EquipmentCategoryId> = {
   sensor: "sensor",
   dock_door: "gate",
   charger: "charging",
+  radio_beacon: "personnel_bracelets",
+  smart_camera: "smart_cameras",
 }
 
 export const KIND_FIELDS: Record<string, string[]> = {
@@ -126,6 +158,23 @@ export const KIND_FIELDS: Record<string, string[]> = {
   ],
   dock_door: ["name", "code", "description", "zoneId", "enabled"],
   charger: ["name", "code", "description", "zoneId", "enabled"],
+  radio_beacon: [
+    "name",
+    "code",
+    "description",
+    "zoneId",
+    "enabled",
+    "battery",
+    "serialNumber",
+  ],
+  smart_camera: [
+    "name",
+    "code",
+    "description",
+    "zoneId",
+    "enabled",
+    "serialNumber",
+  ],
 }
 
 export function categoryOf(kind: string): EquipmentCategoryId {

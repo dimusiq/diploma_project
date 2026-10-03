@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {
@@ -14,6 +14,7 @@ import {
   EMPLOYEE_STATUSES,
   shiftLabel,
   employeeStatusLabel,
+  statusNeedsUntil,
   type PersonnelRecord,
 } from "@/lib/personnel.ts"
 import type { PersonnelWrite } from "@/api/personnel.ts"
@@ -27,7 +28,8 @@ const EMPTY: PersonnelWrite = {
   department: "Склад №1",
   phone: "",
   email: "",
-  status: "active",
+  status: "working",
+  status_until: null,
   shift: "day",
   hire_date: "",
   notes: "",
@@ -45,6 +47,7 @@ function fromRecord(row: PersonnelRecord | null): PersonnelWrite {
     phone: row.phone ?? "",
     email: row.email ?? "",
     status: row.status,
+    status_until: row.status_until ?? null,
     shift: row.shift,
     hire_date: row.hire_date ?? "",
     notes: row.notes ?? "",
@@ -55,19 +58,31 @@ export function PersonnelForm({
   initial,
   submitting,
   onSubmit,
+  onCancel,
+  footer,
 }: {
   initial: PersonnelRecord | null
   submitting: boolean
   onSubmit: (body: PersonnelWrite) => void
+  onCancel?: () => void
+  footer?: ReactNode
 }) {
   const [value, setValue] = useState<PersonnelWrite>(() => fromRecord(initial))
+  const [dateError, setDateError] = useState("")
   const set = (patch: Partial<PersonnelWrite>) => setValue((current) => ({ ...current, ...patch }))
+  const dated = statusNeedsUntil(value.status)
 
   return (
     <form
       className="grid gap-3"
+      data-testid="personnel-form"
       onSubmit={(event) => {
         event.preventDefault()
+        if (dated && !value.status_until) {
+          setDateError("Укажите дату")
+          return
+        }
+        setDateError("")
         onSubmit({
           ...value,
           hire_date: value.hire_date || null,
@@ -75,6 +90,7 @@ export function PersonnelForm({
           phone: value.phone || null,
           email: value.email || null,
           notes: value.notes || null,
+          status_until: dated ? value.status_until : null,
         })
       }}
     >
@@ -137,7 +153,14 @@ export function PersonnelForm({
         </label>
         <label className="grid gap-1 text-sm">
           Статус
-          <Select value={value.status} onValueChange={(status) => set({ status })}>
+          <Select
+            value={value.status}
+            onValueChange={(status) => {
+              setDateError("")
+              if (statusNeedsUntil(status)) set({ status })
+              else set({ status, status_until: null })
+            }}
+          >
             <SelectTrigger aria-label="Статус сотрудника">
               <SelectValue />
             </SelectTrigger>
@@ -151,6 +174,22 @@ export function PersonnelForm({
           </Select>
         </label>
       </div>
+      {dated ? (
+        <label className="grid gap-1 text-sm">
+          До даты
+          <Input
+            type="date"
+            required
+            aria-label="До даты"
+            value={value.status_until ?? ""}
+            onChange={(event) => {
+              setDateError("")
+              set({ status_until: event.target.value || null })
+            }}
+          />
+          {dateError ? <span className="text-xs text-destructive">{dateError}</span> : null}
+        </label>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 text-sm">
           Телефон
@@ -169,9 +208,19 @@ export function PersonnelForm({
         Заметки
         <Input value={value.notes ?? ""} onChange={(event) => set({ notes: event.target.value })} />
       </label>
-      <Button type="submit" disabled={submitting}>
-        Сохранить
-      </Button>
+
+      {footer}
+
+      <div className="flex flex-wrap justify-end gap-2 border-t pt-3">
+        {onCancel ? (
+          <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+            Отмена
+          </Button>
+        ) : null}
+        <Button type="submit" disabled={submitting}>
+          Сохранить
+        </Button>
+      </div>
     </form>
   )
 }

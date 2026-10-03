@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.warehouse_sim.simulation import device_command, is_mobile_kind
+from app.warehouse_sim.traffic import current_speed
 from app.warehouse_sim.world import create_device
 
 
@@ -72,14 +73,13 @@ class DeviceServer:
             "x": device["pos"]["x"],
             "y": device["pos"]["z"],
             "z": device["pos"]["z"],
-            "speed": (
-                0.0
-                if device.get("personInPath") or device["status"] == "waiting" or device["status"] != "moving"
-                else float(device.get("speed") or 0.0) * float(device.get("cruise") or 1.0)
-            ),
+            "speed": current_speed(device),
             "targetSpeed": float(device.get("speed") or 0.0),
             "waitingFor": device.get("waitingFor"),
             "waitingSeconds": round(float(device.get("waitingDuration") or 0.0), 2),
+            "cameraHold": bool(device.get("cameraHold")),
+            "cameraHoldReason": device.get("cameraHoldReason"),
+            "personDistance": device.get("personDistance"),
             "currentTask": device.get("taskId"),
             "temperature": device.get("temperature"),
             "lastSeen": device.get("lastSeen"),

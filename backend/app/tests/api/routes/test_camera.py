@@ -49,7 +49,8 @@ def test_admin_starts_camera_and_reads_detections(
         json={"action": "seen", "class_name": "person", "entity_id": "wrk-1"},
     )
     assert seen.status_code == 200
-    assert seen.json()["obstacle"] is True
+    # Детект без координат виден в кадре, но не является препятствием на пути.
+    assert seen.json()["obstacle"] is False
     detections = client.get(
         f"{settings.API_V1_STR}/warehouse-sim/equipment/agv-1/camera/detections",
         headers=superuser_token_headers,
