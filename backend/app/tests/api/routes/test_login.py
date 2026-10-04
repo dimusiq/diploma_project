@@ -30,7 +30,8 @@ def test_get_access_token_incorrect_password(client: TestClient) -> None:
         "password": "incorrect",
     }
     r = client.post(f"{settings.API_V1_STR}/login/access-token", data=login_data)
-    assert r.status_code == 400
+    # Неверные учётные данные → 401 (не 400), как в login.login_access_token.
+    assert r.status_code == 401
 
 
 def test_use_access_token(
@@ -69,7 +70,9 @@ def test_recovery_password_user_not_exits(
         f"{settings.API_V1_STR}/password-recovery/{email}",
         headers=normal_user_token_headers,
     )
-    assert r.status_code == 404
+    # Не раскрываем существование email: тот же ответ, что и для существующего.
+    assert r.status_code == 200
+    assert r.json() == {"message": "Password recovery email sent"}
 
 
 def test_reset_password(client: TestClient, db: Session) -> None:

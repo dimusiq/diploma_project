@@ -937,8 +937,16 @@ async def stop_runtime() -> None:
     global _runtime
     with _runtime_lock:
         rt = _runtime
+        _runtime = None
     if rt is not None:
         await rt.aclose()
+
+
+def discard_runtime_singleton() -> None:
+    """Сброс синглтона для изоляции pytest (после truncate БД / между тестами)."""
+    global _runtime
+    with _runtime_lock:
+        _runtime = None
 
 
 def ensure_seed_layout() -> None:

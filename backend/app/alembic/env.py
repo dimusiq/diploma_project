@@ -9,8 +9,14 @@ from sqlalchemy import engine_from_config, pool
 config = context.config
 
 # Interpret the config file for Python logging.
-# This line sets up loggers basically.
-fileConfig(config.config_file_name)
+# В pytest fileConfig ломает caplog — можно отключить:
+#   cfg.attributes["configure_logger"] = False
+# или NEBARDAK_TESTING=1.
+if config.config_file_name is not None and config.attributes.get(
+    "configure_logger", True
+):
+    if os.environ.get("NEBARDAK_TESTING", "").strip() not in {"1", "true", "yes"}:
+        fileConfig(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

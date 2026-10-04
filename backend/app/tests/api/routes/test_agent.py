@@ -145,7 +145,9 @@ def test_agent_chat_fallback_without_ollama(
     data = r.json()
     assert data["llm_available"] is False
     assert data.get("model") is None
-    assert "Контекст" in data["reply"] or "layout" in data["reply"].lower()
+    reply_l = data["reply"].lower()
+    # Fallback без LLM — русское сообщение про отсутствие настройки, не англ. «layout».
+    assert "не настроен" in reply_l or "vllm" in reply_l
     assert data.get("reasoning_debug") is None
     pr = data["public_reasoning"]
     assert pr is not None

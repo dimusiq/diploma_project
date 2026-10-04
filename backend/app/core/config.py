@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
+    # Только для pytest (см. app/tests/db_setup.py). По умолчанию ``{POSTGRES_DB}_test``.
+    TEST_POSTGRES_DB: str | None = None
+    TEST_DATABASE_URL: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
