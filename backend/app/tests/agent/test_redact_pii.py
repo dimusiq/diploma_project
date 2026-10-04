@@ -33,15 +33,17 @@ _VALID_CARD = "4111 1111 1111 1111"
             None,
         ),
         ("order_id 42", "42", None),
+        # валидный ИНН как order_id — аудит НЕ маскирует (иначе ломается диагностика)
+        (f'{{"order_id": {_VALID_INN_12}}}', _VALID_INN_12, None),
         ("qty=100", "100", None),
         # голые 11 цифр — не СНИЛС (нет разделителей)
         ("seq 12345678901", "12345678901", None),
-        # --- реальные ПДн / секреты ---
+        # голый валидный ИНН без метки — аудит сохраняет
+        (_VALID_INN_10, _VALID_INN_10, None),
+        # --- реальные ПДн / секреты (с меткой или явный формат) ---
         (f"ИНН {_VALID_INN_10}", None, "[inn]"),
         (f'{{"inn": "{_VALID_INN_10}"}}', None, "[inn]"),
         (f"tax_id={_VALID_INN_12}", None, "[inn]"),
-        # валидный ИНН без метки — по контрольной сумме
-        (_VALID_INN_10, None, "[inn]"),
         (f"СНИЛС {_VALID_SNILS}", None, "[snils]"),
         ("Связь: ops@example.com", None, "[email]"),
         ("тел. +7 (999) 123-45-67", None, "[phone]"),
@@ -59,6 +61,18 @@ def test_redact_audit_table(
         assert "[snils]" not in out
     if must_mask is not None:
         assert must_mask in out, f"ожидали {must_mask!r} в {out!r}"
+
+
+def test_redact_pii_vs_audit_bare_inn_differs() -> None:
+    """Жёсткий redact_pii маскирует голый ИНН; мягкий redact_audit — нет."""
+    raw = f'{{"order_id": {_VALID_INN_12}}}'
+    audit = redact_audit(raw)
+    pii = redact_pii(raw)
+    assert audit != pii
+    assert _VALID_INN_12 in audit
+    assert "[inn]" not in audit
+    assert _VALID_INN_12 not in pii
+    assert "[inn]" in pii
 
 
 def test_sanitize_for_log_alias() -> None:

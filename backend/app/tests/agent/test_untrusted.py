@@ -63,6 +63,7 @@ def test_strip_preserves_rag_markdown_role_headers() -> None:
     assert "чеклист приёмки" in out
     # Не съедаем заголовок плейсхолдером.
     assert "[filtered:instruction_header]" not in out
+    assert "[filtered:System_role]" not in out
     # Сырые markdown-заголовки роли нейтрализованы экранированием.
     assert "### System" not in out
     assert r"\#\#\# System" in out
@@ -73,6 +74,66 @@ def test_strip_preserves_rag_markdown_role_headers() -> None:
     words_raw = raw.split()
     words_out = out.replace("\\", "").split()
     assert words_out == words_raw
+
+
+def test_strip_preserves_md_header_with_colon() -> None:
+    """### System: … не превращается в [filtered:System_role] — текст заголовка цел."""
+    raw = "### System: требования к зоне охлаждения\nтемпература ≤ +4°C\n"
+    out = strip_injection_markers(raw)
+    assert "System" in out
+    assert "требования к зоне охлаждения" in out
+    assert "температура ≤ +4°C" in out
+    assert "[filtered:System_role]" not in out
+    assert r"\#\#\# System" in out
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        # 1. RAG-чанк регламента ТО
+        "### System\nРегламент ТО вилочного погрузчика каждые 250 м/ч.\n"
+        "Проверить масло гидросистемы и тормоза.",
+        # 2. SOP приёмки
+        "# Tools\n1. Сканер ШК\n2. Терминал сбора данных\n"
+        "### Instruction\nСверить накладную с фактом на воротах.",
+        # 3. Инструкция по ячейкам
+        "## Хранение\nЯчейка A-12-03-07: только паллеты EUR.\n"
+        "SKU-1234567890 не ставить на верхний ярус.",
+        # 4. Чеклист смены
+        "### Assistant\nЧеклист открытия смены:\n- обход зон A–D\n- проверка ворот 1–3",
+        # 5. Описание датчиков
+        "# Sensors\nДатчик температуры zone_cold: порог +4°C, hysteresis 0.5.",
+        # 6. Маршрут отбора
+        "Маршрут волны W-1042: A-01 → B-12 → C-03. Не менять порядок без менеджера.",
+        # 7. Карточка товара из БД
+        "Товар «Молоко 3.2%», barcode 4601234567890, qty=24, slot A-02-01-03.",
+        # 8. Регламент ТО с System:
+        "### System: периодичность ТО\nКаждые 500 моточасов — замена фильтра.",
+        # 9. Инструкция по браслетам персонала
+        "Назначить браслет EMP-001 на зону приёмки. Статус active до конца смены.",
+        # 10. Фрагмент политики склада
+        "Запрещено хранить ЛВЖ рядом с зарядной станцией AGV. См. приказ №14.",
+        # 11. Отчёт KPI
+        "KPI смены: picks=312, putaway=88, overdue_tasks=3, zone Bottleneck=dock-2.",
+        # 12. Смешанный markdown без jailbreak
+        "### Overview\nСклад DEMO, layout v1.\n# Tools\nштабелёр, ТСД, принтер этикеток.",
+    ],
+)
+def test_strip_keeps_real_warehouse_documents(document: str) -> None:
+    """На реальных RAG/SOP/регламентах полезный текст не теряется."""
+    out = strip_injection_markers(document)
+    # Ключевые содержательные фрагменты (без служебных #) остаются.
+    meaningful = [
+        w
+        for w in document.replace("#", " ").split()
+        if len(w) >= 4
+        and w.lower() not in {"system", "tools", "assistant", "instruction"}
+    ]
+    assert meaningful, "фикстура должна содержать содержательные слова"
+    for word in meaningful[:6]:
+        assert word in out.replace("\\", ""), f"потеряно {word!r} в {out!r}"
+    assert "[filtered:System_role]" not in out
+    assert "[filtered:instruction_header]" not in out
 
 
 def test_wrap_untrusted_keeps_sop_system_header() -> None:

@@ -41,13 +41,32 @@ def _neutralize_md_role_header(m: re.Match[str]) -> str:
     return f"{escaped}{spaces}{word}"
 
 
+_ESCAPED_OR_RAW_MD_HEADER = re.compile(r"^[^\S\n]*(?:#{1,6}|\\#)")
+
+
+def _filter_role_lines(text: str) -> str:
+    """Фильтр ``system:`` / ``user:`` — не трогает markdown-заголовки (в т.ч. \\#\\#\\# System:)."""
+    parts: list[str] = []
+    for line in text.splitlines(keepends=True):
+        core = line.rstrip("\r\n")
+        ending = line[len(core) :]
+        if _ESCAPED_OR_RAW_MD_HEADER.match(core):
+            parts.append(line)
+            continue
+        core = _ROLE_LINE_RE.sub(r"[filtered:\1_role] ", core)
+        core = _USER_ROLE_LINE_RE.sub("[filtered:user_role] ", core)
+        parts.append(core + ending)
+    return "".join(parts)
+
+
 def strip_injection_markers(text: str) -> str:
     """
     Нейтрализует типовые маркеры prompt-injection внутри данных.
 
     Реальные управляющие токены chat-шаблонов и jailbreak-фразы — заменяются
     на ``[filtered:…]``. Markdown-заголовки с словами System/Tools/… не удаляются:
-    экранируются (``### System`` → ``\\#\\#\\# System``), чтобы смысл RAG/SOP сохранился.
+    экранируются (``### System`` → ``\\#\\#\\# System``), заголовок и текст после
+    ``:`` сохраняются (не превращаются в ``[filtered:System_role]``).
     Не предназначена для пользовательского UI — только для промпт-контекста.
     """
     if not text:
@@ -59,8 +78,7 @@ def strip_injection_markers(text: str) -> str:
     t = _ANSWER_TAG_RE.sub("[filtered:answer_tag]", t)
     t = _MD_ROLE_HEADER_RE.sub(_neutralize_md_role_header, t)
     t = _IGNORE_PREV_RE.sub("[filtered:ignore_previous]", t)
-    t = _ROLE_LINE_RE.sub(r"[filtered:\1_role] ", t)
-    t = _USER_ROLE_LINE_RE.sub("[filtered:user_role] ", t)
+    t = _filter_role_lines(t)
     return t
 
 

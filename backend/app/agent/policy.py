@@ -76,9 +76,10 @@ _PHONE_RE = re.compile(
     r"(?<!\d)(?:\+\d{1,3}[-.\s]*)?(?:\(\d{3}\)|\d{3})[-.\s]+\d{3}[-.\s]*\d{2}[-.\s]*\d{2}\b"
     r"|(?<!\d)\+\d{10,15}\b"
 )
-# ИНН рядом с ключом/меткой (inn / ИНН / tax_id) — контекст важнее «голых» цифр.
+# ИНН рядом с ключом/меткой (inn / ИНН / tax_id), включая JSON ``"inn": "…"``.
 _INN_CONTEXT_RE = re.compile(
-    r"(?i)(?:\binn\b|\btax_id\b|\bинн\b)\s*[:=]?\s*[\"']?(\d{10}|\d{12})\b"
+    r'(?i)(?:["\']?(?:\binn\b|\btax_id\b|\bинн\b)["\']?\s*[:=]\s*["\']?(\d{10}|\d{12})\b'
+    r'|(?:\binn\b|\btax_id\b|\bинн\b)\s+["\']?(\d{10}|\d{12})\b)'
 )
 # Кандидат на ИНН без метки: только 10/12 цифр; решение — по контрольной сумме.
 _INN_BARE_RE = re.compile(r"(?<![\dA-Za-z_-])(\d{10}|\d{12})(?![\dA-Za-z_-])")
@@ -161,7 +162,10 @@ def _redact_card_match(m: re.Match[str]) -> str:
 
 def _redact_inn_context_match(m: re.Match[str]) -> str:
     """Сохраняет метку/ключ, подменяет только цифры ИНН."""
-    return m.group(0).replace(m.group(1), "[inn]", 1)
+    digits = m.group(1) or m.group(2)
+    if not digits:
+        return m.group(0)
+    return m.group(0).replace(digits, "[inn]", 1)
 
 
 def _redact_inn_bare_match(m: re.Match[str]) -> str:
@@ -178,8 +182,13 @@ def _redact_snils_match(m: re.Match[str]) -> str:
     return m.group(0)
 
 
-def _redact_common(text: str) -> str:
-    """Общая маскировка: email/телефон/паспорт/секреты/карта + узкие ИНН/СНИЛС."""
+def _redact_common(text: str, *, bare_inn: bool) -> str:
+    """Общая маскировка: email/телефон/паспорт/секреты/карта + ИНН/СНИЛС.
+
+    ``bare_inn=True`` (чат): голые 10/12 цифр с валидной контрольной суммой → [inn].
+    ``bare_inn=False`` (аудит): только ИНН рядом с меткой inn/ИНН/tax_id —
+    иначе order_id/SKU с «удачной» суммой ломают диагностику.
+    """
     t = str(text)
     t = _EMAIL_RE.sub("[email]", t)
     t = _PHONE_RE.sub("[phone]", t)
@@ -189,34 +198,34 @@ def _redact_common(text: str) -> str:
     t = _BEARER_RE.sub("[bearer_token]", t)
     t = _JWT_RE.sub("[jwt]", t)
     t = _CARD_RE.sub(_redact_card_match, t)
-    # Сначала контекстные ИНН, затем голые с валидной контрольной суммой.
     t = _INN_CONTEXT_RE.sub(_redact_inn_context_match, t)
-    t = _INN_BARE_RE.sub(_redact_inn_bare_match, t)
+    if bare_inn:
+        t = _INN_BARE_RE.sub(_redact_inn_bare_match, t)
     return t
 
 
 def redact_pii(text: str) -> str:
     """
-    Маскирование ПДн/секретов в пользовательском тексте (чат агента).
+    Жёсткое маскирование ПДн/секретов в пользовательском тексте (чат агента).
 
-    ИНН: по метке inn/ИНН/tax_id или по контрольной сумме.
+    ИНН: по метке inn/ИНН/tax_id или по контрольной сумме (голые 10/12 цифр).
     СНИЛС: только формат с разделителями и контрольным числом.
-    UUID, целые id, timestamp, SKU/артикулы без контрольной суммы ИНН не трогаем.
     """
     if not text:
         return text
-    return _redact_common(text)
+    return _redact_common(text, bare_inn=True)
 
 
 def redact_audit(text: str) -> str:
     """
     Мягкая маскировка для аудита/трейса/preview инструментов.
 
-    Только реальные ПДн и секреты — без ущерба диагностике (item_id, timeSec, SKU).
+    ИНН — только при явном ключе inn/ИНН/tax_id. Голые числа (order_id,
+    item_id, timeSec, SKU) не трогаем, даже если контрольная сумма «как у ИНН».
     """
     if not text:
         return text
-    return _redact_common(text)
+    return _redact_common(text, bare_inn=False)
 
 
 def sanitize_for_log(text: str) -> str:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from typing import Any
 
@@ -28,6 +29,10 @@ def _fat_payload(n: int = 800) -> dict[str, Any]:
     }
 
 
+@pytest.mark.skipif(
+    os.environ.get("RUN_SERIALIZE_BENCH") != "1",
+    reason="бенчмарк сериализации вне CI (RUN_SERIALIZE_BENCH=1)",
+)
 def test_should_send_full_serialization_cost_measurable() -> None:
     """Замер стоимости json.dumps: жирный кадр заметно дороже пустого."""
     fat = _fat_payload(600)
@@ -42,16 +47,15 @@ def test_should_send_full_serialization_cost_measurable() -> None:
     thin_ms = (time.perf_counter() - t1) * 1000
     assert fat_ms > thin_ms
     assert len(json.dumps(fat)) > len(json.dumps(thin))
-    # Печать для отчёта «до/после» (вынесение dumps в thread).
     print(f"serialize_bench fat_ms={fat_ms:.2f} thin_ms={thin_ms:.2f}")
 
 
 def test_broadcast_prepare_via_to_thread_does_not_block_loop(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Пока prepare (dumps) идёт в thread, соседняя корутина тикает."""
+    """probe завершается во время prepare — иначе sync prepare блокирует loop."""
     rt = WarehouseSimRuntime()
-    hits: list[int] = []
+    order: list[str] = []
     slow_started = asyncio.Event()
     original_prepare = WarehouseSimRuntime._prepare_snapshot_envelopes
 
@@ -68,18 +72,20 @@ def test_broadcast_prepare_via_to_thread_does_not_block_loop(
         WarehouseSimRuntime, "_prepare_snapshot_envelopes", staticmethod(slow_prepare)
     )
 
-    async def ticker() -> None:
+    async def probe() -> None:
         await slow_started.wait()
-        for i in range(5):
-            hits.append(i)
-            await asyncio.sleep(0)
+        # Должен успеть до конца 80ms prepare — только если loop свободен.
+        await asyncio.sleep(0.02)
+        order.append("probe")
 
     async def broadcast_once() -> None:
         fat = _fat_payload(400)
         await rt._broadcast_snapshot_async("motion", fat, None)
+        order.append("broadcast_done")
 
     async def main() -> None:
-        await asyncio.gather(broadcast_once(), ticker())
+        await asyncio.gather(broadcast_once(), probe())
 
     asyncio.run(main())
-    assert hits == list(range(5))
+    # Sync prepare на loop дал бы ["broadcast_done", "probe"].
+    assert order == ["probe", "broadcast_done"]
