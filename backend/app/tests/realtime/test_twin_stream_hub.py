@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from typing import cast, Any
+from typing import Any, cast
 
 import pytest
 
@@ -146,9 +146,12 @@ def test_history_replay_filters_channel_and_window() -> None:
         )
 
     assert history_messages_for_replay(channels=frozenset(), replay_seconds=60) == []
-    assert history_messages_for_replay(
-        channels=frozenset({CHANNEL_OCCUPANCY}), replay_seconds=0
-    ) == []
+    assert (
+        history_messages_for_replay(
+            channels=frozenset({CHANNEL_OCCUPANCY}), replay_seconds=0
+        )
+        == []
+    )
 
     occ = history_messages_for_replay(
         channels=frozenset({CHANNEL_OCCUPANCY}), replay_seconds=5

@@ -127,9 +127,10 @@ def score_slot_for_abc(
         return near + height
     if abc_class == "C":
         # инверсия близости: дальний ряд предпочтительнее
-        far = float(MAX_ROW - storage_row + 1) * 1000.0 + float(
-            MAX_CELL_X - storage_cell_x + 1
-        ) * 10.0
+        far = (
+            float(MAX_ROW - storage_row + 1) * 1000.0
+            + float(MAX_CELL_X - storage_cell_x + 1) * 10.0
+        )
         return far + (MAX_LEVEL - storage_level + 1) * 50.0
     # B
     return near * 0.5 + height * 0.8 + abs(storage_row - MAX_ROW / 2) * 20.0
@@ -219,9 +220,7 @@ def choose_best_slot(
 
     if prefer_top_up and put_sku:
         top_ups = [
-            c
-            for c in feasible
-            if c.current_qty > 0 and c.current_sku == put_sku
+            c for c in feasible if c.current_qty > 0 and c.current_sku == put_sku
         ]
         if top_ups:
             return min(
@@ -440,10 +439,7 @@ def suggest_putaway_slot(
         return None
 
     is_top_up = (
-        prefer_top_up
-        and chosen.current_qty > 0
-        and sku
-        and chosen.current_sku == sku
+        prefer_top_up and chosen.current_qty > 0 and sku and chosen.current_sku == sku
     )
     reason = "top_up_same_sku" if is_top_up else f"abc_{cls.lower()}_slot"
 

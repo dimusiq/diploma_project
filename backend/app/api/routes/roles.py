@@ -43,7 +43,9 @@ def read_roles_detailed(
         perm_codes = list(
             session.exec(
                 select(Permission.code)
-                .join(RolePermission, col(RolePermission.permission_id) == Permission.id)
+                .join(
+                    RolePermission, col(RolePermission.permission_id) == Permission.id
+                )
                 .where(RolePermission.role_id == role.id)
                 .order_by(col(Permission.code))
             ).all()

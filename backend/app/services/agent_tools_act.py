@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.agent.contracts import AgentToolContext
 from app.models import (
@@ -83,6 +83,7 @@ def handle_create_transfer_task(
         }
     )
 
+
 def handle_reserve_slot(
     session: Session, _user: User, args: dict[str, Any], ctx: AgentToolContext | None
 ) -> str:
@@ -141,6 +142,7 @@ def handle_reserve_slot(
         }
     )
 
+
 def handle_create_cycle_count_task(
     session: Session, user: User, args: dict[str, Any], ctx: AgentToolContext | None
 ) -> str:
@@ -171,6 +173,7 @@ def handle_create_cycle_count_task(
             "compensation_hint": f"Удалить task {task.id}",
         }
     )
+
 
 def handle_reassign_pick_task(
     session: Session, _user: User, args: dict[str, Any], ctx: AgentToolContext | None
@@ -228,6 +231,7 @@ def handle_reassign_pick_task(
         }
     )
 
+
 def handle_create_maintenance_request(
     session: Session, user: User, args: dict[str, Any], ctx: AgentToolContext | None
 ) -> str:
@@ -280,6 +284,7 @@ def handle_create_maintenance_request(
         }
     )
 
+
 def handle_acknowledge_alert(
     session: Session, user: User, args: dict[str, Any], ctx: AgentToolContext | None
 ) -> str:
@@ -310,6 +315,7 @@ def handle_acknowledge_alert(
             "compensation_hint": "Сбросить is_read вручную при ошибке",
         }
     )
+
 
 def handle_schedule_replenishment(
     session: Session, user: User, args: dict[str, Any], ctx: AgentToolContext | None
@@ -370,6 +376,7 @@ def handle_schedule_replenishment(
         }
     )
 
+
 def handle_publish_layout_version(
     session: Session, _user: User, args: dict[str, Any], ctx: AgentToolContext | None
 ) -> str:
@@ -419,6 +426,7 @@ def handle_publish_layout_version(
         }
     )
 
+
 def handle_rebuild_projection(
     session: Session, _user: User, args: dict[str, Any], ctx: AgentToolContext | None
 ) -> str:
@@ -441,6 +449,7 @@ def handle_rebuild_projection(
             "compensation_hint": "Повторный вызов rebuild_projection сбросит и пересчитает проекцию",
         }
     )
+
 
 def handle_reindex_knowledge(
     session: Session, _user: User, args: dict[str, Any], ctx: AgentToolContext | None
@@ -470,6 +479,7 @@ def handle_reindex_knowledge(
         }
     )
 
+
 def handle_enqueue_integration_inbox(
     session: Session,
     _user: User,
@@ -488,9 +498,7 @@ def handle_enqueue_integration_inbox(
         "event_type": event_type,
         "payload_keys": sorted(str(k) for k in payload.keys())[:40],
     }
-    gated = _act_gate(
-        ctx, tool_name="enqueue_integration_inbox", payload=gate_payload
-    )
+    gated = _act_gate(ctx, tool_name="enqueue_integration_inbox", payload=gate_payload)
     if gated:
         return gated
     row = IntegrationInbox(
@@ -513,6 +521,7 @@ def handle_enqueue_integration_inbox(
         }
     )
 
+
 def handle_sync_external_system(
     _session: Session, _user: User, args: dict[str, Any], ctx: AgentToolContext | None
 ) -> str:
@@ -529,4 +538,3 @@ def handle_sync_external_system(
             "legacy_payload": payload,
         }
     )
-

@@ -89,6 +89,7 @@ def handle_search_items_in_warehouse(
         }
     )
 
+
 def handle_get_inventory_summary(
     session: Session, user: User, _args: dict[str, Any], _ctx: Any
 ) -> str:
@@ -114,6 +115,7 @@ def handle_get_inventory_summary(
             "occupied_slots_projection": int(occ),
         }
     )
+
 
 def handle_find_item_by_sku(
     session: Session, user: User, args: dict[str, Any], _ctx: Any
@@ -154,6 +156,7 @@ def handle_find_item_by_sku(
         }
     )
 
+
 def handle_get_item_location(
     session: Session, user: User, args: dict[str, Any], _ctx: Any
 ) -> str:
@@ -186,6 +189,7 @@ def handle_get_item_location(
         }
     )
 
+
 def handle_get_slot_state(
     session: Session, user: User, args: dict[str, Any], _ctx: Any
 ) -> str:
@@ -215,7 +219,9 @@ def handle_get_slot_state(
     occ_stmt = select(WarehouseSlotOccupancy)
     if not can_see_all_items(session, user):
         occ_stmt = occ_stmt.where(WarehouseSlotOccupancy.owner_id == user.id)
-    occ_stmt = occ_stmt.order_by(col(WarehouseSlotOccupancy.updated_at).desc()).limit(limit)
+    occ_stmt = occ_stmt.order_by(col(WarehouseSlotOccupancy.updated_at).desc()).limit(
+        limit
+    )
     rows = list(session.exec(occ_stmt).all())
     return _json(
         {
@@ -227,6 +233,7 @@ def handle_get_slot_state(
             ],
         }
     )
+
 
 def handle_list_zone_congestion(
     session: Session, user: User, args: dict[str, Any], _ctx: Any
@@ -275,6 +282,7 @@ def handle_list_zone_congestion(
             ),
         }
     )
+
 
 def handle_get_expiring_inventory(
     session: Session, user: User, args: dict[str, Any], _ctx: Any
@@ -328,6 +336,7 @@ def handle_get_expiring_inventory(
         }
     )
 
+
 def handle_get_open_tasks(
     session: Session, _user: User, args: dict[str, Any], _ctx: Any
 ) -> str:
@@ -368,6 +377,7 @@ def handle_get_open_tasks(
         }
     )
 
+
 def handle_get_maintenance_calendar_events(
     session: Session, _user: User, args: dict[str, Any], _ctx: Any
 ) -> str:
@@ -406,6 +416,7 @@ def handle_get_maintenance_calendar_events(
             ],
         }
     )
+
 
 def handle_get_equipment_status(
     session: Session, _user: User, args: dict[str, Any], _ctx: Any
@@ -447,9 +458,9 @@ def handle_get_equipment_status(
     stmt = select(Equipment).where(base_where)
     if status_filter:
         stmt = stmt.where(Equipment.current_status == status_filter)
-    stmt = stmt.order_by(col(Equipment.current_status).asc(), col(Equipment.model).asc()).limit(
-        limit
-    )
+    stmt = stmt.order_by(
+        col(Equipment.current_status).asc(), col(Equipment.model).asc()
+    ).limit(limit)
     rows = list(session.exec(stmt).all())
     listed = len(rows)
     breakdown_sum = sum(operational_status_counts.values())
@@ -480,6 +491,7 @@ def handle_get_equipment_status(
             ],
         }
     )
+
 
 def handle_get_recent_events(
     session: Session, user: User, args: dict[str, Any], _ctx: Any
@@ -515,6 +527,7 @@ def handle_get_recent_events(
         }
     )
 
+
 def handle_search_sop_documents(
     session: Session, _user: User, args: dict[str, Any], _ctx: Any
 ) -> str:
@@ -548,6 +561,7 @@ def handle_search_sop_documents(
             ],
         }
     )
+
 
 def handle_suggest_putaway_slot(
     session: Session, _user: User, args: dict[str, Any], _ctx: Any
@@ -607,6 +621,7 @@ def handle_get_layout_topology(
         {"layout_code": layout.code, "version": layout.version, "topology": topo}
     )
 
+
 def handle_run_what_if_simulation(
     _session: Session, _user: User, args: dict[str, Any], _ctx: Any
 ) -> str:
@@ -639,4 +654,3 @@ def handle_run_what_if_simulation(
             "note": "Только расчёт, данные склада в БД не менялись",
         }
     )
-

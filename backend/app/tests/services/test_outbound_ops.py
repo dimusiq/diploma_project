@@ -30,9 +30,7 @@ def _warehouse(db: Session) -> Warehouse:
 def _free_cell(db: Session) -> tuple[int, int, int]:
     occupied = {
         (i.storage_row, i.storage_level, i.storage_cell_x)
-        for i in db.exec(
-            select(Item).where(col(Item.storage_row).is_not(None))
-        ).all()
+        for i in db.exec(select(Item).where(col(Item.storage_row).is_not(None))).all()
         if i.storage_row and i.storage_level and i.storage_cell_x
     }
     # с конца адресного пространства — меньше пересечений с другими тестами
@@ -62,7 +60,9 @@ def _stock(db: Session, *, sku: str, qty: int) -> Item:
     return item
 
 
-def _order_with_three_picks(db: Session) -> tuple[OutboundOrder, list[WarehouseTask], list[Item]]:
+def _order_with_three_picks(
+    db: Session,
+) -> tuple[OutboundOrder, list[WarehouseTask], list[Item]]:
     wh = _warehouse(db)
     # сброс после чужого IntegrityError в session-scoped db
     try:
@@ -153,9 +153,10 @@ def test_pick_incident_blocks_ship_then_resolve_pack_ship(db: Session) -> None:
     with pytest.raises(HTTPException) as blocked_ship:
         ship_order(db, shipper, order.id)
     assert blocked_ship.value.status_code == 409
-    assert "некомплект" in str(blocked_ship.value.detail).lower() or "инцидент" in str(
-        blocked_ship.value.detail
-    ).lower()
+    assert (
+        "некомплект" in str(blocked_ship.value.detail).lower()
+        or "инцидент" in str(blocked_ship.value.detail).lower()
+    )
 
     # разрешить инцидент: повторный скан той же позиции
     db.refresh(tasks[2])

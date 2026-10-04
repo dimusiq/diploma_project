@@ -261,7 +261,10 @@ def _catalog() -> list[CatalogTool]:
             ),
             parameters={
                 "sku": {"type": "string", "description": "Артикул"},
-                "quantity": {"type": "integer", "description": "Количество к размещению"},
+                "quantity": {
+                    "type": "integer",
+                    "description": "Количество к размещению",
+                },
                 "weight_kg": {
                     "type": "number",
                     "description": "Вес единицы/паллеты (тяжёлое — нижние ярусы)",

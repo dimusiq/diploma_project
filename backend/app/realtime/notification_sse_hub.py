@@ -6,13 +6,12 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import asyncio
 import threading
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from typing import Any
 
 from app.realtime.sse_common import format_sse, iter_sse_from_queue, put_drop_oldest
 

@@ -144,9 +144,7 @@ def receive_inbound_line(
     if not order:
         raise HTTPException(status_code=404, detail="Входящий заказ не найден")
     if body.line_index is None and not body.line_key:
-        raise HTTPException(
-            status_code=422, detail="Укажите line_index или line_key"
-        )
+        raise HTTPException(status_code=422, detail="Укажите line_index или line_key")
     try:
         result = receive_line(
             session,

@@ -54,7 +54,9 @@ def _id_key_for_motion_list(name: str) -> str:
     return "id"
 
 
-def _entity_map(rows: list[dict[str, Any]] | None, id_key: str) -> dict[Any, dict[str, Any]]:
+def _entity_map(
+    rows: list[dict[str, Any]] | None, id_key: str
+) -> dict[Any, dict[str, Any]]:
     out: dict[Any, dict[str, Any]] = {}
     for row in rows or []:
         if not isinstance(row, dict):
@@ -89,7 +91,9 @@ def _list_patch(
     return patch
 
 
-def diff_motion(prev: dict[str, Any] | None, curr: dict[str, Any]) -> dict[str, Any] | None:
+def diff_motion(
+    prev: dict[str, Any] | None, curr: dict[str, Any]
+) -> dict[str, Any] | None:
     """Патч motion относительно prev; None если изменений нет."""
     if not prev:
         return None
@@ -107,7 +111,9 @@ def diff_motion(prev: dict[str, Any] | None, curr: dict[str, Any]) -> dict[str, 
     return patch or None
 
 
-def diff_data(prev: dict[str, Any] | None, curr: dict[str, Any]) -> dict[str, Any] | None:
+def diff_data(
+    prev: dict[str, Any] | None, curr: dict[str, Any]
+) -> dict[str, Any] | None:
     if not prev:
         return None
     patch: dict[str, Any] = {}
@@ -200,7 +206,9 @@ def envelope(
     return msg
 
 
-def should_send_full(delta_payload: dict[str, Any], full_payload: dict[str, Any]) -> bool:
+def should_send_full(
+    delta_payload: dict[str, Any], full_payload: dict[str, Any]
+) -> bool:
     """Если дельта почти полного размера — дешевле отдать full."""
     try:
         dsz = len(json.dumps(delta_payload, ensure_ascii=False, default=str))

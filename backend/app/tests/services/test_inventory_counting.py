@@ -36,9 +36,7 @@ def _free_cell(db: Session) -> tuple[int, int, int]:
         pass
     occupied = {
         (i.storage_row, i.storage_level, i.storage_cell_x)
-        for i in db.exec(
-            select(Item).where(col(Item.storage_row).is_not(None))
-        ).all()
+        for i in db.exec(select(Item).where(col(Item.storage_row).is_not(None))).all()
         if i.storage_row and i.storage_level and i.storage_cell_x
     }
     for row in range(16, 0, -1):
@@ -103,16 +101,12 @@ def test_count_variance_updates_stock_and_emits_event(db: Session) -> None:
     assert item.quantity == 8
 
     occ = db.exec(
-        select(WarehouseSlotOccupancy).where(
-            WarehouseSlotOccupancy.item_id == item.id
-        )
+        select(WarehouseSlotOccupancy).where(WarehouseSlotOccupancy.item_id == item.id)
     ).first()
     assert occ is not None
 
     events = list(
-        db.exec(
-            select(DomainEvent).where(DomainEvent.aggregate_id == act.id)
-        ).all()
+        db.exec(select(DomainEvent).where(DomainEvent.aggregate_id == act.id)).all()
     )
     types = {e.event_type for e in events}
     assert "inventory.counted" in types
@@ -139,18 +133,14 @@ def test_repost_same_act_is_idempotent(db: Session) -> None:
         line_inputs=[{"item_id": item.id}],
         actor_user_id=user.id,
     )
-    enter_facts(
-        db, act, facts=[{"item_id": item.id, "counted_quantity": 8}]
-    )
+    enter_facts(db, act, facts=[{"item_id": item.id, "counted_quantity": 8}])
     post_act(db, act, actor_user_id=user.id)
     db.commit()
     db.refresh(item)
     assert item.quantity == 8
 
     events_before = list(
-        db.exec(
-            select(DomainEvent).where(DomainEvent.aggregate_id == act.id)
-        ).all()
+        db.exec(select(DomainEvent).where(DomainEvent.aggregate_id == act.id)).all()
     )
 
     act2, _, idempotent = post_act(db, act, actor_user_id=user.id)
@@ -162,8 +152,6 @@ def test_repost_same_act_is_idempotent(db: Session) -> None:
     assert item.quantity == 8
 
     events_after = list(
-        db.exec(
-            select(DomainEvent).where(DomainEvent.aggregate_id == act.id)
-        ).all()
+        db.exec(select(DomainEvent).where(DomainEvent.aggregate_id == act.id)).all()
     )
     assert len(events_after) == len(events_before)

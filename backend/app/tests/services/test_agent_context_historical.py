@@ -1,5 +1,6 @@
-from typing import Any
 """Срез domain events в контексте агента."""
+
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -8,7 +9,9 @@ from app.models import User
 from app.services.agent_context import build_historical_domain_events_block
 
 
-def test_historical_block_none_without_audit_read(db: Session, monkeypatch: Any) -> None:
+def test_historical_block_none_without_audit_read(
+    db: Session, monkeypatch: Any
+) -> None:
     user = db.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).first()
     assert user is not None
     monkeypatch.setattr(
@@ -20,7 +23,9 @@ def test_historical_block_none_without_audit_read(db: Session, monkeypatch: Any)
     assert meta["historical_domain_events"] is False
 
 
-def test_historical_block_present_with_audit_read(db: Session, monkeypatch: Any) -> None:
+def test_historical_block_present_with_audit_read(
+    db: Session, monkeypatch: Any
+) -> None:
     user = db.exec(select(User).where(User.email == settings.FIRST_SUPERUSER)).first()
     assert user is not None
     monkeypatch.setattr(

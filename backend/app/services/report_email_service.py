@@ -265,7 +265,9 @@ def send_due_reports(session: "Session", now_utc: datetime) -> int:
 
     users = list(
         session.exec(
-            select(User).where(col(User.is_active).is_(True), col(User.deleted_at).is_(None))
+            select(User).where(
+                col(User.is_active).is_(True), col(User.deleted_at).is_(None)
+            )
         ).all()
     )
 

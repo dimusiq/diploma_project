@@ -39,9 +39,7 @@ def _wh_item(db: Session, *, sku: str, qty: int) -> Item:
         pass
     occupied = {
         (i.storage_row, i.storage_level, i.storage_cell_x)
-        for i in db.exec(
-            select(Item).where(col(Item.storage_row).is_not(None))
-        ).all()
+        for i in db.exec(select(Item).where(col(Item.storage_row).is_not(None))).all()
         if i.storage_row and i.storage_level and i.storage_cell_x
     }
     cell = next(
@@ -82,9 +80,7 @@ def test_reserve_consume_release_lifecycle(db: Session) -> None:
     db.commit()
     db.refresh(task)
 
-    reserve_for_task(
-        db, item_id=item.id, quantity=4, warehouse_task_id=task.id
-    )
+    reserve_for_task(db, item_id=item.id, quantity=4, warehouse_task_id=task.id)
     db.commit()
     db.refresh(item)
     assert item.reserved_quantity == 4
@@ -103,9 +99,7 @@ def test_reserve_consume_release_lifecycle(db: Session) -> None:
     db.add(task2)
     db.commit()
     db.refresh(task2)
-    reserve_for_task(
-        db, item_id=item.id, quantity=2, warehouse_task_id=task2.id
-    )
+    reserve_for_task(db, item_id=item.id, quantity=2, warehouse_task_id=task2.id)
     db.commit()
     db.refresh(item)
     assert item.reserved_quantity == 2
@@ -126,9 +120,7 @@ def test_reserve_rejects_over_available(db: Session) -> None:
     db.commit()
     db.refresh(task)
     with pytest.raises(HTTPException) as ei:
-        reserve_for_task(
-            db, item_id=item.id, quantity=5, warehouse_task_id=task.id
-        )
+        reserve_for_task(db, item_id=item.id, quantity=5, warehouse_task_id=task.id)
     assert ei.value.status_code == 409
     assert "доступно" in (ei.value.detail or "").lower()
 

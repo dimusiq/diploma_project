@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlmodel import col, Session, delete, select
+from sqlmodel import Session, col, delete, select
 
 from app.core.storage_slot import format_storage_slot_key
 from app.models import Item, WarehouseSlotOccupancy
@@ -13,7 +13,9 @@ from app.models import Item, WarehouseSlotOccupancy
 def sync_projection_for_item(session: Session, item: Item) -> None:
     """Удаляет старую строку по item_id и при полной ячейке вставляет актуальную."""
     session.exec(
-        delete(WarehouseSlotOccupancy).where(col(WarehouseSlotOccupancy.item_id) == item.id)
+        delete(WarehouseSlotOccupancy).where(
+            col(WarehouseSlotOccupancy.item_id) == item.id
+        )
     )
     sk = format_storage_slot_key(
         item.storage_row,

@@ -1,6 +1,6 @@
 """Гранулярные права: проверка по коду права и шаблонам ролей (role_permission)."""
 
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.models import Permission, RolePermission, User
 

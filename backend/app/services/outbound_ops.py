@@ -89,9 +89,7 @@ def open_incidents(order: OutboundOrder) -> list[dict[str, Any]]:
     ]
 
 
-def _set_incidents(
-    order: OutboundOrder, incidents: list[dict[str, Any]]
-) -> None:
+def _set_incidents(order: OutboundOrder, incidents: list[dict[str, Any]]) -> None:
     extra, ff = _fulfillment(order)
     ff["incidents"] = incidents
     _save_fulfillment(order, extra, ff)
@@ -193,9 +191,7 @@ def _verify_scan(
 ) -> Item:
     item = lookup_item_by_code(session, scanned_code)
     if item is None:
-        raise HTTPException(
-            status_code=404, detail="Товар по коду скана не найден"
-        )
+        raise HTTPException(status_code=404, detail="Товар по коду скана не найден")
     payload = task.payload if isinstance(task.payload, dict) else {}
     expected_id = payload.get("item_id")
     expected_sku = (payload.get("sku") or "").strip()
@@ -243,13 +239,9 @@ def confirm_pick(
     """Подтверждение отбора или инцидент «нет товара». Не коммитит."""
     outcome_n = (outcome or OUTCOME_OK).strip().lower()
     if outcome_n not in CONFIRM_OUTCOMES:
-        raise HTTPException(
-            status_code=422, detail="outcome: ok или no_stock"
-        )
+        raise HTTPException(status_code=422, detail="outcome: ok или no_stock")
     if order.status in {"shipped", "closed", "cancelled", "canceled"}:
-        raise HTTPException(
-            status_code=409, detail="Заказ в терминальном статусе"
-        )
+        raise HTTPException(status_code=409, detail="Заказ в терминальном статусе")
 
     task = _pick_task_for_order(session, order, task_id)
     payload = dict(task.payload) if isinstance(task.payload, dict) else {}
@@ -270,17 +262,13 @@ def confirm_pick(
 
     if outcome_n == OUTCOME_NO_STOCK:
         if task.status in DONE_TASK_STATUSES:
-            raise HTTPException(
-                status_code=409, detail="Задание уже завершено"
-            )
+            raise HTTPException(status_code=409, detail="Задание уже завершено")
         release_for_task(session, task)
         alt = _suggest_alternative(
             session,
             sku=str(payload.get("sku") or "") or None,
             exclude_item_id=(
-                uuid.UUID(str(payload["item_id"]))
-                if payload.get("item_id")
-                else None
+                uuid.UUID(str(payload["item_id"])) if payload.get("item_id") else None
             ),
         )
         incident = {
@@ -303,9 +291,7 @@ def confirm_pick(
         session.add(task)
 
         incidents = [
-            i
-            for i in open_incidents(order)
-            if str(i.get("task_id")) != str(task.id)
+            i for i in open_incidents(order) if str(i.get("task_id")) != str(task.id)
         ]
         incidents.append(incident)
         # сохранить и закрытые
@@ -371,9 +357,7 @@ def confirm_pick(
     # При разрешении инцидента: переназначить на альтернативу по скану.
     scanned_item = lookup_item_by_code(session, scanned_code)
     if scanned_item is None:
-        raise HTTPException(
-            status_code=404, detail="Товар по коду скана не найден"
-        )
+        raise HTTPException(status_code=404, detail="Товар по коду скана не найден")
     expected_id = payload.get("item_id")
     if (
         task.status == "blocked"
@@ -386,7 +370,9 @@ def confirm_pick(
                 status_code=409,
                 detail="Альтернативный товар должен быть того же SKU",
             )
-        qty_need = int(quantity if quantity is not None else payload.get("quantity") or 1)
+        qty_need = int(
+            quantity if quantity is not None else payload.get("quantity") or 1
+        )
         release_for_task(session, task)  # на случай активного резерва
         slot = _slot_dict(scanned_item)
         payload.update(
@@ -565,9 +551,7 @@ def lines_pick_complete(order: OutboundOrder, tasks: list[WarehouseTask]) -> lis
     return missing
 
 
-def shipment_blockers(
-    order: OutboundOrder, tasks: list[WarehouseTask]
-) -> list[str]:
+def shipment_blockers(order: OutboundOrder, tasks: list[WarehouseTask]) -> list[str]:
     """Причины, почему нельзя отгрузить (пустой список = можно, если packed)."""
     blockers: list[str] = []
     picks = [t for t in tasks if t.task_type == "pick"]
@@ -584,15 +568,11 @@ def shipment_blockers(
                 isinstance(payload.get("incident"), dict)
                 and payload["incident"].get("status") == "open"
             ):
-                blockers.append(
-                    f"открытый инцидент отбора (задача {t.id})"
-                )
+                blockers.append(f"открытый инцидент отбора (задача {t.id})")
             elif t.status not in DONE_TASK_STATUSES:
                 blockers.append(f"отбор не завершён (задача {t.id})")
             elif t.status == "completed" and not payload.get("confirmed_at"):
-                blockers.append(
-                    f"отбор без подтверждения сканом (задача {t.id})"
-                )
+                blockers.append(f"отбор без подтверждения сканом (задача {t.id})")
         open_inc = open_incidents(order)
         if open_inc:
             blockers.append(f"открытых инцидентов: {len(open_inc)}")

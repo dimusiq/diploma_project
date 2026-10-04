@@ -180,7 +180,9 @@ def seed_demo_agv_task(world: dict[str, Any]) -> dict[str, Any] | None:
     )
 
 
-def finish_task(world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]) -> None:
+def finish_task(
+    world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]
+) -> None:
     task["status"] = "done"
     task["doneAt"] = world["timeSec"]
     task["deviceId"] = device["id"]

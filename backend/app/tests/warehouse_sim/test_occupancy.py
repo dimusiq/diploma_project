@@ -1,5 +1,5 @@
-from typing import Any
 import re
+from typing import Any
 
 from app.warehouse_sim.simulation import drop_off_pallet, pick_up_pallet
 from app.warehouse_sim.snapshot import build_data, build_motion

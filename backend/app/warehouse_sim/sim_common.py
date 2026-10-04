@@ -61,7 +61,6 @@ CUSTOMERS = [
 ]
 
 
-
 def is_mobile_kind(kind: str) -> bool:
     return kind in MOBILE_KINDS
 
@@ -132,7 +131,9 @@ def _enqueue_integration(world: dict[str, Any], event: dict[str, Any]) -> None:
     )
 
 
-def _integration_context(world: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
+def _integration_context(
+    world: dict[str, Any], event: dict[str, Any]
+) -> dict[str, Any]:
     ctx: dict[str, Any] = {}
     entity_id = event.get("entityId")
     task_id = event.get("taskId")
@@ -284,7 +285,9 @@ def sku_code(world: dict[str, Any], sku_id: str) -> str:
     return sku_id
 
 
-def find_free_cell(world: dict[str, Any], near: dict[str, Any], prefer_near: bool = True) -> dict[str, Any] | None:
+def find_free_cell(
+    world: dict[str, Any], near: dict[str, Any], prefer_near: bool = True
+) -> dict[str, Any] | None:
     free = [
         c
         for c in world["cells"]
@@ -304,7 +307,9 @@ def find_free_cell(world: dict[str, Any], near: dict[str, Any], prefer_near: boo
     return best if isinstance(best, dict) else None
 
 
-def find_stock_cell(world: dict[str, Any], sku_id: str, reserved: set[str]) -> dict[str, Any] | None:
+def find_stock_cell(
+    world: dict[str, Any], sku_id: str, reserved: set[str]
+) -> dict[str, Any] | None:
     for cell in world["cells"]:
         if not isinstance(cell, dict):
             continue
@@ -330,7 +335,9 @@ def dock_by_id(world: dict[str, Any], dock_id: str | None) -> dict[str, Any] | N
     return None
 
 
-def _plan_path(world: dict[str, Any], start: dict[str, Any], goal: dict[str, Any]) -> list[dict[str, Any]]:
+def _plan_path(
+    world: dict[str, Any], start: dict[str, Any], goal: dict[str, Any]
+) -> list[dict[str, Any]]:
     extra: set[tuple[int, int]] = set()
     moving = [
         d
@@ -367,7 +374,9 @@ def release_worker(world: dict[str, Any], worker_id: str | None) -> None:
             return
 
 
-def fire_scan(world: dict[str, Any], scanner_id: str, label: str, entity_id: str) -> bool:
+def fire_scan(
+    world: dict[str, Any], scanner_id: str, label: str, entity_id: str
+) -> bool:
     scanner = world["deviceById"].get(scanner_id)
     world["metrics"]["scans"] += 1
     if scanner and scanner["online"] and scanner["status"] != "fault":

@@ -31,7 +31,9 @@ from app.warehouse_sim.world import format_sscc
 
 
 # lazy import внутри process_devices избегает цикла movement ↔ failures
-def _repair_device(world: dict[str, Any], device: dict[str, Any], auto: bool = False) -> None:
+def _repair_device(
+    world: dict[str, Any], device: dict[str, Any], auto: bool = False
+) -> None:
     from app.warehouse_sim.failures import repair_device
 
     repair_device(world, device, auto)
@@ -43,7 +45,9 @@ def _inject_fault(world: dict[str, Any], device: dict[str, Any], cause: str) -> 
     inject_fault(world, device, cause)
 
 
-def advance_along_path(device: dict[str, Any], dt: float, world: dict[str, Any]) -> None:
+def advance_along_path(
+    device: dict[str, Any], dt: float, world: dict[str, Any]
+) -> None:
     """Шаг position += direction * speed * dt. Ожидание решает resolve_traffic, не эта функция."""
     # cameraHold = safety stop caused by object directly in AGV path.
     if device.get("cameraHold") or device.get("status") == "waiting":
@@ -107,7 +111,9 @@ def advance_along_path(device: dict[str, Any], dt: float, world: dict[str, Any])
         device["status"] = "moving"
 
 
-def pick_up_pallet(world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]) -> None:
+def pick_up_pallet(
+    world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]
+) -> None:
     if task["kind"] == "unload":
         truck = next(
             (t for t in world["trucks"] if t["id"] == task.get("truckId")), None
@@ -144,7 +150,9 @@ def pick_up_pallet(world: dict[str, Any], device: dict[str, Any], task: dict[str
                 pallet["id"],
             )
         return
-    picked_raw = world["pallets"].get(task["palletId"]) if task.get("palletId") else None
+    picked_raw = (
+        world["pallets"].get(task["palletId"]) if task.get("palletId") else None
+    )
     if not isinstance(picked_raw, dict):
         return
     picked: dict[str, Any] = picked_raw
@@ -160,7 +168,9 @@ def pick_up_pallet(world: dict[str, Any], device: dict[str, Any], task: dict[str
     device["palletId"] = picked["id"]
 
 
-def drop_off_pallet(world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]) -> None:
+def drop_off_pallet(
+    world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]
+) -> None:
     pallet = world["pallets"].get(task["palletId"]) if task.get("palletId") else None
     kind = task["kind"]
     if kind == "unload":
@@ -301,7 +311,9 @@ def drop_off_pallet(world: dict[str, Any], device: dict[str, Any], task: dict[st
             )
 
 
-def request_charge(world: dict[str, Any], device: dict[str, Any], force: bool = False) -> None:
+def request_charge(
+    world: dict[str, Any], device: dict[str, Any], force: bool = False
+) -> None:
     if device.get("taskId") and not force:
         return
     chargers = [d for d in world["devices"] if d["kind"] == "charger"]

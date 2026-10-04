@@ -1,8 +1,8 @@
-from typing import Any
 """API центра уведомлений: список, счётчик непрочитанных, отметка прочитанным."""
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse

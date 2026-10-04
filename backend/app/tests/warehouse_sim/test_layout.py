@@ -1,4 +1,5 @@
 from typing import Any
+
 from app.warehouse_sim.layout import (
     AISLE_WIDTH,
     AISLE_Z,

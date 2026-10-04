@@ -349,7 +349,9 @@ def process_docks(world: dict[str, Any], dt: float) -> None:
     _reposition_queued_trucks(world)
 
 
-def _find_staged_pallet(world: dict[str, Any], truck: dict[str, Any]) -> dict[str, Any] | None:
+def _find_staged_pallet(
+    world: dict[str, Any], truck: dict[str, Any]
+) -> dict[str, Any] | None:
     reserved = {
         t["palletId"]
         for t in world["tasks"]

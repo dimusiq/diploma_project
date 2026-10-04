@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.core.config import settings
 from app.models import (

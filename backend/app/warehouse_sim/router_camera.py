@@ -28,6 +28,7 @@ def read_equipment_camera(
 
     return public_camera(_camera_device(session, equipment_id))
 
+
 @router.get("/equipment/{equipment_id}/camera/detections")
 def read_equipment_camera_detections(
     session: SessionDep, _user: CurrentUser, equipment_id: str
@@ -42,6 +43,7 @@ def read_equipment_camera_detections(
         "obstacle": bool(camera.get("obstacle")),
     }
 
+
 @router.get("/equipment/{equipment_id}/camera/frame")
 def read_equipment_camera_frame(
     session: SessionDep, _user: CurrentUser, equipment_id: str
@@ -51,6 +53,7 @@ def read_equipment_camera_frame(
     device = _camera_device(session, equipment_id)
     _require_camera(device)
     return frame_payload(device)
+
 
 @router.post("/equipment/{equipment_id}/camera/control")
 def control_equipment_camera(
@@ -73,4 +76,3 @@ def control_equipment_camera(
         raise HTTPException(status_code=404, detail="Устройство не найдено") from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-

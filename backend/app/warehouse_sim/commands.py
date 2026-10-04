@@ -139,7 +139,10 @@ def resume_all(world: dict[str, Any]) -> None:
 
 
 def device_command(
-    world: dict[str, Any], device_id: str, command: str, payload: dict[str, Any] | None = None
+    world: dict[str, Any],
+    device_id: str,
+    command: str,
+    payload: dict[str, Any] | None = None,
 ) -> None:
     device = world["deviceById"].get(device_id)
     if not device:

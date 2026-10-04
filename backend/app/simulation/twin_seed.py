@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.models import TwinQueueDepthProjection, User, Warehouse
 from app.services.warehouse_twin_metrics import build_twin_summary_dict

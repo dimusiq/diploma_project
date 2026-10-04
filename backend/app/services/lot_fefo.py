@@ -66,7 +66,11 @@ def pick_lots_for_fefo_test(
         for code, exp, qty in lots
         if qty > 0 and not is_expired(exp, on=day)
     ]
-    ranked.sort(key=lambda r: fefo_sort_key(r[1], storage_level=1, storage_row=1, storage_cell_x=1))
+    ranked.sort(
+        key=lambda r: fefo_sort_key(
+            r[1], storage_level=1, storage_row=1, storage_cell_x=1
+        )
+    )
     out: list[str] = []
     left = need
     for code, _exp, qty in ranked:
@@ -107,17 +111,13 @@ def load_active_lots_by_item_ids(
     return best
 
 
-def effective_expires_at(
-    item: Item, lot: InventoryLot | None = None
-) -> date | None:
+def effective_expires_at(item: Item, lot: InventoryLot | None = None) -> date | None:
     if lot is not None and lot.expires_at is not None:
         return lot.expires_at
     return item.expires_at
 
 
-def annotate_lot_fields(
-    item: Item, lot: InventoryLot | None
-) -> dict[str, Any]:
+def annotate_lot_fields(item: Item, lot: InventoryLot | None) -> dict[str, Any]:
     exp = effective_expires_at(item, lot)
     data: dict[str, Any] = {
         "expires_at": exp.isoformat() if exp else None,

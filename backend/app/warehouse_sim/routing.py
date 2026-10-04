@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import heapq
 from collections.abc import Iterable
+from typing import Any
 
 from app.warehouse_sim.layout import (
     WAREHOUSE_DEPTH,

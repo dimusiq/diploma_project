@@ -51,9 +51,7 @@ def list_inventory_counts(
     status: str | None = None,
 ) -> Any:
     rows, count = list_acts(session, skip=skip, limit=limit, status=status)
-    data = [
-        _to_public(act, load_lines(session, act.id)) for act in rows
-    ]
+    data = [_to_public(act, load_lines(session, act.id)) for act in rows]
     return InventoryCountActList(data=data, count=count)
 
 

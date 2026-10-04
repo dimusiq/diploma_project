@@ -177,9 +177,7 @@ TASK_NORM_MINUTES: dict[str, float] = {
 }
 
 
-def plan_fact_ratio(
-    actual_minutes: float, norm_minutes: float
-) -> float | None:
+def plan_fact_ratio(actual_minutes: float, norm_minutes: float) -> float | None:
     """
     Отношение факт/план: 1.0 = в нормативе, >1 — дольше плана.
     """
@@ -263,7 +261,9 @@ def compute_warehouse_kpis(
     dead_stock_days: int = DEAD_STOCK_DAYS,
 ) -> WarehouseKpiSnapshot:
     start_d, end_d, dt_from, dt_to = _period_bounds(from_date, to_date)
-    snap = WarehouseKpiSnapshot(from_date=start_d.isoformat(), to_date=end_d.isoformat())
+    snap = WarehouseKpiSnapshot(
+        from_date=start_d.isoformat(), to_date=end_d.isoformat()
+    )
     window_h = _window_hours(dt_from, dt_to)
 
     # --- stock accuracy (проведённые акты) ---
@@ -281,7 +281,9 @@ def compute_warehouse_kpis(
     variances: list[int | None] = []
     if act_ids:
         lines = session.exec(
-            select(InventoryCountLine).where(col(InventoryCountLine.act_id).in_(act_ids))
+            select(InventoryCountLine).where(
+                col(InventoryCountLine.act_id).in_(act_ids)
+            )
         ).all()
         variances = [ln.variance for ln in lines]
     snap.stock_accuracy = stock_accuracy_from_variances(variances)
@@ -353,9 +355,7 @@ def compute_warehouse_kpis(
             for inbound in inbounds:
                 extra = inbound.extra if isinstance(inbound.extra, dict) else {}
                 ff_raw = extra.get("fulfillment")
-                inbound_ff: dict[str, Any] = (
-                    ff_raw if isinstance(ff_raw, dict) else {}
-                )
+                inbound_ff: dict[str, Any] = ff_raw if isinstance(ff_raw, dict) else {}
                 closed = _parse_iso(inbound_ff.get("receiving_closed_at"))
                 done_at = putaway_done_by_order.get(str(inbound.id))
                 if closed is None or done_at is None:
@@ -623,7 +623,9 @@ def warehouse_kpi_csv(snapshot: WarehouseKpiSnapshot) -> str:
             continue
         lines.append(f"{key},{value if value is not None else ''}")
     lines.append("")
-    lines.append("employee_user_id,email,tasks_completed,lines_completed,hours,tasks_per_hour,lines_per_hour")
+    lines.append(
+        "employee_user_id,email,tasks_completed,lines_completed,hours,tasks_per_hour,lines_per_hour"
+    )
     for emp in snapshot.productivity_by_employee:
         lines.append(
             f"{emp.user_id},{emp.email or ''},{emp.tasks_completed},"

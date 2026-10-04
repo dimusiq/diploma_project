@@ -43,7 +43,9 @@ def reserve_for_task(
 ) -> ItemReservation:
     """Резерв под задачу. 409, если available < quantity. Идемпотентно по task_id."""
     if quantity <= 0:
-        raise HTTPException(status_code=400, detail="Количество резерва должно быть > 0")
+        raise HTTPException(
+            status_code=400, detail="Количество резерва должно быть > 0"
+        )
 
     existing = session.exec(
         select(ItemReservation).where(

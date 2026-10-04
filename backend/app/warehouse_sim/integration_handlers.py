@@ -420,6 +420,7 @@ def _on_device_recovered(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
             changed = row.id
     return {"task_id": changed} if changed else {}
 
+
 _HANDLERS = {
     ev.TRUCK_ARRIVED: _on_truck_arrived,
     ev.TRUCK_DEPARTED: _on_truck_departed,

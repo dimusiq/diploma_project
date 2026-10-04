@@ -1,6 +1,6 @@
-from typing import Any
 import uuid
 from datetime import date, datetime, timezone
+from typing import Any
 
 from sqlmodel import Field, Relationship, SQLModel
 

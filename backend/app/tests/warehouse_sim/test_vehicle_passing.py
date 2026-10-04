@@ -1,10 +1,11 @@
-from typing import Any
 """Две машины разъезжаются в одном проезде, не задевая стеллажи.
 
 Один габарит на все mobile vehicles: ширина AGV/AMR (1.28 м) больше
 forklift (1.10 м), reach truck и комплектовщиков. Проезд, в который
 встают два AGV, вмещает и погрузчик.
 """
+
+from typing import Any
 
 from app.warehouse_sim.layout import AISLE_Z, WEST_CORRIDOR_X, work_aisle_gaps
 from app.warehouse_sim.routing import path_blocked_by_device

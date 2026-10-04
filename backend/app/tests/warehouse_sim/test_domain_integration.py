@@ -1,5 +1,6 @@
 from typing import Any
-from sqlmodel import col, Session, select
+
+from sqlmodel import Session, col, select
 
 from app.models import InboundOrder, Item, OutboundOrder, WarehouseTask
 from app.warehouse_sim.integration import (

@@ -23,4 +23,3 @@ router.include_router(fleet_router)
 router.include_router(control_router)
 
 __all__ = ["SimAdmin", "router"]
-

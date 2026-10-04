@@ -63,9 +63,7 @@ def list_fleet(
         active_assignments_by_host,
     )
 
-    bracelet_map = active_assignments_map(
-        session, device_ids=[row.id for row in rows]
-    )
+    bracelet_map = active_assignments_map(session, device_ids=[row.id for row in rows])
     assignments: dict[Any, Any] = dict(bracelet_map)
     assignments["__smart_cameras__"] = {
         "by_host": active_assignments_by_host(
@@ -97,6 +95,7 @@ def list_fleet(
         **catalog,
     }
 
+
 @router.get("/fleet/smart-cameras/available")
 def list_available_smart_cameras(
     session: SessionDep, _user: CurrentUser
@@ -105,6 +104,7 @@ def list_available_smart_cameras(
 
     data = list_available_cameras(session)
     return {"data": data, "count": len(data)}
+
 
 @router.post("/fleet")
 def create_fleet(
@@ -126,6 +126,7 @@ def create_fleet(
         row, _runtime_by_code().get(row.code), session=session
     )
 
+
 @router.get("/fleet/{device_id}")
 def read_fleet_device(
     session: SessionDep, _user: CurrentUser, device_id: uuid.UUID
@@ -137,6 +138,7 @@ def read_fleet_device(
         maintenance=maintenance_summary(session, row.id),
         session=session,
     )
+
 
 @router.patch("/fleet/{device_id}")
 def patch_fleet(
@@ -193,6 +195,7 @@ def patch_fleet(
         session=session,
     )
 
+
 @router.delete("/fleet/{device_id}")
 def delete_fleet_device(
     session: SessionDep, request: Request, user: SimAdmin, device_id: uuid.UUID
@@ -212,6 +215,7 @@ def delete_fleet_device(
     return serialize_fleet_device(
         row, _runtime_by_code().get(row.code), session=session
     )
+
 
 @router.get("/fleet/{device_id}/smart-camera")
 def read_fleet_smart_camera(
@@ -233,6 +237,7 @@ def read_fleet_smart_camera(
     raise HTTPException(
         status_code=400, detail="Устройство не поддерживает умную камеру"
     )
+
 
 @router.post("/fleet/{device_id}/smart-camera/assign")
 def assign_fleet_smart_camera(
@@ -273,6 +278,7 @@ def assign_fleet_smart_camera(
             runtime=_runtime_by_code().get(host.code),
         )
     }
+
 
 @router.post("/fleet/{device_id}/smart-camera/replace")
 def replace_fleet_smart_camera(
@@ -327,6 +333,7 @@ def replace_fleet_smart_camera(
         )
     }
 
+
 @router.post("/fleet/{device_id}/smart-camera/unassign")
 def unassign_fleet_smart_camera(
     session: SessionDep,
@@ -366,6 +373,7 @@ def unassign_fleet_smart_camera(
         )
     }
 
+
 @router.get("/fleet/{device_id}/tasks")
 def list_fleet_device_tasks(
     _user: CurrentUser, device_id: uuid.UUID, session: SessionDep
@@ -373,6 +381,7 @@ def list_fleet_device_tasks(
     row = get_device_row(session, device_id)
     tasks = get_runtime().view_tasks(device_id=row.code)["data"]
     return {"data": tasks[-40:], "count": len(tasks)}
+
 
 @router.get("/fleet/{device_id}/events")
 def list_fleet_device_events(
@@ -391,6 +400,7 @@ def list_fleet_device_events(
         limit=limit,
     )
 
+
 @router.get("/fleet/{device_id}/maintenance")
 def list_fleet_device_maintenance(
     session: SessionDep, _user: CurrentUser, device_id: uuid.UUID
@@ -402,6 +412,7 @@ def list_fleet_device_maintenance(
         "count": len(items),
         "summary": maintenance_summary(session, row.id),
     }
+
 
 @router.post("/fleet/{device_id}/maintenance")
 def create_fleet_device_maintenance(
@@ -435,6 +446,7 @@ def create_fleet_device_maintenance(
     )
     session.commit()
     return serialize_maintenance(record)
+
 
 @router.patch("/fleet/{device_id}/maintenance/{record_id}")
 def patch_fleet_device_maintenance(
@@ -481,4 +493,3 @@ def patch_fleet_device_maintenance(
     )
     session.commit()
     return serialize_maintenance(record)
-

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import uuid
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -46,9 +45,12 @@ def _move_item_status(
             and old[3] is not None
         ):
             ctx.mark_slot_freed((int(old[0]), int(old[1]), int(old[2]), int(old[3])))
-        item.storage_row, item.storage_level, item.storage_cell_x, item.storage_cell_z = (
-            coords
-        )
+        (
+            item.storage_row,
+            item.storage_level,
+            item.storage_cell_x,
+            item.storage_cell_z,
+        ) = coords
         item.location = f"{coords[0]}-{coords[1]}-{coords[2]}-{coords[3]}"
         ctx.mark_slot_taken(coords)
         if old != coords:

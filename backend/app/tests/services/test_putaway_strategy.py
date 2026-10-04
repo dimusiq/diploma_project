@@ -14,8 +14,12 @@ from app.services.putaway_strategy import (
 
 
 def test_abc_a_prefers_nearer_than_c() -> None:
-    near = SlotCandidate(storage_row=1, storage_level=1, storage_cell_x=1, capacity_qty=1)
-    far = SlotCandidate(storage_row=16, storage_level=4, storage_cell_x=20, capacity_qty=1)
+    near = SlotCandidate(
+        storage_row=1, storage_level=1, storage_cell_x=1, capacity_qty=1
+    )
+    far = SlotCandidate(
+        storage_row=16, storage_level=4, storage_cell_x=20, capacity_qty=1
+    )
     best_a = choose_best_slot(
         [near, far],
         abc_class="A",

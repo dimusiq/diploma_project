@@ -34,9 +34,7 @@ def _free_cell(db: Session) -> tuple[int, int, int]:
         pass
     occupied = {
         (i.storage_row, i.storage_level, i.storage_cell_x)
-        for i in db.exec(
-            select(Item).where(col(Item.storage_row).is_not(None))
-        ).all()
+        for i in db.exec(select(Item).where(col(Item.storage_row).is_not(None))).all()
         if i.storage_row and i.storage_level and i.storage_cell_x
     }
     for row in range(1, 17):
@@ -149,11 +147,7 @@ def test_plan_idempotent_no_duplicate_tasks(db: Session) -> None:
     assert s1["created"] == 1
     assert s2["created"] == 0
     assert s2["skipped_existing"] == 1
-    picks = [
-        t
-        for t in related_tasks(db, order)
-        if t.task_type == "pick"
-    ]
+    picks = [t for t in related_tasks(db, order) if t.task_type == "pick"]
     assert len(picks) == 1
 
 

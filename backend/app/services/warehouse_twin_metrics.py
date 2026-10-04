@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 from sqlmodel import Session, col, func, select
 

@@ -18,7 +18,9 @@ from app.services.agent_tools_act import handle_enqueue_integration_inbox
 from app.services.agent_tools_common import _act_gate
 
 
-def _ctx(*, sandbox: bool, allow: bool = False, superuser: bool = True) -> AgentToolContext:
+def _ctx(
+    *, sandbox: bool, allow: bool = False, superuser: bool = True
+) -> AgentToolContext:
     return AgentToolContext(
         run_id=str(uuid.uuid4()),
         actor_user_id=uuid.uuid4(),
@@ -86,9 +88,7 @@ def test_invoke_tool_permission_denial_in_trace(
     user = MagicMock()
     user.is_superuser = False
     trace = AgentTrace.new()
-    monkeypatch.setattr(
-        "app.agent.tool_registry.can_run_tool", lambda *_a, **_k: False
-    )
+    monkeypatch.setattr("app.agent.tool_registry.can_run_tool", lambda *_a, **_k: False)
     out = invoke_tool(
         session,
         user,
@@ -109,9 +109,7 @@ def test_invoke_tool_policy_denial_in_trace(
     user = MagicMock()
     user.is_superuser = True
     trace = AgentTrace.new()
-    monkeypatch.setattr(
-        "app.agent.tool_registry.can_run_tool", lambda *_a, **_k: True
-    )
+    monkeypatch.setattr("app.agent.tool_registry.can_run_tool", lambda *_a, **_k: True)
     monkeypatch.setattr(
         "app.services.agent_policy_engine.policy_denial_json",
         lambda *_a, **_k: json.dumps(
@@ -143,7 +141,9 @@ def test_detect_tool_topics_aligned_with_must_use() -> None:
 def test_sandbox_blocks_all_catalog_act_tools() -> None:
     """Каждый ACT из каталога в sandbox получает gate (без записи в БД)."""
     ctx = _ctx(sandbox=True)
-    act_names = [n for n, s in CATALOG_BY_NAME.items() if s.safety == ToolSafetyClass.ACT]
+    act_names = [
+        n for n, s in CATALOG_BY_NAME.items() if s.safety == ToolSafetyClass.ACT
+    ]
     assert "enqueue_integration_inbox" in act_names
     for name in act_names:
         gated = _act_gate(ctx, tool_name=name, payload={"probe": True})

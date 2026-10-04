@@ -130,7 +130,12 @@ def _inn_checksum_ok(digits: str) -> bool:
 
 def _snils_checksum_ok(digits9: str, check2: str) -> bool:
     """Контрольное число СНИЛС (первые 9 цифр + 2 контрольных)."""
-    if not (digits9.isdigit() and len(digits9) == 9 and check2.isdigit() and len(check2) == 2):
+    if not (
+        digits9.isdigit()
+        and len(digits9) == 9
+        and check2.isdigit()
+        and len(check2) == 2
+    ):
         return False
     # Для номеров ≤ 001-001-998 контроль не применялся — не маскируем как СНИЛС.
     if int(digits9) <= 1_001_998:

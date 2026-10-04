@@ -31,9 +31,7 @@ from app.services.notification_service import (
     create_notification,
 )
 
-OPEN_WO_STATUSES = frozenset(
-    {"open", "in_progress", "waiting_parts"}
-)
+OPEN_WO_STATUSES = frozenset({"open", "in_progress", "waiting_parts"})
 AUTO_MARKER_PREFIX = "auto_to:"
 
 

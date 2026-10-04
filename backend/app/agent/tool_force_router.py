@@ -40,9 +40,7 @@ TOPIC_PATTERNS: Final[dict[str, re.Pattern[str]]] = {
     "inventory": re.compile(
         r"(остат|запас|инвентар|sku|товар|складск|inventory|stock)", re.I
     ),
-    "tasks": re.compile(
-        r"(задач|задани|пикинг|отбор|warehouse.?task|tasks?\b)", re.I
-    ),
+    "tasks": re.compile(r"(задач|задани|пикинг|отбор|warehouse.?task|tasks?\b)", re.I),
     "layout": re.compile(r"(тополог|layout|ячейк|слот|ряд|карт.*склад)", re.I),
     "congestion": re.compile(
         r"(загрузк|конгест|перегруж|congestion|зон.*загруз)", re.I
@@ -55,12 +53,8 @@ TOPIC_PATTERNS: Final[dict[str, re.Pattern[str]]] = {
         r"(то\b|т\.?\s*о\.?\b|техобслуж|моточас|просроч|календар|планов|maintenance|overdue)",
         re.I,
     ),
-    "expiring": re.compile(
-        r"(срок\s+годност|годност|просрочен.*товар|expir)", re.I
-    ),
-    "events": re.compile(
-        r"(событ|аудит|журнал|domain.?event|event\s+log)", re.I
-    ),
+    "expiring": re.compile(r"(срок\s+годност|годност|просрочен.*товар|expir)", re.I),
+    "events": re.compile(r"(событ|аудит|журнал|domain.?event|event\s+log)", re.I),
 }
 
 

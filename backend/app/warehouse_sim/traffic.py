@@ -60,7 +60,9 @@ def relative(device: dict[str, Any], pos: dict[str, Any]) -> tuple[float, float]
     return forward, lateral
 
 
-def bodies_overlap(device: dict[str, Any], other: dict[str, Any], lookahead: float = 0.0) -> bool:
+def bodies_overlap(
+    device: dict[str, Any], other: dict[str, Any], lookahead: float = 0.0
+) -> bool:
     forward, lateral = relative(device, other["pos"])
     aw, al = body_size(device.get("kind", "agv"))
     bw, bl = body_size(other.get("kind", "agv"))
@@ -69,7 +71,9 @@ def bodies_overlap(device: dict[str, Any], other: dict[str, Any], lookahead: flo
     return -0.25 < forward < long_limit and abs(lateral) < lat_limit
 
 
-def priority_key(world: dict[str, Any], device: dict[str, Any], other: dict[str, Any] | None = None) -> tuple[Any, ...]:
+def priority_key(
+    world: dict[str, Any], device: dict[str, Any], other: dict[str, Any] | None = None
+) -> tuple[Any, ...]:
     """Больше — выше приоритет. Id в ключ не входит: ничья снимается отдельно."""
     task = find_task(world, device.get("taskId"))
     inside = other is not None and bodies_overlap(device, other, lookahead=0.0)
@@ -80,7 +84,9 @@ def priority_key(world: dict[str, Any], device: dict[str, Any], other: dict[str,
     return (in_section, has_task, rank, -started)
 
 
-def outranks(world: dict[str, Any], device: dict[str, Any], other: dict[str, Any]) -> bool:
+def outranks(
+    world: dict[str, Any], device: dict[str, Any], other: dict[str, Any]
+) -> bool:
     left = priority_key(world, device, other)
     right = priority_key(world, other, device)
     if left != right:
@@ -107,7 +113,9 @@ def _hold(world: dict[str, Any], device: dict[str, Any], other_id: str) -> None:
     device["passLead"] = False
 
 
-def _replan(world: dict[str, Any], device: dict[str, Any], blockers: list[dict[str, Any]]) -> None:
+def _replan(
+    world: dict[str, Any], device: dict[str, Any], blockers: list[dict[str, Any]]
+) -> None:
     if not device.get("path"):
         _clear_wait(device)
         return
@@ -132,7 +140,9 @@ def _still_passing(device: dict[str, Any], other: dict[str, Any] | None) -> bool
     return abs(forward) < 3.2 and abs(lateral) < 2.2
 
 
-def _person_ahead(device: dict[str, Any], workers: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _person_ahead(
+    device: dict[str, Any], workers: list[dict[str, Any]]
+) -> dict[str, Any] | None:
     """Человек непосредственно перед техникой, в пределах PERSON_LOOKAHEAD_M.
 
     Человек в другом проезде или без координат сюда не попадает.
@@ -261,7 +271,9 @@ def current_speed(device: dict[str, Any]) -> float:
     return float(device.get("speed") or 0.0) * float(device.get("cruise") or 1.0)
 
 
-def agv_motion_diagnostic(world: dict[str, Any], device_id: str = "agv-1") -> dict[str, Any]:
+def agv_motion_diagnostic(
+    world: dict[str, Any], device_id: str = "agv-1"
+) -> dict[str, Any]:
     """Снимок движения одной машины: задача отдельно от cameraHold."""
     device = world["deviceById"][device_id]
     task = find_task(world, device.get("taskId"))

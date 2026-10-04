@@ -55,7 +55,9 @@ class DeviceServer:
     def get_devices(self) -> list[dict[str, Any]]:
         return list(self._world["devices"])
 
-    def update_device_state(self, device_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    def update_device_state(
+        self, device_id: str, patch: dict[str, Any]
+    ) -> dict[str, Any]:
         device = self.get_device(device_id)
         for key, value in patch.items():
             if key == "id":

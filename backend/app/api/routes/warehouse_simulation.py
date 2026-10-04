@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import User, Warehouse

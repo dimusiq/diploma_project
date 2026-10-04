@@ -11,10 +11,9 @@ integration_handlers / integration_slots.
 
 from __future__ import annotations
 
-from typing import Any, cast
-
 import logging
 import uuid
+from typing import Any, cast
 
 from sqlalchemy import text
 from sqlmodel import Session
@@ -64,6 +63,7 @@ __all__ = [
     "reset_demo_domain",
     "seed_world_inventory",
 ]
+
 
 def apply_integration_queue(
     session: Session,

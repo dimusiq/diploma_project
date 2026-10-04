@@ -71,7 +71,9 @@ def test_downtime_and_plan_fact_helpers() -> None:
     start = datetime(2026, 4, 1, 10, 0, tzinfo=timezone.utc)
     end = start + timedelta(hours=3)
     assert work_order_downtime_hours(start, end) == 3.0
-    assert work_order_downtime_hours(None, None, created_at=start, updated_at=end) == 3.0
+    assert (
+        work_order_downtime_hours(None, None, created_at=start, updated_at=end) == 3.0
+    )
     assert work_order_downtime_hours(end, start) is None
     assert plan_fact_ratio(10.0, 5.0) == 2.0
 

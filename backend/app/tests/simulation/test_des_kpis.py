@@ -45,7 +45,11 @@ def test_des_utilization_and_otif_bounds() -> None:
 def test_des_different_seed_changes_trace() -> None:
     a = run_discrete_event_simulation(_busy_cfg(seed=11))
     b = run_discrete_event_simulation(replace(_busy_cfg(seed=11), seed=12))
-    assert (a.kpis.events_processed, a.kpis.otif_proxy, a.kpis.forklift_utilization) != (
+    assert (
+        a.kpis.events_processed,
+        a.kpis.otif_proxy,
+        a.kpis.forklift_utilization,
+    ) != (
         b.kpis.events_processed,
         b.kpis.otif_proxy,
         b.kpis.forklift_utilization,

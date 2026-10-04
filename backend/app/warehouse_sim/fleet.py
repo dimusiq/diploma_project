@@ -292,9 +292,7 @@ def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
     if battery is None and kind in ("forklift", "agv", "amr", "radio_beacon"):
         battery = 80.0
     config_raw = body.get("configuration")
-    configuration: dict[str, Any] = (
-        config_raw if isinstance(config_raw, dict) else {}
-    )
+    configuration: dict[str, Any] = config_raw if isinstance(config_raw, dict) else {}
     device_dict = create_device(
         code,
         kind,
@@ -515,9 +513,7 @@ def serialize_fleet_device(
         camera_cam_map = None
         if isinstance(assignments, dict):
             bracelet_map = {
-                k: v
-                for k, v in assignments.items()
-                if isinstance(k, uuid.UUID)
+                k: v for k, v in assignments.items() if isinstance(k, uuid.UUID)
             }
             maps = assignments.get("__smart_cameras__")
             if isinstance(maps, dict):

@@ -44,7 +44,9 @@ def list_simulation_scenarios(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
 ) -> SimulationScenarioList:
-    stmt = select(SimulationScenario).order_by(col(SimulationScenario.created_at).desc())
+    stmt = select(SimulationScenario).order_by(
+        col(SimulationScenario.created_at).desc()
+    )
     if not current_user.is_superuser:
         stmt = stmt.where(SimulationScenario.created_by_user_id == current_user.id)
     count_stmt = select(func.count()).select_from(SimulationScenario)

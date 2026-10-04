@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import uuid
+from typing import Any
 
 from app.warehouse_sim.layout import (
     AISLE_Z,
@@ -287,7 +286,9 @@ def create_device(
     return device
 
 
-def _create_devices(config: dict[str, Any], topology: dict[str, Any]) -> list[dict[str, Any]]:
+def _create_devices(
+    config: dict[str, Any], topology: dict[str, Any]
+) -> list[dict[str, Any]]:
     devices: list[dict[str, Any]] = []
     for i in range(1, int(config["forklifts"]) + 1):
         devices.append(

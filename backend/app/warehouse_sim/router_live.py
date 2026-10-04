@@ -19,14 +19,17 @@ router = APIRouter()
 def read_snapshot(_user: CurrentUser) -> dict[str, Any]:
     return get_runtime().data()
 
+
 @router.get("/motion")
 def read_motion(_user: CurrentUser) -> dict[str, Any]:
     return get_runtime().motion()
+
 
 @router.get("/kpi")
 def read_kpi(_user: CurrentUser) -> dict[str, Any]:
     data = get_runtime().data()
     return data.get("kpi") or {}
+
 
 @router.get("/layout")
 def read_layout(_user: CurrentUser) -> dict[str, Any]:
@@ -35,9 +38,11 @@ def read_layout(_user: CurrentUser) -> dict[str, Any]:
         return {}
     return topology
 
+
 @router.get("/devices")
 def list_devices(_user: CurrentUser) -> dict[str, Any]:
     return get_runtime().view_devices_list()
+
 
 @router.get("/devices/{device_id}")
 def read_device(_user: CurrentUser, device_id: str) -> dict[str, Any]:
@@ -45,6 +50,7 @@ def read_device(_user: CurrentUser, device_id: str) -> dict[str, Any]:
         return get_runtime().view_device_telemetry(device_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Устройство не найдено") from exc
+
 
 @router.post("/devices/{device_id}/command")
 def command_device(
@@ -57,6 +63,7 @@ def command_device(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+
 @router.get("/tasks")
 def list_tasks(
     _user: CurrentUser,
@@ -65,9 +72,11 @@ def list_tasks(
 ) -> dict[str, Any]:
     return get_runtime().view_tasks(status=status, device_id=device_id)
 
+
 @router.get("/orders")
 def list_orders(_user: CurrentUser) -> dict[str, Any]:
     return get_runtime().view_orders()
+
 
 @router.get("/events")
 def list_events(
@@ -95,6 +104,7 @@ def list_events(
         to_ts=to_ts,
     )
 
+
 @router.get("/stream")
 async def stream(
     _user: CurrentUser,
@@ -118,4 +128,3 @@ async def stream(
             "X-Accel-Buffering": "no",
         },
     )
-

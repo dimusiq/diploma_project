@@ -128,6 +128,7 @@ class VehiclePositionCreate(SQLModel):
     source: str | None = Field(default=None, max_length=64)
     extra: dict[str, Any] | None = None
 
+
 # --- DomainEvent (доменные события для twin / проекций / будущего SSE) ---
 class DomainEvent(SQLModel, table=True):
     __tablename__ = "domain_event"

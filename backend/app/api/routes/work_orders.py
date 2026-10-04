@@ -497,12 +497,10 @@ def get_work_order(
             to_status=h.to_status,
             changed_by_id=h.changed_by_id,
             changed_by_email=(
-
-                    u.email
-                    if h.changed_by_id is not None
-                    and (u := users.get(h.changed_by_id)) is not None
-                    else None
-
+                u.email
+                if h.changed_by_id is not None
+                and (u := users.get(h.changed_by_id)) is not None
+                else None
             ),
             comment=h.comment,
             created_at=h.created_at,
@@ -525,11 +523,7 @@ def get_work_order(
             work_order_id=c.work_order_id,
             user_id=c.user_id,
             user_email=(
-
-                    cu.email
-                    if (cu := comment_users.get(c.user_id)) is not None
-                    else None
-
+                cu.email if (cu := comment_users.get(c.user_id)) is not None else None
             ),
             body=c.body,
             created_at=c.created_at,
@@ -579,7 +573,9 @@ def get_work_order(
             work_order_id=r.work_order_id,
             spare_part_id=r.spare_part_id,
             spare_part_title=(
-                sp.title if (sp := spares_res.get(r.spare_part_id)) is not None else None
+                sp.title
+                if (sp := spares_res.get(r.spare_part_id)) is not None
+                else None
             ),
             spare_part_sku=(
                 sp.sku if (sp := spares_res.get(r.spare_part_id)) is not None else None

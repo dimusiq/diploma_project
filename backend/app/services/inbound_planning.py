@@ -61,7 +61,9 @@ def _line_sku(line: dict[str, Any]) -> str | None:
     return None
 
 
-def _related_inbound_tasks(session: Session, order: InboundOrder) -> list[WarehouseTask]:
+def _related_inbound_tasks(
+    session: Session, order: InboundOrder
+) -> list[WarehouseTask]:
     oid = str(order.id)
     rows = session.exec(
         select(WarehouseTask).where(WarehouseTask.warehouse_id == order.warehouse_id)
@@ -227,7 +229,9 @@ def sync_inbound_status_from_tasks(session: Session, order: InboundOrder) -> str
     """Все putaway done → closed (жизненный цикл входящего завершён). Не коммитит."""
     if order.status in {"closed", "cancelled", "canceled"}:
         return order.status
-    tasks = [t for t in _related_inbound_tasks(session, order) if t.task_type == "putaway"]
+    tasks = [
+        t for t in _related_inbound_tasks(session, order) if t.task_type == "putaway"
+    ]
     if not tasks:
         return order.status
     if all(t.status in DONE_TASK_STATUSES for t in tasks):

@@ -96,9 +96,7 @@ def test_receive_shortage_creates_putaway_and_warehouse_item(db: Session) -> Non
     assert payload0.get("quantity") == 8
 
     events = list(
-        db.exec(
-            select(DomainEvent).where(DomainEvent.aggregate_id == order.id)
-        ).all()
+        db.exec(select(DomainEvent).where(DomainEvent.aggregate_id == order.id)).all()
     )
     types = {e.event_type for e in events}
     assert "inbound.received" in types
@@ -190,9 +188,7 @@ def test_receive_creates_inventory_lot_with_expiry(db: Session) -> None:
     assert item is not None
     assert item.expires_at == expiry
 
-    lot = db.exec(
-        select(InventoryLot).where(InventoryLot.item_id == item.id)
-    ).first()
+    lot = db.exec(select(InventoryLot).where(InventoryLot.item_id == item.id)).first()
     assert lot is not None
     assert lot.lot_code == f"BATCH-{sku}"
     assert lot.expires_at == expiry

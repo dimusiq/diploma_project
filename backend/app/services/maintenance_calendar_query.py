@@ -6,7 +6,7 @@ import json
 import math
 import uuid
 
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.models import (
     ChainAssignment,

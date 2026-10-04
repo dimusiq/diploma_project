@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import math
+from typing import Any
 
 from app.warehouse_sim.layout import (
     AISLE_Z,
@@ -66,7 +65,9 @@ def on_demo_shift(row: dict[str, Any]) -> bool:
     return status in ("working", "break") and row.get("shift", DEMO_SHIFT) == DEMO_SHIFT
 
 
-def match_camera_person(entity_id: str | None, workers: list[dict[str, Any]]) -> dict[str, Any]:
+def match_camera_person(
+    entity_id: str | None, workers: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Сопоставление detection → SimPerson по id трека. Имени по лицу нет."""
     if entity_id:
         for worker in workers:
@@ -110,11 +111,15 @@ def demo_routes() -> list[list[dict[str, Any]]]:
     ]
 
 
-def pedestrian_path(start: dict[str, Any], goal: dict[str, Any], racks: Any) -> list[dict[str, Any]]:
+def pedestrian_path(
+    start: dict[str, Any], goal: dict[str, Any], racks: Any
+) -> list[dict[str, Any]]:
     return astar_path(start, goal, racks)
 
 
-def _bind_staff(worker: dict[str, Any], spec: dict[str, Any], row: dict[str, Any]) -> None:
+def _bind_staff(
+    worker: dict[str, Any], spec: dict[str, Any], row: dict[str, Any]
+) -> None:
     worker["code"] = spec["person_code"]
     worker["workerId"] = row.get("worker_id", spec["worker_id"])
     worker["employeeCode"] = spec["employee_code"]
@@ -125,7 +130,11 @@ def _bind_staff(worker: dict[str, Any], spec: dict[str, Any], row: dict[str, Any
     worker["name"] = spec["display_name"]
 
 
-def seed_workers(workers: list[dict[str, Any]], racks: Any, roster: list[dict[str, Any]] | None = None) -> None:
+def seed_workers(
+    workers: list[dict[str, Any]],
+    racks: Any,
+    roster: list[dict[str, Any]] | None = None,
+) -> None:
     routes = demo_routes()
     roster_rows = {
         row["employee_code"]: row

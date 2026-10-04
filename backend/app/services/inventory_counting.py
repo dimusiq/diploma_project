@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
-from sqlmodel import col, Session, func, select
+from sqlmodel import Session, col, func, select
 
 from app.core.storage_slot import format_storage_slot_key
 from app.events import catalog
@@ -33,9 +33,7 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def resolve_warehouse_id(
-    session: Session, warehouse_id: uuid.UUID | None
-) -> uuid.UUID:
+def resolve_warehouse_id(session: Session, warehouse_id: uuid.UUID | None) -> uuid.UUID:
     if warehouse_id is not None:
         wh = session.get(Warehouse, warehouse_id)
         if not wh:
@@ -87,9 +85,7 @@ def _resolve_item(
                 status_code=404, detail=f"Товар со SKU «{sku}» не найден"
             )
         return item
-    raise HTTPException(
-        status_code=422, detail="Укажите item_id, slot_key или sku"
-    )
+    raise HTTPException(status_code=422, detail="Укажите item_id, slot_key или sku")
 
 
 def act_to_public(
@@ -148,9 +144,7 @@ def create_count(
     wid = resolve_warehouse_id(session, warehouse_id)
     mode_n = (mode or "selective").strip().lower()
     if mode_n not in {"selective", "cycle"}:
-        raise HTTPException(
-            status_code=422, detail="mode: selective или cycle"
-        )
+        raise HTTPException(status_code=422, detail="mode: selective или cycle")
     if not line_inputs:
         raise HTTPException(status_code=422, detail="Нужна хотя бы одна строка")
 
@@ -250,9 +244,7 @@ def enter_facts(
         try:
             item_id = uuid.UUID(str(iid))
         except ValueError as exc:
-            raise HTTPException(
-                status_code=422, detail="Некорректный item_id"
-            ) from exc
+            raise HTTPException(status_code=422, detail="Некорректный item_id") from exc
         line = by_item.get(item_id)
         if line is None:
             raise HTTPException(
@@ -302,10 +294,7 @@ def post_act(
     if missing:
         raise HTTPException(
             status_code=409,
-            detail=(
-                "Нельзя провести акт: нет факта по "
-                f"{len(missing)} строк(е/ам)"
-            ),
+            detail=(f"Нельзя провести акт: нет факта по {len(missing)} строк(е/ам)"),
         )
 
     now = _now()

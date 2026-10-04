@@ -53,18 +53,14 @@ def test_overdue_hours_creates_work_order_and_notification(db: Session) -> None:
     user = create_random_user(db)
     device = _device_with_hours(db, hours=500)
 
-    stats = sync_overdue_maintenance(
-        db, actor_user_id=user.id, notify_user_id=user.id
-    )
+    stats = sync_overdue_maintenance(db, actor_user_id=user.id, notify_user_id=user.id)
     db.commit()
 
     assert stats["overdue"] >= 1
     assert stats["work_orders_created"] >= 1
     assert stats["notifications_created"] >= 1
 
-    wo = db.exec(
-        select(WorkOrder).where(WorkOrder.equipment_id == device.id)
-    ).first()
+    wo = db.exec(select(WorkOrder).where(WorkOrder.equipment_id == device.id)).first()
     assert wo is not None
     assert wo.status == "open"
     assert wo.description and "auto_to:" in wo.description
@@ -79,9 +75,7 @@ def test_overdue_hours_creates_work_order_and_notification(db: Session) -> None:
     assert note is not None
 
     # идемпотентность
-    stats2 = sync_overdue_maintenance(
-        db, actor_user_id=user.id, notify_user_id=user.id
-    )
+    stats2 = sync_overdue_maintenance(db, actor_user_id=user.id, notify_user_id=user.id)
     db.commit()
     assert stats2["work_orders_created"] == 0
     assert stats2["notifications_created"] == 0
@@ -112,9 +106,7 @@ def test_downtime_counted_in_kpi(db: Session) -> None:
     )
     assert snap.equipment_downtime_hours is not None
     assert snap.equipment_downtime_hours >= 4.0
-    assert any(
-        b.reason.startswith("Ремонт") for b in snap.equipment_downtime_by_reason
-    )
+    assert any(b.reason.startswith("Ремонт") for b in snap.equipment_downtime_by_reason)
 
 
 def test_assign_task_to_device(db: Session) -> None:

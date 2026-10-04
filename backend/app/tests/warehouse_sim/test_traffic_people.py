@@ -1,7 +1,7 @@
-from typing import cast, Any
 """Скорость, разъезд без взаимного ожидания и детерминированные пешеходы."""
 
 from copy import deepcopy
+from typing import Any, cast
 
 from app.warehouse_sim.layout import AISLE_Z
 from app.warehouse_sim.pedestrians import path_crosses_rack, people_snapshot

@@ -151,7 +151,9 @@ def read_equipment_list(
     if sort_by in SORT_FIELDS and order in ("asc", "desc"):
         if sort_by == "brand_model":
             if order == "asc":
-                statement = statement.order_by(col(Brand.name).asc(), col(Equipment.model).asc())
+                statement = statement.order_by(
+                    col(Brand.name).asc(), col(Equipment.model).asc()
+                )
             else:
                 statement = statement.order_by(
                     col(Brand.name).desc(), col(Equipment.model).desc()

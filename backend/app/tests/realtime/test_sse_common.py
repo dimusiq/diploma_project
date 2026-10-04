@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from typing import cast, Any
-from unittest.mock import patch
-
 import asyncio
+from collections.abc import AsyncIterator
+from typing import Any, cast
+from unittest.mock import patch
 
 from app.realtime.sse_common import (
     SseSubscriberHub,

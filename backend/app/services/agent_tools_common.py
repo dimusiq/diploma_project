@@ -16,6 +16,7 @@ from app.models import Item, User, Warehouse
 def _json(obj: Any) -> str:
     return json.dumps(obj, ensure_ascii=False, default=str)
 
+
 def _default_warehouse_id(session: Session) -> uuid.UUID | None:
     w = session.exec(select(Warehouse).where(Warehouse.code == "default")).first()
     if w:
@@ -23,11 +24,13 @@ def _default_warehouse_id(session: Session) -> uuid.UUID | None:
     any_w = session.exec(select(Warehouse).limit(1)).first()
     return any_w.id if any_w else None
 
+
 def _item_scope(session: Session, user: User) -> Any:
     stmt = select(Item)
     if not can_see_all_items(session, user):
         stmt = stmt.where(Item.owner_id == user.id)
     return stmt
+
 
 def _act_gate(
     ctx: AgentToolContext | None,
@@ -78,4 +81,3 @@ def _act_gate(
             }
         )
     return None
-

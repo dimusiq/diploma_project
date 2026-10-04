@@ -40,6 +40,7 @@ def _neutralize_md_role_header(m: re.Match[str]) -> str:
     escaped = "".join(f"\\{ch}" for ch in hashes)
     return f"{escaped}{spaces}{word}"
 
+
 def strip_injection_markers(text: str) -> str:
     """
     Нейтрализует типовые маркеры prompt-injection внутри данных.

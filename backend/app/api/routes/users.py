@@ -53,10 +53,15 @@ def read_users(
     """
     if deleted:
         count_statement = (
-            select(func.count()).select_from(User).where(col(User.deleted_at).isnot(None))
+            select(func.count())
+            .select_from(User)
+            .where(col(User.deleted_at).isnot(None))
         )
         statement = (
-            select(User).where(col(User.deleted_at).isnot(None)).offset(skip).limit(limit)
+            select(User)
+            .where(col(User.deleted_at).isnot(None))
+            .offset(skip)
+            .limit(limit)
         )
     else:
         count_statement = (

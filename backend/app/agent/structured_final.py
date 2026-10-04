@@ -27,9 +27,11 @@ STRICT_FORMAT_RETRY_SYSTEM = (
     "Без текста до <answer> и после </answer>."
 )
 
+
 def _stop_sequences() -> list[str]:
     raw = getattr(settings, "AGENT_LLM_STOP_SEQUENCES_STR", "</answer>") or "</answer>"
     return [x.strip() for x in str(raw).split(",") if x.strip()]
+
 
 async def _post_chat_completion_after_tools(
     client: httpx.AsyncClient,
@@ -77,6 +79,7 @@ async def _post_chat_completion_after_tools(
     except Exception:
         return None
 
+
 async def _resolve_final_text(
     raw: str,
     messages: list[dict[str, Any]],
@@ -104,4 +107,3 @@ async def _resolve_final_text(
     if payload2 == "format":
         return FORMAT_ERROR_REPLY
     return GUARDRAIL_FALLBACK_REPLY
-

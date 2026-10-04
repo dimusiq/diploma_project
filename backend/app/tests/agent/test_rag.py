@@ -142,9 +142,7 @@ def test_build_rag_vector_pg_and_get_per_id(
 def test_pgvector_top_chunks_swallows_sql_errors() -> None:
     session = MagicMock()
     session.execute.side_effect = ProgrammingError("stmt", {}, Exception("no vector"))
-    out = _pgvector_top_chunks(
-        session, [0.0] * AGENT_EMBEDDING_VECTOR_DIMENSIONS, k=3
-    )
+    out = _pgvector_top_chunks(session, [0.0] * AGENT_EMBEDDING_VECTOR_DIMENSIONS, k=3)
     assert out == []
 
 

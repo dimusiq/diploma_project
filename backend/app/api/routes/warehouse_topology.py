@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Request
 from sqlalchemy.orm.attributes import flag_modified
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.audit import get_client_ip, log_audit

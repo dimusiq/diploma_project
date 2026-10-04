@@ -15,7 +15,9 @@ from typing import Any, Generic, TypeVar
 T = TypeVar("T")
 
 
-def format_sse(data: dict[str, Any] | None = None, *, comment: str | None = None) -> bytes:
+def format_sse(
+    data: dict[str, Any] | None = None, *, comment: str | None = None
+) -> bytes:
     """Один SSE-событие (data и/или comment)."""
     lines: list[str] = []
     if comment is not None:

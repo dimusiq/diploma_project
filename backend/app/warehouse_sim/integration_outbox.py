@@ -97,7 +97,9 @@ def fetch_pending(
     stmt = (
         select(SimIntegrationOutbox)
         .where(SimIntegrationOutbox.status == OUTBOX_PENDING)
-        .order_by(col(SimIntegrationOutbox.sim_seq), col(SimIntegrationOutbox.created_at))
+        .order_by(
+            col(SimIntegrationOutbox.sim_seq), col(SimIntegrationOutbox.created_at)
+        )
         .limit(limit)
         .with_for_update(skip_locked=True)
     )
@@ -107,8 +109,9 @@ def fetch_pending(
 def outbox_counts(session: Session) -> dict[str, int]:
     """Метрики: pending / done / dead_letter / lag."""
     rows = session.exec(
-        select(SimIntegrationOutbox.status, func.count())
-        .group_by(SimIntegrationOutbox.status)
+        select(SimIntegrationOutbox.status, func.count()).group_by(
+            SimIntegrationOutbox.status
+        )
     ).all()
     by_status = {str(status): int(cnt) for status, cnt in rows}
     pending = by_status.get(OUTBOX_PENDING, 0)
@@ -240,9 +243,7 @@ def _publish_after_apply(
         )
 
 
-def prune_memory_queue(
-    world: dict[str, Any], done_keys: set[str] | list[str]
-) -> int:
+def prune_memory_queue(world: dict[str, Any], done_keys: set[str] | list[str]) -> int:
     """Удаляет из memory-очереди только успешно применённые ключи."""
     keys = set(done_keys)
     if not keys:

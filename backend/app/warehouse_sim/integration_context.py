@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.core.config import settings
 from app.core.storage_slot import format_storage_slot_key
@@ -39,6 +39,7 @@ _CACHED_WAREHOUSE_ID: uuid.UUID | None = None
 _CACHED_ACTOR_ID: uuid.UUID | None = None
 
 logger = logging.getLogger(__name__)
+
 
 class _DomainCtx:
     def __init__(
@@ -302,7 +303,9 @@ def _ensure_shipment(
     return row
 
 
-def _ensure_task(ctx: _DomainCtx, task: dict[str, Any], c: dict[str, Any]) -> WarehouseTask:
+def _ensure_task(
+    ctx: _DomainCtx, task: dict[str, Any], c: dict[str, Any]
+) -> WarehouseTask:
     sim_id = task["id"]
     existing = ctx.bridge["tasks"].get(sim_id)
     if existing:

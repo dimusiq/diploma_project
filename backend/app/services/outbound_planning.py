@@ -201,9 +201,7 @@ def plan_outbound_picks(session: Session, order: OutboundOrder) -> dict[str, Any
         sku = _line_sku(line)
         item_id = _line_item_id(line)
         candidates = _candidate_items(session, sku=sku, item_id=item_id)
-        cand_lots = load_active_lots_by_item_ids(
-            session, [c.id for c in candidates]
-        )
+        cand_lots = load_active_lots_by_item_ids(session, [c.id for c in candidates])
         remaining = need
         part = 0
         for item in candidates:

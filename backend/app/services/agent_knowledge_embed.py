@@ -11,7 +11,9 @@ from app.models import AgentKnowledgeChunk
 from app.services.agent_rag import llm_embed_query, llm_embed_query_sync
 
 
-def _apply_embedding(session: Session, chunk: AgentKnowledgeChunk, vec: list[float]) -> bool:
+def _apply_embedding(
+    session: Session, chunk: AgentKnowledgeChunk, vec: list[float]
+) -> bool:
     if len(vec) != AGENT_EMBEDDING_VECTOR_DIMENSIONS:
         return False
     chunk.embedding = vec

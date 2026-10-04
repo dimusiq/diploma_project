@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from datetime import datetime, timezone
+from typing import Any
 
 from app.warehouse_sim.layout import ZONE_PACKING, ZONE_RECEIVING, ZONE_SHIPPING
 from app.warehouse_sim.traffic import current_speed
@@ -105,7 +104,9 @@ def build_motion(world: dict[str, Any], running: bool, version: int) -> dict[str
     }
 
 
-def build_data(world: dict[str, Any], state: str, speed: float, version: int) -> dict[str, Any]:
+def build_data(
+    world: dict[str, Any], state: str, speed: float, version: int
+) -> dict[str, Any]:
     occupied = sum(1 for c in world["cells"] if c["palletId"] is not None)
     event_counts = sorted(
         ({"type": k, "count": v} for k, v in world["eventCountsByType"].items()),

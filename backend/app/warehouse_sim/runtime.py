@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 from typing import Any, TypeVar
 
 from sqlalchemy import ColumnElement, and_, func, or_
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.core.db import engine
 from app.realtime.sse_common import format_sse, iter_sse_from_queue, put_drop_oldest
@@ -492,9 +492,7 @@ class WarehouseSimRuntime:
             outbox_pending = int(counts.get("pending") or 0)
             dead_letter = int(counts.get("dead_letter") or 0)
         except Exception:
-            logger.debug(
-                "integration_metrics: outbox_counts недоступен", exc_info=True
-            )
+            logger.debug("integration_metrics: outbox_counts недоступен", exc_info=True)
         return {
             "applied": int(getattr(self, "_integration_applied", 0)),
             "errors": int(getattr(self, "_integration_errors", 0)),
@@ -1142,7 +1140,10 @@ def query_event_log(
     if q:
         needle = f"%{q}%"
         conditions.append(
-            or_(col(SimEvent.message).ilike(needle), col(SimEvent.event_type).ilike(needle))
+            or_(
+                col(SimEvent.message).ilike(needle),
+                col(SimEvent.event_type).ilike(needle),
+            )
         )
     if device_id:
         # @> — под GIN(jsonb_path_ops) / GIN(jsonb)
@@ -1163,9 +1164,7 @@ def query_event_log(
     ordered_stmt = stmt.order_by(col(SimEvent.seq).desc())
 
     if not memory_only:
-        rows = list(
-            session.exec(ordered_stmt.offset(skip).limit(limit)).all()
-        )
+        rows = list(session.exec(ordered_stmt.offset(skip).limit(limit)).all())
         page_events = [_row_to_event(row) for row in rows]
         # Оверлей live-полей из memory по seq (те же id, что уже в БД).
         by_id = {int(e["id"]): e for e in memory}

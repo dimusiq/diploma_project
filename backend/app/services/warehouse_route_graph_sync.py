@@ -7,7 +7,7 @@ import re
 from typing import Any
 from uuid import UUID
 
-from sqlmodel import col, Session, select
+from sqlmodel import Session, col, select
 
 from app.models import RouteEdge, RouteNode, Warehouse, WarehouseLayout
 from app.schemas.warehouse_layout_spec import parse_warehouse_layout_spec

@@ -53,7 +53,9 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
             detail="Could not validate credentials",
         )
     user = session.exec(
-        select(User).where(User.id == user_id).options(selectinload(cast(Any, User.role)))
+        select(User)
+        .where(User.id == user_id)
+        .options(selectinload(cast(Any, User.role)))
     ).first()
     if not user:
         raise HTTPException(

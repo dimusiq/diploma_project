@@ -43,6 +43,7 @@ __all__ = [
     "run_structured_agent_chat",
 ]
 
+
 async def run_structured_agent_chat(
     *,
     session: Session,
@@ -145,6 +146,7 @@ async def run_structured_agent_chat(
             rounds=(reasoning.llm_rounds if reasoning else 0),
         )
     return out
+
 
 async def iter_structured_agent_stream_events(
     *,
@@ -263,4 +265,3 @@ async def iter_structured_agent_stream_events(
                 rounds=(reasoning.llm_rounds if reasoning else 0),
             )
         yield {"type": "done", "reply": out}
-

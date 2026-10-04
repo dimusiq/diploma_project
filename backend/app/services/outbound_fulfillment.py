@@ -102,9 +102,7 @@ def resolve_outbound_id(session: Session, token: str) -> uuid.UUID | None:
         if row is not None:
             return row.id
     row = session.exec(
-        select(OutboundOrder).where(
-            col(OutboundOrder.extra).contains({"sim_id": text})
-        )
+        select(OutboundOrder).where(col(OutboundOrder.extra).contains({"sim_id": text}))
     ).first()
     return row.id if row is not None else None
 
@@ -262,7 +260,12 @@ def picking_complete(order: OutboundOrder, tasks: list[WarehouseTask]) -> bool:
         pick = [t for t in tasks if t.task_type == "pick"]
         if pick:
             return all(t.status in DONE_TASK_STATUSES for t in pick)
-        return order.status in {READY_STATUS, SHIPPED_STATUS, "closed", "picking_complete"}
+        return order.status in {
+            READY_STATUS,
+            SHIPPED_STATUS,
+            "closed",
+            "picking_complete",
+        }
     pick = [t for t in tasks if t.task_type == "pick"]
     if not pick:
         return False
@@ -572,7 +575,9 @@ def list_board(
     count = session.exec(count_stmt).one()
     rows = list(
         session.exec(
-            stmt.order_by(col(OutboundOrder.updated_at).desc()).offset(skip).limit(limit)
+            stmt.order_by(col(OutboundOrder.updated_at).desc())
+            .offset(skip)
+            .limit(limit)
         ).all()
     )
     shipment_ids = [row.shipment_id for row in rows if row.shipment_id]
@@ -715,8 +720,7 @@ def ship_order(
     if expiry_blockers:
         raise HTTPException(
             status_code=409,
-            detail="Отгрузка запрещена (просрочка): "
-            + "; ".join(expiry_blockers),
+            detail="Отгрузка запрещена (просрочка): " + "; ".join(expiry_blockers),
         )
     item_ids: list[uuid.UUID] = []
     for item in items:

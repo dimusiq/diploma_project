@@ -40,7 +40,9 @@ from app.services.outbound_fulfillment import parse_line_items
 
 RECEIVING_OPEN_STATUSES = frozenset({"open", "awaiting", RECEIVING_STATUS})
 RECEIVING_DONE_STATUS = "received"
-TERMINAL_STATUSES = frozenset({"closed", "cancelled", "canceled", RECEIVING_DONE_STATUS})
+TERMINAL_STATUSES = frozenset(
+    {"closed", "cancelled", "canceled", RECEIVING_DONE_STATUS}
+)
 
 DISCREPANCY_SHORTAGE = "shortage"
 DISCREPANCY_OVERAGE = "overage"
@@ -307,9 +309,7 @@ def receive_line(
     idx, line = _find_line(lines, line_index=line_index, line_key=line_key)
     ordered = _line_qty(line)
     if ordered <= 0 and received_quantity <= 0 and damage_quantity <= 0:
-        raise HTTPException(
-            status_code=422, detail="Строка без заказанного количества"
-        )
+        raise HTTPException(status_code=422, detail="Строка без заказанного количества")
 
     prev_processed = bool(line.get("receiving_processed"))
     prev_qty = line.get("received_quantity")
@@ -506,9 +506,7 @@ def close_receiving(
 ) -> InboundOrder:
     """Закрывает операцию приёмки → status=received. Не коммитит."""
     if order.status in {"closed", "cancelled", "canceled"}:
-        raise HTTPException(
-            status_code=409, detail="Заказ уже закрыт или отменён"
-        )
+        raise HTTPException(status_code=409, detail="Заказ уже закрыт или отменён")
     if order.status == RECEIVING_DONE_STATUS:
         return order
 
@@ -535,9 +533,7 @@ def close_receiving(
     extra = dict(order.extra) if isinstance(order.extra, dict) else {}
     fulfillment = dict(extra.get("fulfillment") or {})
     fulfillment["receiving_closed_at"] = now.isoformat()
-    fulfillment["receiving_closed_by"] = (
-        str(actor_user_id) if actor_user_id else None
-    )
+    fulfillment["receiving_closed_by"] = str(actor_user_id) if actor_user_id else None
     extra["fulfillment"] = fulfillment
     order.extra = extra
     session.add(order)

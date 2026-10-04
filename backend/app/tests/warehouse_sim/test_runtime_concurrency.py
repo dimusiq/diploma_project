@@ -68,9 +68,7 @@ def test_concurrent_tick_and_hub_readers() -> None:
 def test_view_methods_do_not_expose_live_world_refs() -> None:
     rt = WarehouseSimRuntime()
     tasks_a = rt.view_tasks()["data"]
-    rt.mutate_world(
-        lambda w: w.setdefault("tasks", []).append({"id": "probe-task"})
-    )
+    rt.mutate_world(lambda w: w.setdefault("tasks", []).append({"id": "probe-task"}))
     tasks_b = rt.view_tasks()["data"]
     # старый снимок не должен «подхватить» новую задачу через общую ссылку
     assert all(t.get("id") != "probe-task" for t in tasks_a)

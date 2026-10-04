@@ -52,7 +52,9 @@ def _runtime_device(code: str | None) -> dict[str, Any] | None:
         return None
 
 
-def _match_worker(employee: WarehouseEmployee, workers: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _match_worker(
+    employee: WarehouseEmployee, workers: list[dict[str, Any]]
+) -> dict[str, Any] | None:
     employee_id = str(employee.id)
     for worker in workers:
         if worker.get("employeeCode") == employee.employee_code:

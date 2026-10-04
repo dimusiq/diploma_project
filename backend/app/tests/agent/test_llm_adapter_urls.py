@@ -1,5 +1,6 @@
-from typing import Any
 """Разрешение base URL для chat и эмбеддингов."""
+
+from typing import Any
 
 from app.agent.llm_adapter import (
     llm_inference_configured,

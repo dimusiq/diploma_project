@@ -42,9 +42,7 @@ def _free_cell(db: Session) -> tuple[int, int, int]:
         pass
     occupied = {
         (i.storage_row, i.storage_level, i.storage_cell_x)
-        for i in db.exec(
-            select(Item).where(col(Item.storage_row).is_not(None))
-        ).all()
+        for i in db.exec(select(Item).where(col(Item.storage_row).is_not(None))).all()
         if i.storage_row and i.storage_level and i.storage_cell_x
     }
     for row in range(1, 17):
@@ -240,9 +238,7 @@ def test_ship_blocks_expired_item(db: Session) -> None:
 
     item.expires_at = day - timedelta(days=1)
     db.add(item)
-    lot = db.exec(
-        select(InventoryLot).where(InventoryLot.item_id == item.id)
-    ).first()
+    lot = db.exec(select(InventoryLot).where(InventoryLot.item_id == item.id)).first()
     assert lot is not None
     lot.expires_at = day - timedelta(days=1)
     db.add(lot)

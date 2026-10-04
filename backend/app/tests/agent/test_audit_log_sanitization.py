@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import json
 import logging
 import uuid
+from typing import Any
 
 from app.agent.tool_audit_log import log_tool_run
 from app.agent.tool_safety import ToolSafetyClass

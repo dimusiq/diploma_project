@@ -118,9 +118,7 @@ class ItemReservation(SQLModel, table=True):
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    item_id: uuid.UUID = Field(
-        foreign_key="item.id", ondelete="CASCADE", index=True
-    )
+    item_id: uuid.UUID = Field(foreign_key="item.id", ondelete="CASCADE", index=True)
     warehouse_task_id: uuid.UUID = Field(
         foreign_key="warehouse_task.id", ondelete="CASCADE", index=True
     )
@@ -186,18 +184,14 @@ class InventoryCountLine(SQLModel, table=True):
 
     __tablename__ = "inventory_count_line"
     __table_args__ = (
-        UniqueConstraint(
-            "act_id", "item_id", name="uq_inventory_count_line_act_item"
-        ),
+        UniqueConstraint("act_id", "item_id", name="uq_inventory_count_line_act_item"),
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     act_id: uuid.UUID = Field(
         foreign_key="inventory_count_act.id", ondelete="CASCADE", index=True
     )
-    item_id: uuid.UUID = Field(
-        foreign_key="item.id", ondelete="CASCADE", index=True
-    )
+    item_id: uuid.UUID = Field(foreign_key="item.id", ondelete="CASCADE", index=True)
     slot_key: str | None = Field(default=None, max_length=128)
     sku: str | None = Field(default=None, max_length=64)
     system_qty: int = Field(ge=0)
@@ -353,6 +347,7 @@ class BrandPublic(SQLModel):
     id: uuid.UUID
     name: str
 
+
 class HandlingUnit(SQLModel, table=True):
     """Транспортная единица (паллета, короб, контейнер)."""
 
@@ -426,6 +421,7 @@ class InventoryLot(SQLModel, table=True):
         default=None, sa_column=Column(JSONB, nullable=True)
     )
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 
 # --- WarehouseSlotOccupancy (read-модель: какая ячейка → какой товар; KPI / лёгкие запросы) ---
 class WarehouseSlotOccupancy(SQLModel, table=True):

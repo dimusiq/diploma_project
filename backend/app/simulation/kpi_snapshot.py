@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 from sqlalchemy import and_, extract, func
 from sqlmodel import Session, col, select
@@ -65,7 +64,9 @@ def build_kpi_snapshot(session: Session, user: User) -> dict[str, Any]:
     )
     if not see_all:
         slot_stmt = slot_stmt.where(Item.owner_id == user.id)
-    slot_stmt = slot_stmt.group_by(col(Item.storage_level)).order_by(col(Item.storage_level))
+    slot_stmt = slot_stmt.group_by(col(Item.storage_level)).order_by(
+        col(Item.storage_level)
+    )
     occupancy_by_slot_level: list[dict[str, object]] = []
     for lvl, n in session.exec(slot_stmt).all():
         if lvl is None:
@@ -75,9 +76,9 @@ def build_kpi_snapshot(session: Session, user: User) -> dict[str, Any]:
             {"storage_level": int(lvl), "slot_kind": kind, "item_count": int(n)}
         )
 
-    dwell_stmt = select(
-        func.avg(extract("epoch", func.now() - Item.created_at))
-    ).where(Item.status == "warehouse")
+    dwell_stmt = select(func.avg(extract("epoch", func.now() - Item.created_at))).where(
+        Item.status == "warehouse"
+    )
     if not see_all:
         dwell_stmt = dwell_stmt.where(Item.owner_id == user.id)
     dwell_sec = session.exec(dwell_stmt).one()

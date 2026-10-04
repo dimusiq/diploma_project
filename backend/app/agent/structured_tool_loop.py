@@ -35,6 +35,7 @@ from app.models import User
 
 logger = logging.getLogger(__name__)
 
+
 def _verify_tool_result(tool_name: str, result_json: str) -> dict[str, Any]:
     try:
         d = json.loads(result_json)
@@ -49,6 +50,7 @@ def _verify_tool_result(tool_name: str, result_json: str) -> dict[str, Any]:
     if d.get("sandbox"):
         return {"tool": tool_name, "ok": True, "gate": "sandbox"}
     return {"tool": tool_name, "ok": True}
+
 
 async def _run_structured_tool_phases(
     client: httpx.AsyncClient,
@@ -255,4 +257,3 @@ async def _run_structured_tool_phases(
         break
 
     return (None, had_any_tool, last_text)
-

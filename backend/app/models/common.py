@@ -28,6 +28,7 @@ class FeatureFlagPublic(SQLModel):
 class FeatureFlagMap(SQLModel):
     flags: dict[str, bool]
 
+
 # --- AuditLog (аудит критичных действий администраторов) ---
 class AuditLog(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)

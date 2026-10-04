@@ -56,6 +56,7 @@ class PermissionPublic(SQLModel):
     code: str
     description: str | None = None
 
+
 class UserBase(SQLModel):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
     is_active: bool = True
@@ -123,6 +124,7 @@ class UserPublic(UserBase):
 class UsersPublic(SQLModel):
     data: list["UserPublic"]
     count: int
+
 
 class Message(SQLModel):
     message: str

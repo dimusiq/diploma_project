@@ -201,6 +201,7 @@ class AgentRunList(SQLModel):
     data: list["AgentRunPublic"]
     count: int
 
+
 class AgentPolicy(SQLModel, table=True):
     __tablename__ = "agent_policy"
 

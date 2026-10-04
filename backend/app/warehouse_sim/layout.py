@@ -7,9 +7,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from dataclasses import dataclass
+from typing import Any
 
 from app.warehouse_sim.vehicle_dimensions import (
     MAX_VEHICLE_WIDTH,
@@ -122,7 +121,9 @@ def _same_point(a: Vec2, b: Vec2) -> bool:
     return abs(a.x - b.x) < 0.05 and abs(a.z - b.z) < 0.05
 
 
-def route_between(from_p: Vec2 | dict[str, Any], to_p: Vec2 | dict[str, Any]) -> list[dict[str, float]]:
+def route_between(
+    from_p: Vec2 | dict[str, Any], to_p: Vec2 | dict[str, Any]
+) -> list[dict[str, float]]:
     """Ортогональный маршрут по рабочим проездам и продольным коридорам."""
     start = Vec2(*_xz(from_p))
     goal = Vec2(*_xz(to_p))

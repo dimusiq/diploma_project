@@ -1,6 +1,6 @@
 import warnings
 from pathlib import Path
-from typing import cast, Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from pydantic import (
     AliasChoices,

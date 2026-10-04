@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import uuid
+from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
@@ -39,7 +38,9 @@ def _payload(code: str, **extra: Any) -> dict[str, Any]:
     return body
 
 
-def _create(client: TestClient, headers: dict[str, str], **extra: Any) -> dict[str, Any]:
+def _create(
+    client: TestClient, headers: dict[str, str], **extra: Any
+) -> dict[str, Any]:
     code = f"EMP-B{uuid.uuid4().hex[:6].upper()}"
     response = client.post(f"{PREFIX}/", headers=headers, json=_payload(code, **extra))
     assert response.status_code == 200, response.text

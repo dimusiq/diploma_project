@@ -1,8 +1,8 @@
-from typing import Any
 """CRUD for maintenance reglament templates (checklist + required spares)."""
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import col, select
