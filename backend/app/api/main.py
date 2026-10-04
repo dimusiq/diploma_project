@@ -23,6 +23,7 @@ from app.api.routes import (
     notifications,
     outbound_orders,
     personnel,
+    pick_waves,
     private,
     projections,
     roles,
@@ -67,6 +68,7 @@ api_router.include_router(items.router)
 api_router.include_router(inventory_counts.router)
 api_router.include_router(inbound_orders.router)
 api_router.include_router(outbound_orders.router)
+api_router.include_router(pick_waves.router)
 api_router.include_router(personnel.router)
 api_router.include_router(equipment.router)
 api_router.include_router(maintenance_schedule.router)

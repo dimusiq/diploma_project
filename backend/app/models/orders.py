@@ -411,3 +411,135 @@ class TaskExecution(SQLModel, table=True):
     result: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSONB, nullable=True)
     )
+
+
+class PickWave(SQLModel, table=True):
+    """Волна отбора: несколько исходящих заказов одним маршрутом."""
+
+    __tablename__ = "pick_wave"
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_pick_wave_wh_code"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    warehouse_id: uuid.UUID = Field(
+        foreign_key="warehouse.id", ondelete="CASCADE", index=True
+    )
+    code: str = Field(max_length=64)
+    status: str = Field(
+        default="draft",
+        max_length=32,
+        description="draft|planned|released|done|cancelled",
+        index=True,
+    )
+    mode: str = Field(
+        default="batch",
+        max_length=16,
+        description="batch|zone",
+    )
+    criteria: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
+    route_length_m: float | None = Field(default=None)
+    extra: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PickWaveOrder(SQLModel, table=True):
+    """Связь волны с исходящим заказом."""
+
+    __tablename__ = "pick_wave_order"
+    __table_args__ = (
+        UniqueConstraint(
+            "wave_id", "outbound_order_id", name="uq_pick_wave_order_wave_order"
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    wave_id: uuid.UUID = Field(
+        foreign_key="pick_wave.id", ondelete="CASCADE", index=True
+    )
+    outbound_order_id: uuid.UUID = Field(
+        foreign_key="outbound_order.id", ondelete="CASCADE", index=True
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PickWaveZoneAssignment(SQLModel, table=True):
+    """Закрепление зоны волны за оператором (зонный отбор)."""
+
+    __tablename__ = "pick_wave_zone_assignment"
+    __table_args__ = (
+        UniqueConstraint(
+            "wave_id", "zone_code", name="uq_pick_wave_zone_assignment_wave_zone"
+        ),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    wave_id: uuid.UUID = Field(
+        foreign_key="pick_wave.id", ondelete="CASCADE", index=True
+    )
+    zone_code: str = Field(max_length=64)
+    assigned_user_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="user.id",
+        ondelete="SET NULL",
+        index=True,
+    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PickWaveZoneAssignItem(SQLModel):
+    zone_code: str = Field(min_length=1, max_length=64)
+    assigned_user_id: uuid.UUID
+
+
+class PickWaveCreate(SQLModel):
+    warehouse_id: uuid.UUID | None = None
+    code: str | None = Field(default=None, max_length=64)
+    mode: str = Field(default="batch", max_length=16)
+    order_ids: list[uuid.UUID] = Field(min_length=1)
+    criteria: dict[str, Any] | None = None
+
+
+class PickWaveZoneAssignRequest(SQLModel):
+    assignments: list[PickWaveZoneAssignItem] = Field(min_length=1)
+
+
+class PickWaveZoneAssignmentPublic(SQLModel):
+    zone_code: str
+    assigned_user_id: uuid.UUID | None = None
+
+
+class PickWavePublic(SQLModel):
+    id: uuid.UUID
+    warehouse_id: uuid.UUID
+    code: str
+    status: str
+    mode: str
+    criteria: dict[str, Any] | None = None
+    route_length_m: float | None = None
+    route_length_per_order_m: float | None = None
+    extra: dict[str, Any] | None = None
+    order_ids: list[uuid.UUID] = []
+    zone_assignments: list[PickWaveZoneAssignmentPublic] = []
+    task_ids: list[uuid.UUID] = []
+    created_at: datetime
+    updated_at: datetime
+
+
+class PickWaveList(SQLModel):
+    data: list[PickWavePublic]
+    count: int
+
+
+class PickWavePlanResult(SQLModel):
+    wave: PickWavePublic
+    created_tasks: int = 0
+    route_length_m: float = 0.0
+    route_length_per_order_m: float = 0.0
+    savings_m: float = 0.0
