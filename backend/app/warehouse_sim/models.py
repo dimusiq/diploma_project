@@ -869,6 +869,8 @@ class SimIntegrationOutbox(SQLModel, table=True):
     last_error: str | None = Field(default=None, max_length=2048)
     created_at: datetime = Field(default_factory=utcnow, index=True)
     completed_at: datetime | None = Field(default=None, index=True)
+    # NULL / прошлое = можно брать в работу; будущее = backoff после ошибки.
+    next_attempt_at: datetime | None = Field(default=None, index=True)
 
 
 # --- Сценарии и прогоны ---

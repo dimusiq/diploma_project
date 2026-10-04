@@ -1,8 +1,8 @@
 """
 Durable outbox: simulation integration_queue → WMS.
 
-Паттерн как у ``services/outbox_dispatch``: сначала запись в БД, применение,
-и только после успешного commit — статус ``done``. Рестарт не теряет pending.
+Паттерн: каждое событие в savepoint; ошибка одного не откатывает соседей.
+Backoff через ``next_attempt_at``; ``done`` чистится ретеншеном (P0-5/P1-6).
 """
 
 from __future__ import annotations
@@ -11,9 +11,10 @@ import hashlib
 import json
 import logging
 import uuid
+from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import func, or_, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import Session, col, select
 
@@ -38,6 +39,8 @@ logger = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 10
 DEFAULT_BATCH_LIMIT = 200
+# Верхняя граница backoff между попытками (сек).
+_BACKOFF_CAP_SEC = 300.0
 
 
 def make_event_key(rec: dict[str, Any]) -> str:
@@ -60,6 +63,12 @@ def _sim_seq_of(rec: dict[str, Any]) -> int:
         return 0
 
 
+def backoff_seconds(attempts: int) -> float:
+    """Экспоненциальный backoff после N-й неудачной попытки (attempts уже увеличен)."""
+    n = max(1, int(attempts))
+    return min(_BACKOFF_CAP_SEC, float(2 ** (n - 1)))
+
+
 def ensure_enqueued(session: Session, records: list[dict[str, Any]]) -> int:
     """Пишет записи в outbox (ON CONFLICT DO NOTHING). Возвращает число вставок."""
     if not records:
@@ -80,6 +89,7 @@ def ensure_enqueued(session: Session, records: list[dict[str, Any]]) -> int:
                 last_error=None,
                 created_at=now,
                 completed_at=None,
+                next_attempt_at=now,
             )
             .on_conflict_do_nothing(index_elements=["event_key"])
             .returning(col(SimIntegrationOutbox.id))
@@ -91,12 +101,22 @@ def ensure_enqueued(session: Session, records: list[dict[str, Any]]) -> int:
 
 
 def fetch_pending(
-    session: Session, *, limit: int = DEFAULT_BATCH_LIMIT
+    session: Session,
+    *,
+    limit: int = DEFAULT_BATCH_LIMIT,
+    now: datetime | None = None,
 ) -> list[SimIntegrationOutbox]:
-    """Берёт pending с SKIP LOCKED (как domain outbox)."""
+    """Берёт due pending с SKIP LOCKED (учитывает next_attempt_at)."""
+    now = now or utcnow()
     stmt = (
         select(SimIntegrationOutbox)
-        .where(SimIntegrationOutbox.status == OUTBOX_PENDING)
+        .where(
+            SimIntegrationOutbox.status == OUTBOX_PENDING,
+            or_(
+                col(SimIntegrationOutbox.next_attempt_at).is_(None),
+                col(SimIntegrationOutbox.next_attempt_at) <= now,
+            ),
+        )
         .order_by(
             col(SimIntegrationOutbox.sim_seq), col(SimIntegrationOutbox.created_at)
         )
@@ -123,26 +143,28 @@ def outbox_counts(session: Session) -> dict[str, int]:
     }
 
 
-def _bump_failures(
-    session: Session, rows: list[SimIntegrationOutbox], error: str
-) -> int:
-    """Увеличивает attempts; при превышении лимита — dead_letter. Возвращает requeued."""
-    requeued = 0
+def _record_failure(session: Session, row_id: uuid.UUID, error: str) -> str:
+    """
+    Увеличивает attempts у одной строки, ставит backoff или dead_letter.
+
+    Возвращает ``\"requeued\"`` | ``\"dead_letter\"`` | ``\"skipped\"``.
+    """
+    fresh = session.get(SimIntegrationOutbox, row_id)
+    if fresh is None or fresh.status != OUTBOX_PENDING:
+        return "skipped"
     now = utcnow()
-    err = (error or "apply_failed")[:2048]
-    for row in rows:
-        fresh = session.get(SimIntegrationOutbox, row.id)
-        if fresh is None or fresh.status != OUTBOX_PENDING:
-            continue
-        fresh.attempts = int(fresh.attempts or 0) + 1
-        fresh.last_error = err
-        if fresh.attempts >= MAX_ATTEMPTS:
-            fresh.status = OUTBOX_DEAD_LETTER
-            fresh.completed_at = now
-        else:
-            requeued += 1
+    fresh.attempts = int(fresh.attempts or 0) + 1
+    fresh.last_error = (error or "apply_failed")[:2048]
+    if fresh.attempts >= MAX_ATTEMPTS:
+        fresh.status = OUTBOX_DEAD_LETTER
+        fresh.completed_at = now
+        fresh.next_attempt_at = None
         session.add(fresh)
-    return requeued
+        return "dead_letter"
+    delay = backoff_seconds(fresh.attempts)
+    fresh.next_attempt_at = now + timedelta(seconds=delay)
+    session.add(fresh)
+    return "requeued"
 
 
 def process_integration_outbox(
@@ -152,15 +174,20 @@ def process_integration_outbox(
     limit: int = DEFAULT_BATCH_LIMIT,
 ) -> tuple[dict[str, int], list[str]]:
     """
-    Применяет pending-батч к WMS в одной транзакции с пометкой ``done``.
+    Применяет due pending по одному событию (savepoint на каждое).
 
-    При ошибке — rollback домена, attempts++, очередь (pending) сохраняется.
-    Возвращает ``(stats, done_event_keys)``.
+    Ошибка одного не откатывает соседей и не увеличивает их attempts.
     """
     rows = fetch_pending(session, limit=limit)
     if not rows:
         return (
-            {"applied": 0, "errors": 0, "requeued": 0, "commits": 0, "dead_letter": 0},
+            {
+                "applied": 0,
+                "errors": 0,
+                "requeued": 0,
+                "commits": 0,
+                "dead_letter": 0,
+            },
             [],
         )
 
@@ -169,57 +196,88 @@ def process_integration_outbox(
     touched_tasks: set[uuid.UUID] = set()
     orders_changed = False
     occupancy_changed = False
-    try:
-        for row in rows:
-            rec = dict(row.payload or {})
-            result = _apply_one(ctx, rec) or {}
-            if result.get("item_id"):
-                touched_items.add(result["item_id"])
-            if result.get("task_id"):
-                touched_tasks.add(result["task_id"])
-            orders_changed = orders_changed or bool(result.get("orders"))
-            occupancy_changed = occupancy_changed or bool(result.get("occupancy"))
-            row.status = OUTBOX_DONE
-            row.completed_at = utcnow()
-            row.last_error = None
-            session.add(row)
-        session.commit()
-    except Exception as exc:
-        session.rollback()
-        requeued = _bump_failures(session, rows, str(exc))
-        session.commit()
-        logger.exception(
-            "warehouse_sim integration outbox batch failed (%s events)",
-            len(rows),
-        )
-        dead = len(rows) - requeued
-        return (
-            {
-                "applied": 0,
-                "errors": 1,
-                "requeued": requeued,
-                "commits": 0,
-                "dead_letter": max(0, dead),
-            },
-            [],
-        )
+    applied = 0
+    errors = 0
+    requeued = 0
+    dead_letter = 0
+    done_keys: list[str] = []
 
-    _publish_after_apply(
-        item_ids=touched_items,
-        task_ids=touched_tasks,
-        orders=orders_changed,
-        occupancy=occupancy_changed,
-    )
+    for row in rows:
+        row_id = row.id
+        event_key = row.event_key
+        try:
+            with session.begin_nested():
+                fresh = session.get(SimIntegrationOutbox, row_id)
+                if fresh is None or fresh.status != OUTBOX_PENDING:
+                    continue
+                rec = dict(fresh.payload or {})
+                result = _apply_one(ctx, rec) or {}
+                if result.get("item_id"):
+                    touched_items.add(result["item_id"])
+                if result.get("task_id"):
+                    touched_tasks.add(result["task_id"])
+                orders_changed = orders_changed or bool(result.get("orders"))
+                occupancy_changed = occupancy_changed or bool(result.get("occupancy"))
+                fresh.status = OUTBOX_DONE
+                fresh.completed_at = utcnow()
+                fresh.last_error = None
+                fresh.next_attempt_at = None
+                session.add(fresh)
+            applied += 1
+            done_keys.append(event_key)
+        except Exception as exc:
+            errors += 1
+            outcome = _record_failure(session, row_id, str(exc))
+            if outcome == "requeued":
+                requeued += 1
+            elif outcome == "dead_letter":
+                dead_letter += 1
+            logger.exception(
+                "warehouse_sim integration outbox event failed key=%s",
+                event_key,
+            )
+
+    session.commit()
+    if applied:
+        _publish_after_apply(
+            item_ids=touched_items,
+            task_ids=touched_tasks,
+            orders=orders_changed,
+            occupancy=occupancy_changed,
+        )
     return (
         {
-            "applied": len(rows),
-            "errors": 0,
-            "requeued": 0,
-            "commits": 1,
-            "dead_letter": 0,
+            "applied": applied,
+            "errors": errors,
+            "requeued": requeued,
+            "commits": 1 if (applied or errors) else 0,
+            "dead_letter": dead_letter,
         },
-        [r.event_key for r in rows],
+        done_keys,
     )
+
+
+def prune_done_integration_outbox(
+    session: Session, *, cutoff: datetime, batch_size: int
+) -> int:
+    """Удаляет ``done``-строки старше cutoff (тот же ретеншен, что P0-5 outbox-done)."""
+    result = session.execute(
+        text(
+            """
+            DELETE FROM wsim_integration_outbox
+            WHERE id IN (
+                SELECT id FROM wsim_integration_outbox
+                WHERE status = 'done'
+                  AND completed_at IS NOT NULL
+                  AND completed_at < :cutoff
+                ORDER BY completed_at
+                LIMIT :lim
+            )
+            """
+        ),
+        {"cutoff": cutoff, "lim": batch_size},
+    )
+    return int(result.rowcount or 0)
 
 
 def _publish_after_apply(

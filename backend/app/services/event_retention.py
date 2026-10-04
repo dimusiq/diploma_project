@@ -31,6 +31,7 @@ _SIZE_TABLES = (
     "projection_consumer_processed",
     "twin_projection_entry",
     "wsim_event",
+    "wsim_integration_outbox",
 )
 
 
@@ -199,6 +200,8 @@ def run_event_retention(
         - timedelta(days=int(settings.EVENT_RETENTION_WSIM_EVENT_DAYS)),
         "event_outbox_done": now
         - timedelta(days=int(settings.EVENT_RETENTION_OUTBOX_DONE_DAYS)),
+        "wsim_integration_outbox_done": now
+        - timedelta(days=int(settings.EVENT_RETENTION_OUTBOX_DONE_DAYS)),
     }
 
     sizes_before = {t: relation_total_bytes(session, t) for t in _SIZE_TABLES}
@@ -208,6 +211,7 @@ def run_event_retention(
         "twin_projection_entry": 0,
         "domain_event": 0,
         "wsim_event": 0,
+        "wsim_integration_outbox_done": 0,
     }
 
     _run_batches(
@@ -251,6 +255,18 @@ def run_event_retention(
         name="wsim_event",
         fn=prune_wsim_events,
         cutoff=cutoffs["wsim_event"],
+        batch_size=batch_size,
+        max_batches=max_batches,
+        deleted=deleted,
+    )
+
+    from app.warehouse_sim.integration_outbox import prune_done_integration_outbox
+
+    _run_batches(
+        session,
+        name="wsim_integration_outbox_done",
+        fn=prune_done_integration_outbox,
+        cutoff=cutoffs["wsim_integration_outbox_done"],
         batch_size=batch_size,
         max_batches=max_batches,
         deleted=deleted,
