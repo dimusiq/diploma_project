@@ -1,3 +1,4 @@
+from typing import Any
 from app.warehouse_sim.layout import (
     AISLE_WIDTH,
     AISLE_Z,
@@ -21,12 +22,12 @@ from app.warehouse_sim.world import create_world
 AGV_START = {"x": WEST_CORRIDOR_X, "z": AISLE_Z[1]}
 
 
-def _cell_pos(cells: list[dict], cell_id: str) -> dict[str, float]:
+def _cell_pos(cells: list[dict[str, Any]], cell_id: str) -> dict[str, float]:
     cell = next(item for item in cells if item["id"] == cell_id)
     return dict(cell["pos"])
 
 
-def _grid(point: dict) -> tuple[int, int]:
+def _grid(point: dict[str, Any]) -> tuple[int, int]:
     return int(round(point["x"])), int(round(point["z"]))
 
 

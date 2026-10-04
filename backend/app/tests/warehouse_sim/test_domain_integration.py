@@ -1,4 +1,5 @@
-from sqlmodel import Session, select
+from typing import Any
+from sqlmodel import col, Session, select
 
 from app.models import InboundOrder, Item, OutboundOrder, WarehouseTask
 from app.warehouse_sim.integration import (
@@ -24,7 +25,7 @@ FAST_DEMO = {
 }
 
 
-def _sim_rows(rows: list, extra_attr: str = "extra"):
+def _sim_rows(rows: list[Any], extra_attr: str = "extra") -> list[Any]:
     out = []
     for row in rows:
         payload = getattr(row, extra_attr, None) or {}
@@ -41,7 +42,7 @@ def test_full_warehouse_workflow_writes_existing_domain(db: Session) -> None:
     apply_integration_queue(db, world)
 
     stock = list(
-        db.exec(select(Item).where(Item.barcode.like(f"{BARCODE_PREFIX}%"))).all()
+        db.exec(select(Item).where(col(Item.barcode).like(f"{BARCODE_PREFIX}%"))).all()
     )
     assert stock, "стартовые паллеты должны стать Item"
 
@@ -65,7 +66,7 @@ def test_full_warehouse_workflow_writes_existing_domain(db: Session) -> None:
 
     db.expire_all()
     items = list(
-        db.exec(select(Item).where(Item.barcode.like(f"{BARCODE_PREFIX}%"))).all()
+        db.exec(select(Item).where(col(Item.barcode).like(f"{BARCODE_PREFIX}%"))).all()
     )
     tasks = [
         t
@@ -92,7 +93,7 @@ def test_full_warehouse_workflow_writes_existing_domain(db: Session) -> None:
     reset_demo_domain(db)
     db.expire_all()
     leftover_items = list(
-        db.exec(select(Item).where(Item.barcode.like(f"{BARCODE_PREFIX}%"))).all()
+        db.exec(select(Item).where(col(Item.barcode).like(f"{BARCODE_PREFIX}%"))).all()
     )
     leftover_in = _sim_rows(list(db.exec(select(InboundOrder)).all()))
     leftover_out = _sim_rows(list(db.exec(select(OutboundOrder)).all()))

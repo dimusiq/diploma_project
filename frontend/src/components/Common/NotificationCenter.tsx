@@ -6,6 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { FaExclamationTriangle } from 'react-icons/fa';
 import {
   FiBell,
@@ -45,22 +46,40 @@ const SEVERITY_BADGE = {
 function NotificationItem({
   item,
   onMarkRead,
+  onOpen,
 }: {
   item: NotificationPublic;
   onMarkRead: (id: string) => void;
+  onOpen?: (item: NotificationPublic) => void;
 }) {
   const severity = (
     item.severity in SEVERITY_ICON ? item.severity : 'info'
   ) as keyof typeof SEVERITY_ICON;
   const Icon = SEVERITY_ICON[severity];
   const badgeClass = SEVERITY_BADGE[severity];
+  const openable =
+    item.entity_type === 'warehouse_task' && Boolean(item.entity_id);
 
   return (
     <div
       className={cn(
         'border-b border-border p-3 last:border-b-0',
         !item.is_read && 'bg-muted/50',
+        openable && 'cursor-pointer hover:bg-muted/70',
       )}
+      role={openable ? 'button' : undefined}
+      tabIndex={openable ? 0 : undefined}
+      onClick={() => {
+        if (!openable) return;
+        onOpen?.(item);
+      }}
+      onKeyDown={(e) => {
+        if (!openable) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen?.(item);
+        }
+      }}
     >
       <div className='flex items-start justify-between gap-2'>
         <div className='flex min-w-0 flex-1 gap-2'>
@@ -113,7 +132,10 @@ function NotificationItem({
               size='icon-xs'
               className='size-7'
               aria-label='Отметить прочитанным'
-              onClick={() => onMarkRead(item.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMarkRead(item.id);
+              }}
             >
               <FiCheck className='size-4' />
             </Button>
@@ -126,6 +148,7 @@ function NotificationItem({
 
 export function NotificationCenter() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   useNotificationSse();
 
   const { data: unreadData } = useQuery({
@@ -230,6 +253,23 @@ export function NotificationCenter() {
                   onMarkRead={(id) =>
                     markReadMutation.mutate(id)
                   }
+                  onOpen={(n) => {
+                    if (
+                      n.entity_type === 'warehouse_task' &&
+                      n.entity_id
+                    ) {
+                      if (!n.is_read) {
+                        markReadMutation.mutate(n.id);
+                      }
+                      void navigate({
+                        to: '/warehouse-tasks',
+                        search: {
+                          task: n.entity_id,
+                          mine: true,
+                        },
+                      });
+                    }
+                  }}
                 />
               ))}
             </div>

@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select.tsx"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import {
   fromSelectAll,
@@ -228,7 +229,7 @@ export function MaintenanceReglamentTemplatesManager() {
           <p className="mb-2 text-sm text-muted-foreground">
             Шаблоны ({templatesCount})
           </p>
-          {templatesLoading ? <p>Загрузка…</p> : null}
+          {templatesLoading ? <ListLoadingBlock rows={4} className="min-h-[160px]" /> : null}
           {!templatesLoading && templates.length === 0 ? (
             <p className="text-muted-foreground">Пока нет шаблонов.</p>
           ) : null}

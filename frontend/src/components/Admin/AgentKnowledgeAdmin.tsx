@@ -24,6 +24,7 @@ import {
 import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
 import { cn } from "@/lib/utils.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 
 const QK = ["agent-knowledge-chunks"] as const
 
@@ -159,7 +160,7 @@ export function AgentKnowledgeAdmin() {
       </div>
 
       {isPending ? (
-        <p className="text-sm">Загрузка…</p>
+        <ListLoadingBlock rows={5} className="min-h-[200px]" />
       ) : (
         <Table>
           <TableHeader>

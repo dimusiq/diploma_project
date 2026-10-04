@@ -7,12 +7,12 @@ interface Crumb {
 
 /** Известные пути первого уровня и полные пути без вложенной логики. */
 const PATH_LABELS: Record<string, string> = {
-  "/": "Control Tower",
+  "/": "Склад",
   "/dashboard": "Аналитика запасов",
   "/items": "Поступления",
   "/inbound-orders": "Входящие заказы",
   "/outbound-orders": "Исходящие заказы",
-  "/warehouse": "Склад",
+  "/warehouse": "Остатки на складе",
   "/warehouse-tasks": "Задания склада",
   "/digital-twin": "Digital Twin",
   "/warehouse-twin": "Аналитика двойника",
@@ -31,6 +31,7 @@ const PATH_LABELS: Record<string, string> = {
   "/admin": "Администрирование",
   "/control-tower": "Control Tower",
   "/events": "События",
+  "/fleet": "Оборудование",
 }
 
 /** Сегмент пути после `/technique/` → подпись (вложенные маршруты техники). */
@@ -85,13 +86,15 @@ function getPathLabel(acc: string): string {
 
 function pathToCrumbs(pathname: string): Crumb[] {
   const segments = pathname.split("/").filter(Boolean)
-  const crumbs: Crumb[] = [
-    { label: PATH_LABELS["/control-tower"] ?? "Control Tower", to: "/control-tower" },
-  ]
+  // Корень крошек — «Склад», Control Tower остаётся обычным разделом.
+  const crumbs: Crumb[] = [{ label: "Склад", to: "/warehouse" }]
   let acc = ""
   for (const seg of segments) {
     acc += `/${seg}`
-    if (acc === "/control-tower") continue
+    if (acc === "/warehouse") {
+      crumbs.push({ label: getPathLabel(acc), to: acc })
+      continue
+    }
     if (acc === "/technique") {
       crumbs.push({ label: "Техника" })
       continue

@@ -6,7 +6,7 @@ import json
 import math
 import uuid
 
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.models import (
     ChainAssignment,
@@ -83,7 +83,7 @@ def _get_interval_and_remind_for_equipment(
     first_step = session.exec(
         select(MaintenanceChainStep)
         .where(MaintenanceChainStep.chain_id == primary_chain.id)
-        .order_by(MaintenanceChainStep.position)
+        .order_by(col(MaintenanceChainStep.position))
         .limit(1)
     ).first()
     if first_step and first_step.interval_hours:
@@ -120,7 +120,7 @@ def build_maintenance_calendar_event_list(
     default_interval = default_intervals[0] if default_intervals else 500
 
     devices = list(
-        session.exec(select(SimDevice).where(SimDevice.archived.is_(False))).all()
+        session.exec(select(SimDevice).where(col(SimDevice.archived).is_(False))).all()
     )
 
     events: list[MaintenanceCalendarEventPublic] = []

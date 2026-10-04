@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.rng import event_occurs, rand_normal, rand_range
 from app.warehouse_sim.sim_common import emit
 
 
-def process_conveyors(world: dict, dt: float) -> None:
+def process_conveyors(world: dict[str, Any], dt: float) -> None:
     packing_count = len([o for o in world["outbound"] if o["status"] == "packing"])
     for device in world["devices"]:
         if device["kind"] != "conveyor":

@@ -1,6 +1,6 @@
 """Гранулярные права: проверка по коду права и шаблонам ролей (role_permission)."""
 
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.models import Permission, RolePermission, User
 
@@ -58,7 +58,7 @@ def get_user_permission_codes(session: Session, user: User) -> set[str]:
         return set()
     stmt = (
         select(Permission.code)
-        .join(RolePermission, RolePermission.permission_id == Permission.id)
+        .join(RolePermission, col(RolePermission.permission_id) == Permission.id)
         .where(RolePermission.role_id == user.role_id)
     )
     return set(session.exec(stmt))

@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Query
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import SessionDep, require_permission
 from app.core.permissions import PERM_AUDIT_READ
@@ -24,7 +24,7 @@ def read_domain_events(
     event_type: str | None = Query(None),
 ) -> Any:
     """Пагинированный список событий (те же права, что и журнал аудита)."""
-    stmt = select(DomainEvent).order_by(DomainEvent.occurred_at.desc())
+    stmt = select(DomainEvent).order_by(col(DomainEvent.occurred_at).desc())
     count_stmt = select(func.count()).select_from(DomainEvent)
     if aggregate_type:
         stmt = stmt.where(DomainEvent.aggregate_type == aggregate_type)

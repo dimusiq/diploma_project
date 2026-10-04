@@ -6,6 +6,11 @@ Create Date: 2026-10-04
 
 Пагинация/фильтры query_event_log опираются на ILIKE по message/event_type
 и JSONB @> по payload.deviceId — без индексов это seq scan.
+
+Прод: CREATE INDEX без CONCURRENTLY внутри транзакции Alembic блокирует
+запись в wsim_event на время build. CREATE EXTENSION pg_trgm требует прав
+суперпользователя/владельца — лучше выполнить заранее. Порядок применения
+и альтернатива CONCURRENTLY: development.md («Миграции» / cc9d0e1f2a3b).
 """
 
 from __future__ import annotations

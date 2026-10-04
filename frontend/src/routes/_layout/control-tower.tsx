@@ -10,6 +10,7 @@ import {
 } from "@/components/deviceServer/simFormat.ts"
 import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import { useSimData } from "@/components/deviceServer/useDeviceSimulation.ts"
+import { WarehouseKpiSection } from "@/components/Dashboard/WarehouseKpiSection.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import { getDeviceStatusLabel, getSimulationStatusLabel } from "@/lib/statusLabels.ts"
@@ -92,18 +93,41 @@ function ControlTowerPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" asChild>
-              <Link to="/digital-twin" search={{ tab: "map", view: "2d" }}>
-                Digital Twin
-              </Link>
+              <Link to="/events">События</Link>
             </Button>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/events">События</Link>
+              <Link to="/dashboard">Аналитика запасов</Link>
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <section className="mb-8">
+      <div className="mb-8">
+        <WarehouseKpiSection compact title="KPI склада (WMS)" />
+      </div>
+
+      {/* Мобиле: 3 значимых KPI симуляции; полный набор — с md */}
+      <div className="mb-8 grid grid-cols-2 gap-3 md:hidden [&>*]:min-w-0">
+        <StatCard
+          label="Задания"
+          value={kpi.activeTasks}
+          hint={`в очереди ${kpi.pendingTasks}`}
+          tone={kpi.pendingTasks > 12 ? "warning" : "default"}
+        />
+        <StatCard
+          label="Инциденты"
+          value={incidents}
+          hint={`отказы ${data.metrics.faults}`}
+          tone={incidents > 0 ? "danger" : "good"}
+        />
+        <StatCard
+          label="Заказы"
+          value={kpi.openOrders}
+          hint={`отгружено ${data.metrics.ordersShipped}`}
+        />
+      </div>
+
+      <section className="mb-8 hidden md:block">
         <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Склад
         </h2>
@@ -137,7 +161,7 @@ function ControlTowerPage() {
         </div>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 hidden md:block">
         <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Оборудование
         </h2>
@@ -163,7 +187,7 @@ function ControlTowerPage() {
         </div>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 hidden md:block">
         <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Операции
         </h2>
@@ -196,7 +220,7 @@ function ControlTowerPage() {
         </div>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 hidden md:block">
         <h2 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">
           Инциденты
         </h2>
@@ -249,9 +273,6 @@ function ControlTowerPage() {
         </Button>
         <Button variant="outline" size="sm" asChild>
           <Link to="/warehouse-simulation">Simulation Lab</Link>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <Link to="/dashboard">Аналитика запасов</Link>
         </Button>
         {typeof stats?.total_items === "number" ? (
           <span className="self-center text-xs text-muted-foreground">

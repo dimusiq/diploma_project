@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.audit import get_client_ip, log_audit
@@ -109,7 +109,7 @@ def list_work_orders(
     if priority is not None and priority not in WORK_ORDER_PRIORITIES:
         raise HTTPException(status_code=400, detail="Недопустимый приоритет")
 
-    statement = select(WorkOrder).order_by(WorkOrder.created_at.desc())
+    statement = select(WorkOrder).order_by(col(WorkOrder.created_at).desc())
     count_statement = select(func.count()).select_from(WorkOrder)
 
     if status:
@@ -168,23 +168,23 @@ def list_work_order_events(
     statement = (
         select(WorkOrder)
         .where(
-            WorkOrder.start_at.is_not(None),
-            WorkOrder.end_at.is_not(None),
-            WorkOrder.start_at < to_dt,
-            WorkOrder.end_at > from_dt,
+            col(WorkOrder.start_at).is_not(None),
+            col(WorkOrder.end_at).is_not(None),
+            col(WorkOrder.start_at) < to_dt,
+            col(WorkOrder.end_at) > from_dt,
             WorkOrder.status != "canceled",
         )
-        .order_by(WorkOrder.start_at.asc())
+        .order_by(col(WorkOrder.start_at).asc())
     )
 
     count_statement = (
         select(func.count())
         .select_from(WorkOrder)
         .where(
-            WorkOrder.start_at.is_not(None),
-            WorkOrder.end_at.is_not(None),
-            WorkOrder.start_at < to_dt,
-            WorkOrder.end_at > from_dt,
+            col(WorkOrder.start_at).is_not(None),
+            col(WorkOrder.end_at).is_not(None),
+            col(WorkOrder.start_at) < to_dt,
+            col(WorkOrder.end_at) > from_dt,
             WorkOrder.status != "canceled",
         )
     )
@@ -314,7 +314,7 @@ def create_work_order_from_maintenance_event(
         template = session.exec(
             select(MaintenanceReglamentTemplate).where(
                 MaintenanceReglamentTemplate.equipment_type == equipment_type,
-                MaintenanceReglamentTemplate.interval_hours.is_(None),
+                col(MaintenanceReglamentTemplate.interval_hours).is_(None),
             )
         ).first()
 
@@ -329,8 +329,8 @@ def create_work_order_from_maintenance_event(
             select(MaintenanceTemplateChecklistItem)
             .where(MaintenanceTemplateChecklistItem.template_id == template.id)
             .order_by(
-                MaintenanceTemplateChecklistItem.sort_order.asc(),
-                MaintenanceTemplateChecklistItem.id.asc(),
+                col(MaintenanceTemplateChecklistItem.sort_order).asc(),
+                col(MaintenanceTemplateChecklistItem.id).asc(),
             )
         ).all()
     )
@@ -390,7 +390,7 @@ def create_work_order_from_maintenance_event(
             {
                 s.id: s
                 for s in session.exec(
-                    select(SparePart).where(SparePart.id.in_(spare_ids))
+                    select(SparePart).where(col(SparePart.id).in_(spare_ids))
                 ).all()
             }
             if spare_ids
@@ -484,7 +484,7 @@ def get_work_order(
         session.exec(
             select(WorkOrderStatusHistory)
             .where(WorkOrderStatusHistory.work_order_id == id)
-            .order_by(WorkOrderStatusHistory.created_at.asc())
+            .order_by(col(WorkOrderStatusHistory.created_at).asc())
         ).all()
     )
     user_ids = {h.changed_by_id for h in history if h.changed_by_id}
@@ -496,9 +496,14 @@ def get_work_order(
             from_status=h.from_status,
             to_status=h.to_status,
             changed_by_id=h.changed_by_id,
-            changed_by_email=users.get(h.changed_by_id).email
-            if users.get(h.changed_by_id)
-            else None,
+            changed_by_email=(
+
+                    u.email
+                    if h.changed_by_id is not None
+                    and (u := users.get(h.changed_by_id)) is not None
+                    else None
+
+            ),
             comment=h.comment,
             created_at=h.created_at,
         )
@@ -509,7 +514,7 @@ def get_work_order(
         session.exec(
             select(WorkOrderComment)
             .where(WorkOrderComment.work_order_id == id)
-            .order_by(WorkOrderComment.created_at.asc())
+            .order_by(col(WorkOrderComment.created_at).asc())
         ).all()
     )
     comment_user_ids = {c.user_id for c in comments}
@@ -519,9 +524,13 @@ def get_work_order(
             id=c.id,
             work_order_id=c.work_order_id,
             user_id=c.user_id,
-            user_email=comment_users.get(c.user_id).email
-            if comment_users.get(c.user_id)
-            else None,
+            user_email=(
+
+                    cu.email
+                    if (cu := comment_users.get(c.user_id)) is not None
+                    else None
+
+            ),
             body=c.body,
             created_at=c.created_at,
         )
@@ -533,7 +542,8 @@ def get_work_order(
             select(WorkOrderChecklistItem)
             .where(WorkOrderChecklistItem.work_order_id == id)
             .order_by(
-                WorkOrderChecklistItem.sort_order.asc(), WorkOrderChecklistItem.id
+                col(WorkOrderChecklistItem.sort_order).asc(),
+                col(WorkOrderChecklistItem.id),
             )
         ).all()
     )
@@ -541,7 +551,7 @@ def get_work_order(
         session.exec(
             select(WorkOrderAttachment)
             .where(WorkOrderAttachment.work_order_id == id)
-            .order_by(WorkOrderAttachment.created_at.asc())
+            .order_by(col(WorkOrderAttachment.created_at).asc())
         ).all()
     )
 
@@ -549,7 +559,7 @@ def get_work_order(
         session.exec(
             select(WorkOrderPartReservation)
             .where(WorkOrderPartReservation.work_order_id == id)
-            .order_by(WorkOrderPartReservation.created_at.asc())
+            .order_by(col(WorkOrderPartReservation.created_at).asc())
         ).all()
     )
     spare_ids_res = {r.spare_part_id for r in part_reservations}
@@ -557,7 +567,7 @@ def get_work_order(
         {
             s.id: s
             for s in session.exec(
-                select(SparePart).where(SparePart.id.in_(spare_ids_res))
+                select(SparePart).where(col(SparePart.id).in_(spare_ids_res))
             ).all()
         }
         if spare_ids_res
@@ -568,12 +578,12 @@ def get_work_order(
             id=r.id,
             work_order_id=r.work_order_id,
             spare_part_id=r.spare_part_id,
-            spare_part_title=spares_res.get(r.spare_part_id).title
-            if spares_res.get(r.spare_part_id)
-            else None,
-            spare_part_sku=spares_res.get(r.spare_part_id).sku
-            if spares_res.get(r.spare_part_id)
-            else None,
+            spare_part_title=(
+                sp.title if (sp := spares_res.get(r.spare_part_id)) is not None else None
+            ),
+            spare_part_sku=(
+                sp.sku if (sp := spares_res.get(r.spare_part_id)) is not None else None
+            ),
             quantity=r.quantity,
             created_at=r.created_at,
         )
@@ -584,7 +594,7 @@ def get_work_order(
         session.exec(
             select(WorkOrderPartConsumption)
             .where(WorkOrderPartConsumption.work_order_id == id)
-            .order_by(WorkOrderPartConsumption.consumed_at.asc())
+            .order_by(col(WorkOrderPartConsumption.consumed_at).asc())
         ).all()
     )
     spare_ids_cons = {c.spare_part_id for c in part_consumptions}
@@ -592,7 +602,7 @@ def get_work_order(
         {
             s.id: s
             for s in session.exec(
-                select(SparePart).where(SparePart.id.in_(spare_ids_cons))
+                select(SparePart).where(col(SparePart.id).in_(spare_ids_cons))
             ).all()
         }
         if spare_ids_cons
@@ -603,12 +613,14 @@ def get_work_order(
             id=c.id,
             work_order_id=c.work_order_id,
             spare_part_id=c.spare_part_id,
-            spare_part_title=spares_cons.get(c.spare_part_id).title
-            if spares_cons.get(c.spare_part_id)
-            else None,
-            spare_part_sku=spares_cons.get(c.spare_part_id).sku
-            if spares_cons.get(c.spare_part_id)
-            else None,
+            spare_part_title=(
+                sp.title
+                if (sp := spares_cons.get(c.spare_part_id)) is not None
+                else None
+            ),
+            spare_part_sku=(
+                sp.sku if (sp := spares_cons.get(c.spare_part_id)) is not None else None
+            ),
             quantity=c.quantity,
             consumed_at=c.consumed_at,
         )
@@ -765,7 +777,8 @@ def get_checklist(
             select(WorkOrderChecklistItem)
             .where(WorkOrderChecklistItem.work_order_id == wo.id)
             .order_by(
-                WorkOrderChecklistItem.sort_order.asc(), WorkOrderChecklistItem.id
+                col(WorkOrderChecklistItem.sort_order).asc(),
+                col(WorkOrderChecklistItem.id),
             )
         ).all()
     )
@@ -906,7 +919,7 @@ def list_part_reservations(
         session.exec(
             select(WorkOrderPartReservation)
             .where(WorkOrderPartReservation.work_order_id == wo.id)
-            .order_by(WorkOrderPartReservation.created_at.asc())
+            .order_by(col(WorkOrderPartReservation.created_at).asc())
         ).all()
     )
     spare_ids = {r.spare_part_id for r in reservations}
@@ -914,7 +927,7 @@ def list_part_reservations(
         {
             s.id: s
             for s in session.exec(
-                select(SparePart).where(SparePart.id.in_(spare_ids))
+                select(SparePart).where(col(SparePart.id).in_(spare_ids))
             ).all()
         }
         if spare_ids
@@ -925,12 +938,12 @@ def list_part_reservations(
             id=r.id,
             work_order_id=r.work_order_id,
             spare_part_id=r.spare_part_id,
-            spare_part_title=spares.get(r.spare_part_id).title
-            if spares.get(r.spare_part_id)
-            else None,
-            spare_part_sku=spares.get(r.spare_part_id).sku
-            if spares.get(r.spare_part_id)
-            else None,
+            spare_part_title=(
+                sp.title if (sp := spares.get(r.spare_part_id)) is not None else None
+            ),
+            spare_part_sku=(
+                sp.sku if (sp := spares.get(r.spare_part_id)) is not None else None
+            ),
             quantity=r.quantity,
             created_at=r.created_at,
         )

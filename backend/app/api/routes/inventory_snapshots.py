@@ -2,7 +2,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Query
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import InventorySnapshot
@@ -26,7 +26,7 @@ def get_inventory_snapshots(
             InventorySnapshot.taken_at >= dt_from,
             InventorySnapshot.taken_at <= dt_to,
         )
-        .order_by(InventorySnapshot.taken_at)
+        .order_by(col(InventorySnapshot.taken_at))
     )
     results = session.exec(stmt).all()
 

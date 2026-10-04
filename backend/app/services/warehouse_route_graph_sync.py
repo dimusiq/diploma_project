@@ -7,7 +7,7 @@ import re
 from typing import Any
 from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.models import RouteEdge, RouteNode, Warehouse, WarehouseLayout
 from app.schemas.warehouse_layout_spec import parse_warehouse_layout_spec
@@ -22,7 +22,7 @@ def _resolve_warehouse_id(session: Session, layout: WarehouseLayout) -> UUID:
         return layout.warehouse_id
     wh = session.exec(select(Warehouse).where(Warehouse.code == "default")).first()
     if wh is None:
-        wh = session.exec(select(Warehouse).order_by(Warehouse.created_at)).first()
+        wh = session.exec(select(Warehouse).order_by(col(Warehouse.created_at))).first()
     if wh is None:
         raise ValueError("Не найден склад для привязки узлов маршрута")
     return wh.id

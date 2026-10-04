@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.core.config import settings
 from app.models import (
@@ -87,7 +87,7 @@ def test_activate_layout_sets_warehouse_active_pointer(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
     layout1 = db.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     wh = db.exec(select(Warehouse).where(Warehouse.code == "default")).first()
     assert layout1 is not None and wh is not None

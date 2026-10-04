@@ -11,6 +11,10 @@ EVENT_INVENTORY_SHIPPED = "inventory.shipped"
 EVENT_INVENTORY_COUNTED = "inventory.counted"
 EVENT_INVENTORY_ADJUSTED = "inventory.adjusted"
 
+# --- Inbound (операция приёмки; не в VERSIONED — гибкий payload) ---
+EVENT_INBOUND_RECEIVED = "inbound.received"
+EVENT_INBOUND_DISCREPANCY = "inbound.discrepancy"
+
 # --- Slots ---
 EVENT_SLOT_BLOCKED = "slot.blocked"
 EVENT_SLOT_UNBLOCKED = "slot.unblocked"

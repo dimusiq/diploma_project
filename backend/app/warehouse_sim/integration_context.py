@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.core.config import settings
 from app.core.storage_slot import format_storage_slot_key
@@ -44,7 +44,7 @@ class _DomainCtx:
     def __init__(
         self,
         session: Session,
-        world: dict,
+        world: dict[str, Any],
         warehouse_id: uuid.UUID,
         actor_id: uuid.UUID,
     ) -> None:
@@ -61,7 +61,7 @@ class _DomainCtx:
         self._slot_queries: int = 0
 
     @classmethod
-    def from_session(cls, session: Session, world: dict) -> _DomainCtx:
+    def from_session(cls, session: Session, world: dict[str, Any]) -> _DomainCtx:
         return cls(
             session,
             world,
@@ -84,12 +84,14 @@ class _DomainCtx:
                 Item.storage_cell_x,
                 Item.storage_cell_z,
             ).where(
-                Item.storage_row.is_not(None),
-                Item.storage_level.is_not(None),
-                Item.storage_cell_x.is_not(None),
-                Item.storage_cell_z.is_not(None),
+                col(Item.storage_row).is_not(None),
+                col(Item.storage_level).is_not(None),
+                col(Item.storage_cell_x).is_not(None),
+                col(Item.storage_cell_z).is_not(None),
             )
             for row, level, x, z in self.session.exec(stmt).all():
+                if row is None or level is None or x is None or z is None:
+                    continue
                 occupied.add((int(row), int(level), int(x), int(z)))
             self._occupied_slots = occupied
         return self._occupied_slots
@@ -102,7 +104,7 @@ class _DomainCtx:
             self._occupied_slots.discard(coords)
 
 
-def _ensure_item(ctx: _DomainCtx, c: dict, *, status: str) -> Item:
+def _ensure_item(ctx: _DomainCtx, c: dict[str, Any], *, status: str) -> Item:
     pallet = c.get("pallet") or {}
     sim_id = pallet.get("id")
     if not sim_id:
@@ -300,7 +302,7 @@ def _ensure_shipment(
     return row
 
 
-def _ensure_task(ctx: _DomainCtx, task: dict, c: dict) -> WarehouseTask:
+def _ensure_task(ctx: _DomainCtx, task: dict[str, Any], c: dict[str, Any]) -> WarehouseTask:
     sim_id = task["id"]
     existing = ctx.bridge["tasks"].get(sim_id)
     if existing:
@@ -347,7 +349,7 @@ def _outbound_rank(status: str) -> int:
     return _OUTBOUND_RANK.get(status, 0)
 
 
-def _inbound_lines(c: dict, inbound: dict) -> dict[str, Any]:
+def _inbound_lines(c: dict[str, Any], inbound: dict[str, Any]) -> dict[str, Any]:
     sku = c.get("sku") or {}
     return {
         "items": [
@@ -361,7 +363,7 @@ def _inbound_lines(c: dict, inbound: dict) -> dict[str, Any]:
     }
 
 
-def _outbound_lines(outbound: dict) -> dict[str, Any]:
+def _outbound_lines(outbound: dict[str, Any]) -> dict[str, Any]:
     return {
         "items": [
             {
@@ -392,7 +394,7 @@ def _emit_inventory(
     ctx: _DomainCtx,
     event_type: str,
     item: Item,
-    c: dict,
+    c: dict[str, Any],
     coords: tuple[int, int, int, int] | None = None,
 ) -> None:
     from app.warehouse_sim.integration_slots import _slot_from_context
@@ -449,7 +451,7 @@ def _ensure_warehouse(session: Session) -> uuid.UUID:
     if wh:
         _CACHED_WAREHOUSE_ID = wh.id
         return wh.id
-    wh = session.exec(select(Warehouse).order_by(Warehouse.created_at)).first()
+    wh = session.exec(select(Warehouse).order_by(col(Warehouse.created_at))).first()
     if wh:
         _CACHED_WAREHOUSE_ID = wh.id
         return wh.id
@@ -489,7 +491,7 @@ def clear_process_caches() -> None:
     _CACHED_ACTOR_ID = None
 
 
-def _location_from_context(c: dict) -> str | None:
+def _location_from_context(c: dict[str, Any]) -> str | None:
     # Lazy: integration_slots ↔ context (циклический импорт).
     from app.warehouse_sim.integration_slots import (
         _location_from_context as _location_impl,

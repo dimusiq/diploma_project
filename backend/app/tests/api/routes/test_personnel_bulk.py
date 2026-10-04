@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import uuid
 
 from fastapi.testclient import TestClient
@@ -23,7 +25,7 @@ PREFIX = f"{settings.API_V1_STR}/personnel"
 FLEET = f"{settings.API_V1_STR}/warehouse-sim/fleet"
 
 
-def _payload(code: str, **extra: object) -> dict:
+def _payload(code: str, **extra: Any) -> dict[str, Any]:
     body = {
         "employee_code": code,
         "first_name": "Мария",
@@ -37,11 +39,13 @@ def _payload(code: str, **extra: object) -> dict:
     return body
 
 
-def _create(client: TestClient, headers: dict[str, str], **extra: object) -> dict:
+def _create(client: TestClient, headers: dict[str, str], **extra: Any) -> dict[str, Any]:
     code = f"EMP-B{uuid.uuid4().hex[:6].upper()}"
     response = client.post(f"{PREFIX}/", headers=headers, json=_payload(code, **extra))
     assert response.status_code == 200, response.text
-    return response.json()
+    data = response.json()
+    assert isinstance(data, dict)
+    return data
 
 
 def test_bulk_department_move(
@@ -62,7 +66,9 @@ def test_bulk_department_move(
 
     db.expire_all()
     for row_id in (a["id"], b["id"], c["id"]):
-        assert db.get(WarehouseEmployee, uuid.UUID(row_id)).department == "Склад №2"
+        emp = db.get(WarehouseEmployee, uuid.UUID(row_id))
+        assert emp is not None
+        assert emp.department == "Склад №2"
 
     actions = list(
         db.exec(
@@ -165,7 +171,9 @@ def test_bulk_department_is_transactional_on_missing_id(
     )
     assert response.status_code == 404
     db.expire_all()
-    assert db.get(WarehouseEmployee, uuid.UUID(worker["id"])).department == "Склад №1"
+    emp = db.get(WarehouseEmployee, uuid.UUID(worker["id"]))
+    assert emp is not None
+    assert emp.department == "Склад №1"
 
 
 def test_bulk_missing_worker_error(

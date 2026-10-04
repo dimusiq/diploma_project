@@ -17,7 +17,7 @@ def get_client_ip(request: Any) -> str:
         "x-forwarded-for"
     )
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return str(forwarded).split(",")[0].strip()
     if getattr(request, "client", None) and request.client:
         return request.client.host or "unknown"
     return "unknown"
@@ -30,7 +30,7 @@ def log_audit(
     action: str,
     resource_type: str,
     resource_id: uuid.UUID | None = None,
-    details: dict | str | None = None,
+    details: dict[str, Any] | str | None = None,
     ip_address: str | None = None,
 ) -> AuditLog:
     """Записать запись в журнал аудита."""

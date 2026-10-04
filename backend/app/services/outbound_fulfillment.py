@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -101,7 +102,9 @@ def resolve_outbound_id(session: Session, token: str) -> uuid.UUID | None:
         if row is not None:
             return row.id
     row = session.exec(
-        select(OutboundOrder).where(OutboundOrder.extra.contains({"sim_id": text}))
+        select(OutboundOrder).where(
+            col(OutboundOrder.extra).contains({"sim_id": text})
+        )
     ).first()
     return row.id if row is not None else None
 
@@ -223,27 +226,31 @@ def related_order_events(
         select(SimEvent)
         .where(
             or_(
-                SimEvent.order_id == order.id,
-                *[SimEvent.payload.contains({"orderId": needle}) for needle in needles],
+                col(SimEvent.order_id) == order.id,
+                *[
+                    col(SimEvent.payload).contains({"orderId": needle})
+                    for needle in needles
+                ],
             )
         )
-        .order_by(SimEvent.seq.desc())
+        .order_by(col(SimEvent.seq).desc())
         .limit(40)
     ).all()
-    for event in sim_rows:
-        token = str(event.id)
+    for sim_event in sim_rows:
+        token = str(sim_event.id)
         if token in seen:
             continue
         seen.add(token)
-        payload = event.payload or {}
+        payload = sim_event.payload or {}
         rows.append(
             OutboundEventView(
                 id=token,
-                at=event.occurred_at,
-                event_type=event.event_type,
-                message=event.message,
-                severity=event.severity,
-                device_id=str(event.device_id or payload.get("deviceId") or "") or None,
+                at=sim_event.occurred_at,
+                event_type=sim_event.event_type,
+                message=sim_event.message,
+                severity=sim_event.severity,
+                device_id=str(sim_event.device_id or payload.get("deviceId") or "")
+                or None,
             )
         )
     rows.sort(key=lambda row: row.at)
@@ -251,11 +258,11 @@ def related_order_events(
 
 
 def picking_complete(order: OutboundOrder, tasks: list[WarehouseTask]) -> bool:
-    if order.status in {READY_STATUS, SHIPPED_STATUS, "closed"}:
+    if order.status in {READY_STATUS, SHIPPED_STATUS, "closed", "picking_complete"}:
         pick = [t for t in tasks if t.task_type == "pick"]
         if pick:
             return all(t.status in DONE_TASK_STATUSES for t in pick)
-        return True
+        return order.status in {READY_STATUS, SHIPPED_STATUS, "closed", "picking_complete"}
     pick = [t for t in tasks if t.task_type == "pick"]
     if not pick:
         return False
@@ -375,7 +382,7 @@ def related_items(
 def _timeline(
     order: OutboundOrder,
     tasks: list[WarehouseTask],
-    events: list[DomainEvent],
+    events: Sequence[DomainEvent],
 ) -> list[OutboundTimelineEvent]:
     rows: list[OutboundTimelineEvent] = [
         OutboundTimelineEvent(at=order.created_at, kind="created", label="Создан")
@@ -443,7 +450,7 @@ def to_detail(
     events = session.exec(
         select(DomainEvent)
         .where(DomainEvent.aggregate_id == order.id)
-        .order_by(DomainEvent.occurred_at.asc())
+        .order_by(col(DomainEvent.occurred_at).asc())
         .limit(40)
     ).all()
     return OutboundFulfillmentDetail(
@@ -513,9 +520,9 @@ def _apply_board_filters(
         q = f"%{customer.strip()}%"
         stmt = stmt.where(cast(OutboundOrder.extra, String).ilike(q))
     if transport == "assigned":
-        stmt = stmt.where(OutboundOrder.shipment_id.is_not(None))
+        stmt = stmt.where(col(OutboundOrder.shipment_id).is_not(None))
     elif transport == "unassigned":
-        stmt = stmt.where(OutboundOrder.shipment_id.is_(None))
+        stmt = stmt.where(col(OutboundOrder.shipment_id).is_(None))
     if ready_date and ready_date.strip():
         try:
             day = date.fromisoformat(ready_date.strip())
@@ -565,7 +572,7 @@ def list_board(
     count = session.exec(count_stmt).one()
     rows = list(
         session.exec(
-            stmt.order_by(OutboundOrder.updated_at.desc()).offset(skip).limit(limit)
+            stmt.order_by(col(OutboundOrder.updated_at).desc()).offset(skip).limit(limit)
         ).all()
     )
     shipment_ids = [row.shipment_id for row in rows if row.shipment_id]
@@ -608,6 +615,14 @@ def _ship_item(session: Session, item: Item, user: User) -> None:
         return
     if item.status not in {"shipment", "warehouse"}:
         return
+    from app.services.lot_fefo import expired_shipment_blockers
+
+    expiry_blockers = expired_shipment_blockers(session, [item])
+    if expiry_blockers:
+        raise HTTPException(
+            status_code=409,
+            detail="Отгрузка запрещена: " + "; ".join(expiry_blockers),
+        )
     old_status = item.status
     if item.storage_row is not None:
         session.add(
@@ -676,15 +691,33 @@ def ship_order(
         raise HTTPException(status_code=409, detail="Заказ уже отгружен")
     if order.status in TERMINAL_STATUSES:
         raise HTTPException(status_code=409, detail="Заказ нельзя отгрузить")
+    # Операционные pick (outbound_planning): проверяем факты подтверждения/упаковки.
+    from app.services.outbound_ops import shipment_blockers
+
+    blockers = shipment_blockers(order, tasks)
+    if blockers:
+        raise HTTPException(
+            status_code=409,
+            detail="Отгрузка запрещена (некомплект): " + "; ".join(blockers),
+        )
     if not picking_complete(order, tasks):
-        raise HTTPException(status_code=400, detail="Комплектация не завершена")
+        raise HTTPException(status_code=409, detail="Комплектация не завершена")
     if not packing_complete(order):
-        raise HTTPException(status_code=400, detail="Упаковка не завершена")
+        raise HTTPException(status_code=409, detail="Упаковка не завершена")
     if not is_ready_for_shipment(order, tasks):
-        raise HTTPException(status_code=400, detail="Заказ не готов к отгрузке")
+        raise HTTPException(status_code=409, detail="Заказ не готов к отгрузке")
 
     now = datetime.now(timezone.utc)
     items = related_items(session, order, tasks)
+    from app.services.lot_fefo import expired_shipment_blockers
+
+    expiry_blockers = expired_shipment_blockers(session, items)
+    if expiry_blockers:
+        raise HTTPException(
+            status_code=409,
+            detail="Отгрузка запрещена (просрочка): "
+            + "; ".join(expiry_blockers),
+        )
     item_ids: list[uuid.UUID] = []
     for item in items:
         _ship_item(session, item, user)
@@ -692,6 +725,11 @@ def ship_order(
 
     order.status = SHIPPED_STATUS
     order.updated_at = now
+    extra = dict(order.extra) if isinstance(order.extra, dict) else {}
+    fulfillment = dict(extra.get("fulfillment") or {})
+    fulfillment["shipped_at"] = now.isoformat()
+    extra["fulfillment"] = fulfillment
+    order.extra = extra
     session.add(order)
 
     shipment = session.get(Shipment, order.shipment_id) if order.shipment_id else None

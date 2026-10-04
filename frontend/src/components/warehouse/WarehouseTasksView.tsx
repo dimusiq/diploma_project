@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link as RouterLink } from "@tanstack/react-router"
 import { useCallback, useMemo, useState } from "react"
-import { FiColumns, FiList } from "react-icons/fi"
+import { FiCamera, FiColumns, FiList } from "react-icons/fi"
 import {
   fetchWarehouseTasks,
   patchWarehouseTask,
@@ -28,7 +28,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table.tsx"
+import { OperatorMyTasksList } from "@/components/warehouse/OperatorMyTasksList.tsx"
+import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import { useIsMobile } from "@/hooks/useMobile.ts"
 import {
   fromSelectAll,
   SELECT_ALL_VALUE,
@@ -90,18 +93,26 @@ const STATUS_OPTIONS = [
 export function WarehouseTasksView({
   showChrome = true,
   highlightTaskId = null,
+  mineMode = false,
 }: {
   showChrome?: boolean
   highlightTaskId?: string | null
+  /** Режим оператора «Мои задания» (также включается автоматически на мобиле). */
+  mineMode?: boolean
 }) {
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const qc = useQueryClient()
+  const me = useCurrentUser()
+  const isMobile = useIsMobile()
+  const operatorMode = mineMode || (showChrome && isMobile)
   const [statusFilter, setStatusFilter] = useState("")
   const [viewMode, setViewMode] = useState<"table" | "kanban">("table")
+  const [openScanTaskId, setOpenScanTaskId] = useState<string | null>(null)
 
   const kpiQ = useQuery({
     queryKey: ["warehouse-tasks", "kpi-strip"],
     queryFn: () => fetchWarehouseTasks({ limit: 200 }),
+    enabled: !operatorMode,
   })
 
   const kpiCounts = useMemo(() => {
@@ -123,7 +134,7 @@ export function WarehouseTasksView({
   }, [qc])
 
   const listQ = useQuery({
-    queryKey: ["warehouse-tasks", statusFilter],
+    queryKey: ["warehouse-tasks", statusFilter, operatorMode ? "op" : "all"],
     queryFn: () =>
       fetchWarehouseTasks({
         status: statusFilter || undefined,
@@ -131,9 +142,43 @@ export function WarehouseTasksView({
       }),
   })
 
+  const myOpenCount = useMemo(() => {
+    const rows = listQ.data?.data ?? []
+    return rows.filter(
+      (t) =>
+        t.assigned_user_id === me.id &&
+        !["completed", "cancelled", "canceled"].includes(t.status),
+    ).length
+  }, [listQ.data, me.id])
+
+  const myBlockedCount = useMemo(() => {
+    const rows = listQ.data?.data ?? []
+    return rows.filter(
+      (t) => t.assigned_user_id === me.id && t.status === "blocked",
+    ).length
+  }, [listQ.data, me.id])
+
+  const operatorTasks = useMemo(() => {
+    const rows = listQ.data?.data ?? []
+    // Мои + неназначенные (можно взять)
+    return rows.filter(
+      (t) =>
+        t.assigned_user_id === me.id ||
+        t.assigned_user_id == null ||
+        t.assigned_user_id === "",
+    )
+  }, [listQ.data, me.id])
+
   const patchMut = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      patchWarehouseTask(id, { status }),
+    mutationFn: ({
+      id,
+      status,
+      assigned_user_id,
+    }: {
+      id: string
+      status?: string
+      assigned_user_id?: string | null
+    }) => patchWarehouseTask(id, { status, assigned_user_id }),
     onSuccess: () => {
       showSuccessToast("Задание обновлено")
       void qc.invalidateQueries({ queryKey: ["warehouse-tasks"] })
@@ -149,12 +194,36 @@ export function WarehouseTasksView({
       {showChrome ? (
         <>
           <h1 className="font-heading mb-2 text-2xl font-semibold">
-            Складские задания
+            {operatorMode ? "Мои задания" : "Складские задания"}
           </h1>
-          <WarehouseHubNav />
-          <p className="mb-6 text-sm text-muted-foreground">
-            Назначение и смена статуса (нужны права warehouse.tasks.*).
+          {operatorMode ? null : <WarehouseHubNav />}
+          <p className="mb-4 text-sm text-muted-foreground md:mb-6">
+            {operatorMode
+              ? "Скан ячейки/товара → подтверждение. Инцидент — кнопка «Нет товара»."
+              : "Назначение и смена статуса (нужны права warehouse.tasks.*)."}
           </p>
+          {operatorMode ? (
+            <Button
+              className="mb-4 h-11 w-full text-base"
+              variant="outline"
+              onClick={() => {
+                const first = operatorTasks.find(
+                  (t) =>
+                    t.assigned_user_id === me.id &&
+                    t.task_type === "pick" &&
+                    !["completed", "cancelled", "canceled"].includes(t.status),
+                )
+                if (!first) {
+                  showErrorToast("Нет назначенного задания для скана")
+                  return
+                }
+                setOpenScanTaskId(first.id)
+              }}
+            >
+              <FiCamera className="mr-2 size-5" />
+              Отсканировать
+            </Button>
+          ) : null}
         </>
       ) : (
         <p className="mb-4 text-sm text-muted-foreground">
@@ -163,32 +232,77 @@ export function WarehouseTasksView({
         </p>
       )}
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6 [&>*]:min-w-0">
-        <StatCard label="Всего" value={kpiCounts.total} />
-        <StatCard
-          label={getTaskStatusLabel("pending")}
-          value={kpiCounts.pending}
-        />
-        <StatCard
-          label={getTaskStatusLabel("in_progress")}
-          value={kpiCounts.inProgress}
-        />
-        <StatCard
-          label={getTaskStatusLabel("completed")}
-          value={kpiCounts.completed}
-        />
-        <StatCard
-          label={getTaskStatusLabel("blocked")}
-          value={kpiCounts.blocked}
-          tone={kpiCounts.blocked > 0 ? "warning" : "default"}
-        />
-        <StatCard
-          label={getTaskStatusLabel("failed")}
-          value={kpiCounts.failed}
-          tone={kpiCounts.failed > 0 ? "danger" : "default"}
-        />
-      </div>
+      {/* Мобиле: 2 KPI; десктоп: полная полоса */}
+      {operatorMode ? (
+        <div className="mb-4 grid grid-cols-2 gap-3 md:hidden [&>*]:min-w-0">
+          <StatCard label="Моих задач" value={myOpenCount} />
+          <StatCard
+            label="Заблокировано"
+            value={myBlockedCount}
+            tone={myBlockedCount > 0 ? "warning" : "default"}
+          />
+        </div>
+      ) : (
+        <div className="mb-4 hidden grid-cols-2 gap-3 sm:grid-cols-3 md:grid xl:grid-cols-6 [&>*]:min-w-0">
+          <StatCard label="Всего" value={kpiCounts.total} />
+          <StatCard
+            label={getTaskStatusLabel("pending")}
+            value={kpiCounts.pending}
+          />
+          <StatCard
+            label={getTaskStatusLabel("in_progress")}
+            value={kpiCounts.inProgress}
+          />
+          <StatCard
+            label={getTaskStatusLabel("completed")}
+            value={kpiCounts.completed}
+          />
+          <StatCard
+            label={getTaskStatusLabel("blocked")}
+            value={kpiCounts.blocked}
+            tone={kpiCounts.blocked > 0 ? "warning" : "default"}
+          />
+          <StatCard
+            label={getTaskStatusLabel("failed")}
+            value={kpiCounts.failed}
+            tone={kpiCounts.failed > 0 ? "danger" : "default"}
+          />
+        </div>
+      )}
 
+      {operatorMode ? (
+        listQ.isPending ? (
+          <Skeleton className="h-[240px]" />
+        ) : listQ.isError ? (
+          <p className="text-destructive" role="alert">
+            {listQ.error instanceof ApiError
+              ? listQ.error.message
+              : "Не удалось загрузить задания"}
+          </p>
+        ) : (
+          <OperatorMyTasksList
+            tasks={operatorTasks}
+            highlightTaskId={highlightTaskId}
+            currentUserId={me.id}
+            claiming={patchMut.isPending}
+            openScanTaskId={openScanTaskId}
+            onOpenScanConsumed={() => setOpenScanTaskId(null)}
+            onClaim={(id) =>
+              patchMut.mutate({
+                id,
+                status: "in_progress",
+                assigned_user_id: me.id,
+              })
+            }
+            onRefresh={() => {
+              showSuccessToast("Задание обработано")
+              void handleRefresh()
+            }}
+          />
+        )
+      ) : null}
+
+      {!operatorMode ? (
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Select
           value={toSelectAll(statusFilter)}
@@ -223,16 +337,17 @@ export function WarehouseTasksView({
           </Button>
         </div>
       </div>
+      ) : null}
 
-      {listQ.isPending ? (
+      {!operatorMode && listQ.isPending ? (
         <Skeleton className="h-[240px]" />
-      ) : listQ.isError ? (
+      ) : !operatorMode && listQ.isError ? (
         <p className="text-destructive">
           {listQ.error instanceof ApiError
             ? listQ.error.message
             : "Не удалось загрузить задания"}
         </p>
-      ) : viewMode === "table" ? (
+      ) : !operatorMode && viewMode === "table" ? (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -306,14 +421,14 @@ export function WarehouseTasksView({
             </p>
           ) : null}
         </div>
-      ) : (
+      ) : !operatorMode ? (
         <KanbanBoard
           tasks={listQ.data?.data ?? []}
           highlightTaskId={highlightTaskId}
           onStatusChange={(id, status) => patchMut.mutate({ id, status })}
           isPending={patchMut.isPending}
         />
-      )}
+      ) : null}
     </>
   )
 

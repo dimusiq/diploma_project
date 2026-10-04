@@ -65,7 +65,8 @@ def _inventory_side_effects(
     item: Item,
     inv: dict[str, Any],
 ) -> None:
-    meta = inv.get("meta") if isinstance(inv.get("meta"), dict) else {}
+    _meta = inv.get("meta")
+    meta: dict[str, Any] = _meta if isinstance(_meta, dict) else {}
     slot_key = inv.get("slot_key")
     if event_type in (
         catalog.EVENT_INVENTORY_PUTAWAY_COMPLETED,
@@ -247,12 +248,14 @@ def handle_task_lifecycle(
     task = session.get(WarehouseTask, tid)
     if task is None and event_type == catalog.EVENT_TASK_CREATED:
         wid = t.get("warehouse_id")
-        meta = t.get("meta") if isinstance(t.get("meta"), dict) else {}
+        _meta = t.get("meta")
+        meta: dict[str, Any] = _meta if isinstance(_meta, dict) else {}
         if wid is None:
             wid = meta.get("warehouse_id")
         if wid is None:
             raise ValueError("task.created: нужен warehouse_id в payload или meta")
         tt = str(meta.get("task_type", "other"))[:32]
+        _task_payload = meta.get("task_payload")
         task = WarehouseTask(
             id=tid,
             warehouse_id=uuid.UUID(str(wid)),
@@ -262,9 +265,7 @@ def handle_task_lifecycle(
             assigned_user_id=_opt_uuid(meta.get("assigned_user_id")),
             handling_unit_id=_opt_uuid(meta.get("handling_unit_id")),
             storage_bin_id=_opt_uuid(meta.get("storage_bin_id")),
-            payload=meta.get("task_payload")
-            if isinstance(meta.get("task_payload"), dict)
-            else None,
+            payload=_task_payload if isinstance(_task_payload, dict) else None,
         )
         session.add(task)
         session.flush()

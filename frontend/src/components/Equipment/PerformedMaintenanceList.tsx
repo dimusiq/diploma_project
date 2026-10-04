@@ -6,7 +6,11 @@ import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { FaPlus } from "react-icons/fa"
 
-import { equipmentApi, type MaintenanceRecordCreate } from "@/api/equipment.ts"
+import {
+  equipmentApi,
+  type MaintenanceRecordCreate,
+  type MaintenanceRecordWithEquipmentPublic,
+} from "@/api/equipment.ts"
 import {
   apiChainToLegacyFormat,
   maintenanceScheduleApi,
@@ -21,7 +25,9 @@ import {
   DialogRoot,
   DialogTitle,
 } from "@/components/ui/app-dialog.tsx"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 import { Button } from "@/components/ui/button.tsx"
+import { asArray } from "@/lib/asArray.ts"
 import { Input } from "@/components/ui/input.tsx"
 import {
   Select,
@@ -270,12 +276,13 @@ export function PerformedMaintenanceList() {
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["equipment", "all-maintenance-records"],
     queryFn: () => equipmentApi.allMaintenanceRecords({ limit: 500 }),
+    placeholderData: (prev) => prev,
   })
 
-  const records = data?.data ?? []
+  const records = asArray<MaintenanceRecordWithEquipmentPublic>(data?.data)
   const count = data?.count ?? 0
 
   const refreshList = () => {
@@ -284,12 +291,18 @@ export function PerformedMaintenanceList() {
     })
   }
 
-  if (isLoading) {
-    return <p className="text-muted-foreground">Загрузка…</p>
+  if (isLoading && !data) {
+    return <ListLoadingBlock rows={6} className="min-h-[240px]" />
   }
 
   return (
     <div>
+      <p
+        className="mb-2 min-h-5 text-sm text-muted-foreground"
+        style={{ visibility: isFetching && !!data ? "visible" : "hidden" }}
+      >
+        Обновление…
+      </p>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <Button variant="outlineSky" size="sm" onClick={() => setCreateOpen(true)}>
           <span className="inline-flex items-center gap-2">

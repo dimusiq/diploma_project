@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Query
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import SessionDep, require_permission
 from app.core.permissions import PERM_AUDIT_READ
@@ -24,7 +24,7 @@ def read_audit_log(
     user_id: uuid.UUID | None = Query(None, description="Фильтр по пользователю"),
 ) -> Any:
     """Список записей аудита с пагинацией."""
-    stmt = select(AuditLog).order_by(AuditLog.created_at.desc())
+    stmt = select(AuditLog).order_by(col(AuditLog.created_at).desc())
     count_stmt = select(func.count()).select_from(AuditLog)
     if resource_type:
         stmt = stmt.where(AuditLog.resource_type == resource_type)
@@ -41,7 +41,7 @@ def read_audit_log(
     user_ids = {r.user_id for r in rows if r.user_id}
     users_map = {}
     if user_ids:
-        users = session.exec(select(User).where(User.id.in_(user_ids))).all()
+        users = session.exec(select(User).where(col(User.id).in_(user_ids))).all()
         users_map = {u.id: u.email for u in users}
     return AuditLogList(
         data=[

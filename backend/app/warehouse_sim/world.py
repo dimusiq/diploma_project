@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import uuid
 
 from app.warehouse_sim.layout import (
@@ -125,7 +127,7 @@ WORKER_NAMES = [
 ]
 WORKER_ROLE_CYCLE = ["receiver", "picker", "picker", "loader", "operator", "supervisor"]
 
-SENSOR_SPECS = [
+SENSOR_SPECS: list[dict[str, Any]] = [
     {
         "code": "T-01",
         "name": "Температура, хранение А",
@@ -210,7 +212,7 @@ def format_sscc(sequence: int) -> str:
     return f"00375{sequence:012d}"
 
 
-def empty_metrics() -> dict:
+def empty_metrics() -> dict[str, Any]:
     return {
         "trucksArrived": 0,
         "trucksDeparted": 0,
@@ -237,8 +239,10 @@ def empty_metrics() -> dict:
     }
 
 
-def create_device(did: str, kind: str, name: str, pos: dict, **overrides) -> dict:
-    device = {
+def create_device(
+    did: str, kind: str, name: str, pos: dict[str, Any], **overrides: Any
+) -> dict[str, Any]:
+    device: dict[str, Any] = {
         "id": did,
         "kind": kind,
         "name": name,
@@ -283,8 +287,8 @@ def create_device(did: str, kind: str, name: str, pos: dict, **overrides) -> dic
     return device
 
 
-def _create_devices(config: dict, topology: dict) -> list[dict]:
-    devices: list[dict] = []
+def _create_devices(config: dict[str, Any], topology: dict[str, Any]) -> list[dict[str, Any]]:
+    devices: list[dict[str, Any]] = []
     for i in range(1, int(config["forklifts"]) + 1):
         devices.append(
             create_device(
@@ -413,10 +417,10 @@ def _create_devices(config: dict, topology: dict) -> list[dict]:
 
 
 def create_world(
-    config_input: dict | None = None,
+    config_input: dict[str, Any] | None = None,
     *,
-    fleet: list[dict] | None = None,
-) -> dict:
+    fleet: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     config = {**DEFAULT_CONFIG, **(config_input or {})}
     topology = build_topology()
     cells = build_cells(topology["racks"])
@@ -438,7 +442,7 @@ def create_world(
     from app.warehouse_sim.pedestrians import seed_workers
 
     seed_workers(workers, topology["racks"])
-    world: dict = {
+    world: dict[str, Any] = {
         "config": config,
         "topology": topology,
         "timeSec": 0.0,
@@ -490,7 +494,7 @@ def create_world(
     return world
 
 
-def empty_bridge() -> dict:
+def empty_bridge() -> dict[str, Any]:
     return {
         "run_id": str(uuid.uuid4()),
         "items": {},
@@ -503,7 +507,7 @@ def empty_bridge() -> dict:
     }
 
 
-def _seed_inventory(world: dict) -> None:
+def _seed_inventory(world: dict[str, Any]) -> None:
     """Равномерно занимает ячейки всех стеллажей по initialFillRatio.
 
     Раньше при fill ≥ 0.5 шаг был 1, и паллеты укладывались подряд с начала

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import uuid
 
 from sqlmodel import Session, select
@@ -122,7 +124,7 @@ def _clear_item_slot(ctx: _DomainCtx, item: Item, *, location: str) -> None:
     ctx.session.flush()
 
 
-def _slot_from_context(c: dict) -> tuple[int, int, int, int] | None:
+def _slot_from_context(c: dict[str, Any]) -> tuple[int, int, int, int] | None:
     """
     Полный ключ физической ячейки → WMS (row, level, bay, z=1).
 
@@ -230,7 +232,7 @@ def _free_slot(
     return preferred
 
 
-def _location_from_context(c: dict) -> str | None:
+def _location_from_context(c: dict[str, Any]) -> str | None:
     cell = c.get("cell")
     if cell:
         return str(cell.get("id"))

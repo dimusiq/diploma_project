@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.permissions import PERM_WAREHOUSE_TELEMETRY_INGEST
@@ -72,7 +72,7 @@ def list_sensor_readings(
     count = session.exec(count_stmt).one()
     rows = list(
         session.exec(
-            stmt.order_by(SensorReading.read_at.desc()).offset(skip).limit(limit)
+            stmt.order_by(col(SensorReading.read_at).desc()).offset(skip).limit(limit)
         ).all()
     )
     return SensorReadingList(data=[_to_public(r) for r in rows], count=count)

@@ -1,10 +1,11 @@
+from typing import Any
 """CRUD for maintenance reglament templates (checklist + required spares)."""
 
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.permissions import (
@@ -51,8 +52,8 @@ def _get_template_detail(
             select(MaintenanceTemplateChecklistItem)
             .where(MaintenanceTemplateChecklistItem.template_id == template.id)
             .order_by(
-                MaintenanceTemplateChecklistItem.sort_order.asc(),
-                MaintenanceTemplateChecklistItem.id,
+                col(MaintenanceTemplateChecklistItem.sort_order).asc(),
+                col(MaintenanceTemplateChecklistItem.id),
             )
         ).all()
     )
@@ -69,7 +70,7 @@ def _get_template_detail(
         session.exec(
             select(MaintenanceTemplateSparePartRequirement)
             .where(MaintenanceTemplateSparePartRequirement.template_id == template.id)
-            .order_by(MaintenanceTemplateSparePartRequirement.id.asc())
+            .order_by(col(MaintenanceTemplateSparePartRequirement.id).asc())
         ).all()
     )
     spare_ids = {r.spare_part_id for r in req_rows}
@@ -77,26 +78,24 @@ def _get_template_detail(
         {
             s.id: s
             for s in session.exec(
-                select(SparePart).where(SparePart.id.in_(spare_ids))
+                select(SparePart).where(col(SparePart.id).in_(spare_ids))
             ).all()
         }
         if spare_ids
         else {}
     )
-    req_public = [
-        MaintenanceTemplateSparePartRequirementPublic(
-            id=r.id,
-            spare_part_id=r.spare_part_id,
-            spare_part_title=spares.get(r.spare_part_id).title
-            if spares.get(r.spare_part_id)
-            else None,
-            spare_part_sku=spares.get(r.spare_part_id).sku
-            if spares.get(r.spare_part_id)
-            else None,
-            quantity=r.quantity,
+    req_public = []
+    for r in req_rows:
+        sp = spares.get(r.spare_part_id)
+        req_public.append(
+            MaintenanceTemplateSparePartRequirementPublic(
+                id=r.id,
+                spare_part_id=r.spare_part_id,
+                spare_part_title=sp.title if sp else None,
+                spare_part_sku=sp.sku if sp else None,
+                quantity=r.quantity,
+            )
         )
-        for r in req_rows
-    ]
 
     return MaintenanceReglamentTemplateDetailPublic(
         id=template.id,
@@ -133,8 +132,8 @@ def list_templates(
     templates = list(
         session.exec(
             statement.order_by(
-                MaintenanceReglamentTemplate.equipment_type.asc(),
-                MaintenanceReglamentTemplate.interval_hours.asc(),
+                col(MaintenanceReglamentTemplate.equipment_type).asc(),
+                col(MaintenanceReglamentTemplate.interval_hours).asc(),
             )
         ).all()
     )
@@ -210,7 +209,7 @@ def create_template(
         {
             s.id: s
             for s in session.exec(
-                select(SparePart).where(SparePart.id.in_(spare_ids))
+                select(SparePart).where(col(SparePart.id).in_(spare_ids))
             ).all()
         }
         if spare_ids
@@ -280,8 +279,8 @@ def update_template(
             )
         ).all()
     )
-    for row in existing_requirements:
-        session.delete(row)
+    for req_row in existing_requirements:
+        session.delete(req_row)
 
     # Recreate.
     checklist_items: list[MaintenanceTemplateChecklistItem] = []
@@ -301,7 +300,7 @@ def update_template(
         {
             s.id: s
             for s in session.exec(
-                select(SparePart).where(SparePart.id.in_(spare_ids))
+                select(SparePart).where(col(SparePart.id).in_(spare_ids))
             ).all()
         }
         if spare_ids
@@ -336,7 +335,7 @@ def delete_template(
     session: SessionDep,
     current_user: CurrentUser,
     id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     if not can_edit_maintenance_schedule(session, current_user):
         raise HTTPException(
             status_code=403, detail="Недостаточно прав для редактирования"

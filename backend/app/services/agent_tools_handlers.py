@@ -42,6 +42,7 @@ from app.services.agent_tools_read import (
     handle_run_what_if_simulation,
     handle_search_items_in_warehouse,
     handle_search_sop_documents,
+    handle_suggest_putaway_slot,
 )
 
 HANDLERS: dict[str, Any] = {
@@ -58,6 +59,7 @@ HANDLERS: dict[str, Any] = {
     "get_recent_events": handle_get_recent_events,
     "search_sop_documents": handle_search_sop_documents,
     "get_layout_topology": handle_get_layout_topology,
+    "suggest_putaway_slot": handle_suggest_putaway_slot,
     "enqueue_integration_inbox": handle_enqueue_integration_inbox,
     "run_what_if_simulation": handle_run_what_if_simulation,
     "create_transfer_task": handle_create_transfer_task,
@@ -104,5 +106,6 @@ __all__ = [
     "handle_schedule_replenishment",
     "handle_search_items_in_warehouse",
     "handle_search_sop_documents",
+    "handle_suggest_putaway_slot",
     "handle_sync_external_system",
 ]

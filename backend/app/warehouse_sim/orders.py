@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.layout import (
     PACKING_POINT,
@@ -32,7 +34,7 @@ from app.warehouse_sim.sim_common import (
 from app.warehouse_sim.tasks import create_task
 
 
-def spawn_inbound_truck(world: dict) -> dict:
+def spawn_inbound_truck(world: dict[str, Any]) -> dict[str, Any]:
     world["counters"]["truck"] += 1
     world["counters"]["inbound"] += 1
     sku = rand_pick(world, world["skus"])
@@ -80,7 +82,7 @@ def spawn_inbound_truck(world: dict) -> dict:
     return truck
 
 
-def spawn_outbound_truck(world: dict, orders: list[dict]) -> None:
+def spawn_outbound_truck(world: dict[str, Any], orders: list[dict[str, Any]]) -> None:
     world["counters"]["truck"] += 1
     planned = sum(sum(line["pallets"] for line in order["lines"]) for order in orders)
     truck = {
@@ -113,7 +115,7 @@ def spawn_outbound_truck(world: dict, orders: list[dict]) -> None:
     )
 
 
-def spawn_outbound_order(world: dict, urgent: bool = False) -> dict:
+def spawn_outbound_order(world: dict[str, Any], urgent: bool = False) -> dict[str, Any]:
     world["counters"]["outbound"] += 1
     n_lines = rand_int(world, 1, 3)
     used: set[str] = set()
@@ -156,7 +158,7 @@ def spawn_outbound_order(world: dict, urgent: bool = False) -> dict:
     return order
 
 
-def _reposition_queued_trucks(world: dict) -> None:
+def _reposition_queued_trucks(world: dict[str, Any]) -> None:
     inbound_i = outbound_i = 0
     for truck in world["trucks"]:
         if truck["status"] != "queued":
@@ -175,7 +177,7 @@ def _reposition_queued_trucks(world: dict) -> None:
             outbound_i += 1
 
 
-def process_docks(world: dict, dt: float) -> None:
+def process_docks(world: dict[str, Any], dt: float) -> None:
     docks = world["topology"]["docks"]
     occupied = 0
     for dock in docks:
@@ -280,7 +282,7 @@ def process_docks(world: dict, dt: float) -> None:
                     },
                 )
 
-    departed: list[dict] = []
+    departed: list[dict[str, Any]] = []
     for truck in world["trucks"]:
         if (
             truck["status"] != "docked"
@@ -347,7 +349,7 @@ def process_docks(world: dict, dt: float) -> None:
     _reposition_queued_trucks(world)
 
 
-def _find_staged_pallet(world: dict, truck: dict) -> dict | None:
+def _find_staged_pallet(world: dict[str, Any], truck: dict[str, Any]) -> dict[str, Any] | None:
     reserved = {
         t["palletId"]
         for t in world["tasks"]
@@ -365,23 +367,23 @@ def _find_staged_pallet(world: dict, truck: dict) -> dict | None:
         if not pallet or pid in reserved:
             continue
         if pallet["locationKind"] == "zone" and pallet["locationId"] == ZONE_SHIPPING:
-            return pallet
+            return cast(dict[str, Any], pallet)
         if pallet["locationKind"] == "zone" and pallet["locationId"] == ZONE_PACKING:
             pallet["locationId"] = ZONE_SHIPPING
             pallet["pos"] = dict(SHIPPING_STAGING)
             pallet["state"] = "PACKED"
-            return pallet
+            return cast(dict[str, Any], pallet)
     return None
 
 
-def process_order_generation(world: dict, dt: float) -> None:
+def process_order_generation(world: dict[str, Any], dt: float) -> None:
     world["accumulators"]["order"] += world["config"]["ordersPerHour"] / 3600.0 * dt
     while world["accumulators"]["order"] >= 1:
         world["accumulators"]["order"] -= 1
         spawn_outbound_order(world, urgent=rand_chance(world, 0.12))
 
 
-def process_truck_arrivals(world: dict, dt: float) -> None:
+def process_truck_arrivals(world: dict[str, Any], dt: float) -> None:
     world["accumulators"]["truckArrival"] += (
         world["config"]["truckArrivalsPerHour"] / 3600.0 * dt
     )
@@ -390,7 +392,7 @@ def process_truck_arrivals(world: dict, dt: float) -> None:
         spawn_inbound_truck(world)
 
 
-def process_order_allocation(world: dict) -> None:
+def process_order_allocation(world: dict[str, Any]) -> None:
     reserved: set[str] = set()
     for task in world["tasks"]:
         if task.get("cellId") and task["status"] != "done":
@@ -459,7 +461,7 @@ def process_order_allocation(world: dict) -> None:
             order["status"] = "backorder"
 
 
-def process_packing(world: dict, dt: float) -> None:
+def process_packing(world: dict[str, Any], dt: float) -> None:
     jammed = any(
         d["kind"] == "conveyor" and d["status"] == "jam" for d in world["devices"]
     )
@@ -507,7 +509,7 @@ def process_packing(world: dict, dt: float) -> None:
         )
 
 
-def process_shipping(world: dict) -> None:
+def process_shipping(world: dict[str, Any]) -> None:
     staged = [o for o in world["outbound"] if o["status"] == "staged"]
     if not staged:
         return
@@ -522,7 +524,7 @@ def process_shipping(world: dict) -> None:
     spawn_outbound_truck(world, batch)
 
 
-def process_replenishment(world: dict, dt: float) -> None:
+def process_replenishment(world: dict[str, Any], dt: float) -> None:
     world["accumulators"]["replenish"] += dt
     if world["accumulators"]["replenish"] < REPLENISH_CHECK_SEC:
         return

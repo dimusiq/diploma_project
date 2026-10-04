@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import asyncio
 import threading
 import uuid
@@ -18,7 +20,7 @@ from app.realtime.sse_common import format_sse, iter_sse_from_queue, put_drop_ol
 @dataclass(slots=True)
 class _NotifSub:
     user_id: uuid.UUID
-    queue: asyncio.Queue[dict]
+    queue: asyncio.Queue[dict[str, Any]]
 
 
 _hub_loop: asyncio.AbstractEventLoop | None = None
@@ -41,15 +43,15 @@ def _rebuild() -> None:
     _snapshot = tuple(_subscribers)
 
 
-def _subscribe_queue(user_id: uuid.UUID) -> asyncio.Queue[dict]:
-    q: asyncio.Queue[dict] = asyncio.Queue(maxsize=16)
+def _subscribe_queue(user_id: uuid.UUID) -> asyncio.Queue[dict[str, Any]]:
+    q: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=16)
     with _sub_lock:
         _subscribers.append(_NotifSub(user_id=user_id, queue=q))
         _rebuild()
     return q
 
 
-def _unsubscribe_queue(user_id: uuid.UUID, q: asyncio.Queue[dict]) -> None:
+def _unsubscribe_queue(user_id: uuid.UUID, q: asyncio.Queue[dict[str, Any]]) -> None:
     with _sub_lock:
         _subscribers[:] = [
             s for s in _subscribers if not (s.user_id == user_id and s.queue is q)

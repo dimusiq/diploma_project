@@ -17,11 +17,14 @@ import {
   maintenanceScheduleApi,
 } from "@/api/maintenanceSchedule.ts"
 import {
+  type FleetDevice,
   fetchSimFleet,
   patchSimFleetDevice,
   SIM_FLEET_QUERY_KEY,
 } from "@/api/simFleet.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 import { Button } from "@/components/ui/button.tsx"
+import { asArray } from "@/lib/asArray.ts"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -137,14 +140,12 @@ const STATUS_LABELS: Record<ScheduleStatus, string> = {
   ok: getMaintenanceScheduleStatusLabel("ok"),
 }
 
-/** Классы для бейджа статуса в строке графика ТО */
+/** Классы для бейджа статуса в строке графика ТО (семантические токены) */
 const STATUS_BADGE_CLASS: Record<ScheduleStatus, string> = {
-  in_repair:
-    "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100",
-  overdue: "border-destructive/40 bg-destructive/10 text-destructive",
-  due_soon:
-    "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100",
-  ok: "border-green-300 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-950/30 dark:text-green-100",
+  in_repair: "border-warning/40 bg-warning/10 text-warning",
+  overdue: "border-error/40 bg-error/10 text-error",
+  due_soon: "border-warning/40 bg-warning/10 text-warning",
+  ok: "border-success/40 bg-success/10 text-success",
 }
 
 function chainTagClass(colorTag: string): string {
@@ -546,14 +547,15 @@ export function MaintenanceScheduleTable() {
     saveFilters({ statusFilter, typeFilter, chainFilter, sortByChain })
   }, [statusFilter, typeFilter, chainFilter, sortByChain])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: SIM_FLEET_QUERY_KEY,
     queryFn: () => fetchSimFleet(false),
+    placeholderData: (prev) => prev,
   })
 
   const kindOptions = useMemo(() => {
     const map = new Map<string, string>()
-    for (const device of data?.data ?? []) {
+    for (const device of asArray<FleetDevice>(data?.data)) {
       const row = toCanonicalEquipment(device, data?.zones ?? [])
       map.set(row.kind, row.kindLabel)
     }
@@ -738,12 +740,18 @@ export function MaintenanceScheduleTable() {
     }
   }
 
-  if (isLoading) {
-    return <p className="text-muted-foreground">Загрузка...</p>
+  if (isLoading && !data) {
+    return <ListLoadingBlock rows={8} className="min-h-[320px]" />
   }
 
   return (
     <div>
+      <p
+        className="mb-2 min-h-5 text-sm text-muted-foreground"
+        style={{ visibility: isFetching && !!data ? "visible" : "hidden" }}
+      >
+        Обновление…
+      </p>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Button
           size="sm"

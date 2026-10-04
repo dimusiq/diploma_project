@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { fetchSimEvents, type SimEventLogItem } from "@/api/deviceServer.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
+import { asArray } from "@/lib/asArray.ts"
 import { getEventTypeLabel } from "@/lib/statusLabels.ts"
 
 const SPEEDS = [1, 2, 5, 10]
@@ -18,7 +20,9 @@ export function EventReplay() {
     void fetchSimEvents({ limit: 400 })
       .then((page) => {
         if (cancelled) return
-        const ordered = [...page.data].sort((a, b) => a.at - b.at || a.id - b.id)
+        const ordered = [...asArray<SimEventLogItem>(page?.data)].sort(
+          (a, b) => a.at - b.at || a.id - b.id,
+        )
         setEvents(ordered)
         setIndex(0)
       })
@@ -115,7 +119,7 @@ export function EventReplay() {
           </div>
         </div>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Загрузка истории…</p>
+          <ListLoadingBlock rows={3} className="min-h-[120px]" label="Загрузка истории…" />
         ) : events.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Нет сохранённых событий для replay.

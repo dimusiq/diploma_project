@@ -6,11 +6,18 @@ import { useQuery } from "@tanstack/react-query"
 import { QRCodeSVG } from "qrcode.react"
 import { useState } from "react"
 import { auditApi } from "@/api/audit.ts"
-import type { EquipmentPublic } from "@/api/equipment.ts"
+import type {
+  EquipmentPublic,
+  MaintenanceRecordPublic,
+} from "@/api/equipment.ts"
 import { equipmentApi } from "@/api/equipment.ts"
+import type { AuditLogPublic } from "@/api/audit.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 import { EquipmentFormDialog } from "@/components/Equipment/EquipmentFormDialog.tsx"
 import { EquipmentRecordMaintenanceDialog } from "@/components/Equipment/EquipmentRecordMaintenanceDialog.tsx"
 import { Button } from "@/components/ui/button.tsx"
+import { Skeleton } from "@/components/ui/skeleton.tsx"
+import { asArray } from "@/lib/asArray.ts"
 import {
   Table,
   TableBody,
@@ -81,8 +88,10 @@ export function EquipmentCard({
 
   if (isLoading) {
     return (
-      <div>
-        <p className="text-sm text-muted-foreground">Загрузка...</p>
+      <div className="space-y-4" aria-busy="true" aria-live="polite">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-10 w-full max-w-md" />
+        <ListLoadingBlock rows={4} className="min-h-[160px]" />
       </div>
     )
   }
@@ -194,7 +203,7 @@ function MaintenanceTab({
     queryKey: ["equipment-maintenance-records", equipment.id],
     queryFn: () => equipmentApi.maintenanceRecords(equipment.id),
   })
-  const records = data?.data ?? []
+  const records = asArray<MaintenanceRecordPublic>(data?.data)
 
   return (
     <div>
@@ -203,7 +212,7 @@ function MaintenanceTab({
           Записать проведённое ТО
         </Button>
       </div>
-      {isLoading && <p className="text-sm text-muted-foreground">Загрузка…</p>}
+      {isLoading && <ListLoadingBlock rows={4} className="min-h-[160px]" />}
       {!isLoading && records.length === 0 && (
         <p className="text-sm text-muted-foreground">
           Проведённых ТО по этой единице техники пока нет.
@@ -299,10 +308,9 @@ function HistoryTab({ equipmentId }: { equipmentId: string }) {
       }),
   })
 
-  const rows = data?.data ?? []
+  const rows = asArray<AuditLogPublic>(data?.data)
 
-  if (isLoading)
-    return <p className="text-sm text-muted-foreground">Загрузка…</p>
+  if (isLoading) return <ListLoadingBlock rows={5} className="min-h-[200px]" />
   if (isError)
     return (
       <p className="text-sm text-muted-foreground">

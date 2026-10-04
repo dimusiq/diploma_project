@@ -18,6 +18,7 @@ import { MoveItemsDialog } from "@/components/Items/MoveItemsDialog.tsx"
 import { type SortField, SortHeader } from "@/components/Items/SortHeader.tsx"
 import PendingItems from "@/components/Pending/PendingItems.tsx"
 import { FetchingIndicator } from "@/components/Common/FetchingIndicator.tsx"
+import { asArray } from "@/lib/asArray.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
 import {
@@ -180,7 +181,7 @@ export function ItemDataTable({
     [sortBy, sortOrder, setSearchParams],
   )
 
-  const items = data?.data.slice(0, PER_PAGE) ?? []
+  const items = asArray<ItemPublic>(data?.data).slice(0, PER_PAGE)
   const count = data?.count ?? 0
   const [optimisticItems, addOptimisticRemove] = useOptimisticItems(items)
 
@@ -504,6 +505,8 @@ export function ItemDataTable({
                   currentOrder={sortOrder}
                   onSort={handleSort}
                 />
+                <TableHead className="w-28">Доступно</TableHead>
+                <TableHead className="w-28">Резерв</TableHead>
                 <SortHeader
                   field="sku"
                   label="Артикул"
@@ -561,9 +564,17 @@ export function ItemDataTable({
                       !item.description && "text-muted-foreground",
                     )}
                   >
-                    {item.description || "N/A"}
+                    {item.description || "—"}
                   </TableCell>
                   <TableCell>{item.quantity ?? 1}</TableCell>
+                  <TableCell>
+                    {item.available ??
+                      Math.max(
+                        0,
+                        (item.quantity ?? 0) - (item.reserved_quantity ?? 0),
+                      )}
+                  </TableCell>
+                  <TableCell>{item.reserved_quantity ?? 0}</TableCell>
                   <TableCell className="max-w-sm truncate">
                     {item.sku || "—"}
                   </TableCell>

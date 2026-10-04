@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import asyncio
 import threading
 import time
@@ -55,12 +57,12 @@ _hub_loop: asyncio.AbstractEventLoop | None = None
 _sub_lock = threading.Lock()
 
 _history_lock = threading.Lock()
-_history: deque[tuple[float, dict]] = deque(maxlen=_MAX_HISTORY_LEN)
+_history: deque[tuple[float, dict[str, Any]]] = deque(maxlen=_MAX_HISTORY_LEN)
 
 
 @dataclass
 class _TwinSubscriber:
-    queue: asyncio.Queue[dict]
+    queue: asyncio.Queue[dict[str, Any]]
     channels: frozenset[str]
 
 
@@ -76,7 +78,7 @@ _item_movement_timer: asyncio.TimerHandle | None = None
 _item_movement_ids: set[str] = set()
 _last_item_movement_reason: str = "mutation"
 
-_equipment_batch: dict[str, dict] = {}
+_equipment_batch: dict[str, dict[str, Any]] = {}
 _equipment_timer: asyncio.TimerHandle | None = None
 
 
@@ -93,7 +95,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _envelope(channel: str, event_type: str, payload: dict) -> dict:
+def _envelope(channel: str, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "v": 1,
         "channel": channel,
@@ -103,7 +105,7 @@ def _envelope(channel: str, event_type: str, payload: dict) -> dict:
     }
 
 
-def _record_history(msg: dict) -> None:
+def _record_history(msg: dict[str, Any]) -> None:
     with _history_lock:
         _history.append((time.monotonic(), msg))
 
@@ -112,12 +114,12 @@ def history_messages_for_replay(
     *,
     channels: frozenset[str],
     replay_seconds: int,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     cap = min(max(0, replay_seconds), _MAX_REPLAY_SECONDS_CAP)
     if cap == 0 or not channels:
         return []
     cutoff = time.monotonic() - cap
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     with _history_lock:
         for mono, msg in _history:
             if mono < cutoff:
@@ -142,21 +144,21 @@ def _rebuild_subs_snapshot() -> None:
     _subscribers_snapshot = tuple(_subscribers)
 
 
-def subscribe_twin(*, channels: frozenset[str]) -> asyncio.Queue[dict]:
-    q: asyncio.Queue[dict] = asyncio.Queue(maxsize=64)
+def subscribe_twin(*, channels: frozenset[str]) -> asyncio.Queue[dict[str, Any]]:
+    q: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=64)
     with _sub_lock:
         _subscribers.append(_TwinSubscriber(queue=q, channels=channels))
         _rebuild_subs_snapshot()
     return q
 
 
-def unsubscribe_twin(q: asyncio.Queue[dict]) -> None:
+def unsubscribe_twin(q: asyncio.Queue[dict[str, Any]]) -> None:
     with _sub_lock:
         _subscribers[:] = [s for s in _subscribers if s.queue is not q]
         _rebuild_subs_snapshot()
 
 
-def _broadcast(msg: dict) -> None:
+def _broadcast(msg: dict[str, Any]) -> None:
     _record_history(msg)
     ch = msg.get("channel")
     for s in _subscribers_snapshot:
@@ -165,11 +167,11 @@ def _broadcast(msg: dict) -> None:
         put_drop_oldest(s.queue, msg)
 
 
-def _broadcast_on_loop(msg: dict) -> None:
+def _broadcast_on_loop(msg: dict[str, Any]) -> None:
     _broadcast(msg)
 
 
-def _call_broadcast(msg: dict) -> None:
+def _call_broadcast(msg: dict[str, Any]) -> None:
     loop = _hub_loop
     if loop is None:
         return
@@ -190,7 +192,7 @@ def publish_task_update(
     *,
     task_id: uuid.UUID,
     event_type: str,
-    payload: dict | None = None,
+    payload: dict[str, Any] | None = None,
 ) -> None:
     pl = dict(payload or {})
     pl.setdefault("warehouse_task_id", str(task_id))
@@ -218,12 +220,12 @@ def publish_alert_event(
     )
 
 
-def publish_telemetry_fact(*, event_type: str, payload: dict) -> None:
+def publish_telemetry_fact(*, event_type: str, payload: dict[str, Any]) -> None:
     """Немедленная публикация факта телеметрии / внешней системы (канал telemetry)."""
     _call_broadcast(_envelope(CHANNEL_TELEMETRY, event_type, dict(payload)))
 
 
-def publish_external_vehicle_pose(*, payload: dict) -> None:
+def publish_external_vehicle_pose(*, payload: dict[str, Any]) -> None:
     """Позиция ТС без привязки к equipment.id (AGV по внешнему id) — канал equipment_positions."""
     _call_broadcast(
         _envelope(CHANNEL_EQUIPMENT_POSITIONS, "external_vehicle_pose", dict(payload))
@@ -329,7 +331,7 @@ def publish_item_movement(
             _item_movement_dirty = False
             ids = sorted(_item_movement_ids)[:80]
             _item_movement_ids.clear()
-            pl: dict = {"reason": _last_item_movement_reason}
+            pl: dict[str, Any] = {"reason": _last_item_movement_reason}
             if ids:
                 pl["item_ids"] = ids
             _broadcast(_envelope(CHANNEL_ITEM_MOVEMENT, "items_changed", pl))
@@ -345,7 +347,7 @@ def publish_item_movement(
 def publish_equipment_position_sample(
     *,
     equipment_id: uuid.UUID,
-    payload: dict,
+    payload: dict[str, Any],
 ) -> None:
     """Позиция техники: coalesce по equipment_id, один flush на окно."""
     loop = _hub_loop

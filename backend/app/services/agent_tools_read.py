@@ -36,6 +36,7 @@ from app.services.agent_tools_common import (
 from app.services.maintenance_calendar_query import (
     build_maintenance_calendar_event_list,
 )
+from app.services.putaway_strategy import suggest_putaway_slot
 from app.simulation.des_engine import SimulationConfig, run_discrete_event_simulation
 
 _EQUIPMENT_OPERATIONAL_STATUS_RU: dict[str, str] = {
@@ -128,7 +129,7 @@ def handle_find_item_by_sku(
     limit = max(1, min(limit, 50))
     stmt = _item_scope(session, user).where(col(Item.sku).is_not(None))
     if exact:
-        stmt = stmt.where(Item.sku == sku)
+        stmt = stmt.where(col(Item.sku) == sku)
     else:
         stmt = stmt.where(col(Item.sku).ilike(f"%{sku}%"))
     rows = list(session.exec(stmt.limit(limit)).all())
@@ -164,7 +165,7 @@ def handle_get_item_location(
             uid = uuid.UUID(item_id_s)
         except ValueError:
             return _json({"error": "Некорректный item_id"})
-        stmt = stmt.where(Item.id == uid)
+        stmt = stmt.where(col(Item.id) == uid)
     elif sku:
         stmt = stmt.where(col(Item.sku).ilike(f"%{sku}%"))
     else:
@@ -214,7 +215,7 @@ def handle_get_slot_state(
     occ_stmt = select(WarehouseSlotOccupancy)
     if not can_see_all_items(session, user):
         occ_stmt = occ_stmt.where(WarehouseSlotOccupancy.owner_id == user.id)
-    occ_stmt = occ_stmt.order_by(WarehouseSlotOccupancy.updated_at.desc()).limit(limit)
+    occ_stmt = occ_stmt.order_by(col(WarehouseSlotOccupancy.updated_at).desc()).limit(limit)
     rows = list(session.exec(occ_stmt).all())
     return _json(
         {
@@ -236,23 +237,23 @@ def handle_list_zone_congestion(
         limit_z = 20
     limit_z = max(1, min(limit_z, 50))
     layout = session.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     wh_id = layout.warehouse_id if layout else _default_warehouse_id(session)
     if not wh_id:
         return _json({"zones": [], "note": "Склад не найден"})
     stmt = (
-        select(WarehouseZone.name, func.count(Item.id))
+        select(WarehouseZone.name, func.count(col(Item.id)))
         .select_from(Item)
         .join(
             WarehouseRack,
             and_(
-                WarehouseRack.row_index == Item.storage_row,
-                WarehouseRack.warehouse_id == wh_id,
-                WarehouseRack.zone_id.is_not(None),
+                col(WarehouseRack.row_index) == Item.storage_row,
+                col(WarehouseRack.warehouse_id) == wh_id,
+                col(WarehouseRack.zone_id).is_not(None),
             ),
         )
-        .join(WarehouseZone, WarehouseZone.id == WarehouseRack.zone_id)
+        .join(WarehouseZone, col(WarehouseZone.id) == WarehouseRack.zone_id)
         .where(Item.status == "warehouse")
         .where(col(Item.storage_row).is_not(None))
     )
@@ -260,7 +261,7 @@ def handle_list_zone_congestion(
         stmt = stmt.where(Item.owner_id == user.id)
     stmt = (
         stmt.group_by(WarehouseZone.name)
-        .order_by(func.count(Item.id).desc())
+        .order_by(func.count(col(Item.id)).desc())
         .limit(limit_z)
     )
     rows = session.exec(stmt).all()
@@ -304,7 +305,7 @@ def handle_get_expiring_inventory(
     stmt = select(Item).where(*exp_filters)
     if not can_see_all_items(session, user):
         stmt = stmt.where(Item.owner_id == user.id)
-    stmt = stmt.order_by(Item.expires_at).limit(limit)
+    stmt = stmt.order_by(col(Item.expires_at)).limit(limit)
     rows = list(session.exec(stmt).all())
     return _json(
         {
@@ -345,7 +346,7 @@ def handle_get_open_tasks(
     stmt = select(WarehouseTask).where(open_statuses)
     if status_f:
         stmt = stmt.where(WarehouseTask.status == status_f)
-    stmt = stmt.order_by(WarehouseTask.updated_at.desc()).limit(limit)
+    stmt = stmt.order_by(col(WarehouseTask.updated_at).desc()).limit(limit)
     rows = list(session.exec(stmt).all())
     return _json(
         {
@@ -446,7 +447,7 @@ def handle_get_equipment_status(
     stmt = select(Equipment).where(base_where)
     if status_filter:
         stmt = stmt.where(Equipment.current_status == status_filter)
-    stmt = stmt.order_by(Equipment.current_status.asc(), Equipment.model.asc()).limit(
+    stmt = stmt.order_by(col(Equipment.current_status).asc(), col(Equipment.model).asc()).limit(
         limit
     )
     rows = list(session.exec(stmt).all())
@@ -494,7 +495,7 @@ def handle_get_recent_events(
     stmt = select(DomainEvent)
     if prefix:
         stmt = stmt.where(col(DomainEvent.event_type).like(f"{prefix}%"))
-    stmt = stmt.order_by(DomainEvent.occurred_at.desc()).limit(limit)
+    stmt = stmt.order_by(col(DomainEvent.occurred_at).desc()).limit(limit)
     rows = list(session.exec(stmt).all())
     return _json(
         {
@@ -548,11 +549,51 @@ def handle_search_sop_documents(
         }
     )
 
+def handle_suggest_putaway_slot(
+    session: Session, _user: User, args: dict[str, Any], _ctx: Any
+) -> str:
+    """Подбор ячейки размещения (ABC / дозаполнение) — только расчёт, без записи."""
+    wh_raw = args.get("warehouse_id")
+    try:
+        warehouse_id = (
+            uuid.UUID(str(wh_raw)) if wh_raw else _default_warehouse_id(session)
+        )
+    except ValueError:
+        return _json({"error": "Некорректный warehouse_id"})
+    if warehouse_id is None:
+        return _json({"error": "Склад не найден"})
+    sku = str(args.get("sku") or "").strip() or None
+    try:
+        quantity = max(1, int(args.get("quantity") or 1))
+    except (TypeError, ValueError):
+        quantity = 1
+    weight_kg = None
+    if args.get("weight_kg") is not None:
+        try:
+            weight_kg = float(args["weight_kg"])
+        except (TypeError, ValueError):
+            weight_kg = None
+    strategy = str(args.get("strategy") or "").strip() or None
+    abc_class = str(args.get("abc_class") or "").strip() or None
+    slot = suggest_putaway_slot(
+        session,
+        warehouse_id=warehouse_id,
+        sku=sku,
+        quantity=quantity,
+        weight_kg=weight_kg,
+        abc_class=abc_class,
+        strategy=strategy,
+    )
+    if slot is None:
+        return _json({"error": "Нет подходящей ячейки", "sku": sku})
+    return _json({"slot": slot, "sku": sku, "quantity": quantity})
+
+
 def handle_get_layout_topology(
     session: Session, _user: User, _args: dict[str, Any], _ctx: Any
 ) -> str:
     layout = session.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     if not layout:
         return _json({"error": "Нет активного layout"})

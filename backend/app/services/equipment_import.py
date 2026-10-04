@@ -9,10 +9,10 @@ from datetime import date, datetime
 from io import BytesIO
 from typing import Any
 
-from openpyxl import Workbook, load_workbook  # type: ignore[import-untyped]
-from openpyxl.styles import Alignment, Font  # type: ignore[import-untyped]
-from openpyxl.utils import get_column_letter  # type: ignore[import-untyped]
-from openpyxl.utils.datetime import from_excel  # type: ignore[import-untyped]
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment, Font
+from openpyxl.utils import get_column_letter
+from openpyxl.utils.datetime import from_excel
 from sqlmodel import Session, select
 
 from app.models import EQUIPMENT_TYPES, Brand, Equipment, EquipmentCreate
@@ -233,6 +233,8 @@ def _read_xlsx_rows(data: bytes) -> list[list[Any]]:
     wb = load_workbook(BytesIO(data), read_only=True, data_only=True)
     try:
         ws = wb.active
+        if ws is None:
+            return []
         return [list(row) for row in ws.iter_rows(values_only=True)]
     finally:
         wb.close()
@@ -403,6 +405,8 @@ def build_equipment_import_template_xlsx() -> bytes:
     """Пустой .xlsx: первый лист, одна строка — названия заполняемых полей."""
     wb = Workbook()
     ws = wb.active
+    if ws is None:
+        ws = wb.create_sheet("Техника")
     ws.title = "Техника"
     header_font = Font(bold=True)
     header_align = Alignment(

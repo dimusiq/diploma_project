@@ -63,6 +63,7 @@ const STATUS_OPTIONS = [
   { value: SELECT_ALL_VALUE, label: "Все статусы" },
   { value: "open", label: getInboundOrderStatusLabel("open") },
   { value: "in_progress", label: getInboundOrderStatusLabel("in_progress") },
+  { value: "receiving", label: getInboundOrderStatusLabel("receiving") },
   { value: "received", label: getInboundOrderStatusLabel("received") },
   { value: "closed", label: getInboundOrderStatusLabel("closed") },
   { value: "cancelled", label: getInboundOrderStatusLabel("cancelled") },
@@ -73,6 +74,8 @@ function statusBadge(status: string) {
     open: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
     in_progress:
       "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+    receiving:
+      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     received:
       "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
     closed: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
@@ -358,6 +361,9 @@ function InboundOrderForm({
               </SelectItem>
               <SelectItem value="in_progress">
                 {getInboundOrderStatusLabel("in_progress")}
+              </SelectItem>
+              <SelectItem value="receiving">
+                {getInboundOrderStatusLabel("receiving")}
               </SelectItem>
               <SelectItem value="received">
                 {getInboundOrderStatusLabel("received")}

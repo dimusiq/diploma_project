@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 import uuid
-from typing import Any
+from typing import cast, Any
 
 import pytest
 
@@ -277,7 +277,7 @@ def test_twin_sse_stream_replay_then_live() -> None:
         )
         live = (await anext(gen)).decode()
         assert "live" in live
-        await gen.aclose()
+        await cast(Any, gen).aclose()
         assert hub._subscribers_snapshot == ()
 
     asyncio.run(_run())

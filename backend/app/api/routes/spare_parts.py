@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import or_
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -41,34 +41,36 @@ def list_spare_parts(
         q = f"%{search.strip()}%"
         statement = statement.where(
             or_(
-                SparePart.title.ilike(q),
-                SparePart.sku.ilike(q),
-                SparePart.description.ilike(q),
+                col(SparePart.title).ilike(q),
+                col(SparePart.sku).ilike(q),
+                col(SparePart.description).ilike(q),
             )
         )
         count_statement = count_statement.where(
             or_(
-                SparePart.title.ilike(q),
-                SparePart.sku.ilike(q),
-                SparePart.description.ilike(q),
+                col(SparePart.title).ilike(q),
+                col(SparePart.sku).ilike(q),
+                col(SparePart.description).ilike(q),
             )
         )
     if below_min:
         statement = statement.where(
-            SparePart.min_quantity.isnot(None),
-            SparePart.quantity <= SparePart.min_quantity,
+            col(SparePart.min_quantity).is_not(None),
+            col(SparePart.quantity) <= col(SparePart.min_quantity),
         )
         count_statement = count_statement.where(
-            SparePart.min_quantity.isnot(None),
-            SparePart.quantity <= SparePart.min_quantity,
+            col(SparePart.min_quantity).is_not(None),
+            col(SparePart.quantity) <= col(SparePart.min_quantity),
         )
 
     _sort_by = (
         sort_by if sort_by in ("title", "sku", "quantity", "created_at") else "title"
     )
     _sort_order = sort_order if sort_order in ("asc", "desc") else "asc"
-    col = getattr(SparePart, _sort_by)
-    statement = statement.order_by(col.desc() if _sort_order == "desc" else col.asc())
+    sort_col = getattr(SparePart, _sort_by)
+    statement = statement.order_by(
+        sort_col.desc() if _sort_order == "desc" else sort_col.asc()
+    )
 
     count = session.exec(count_statement).one()
     statement = statement.offset(skip).limit(limit)

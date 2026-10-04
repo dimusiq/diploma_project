@@ -6,7 +6,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import SessionDep, get_current_active_superuser
 from app.models import (
@@ -51,7 +51,7 @@ def list_knowledge_chunks(
     rows = list(
         session.exec(
             select(AgentKnowledgeChunk)
-            .order_by(AgentKnowledgeChunk.created_at.desc())
+            .order_by(col(AgentKnowledgeChunk.created_at).desc())
             .offset(skip)
             .limit(limit)
         ).all()

@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import User, Warehouse
@@ -171,7 +171,7 @@ def list_warehouses_for_simulation_seed(
     session: SessionDep,
     _current_user: CurrentUser,
 ) -> list[WarehouseForSimulationSeed]:
-    rows = list(session.exec(select(Warehouse).order_by(Warehouse.code)).all())
+    rows = list(session.exec(select(Warehouse).order_by(col(Warehouse.code))).all())
     return [WarehouseForSimulationSeed(id=w.id, code=w.code, name=w.name) for w in rows]
 
 

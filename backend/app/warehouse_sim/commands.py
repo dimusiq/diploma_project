@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.failures import inject_fault, repair_device
 from app.warehouse_sim.movement import request_charge
@@ -10,7 +12,7 @@ from app.warehouse_sim.sim_common import _plan_path, emit, is_mobile_kind
 from app.warehouse_sim.tasks import abort_task
 
 
-def apply_command(world: dict, command: dict) -> None:
+def apply_command(world: dict[str, Any], command: dict[str, Any]) -> None:
     ctype = command.get("type")
     if ctype == "spawnInboundTruck":
         spawn_inbound_truck(world)
@@ -87,7 +89,7 @@ def apply_command(world: dict, command: dict) -> None:
         resume_all(world)
 
 
-def emergency_stop(world: dict) -> None:
+def emergency_stop(world: dict[str, Any]) -> None:
     for device in world["devices"]:
         if is_mobile_kind(device["kind"]):
             if device.get("taskId"):
@@ -111,7 +113,7 @@ def emergency_stop(world: dict) -> None:
     )
 
 
-def resume_all(world: dict) -> None:
+def resume_all(world: dict[str, Any]) -> None:
     for device in world["devices"]:
         if is_mobile_kind(device["kind"]):
             device["online"] = True
@@ -137,7 +139,7 @@ def resume_all(world: dict) -> None:
 
 
 def device_command(
-    world: dict, device_id: str, command: str, payload: dict | None = None
+    world: dict[str, Any], device_id: str, command: str, payload: dict[str, Any] | None = None
 ) -> None:
     device = world["deviceById"].get(device_id)
     if not device:

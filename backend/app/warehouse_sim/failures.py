@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.layout import ZONE_STORAGE
 from app.warehouse_sim.rng import event_occurs, rand_pick, rand_range
@@ -9,7 +11,7 @@ from app.warehouse_sim.sim_common import emit, is_mobile_kind
 from app.warehouse_sim.tasks import abort_task
 
 
-def inject_fault(world: dict, device: dict, cause: str) -> None:
+def inject_fault(world: dict[str, Any], device: dict[str, Any], cause: str) -> None:
     if device["status"] in ("fault", "offline"):
         return
     if device.get("taskId"):
@@ -27,7 +29,7 @@ def inject_fault(world: dict, device: dict, cause: str) -> None:
     )
 
 
-def repair_device(world: dict, device: dict, auto: bool) -> None:
+def repair_device(world: dict[str, Any], device: dict[str, Any], auto: bool) -> None:
     device["status"] = "idle" if is_mobile_kind(device["kind"]) else "running"
     device["repairTimer"] = 0.0
     device["online"] = True
@@ -40,7 +42,7 @@ def repair_device(world: dict, device: dict, auto: bool) -> None:
     )
 
 
-def process_faults(world: dict, dt: float) -> None:
+def process_faults(world: dict[str, Any], dt: float) -> None:
     for device in world["devices"]:
         if not device["online"] or device["status"] in (
             "fault",
@@ -69,7 +71,7 @@ def process_faults(world: dict, dt: float) -> None:
         inject_fault(world, device, rand_pick(world, causes))
 
 
-def process_congestion(world: dict, dt: float) -> None:
+def process_congestion(world: dict[str, Any], dt: float) -> None:
     world["accumulators"]["congestion"] += dt
     if world["accumulators"]["congestion"] < 15:
         return

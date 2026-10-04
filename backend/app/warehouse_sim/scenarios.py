@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.rng import rand_pick
 from app.warehouse_sim.simulation import (
@@ -74,7 +76,7 @@ SCENARIO_DEFS = [
 ]
 
 
-def apply_scenario(world: dict, code: str) -> dict:
+def apply_scenario(world: dict[str, Any], code: str) -> dict[str, Any]:
     spec = next((s for s in SCENARIO_DEFS if s["code"] == code), None)
     if spec is None:
         raise KeyError(code)

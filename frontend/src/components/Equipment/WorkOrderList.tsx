@@ -36,6 +36,7 @@ import {
   toSelectAll,
 } from "@/lib/selectAllValue.ts"
 import { getPriorityLabel, getWorkOrderStatusLabel } from "@/lib/statusLabels.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 
 export function WorkOrderList({
   selectedId = null,
@@ -147,7 +148,7 @@ export function WorkOrderList({
       )}
 
       {isLoading && !data ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <ListLoadingBlock rows={6} className="min-h-[240px]" />
       ) : orders.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Заявок пока нет. Нажмите «Создать заявку», чтобы добавить заявку на

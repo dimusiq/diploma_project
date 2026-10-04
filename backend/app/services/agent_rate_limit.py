@@ -60,9 +60,12 @@ def _get_redis_pool() -> redis.ConnectionPool:
     if _redis_pool is None:
         with _redis_pool_lock:
             if _redis_pool is None:
+                redis_url = settings.REDIS_URL
+                if not redis_url:
+                    raise RuntimeError("REDIS_URL is not configured")
                 _redis_pool = redis.ConnectionPool.from_url(
-                    settings.REDIS_URL,
-                    decode_responses=True,  # type: ignore[arg-type]
+                    redis_url,
+                    decode_responses=True,
                 )
     return _redis_pool
 

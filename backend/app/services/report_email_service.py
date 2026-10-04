@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.core.config import settings
 from app.models import (
@@ -136,7 +136,7 @@ def _weekly_summary_html(
         .select_from(WorkOrder)
         .where(
             WorkOrder.assigned_to_id == user.id,
-            WorkOrder.status.in_(["open", "in_progress", "waiting_parts"]),
+            col(WorkOrder.status).in_(["open", "in_progress", "waiting_parts"]),
         )
     ).one()
 
@@ -145,8 +145,8 @@ def _weekly_summary_html(
         .select_from(Notification)
         .where(
             Notification.user_id == user.id,
-            Notification.is_read.is_(False),
-            Notification.archived_at.is_(None),
+            col(Notification.is_read).is_(False),
+            col(Notification.archived_at).is_(None),
         )
     ).one()
 
@@ -265,7 +265,7 @@ def send_due_reports(session: "Session", now_utc: datetime) -> int:
 
     users = list(
         session.exec(
-            select(User).where(User.is_active.is_(True), User.deleted_at.is_(None))
+            select(User).where(col(User.is_active).is_(True), col(User.deleted_at).is_(None))
         ).all()
     )
 

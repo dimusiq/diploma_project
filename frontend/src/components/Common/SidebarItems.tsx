@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import {
   FiActivity,
   FiArrowDownRight,
+  FiBarChart2,
   FiBox,
   FiChevronDown,
   FiCpu,
@@ -68,7 +69,7 @@ const controlItems: Item[] = [
 ]
 
 const operationsItems: Item[] = [
-  { icon: FiArrowDownRight, title: "Приёмка", path: "/items" },
+  { icon: FiArrowDownRight, title: "Поступления", path: "/items" },
   {
     icon: FiBox,
     title: "Заказы",
@@ -83,7 +84,7 @@ const operationsItems: Item[] = [
     title: "Склад",
     path: null,
     children: [
-      { path: "/warehouse", title: "Остатки" },
+      { path: "/warehouse", title: "Остатки на складе" },
       { path: "/warehouse-tasks", title: "Задания" },
     ],
   },
@@ -103,6 +104,11 @@ const monitoringItems: Item[] = [
     icon: FiActivity,
     title: "События",
     path: "/events",
+  },
+  {
+    icon: FiBarChart2,
+    title: "Аналитика запасов",
+    path: "/dashboard",
   },
 ]
 
@@ -340,7 +346,7 @@ function SidebarItems({ onNavigate }: SidebarItemsProps) {
       </SidebarGroup>
       {adminItems.length > 0 ? (
         <SidebarGroup>
-          <SidebarGroupLabel>Admin</SidebarGroupLabel>
+          <SidebarGroupLabel>Админ</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>{adminItems.map(renderItem)}</SidebarMenu>
           </SidebarGroupContent>

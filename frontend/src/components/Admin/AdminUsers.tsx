@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table.tsx"
 import { useCurrentUser } from "@/contexts/CurrentUserContext.tsx"
 import { cn } from "@/lib/utils.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 
 const PER_PAGE = 5
 const USER_AUDIT_PAGE_SIZE = 50
@@ -92,7 +93,7 @@ function UserAuditBlock({
   })
   const rows = data?.data ?? []
   if (isLoading)
-    return <p className="text-sm text-muted-foreground">Загрузка…</p>
+    return <ListLoadingBlock rows={6} className="min-h-[240px]" />
   if (isError)
     return (
       <p className="text-sm text-destructive">Не удалось загрузить записи.</p>
@@ -275,7 +276,7 @@ export function AdminUsers({
                 <TableCell
                   className={cn(!user.full_name && "text-muted-foreground")}
                 >
-                  {user.full_name || "N/A"}
+                  {user.full_name || "—"}
                   {!deleted && currentUser.id === user.id && (
                     <span className="ml-1 inline-flex rounded-md border border-cyan-500/40 bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-800 dark:text-cyan-300">
                       You

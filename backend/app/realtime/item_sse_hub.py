@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import asyncio
 from collections.abc import AsyncIterator
 
@@ -16,16 +18,16 @@ from app.realtime.sse_common import (
     put_drop_oldest,
 )
 
-_hub: SseSubscriberHub[asyncio.Queue[dict]] = SseSubscriberHub(queue_maxsize=32)
+_hub: SseSubscriberHub[asyncio.Queue[dict[str, Any]]] = SseSubscriberHub(queue_maxsize=32)
 
 
-def subscribe_items_queue() -> asyncio.Queue[dict]:
+def subscribe_items_queue() -> asyncio.Queue[dict[str, Any]]:
     q = _hub.new_queue()
     _hub.add(q)
     return q
 
 
-def unsubscribe_items_queue(q: asyncio.Queue[dict]) -> None:
+def unsubscribe_items_queue(q: asyncio.Queue[dict[str, Any]]) -> None:
     _hub.remove_if(lambda sub: sub is q)
 
 

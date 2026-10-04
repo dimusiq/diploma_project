@@ -42,7 +42,7 @@ def global_search(
     eq_stmt = (
         select(SimDevice)
         .where(
-            SimDevice.archived.is_(False),
+            col(SimDevice.archived).is_(False),
             or_(
                 col(SimDevice.name).ilike(pattern),
                 col(SimDevice.code).ilike(pattern),

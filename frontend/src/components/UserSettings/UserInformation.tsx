@@ -169,7 +169,7 @@ const UserInformation = () => {
                 !currentUser.full_name ? "text-muted-foreground" : ""
               }`}
             >
-              {currentUser.full_name || "N/A"}
+              {currentUser.full_name || "—"}
             </p>
           )}
         </div>

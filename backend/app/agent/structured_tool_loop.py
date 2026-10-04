@@ -21,7 +21,7 @@ from app.agent.llm_adapter import (
     llm_inference_configured,
     tool_calls_from_message,
 )
-from app.agent.policy import redact_pii
+from app.agent.policy import redact_audit
 from app.agent.reasoning_runtime import StructuredReasoningRun
 from app.agent.structured_final import _resolve_final_text
 from app.agent.tool_force_router import must_use_tool
@@ -57,7 +57,7 @@ async def _run_structured_tool_phases(
     session: Session,
     user: User,
     messages: list[dict[str, Any]],
-    tools: list,
+    tools: list[Any],
     max_rounds: int,
     user_message: str,
     loop_kind: LlmTaskKind,
@@ -86,7 +86,7 @@ async def _run_structured_tool_phases(
             and must_use_tool(user_message)
             and bool(getattr(settings, "AGENT_TOOL_CHOICE_REQUIRED_ENABLED", False))
         )
-        tc = "required" if use_required else "auto"
+        tool_choice = "required" if use_required else "auto"
 
         payload: dict[str, Any] = {
             "model": main_model,
@@ -95,7 +95,7 @@ async def _run_structured_tool_phases(
         }
         if tools:
             payload["tools"] = tools
-            payload["tool_choice"] = tc
+            payload["tool_choice"] = tool_choice
 
         r = await client.post(url, json=payload)
         if r.status_code == 400 and use_required and tools:
@@ -107,7 +107,7 @@ async def _run_structured_tool_phases(
                 "messages": messages,
                 **{k: v for k, v in sampling.items() if k != "repetition_penalty"},
                 "tools": tools,
-                "tool_choice": payload.get("tool_choice", tc),
+                "tool_choice": payload.get("tool_choice", tool_choice),
             }
             r = await client.post(url, json=payload_light)
         if r.status_code == 400 and tools:
@@ -214,8 +214,8 @@ async def _run_structured_tool_phases(
                     reasoning.tool_calls.append(
                         {
                             "name": name,
-                            "args_preview": redact_pii(raw_s)[:400],
-                            "result_preview": redact_pii(result)[:500],
+                            "args_preview": redact_audit(raw_s)[:400],
+                            "result_preview": redact_audit(result)[:500],
                         }
                     )
                 tid = str(tc.get("id") or "call_0")

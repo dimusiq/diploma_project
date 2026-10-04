@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 from sqlmodel import Session
 
@@ -34,4 +34,4 @@ def run_agent_tool(
         return json.dumps(
             {"error": f"Неизвестный инструмент: {name}"}, ensure_ascii=False
         )
-    return fn(session, user, arguments, ctx)
+    return cast(str, fn(session, user, arguments, ctx))

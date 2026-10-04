@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import concurrent.futures
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.agent.contracts import AgentToolContext
-from app.core.db import engine
 from app.models import (
     LAYOUT_LIFECYCLE_PUBLISHED,
     WORK_ORDER_PRIORITIES,
@@ -27,7 +25,7 @@ from app.models import (
     WarehouseTask,
     WorkOrder,
 )
-from app.services.agent_knowledge_embed import embed_all_chunks
+from app.services.agent_knowledge_embed import embed_all_chunks_sync
 from app.services.agent_tools_common import _act_gate, _default_warehouse_id, _json
 from app.services.notification_service import create_notification
 from app.services.warehouse_slot_projection import refresh_warehouse_slot_projection
@@ -41,7 +39,7 @@ def handle_create_transfer_task(
         prio = int(args.get("priority") or 0)
     except (TypeError, ValueError):
         prio = 0
-    payload = {
+    payload: dict[str, Any] = {
         "task_type": str(args.get("task_type") or "move"),
         "note": str(args.get("note") or ""),
         "priority": prio,
@@ -56,7 +54,7 @@ def handle_create_transfer_task(
         return _json({"error": "Нет склада для создания задания"})
     task = WarehouseTask(
         warehouse_id=wh_id,
-        task_type=payload["task_type"][:32],
+        task_type=str(payload["task_type"])[:32],
         status="pending",
         priority=prio,
         payload={
@@ -102,7 +100,7 @@ def handle_reserve_slot(
 
     sbin = session.exec(
         select(StorageBin).where(
-            StorageBin.slot_key == slot_key, StorageBin.is_active.is_(True)
+            StorageBin.slot_key == slot_key, col(StorageBin.is_active).is_(True)
         )
     ).first()
     if not sbin:
@@ -395,7 +393,7 @@ def handle_publish_layout_version(
 
     previously_active = session.exec(
         select(WarehouseLayout).where(
-            WarehouseLayout.is_active.is_(True),
+            col(WarehouseLayout.is_active).is_(True),
             WarehouseLayout.id != layout.id,
         )
     ).all()
@@ -454,22 +452,14 @@ def handle_reindex_knowledge(
     if gated:
         return gated
 
-    # Нельзя asyncio.run() в потоке с активным event loop (оркестратор агента).
-    # Отдельный поток + своя Session: embed_all_chunks остаётся async (httpx).
-    def _embed_job() -> tuple[int, int]:
-        import asyncio
-
-        with Session(engine) as embed_session:
-            ok, fail = asyncio.run(embed_all_chunks(embed_session))
-            embed_session.commit()
-            return ok, fail
-
+    # Синхронный HTTP-путь: оркестратор уже вызывает handler через to_thread,
+    # asyncio.run здесь запрещён (блокирует поток до 600 с / ломает вложенный loop).
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            ok, fail = pool.submit(_embed_job).result(timeout=600)
+        ok, fail = embed_all_chunks_sync(session)
+        session.commit()
     except Exception as exc:
+        session.rollback()
         return _json({"error": f"Ошибка переиндексации: {exc}"})
-    # Request-session не меняли — commit не нужен; оставляем expire на всякий случай.
     session.expire_all()
     return _json(
         {

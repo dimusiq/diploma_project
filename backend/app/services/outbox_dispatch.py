@@ -36,7 +36,7 @@ def try_claim_processed(
         .on_conflict_do_nothing(
             index_elements=["consumer_name", "domain_event_id"],
         )
-        .returning(ProjectionConsumerProcessed.domain_event_id)
+        .returning(col(ProjectionConsumerProcessed.domain_event_id))
     )
     res = session.execute(stmt)
     # psycopg often reports rowcount -1 for INSERT … ON CONFLICT; use RETURNING.
@@ -87,8 +87,8 @@ def process_outbox_batch(
     """
     stmt = (
         select(EventOutbox)
-        .where(EventOutbox.completed_at.is_(None))
-        .order_by(EventOutbox.created_at)
+        .where(col(EventOutbox.completed_at).is_(None))
+        .order_by(col(EventOutbox.created_at))
         .limit(limit)
         .with_for_update(skip_locked=True)
     )
@@ -121,7 +121,7 @@ def enqueue_replay_all_domain_events(session: Session) -> int:
     """
     session.execute(delete(EventOutbox))
     events = list(
-        session.exec(select(DomainEvent).order_by(DomainEvent.event_seq)).all()
+        session.exec(select(DomainEvent).order_by(col(DomainEvent.event_seq))).all()
     )
     for ev in events:
         session.add(

@@ -4,6 +4,11 @@ import { WarehouseTasksView } from "@/components/warehouse/WarehouseTasksView.ts
 
 const warehouseTasksSearchSchema = z.object({
   task: z.string().uuid().optional().catch(undefined),
+  mine: z
+    .union([z.boolean(), z.literal("1"), z.literal("true"), z.literal("0")])
+    .optional()
+    .catch(undefined)
+    .transform((v) => v === true || v === "1" || v === "true"),
 })
 
 export const Route = createFileRoute("/_layout/warehouse-tasks")({
@@ -12,6 +17,11 @@ export const Route = createFileRoute("/_layout/warehouse-tasks")({
 })
 
 function WarehouseTasksPage() {
-  const { task } = Route.useSearch()
-  return <WarehouseTasksView highlightTaskId={task ?? null} />
+  const { task, mine } = Route.useSearch()
+  return (
+    <WarehouseTasksView
+      highlightTaskId={task ?? null}
+      mineMode={Boolean(mine)}
+    />
+  )
 }

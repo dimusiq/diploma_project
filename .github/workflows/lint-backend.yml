@@ -3,11 +3,18 @@ name: Lint Backend
 on:
   push:
     branches:
+      - main
       - master
+    paths:
+      - "backend/**"
+      - ".github/workflows/lint-backend.yml"
   pull_request:
     types:
       - opened
       - synchronize
+    paths:
+      - "backend/**"
+      - ".github/workflows/lint-backend.yml"
 
 jobs:
   lint-backend:
@@ -24,7 +31,7 @@ jobs:
         with:
           version: "0.4.15"
           enable-cache: true
-      # mypy + ruff check + ruff format --check; падение любого шага валит job
+      # Ровно scripts/lint.sh: mypy → ruff check → ruff format --check (set -e).
       - name: Lint (mypy + ruff)
         run: uv run bash scripts/lint.sh
         working-directory: backend

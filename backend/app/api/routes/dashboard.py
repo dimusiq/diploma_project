@@ -2,13 +2,15 @@ from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Query
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import cast
 from sqlalchemy.types import Date
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.permissions import can_see_all_items
 from app.models import Item, ItemHistory, User
+from app.services.warehouse_kpi import compute_warehouse_kpis, warehouse_kpi_csv
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -34,11 +36,11 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
     # Items by status (with permission)
     if can_see_all_items(session, current_user):
         status_results = session.exec(
-            select(Item.status, func.count(Item.id)).group_by(Item.status)
+            select(Item.status, func.count(col(Item.id))).group_by(Item.status)
         ).all()
     else:
         status_results = session.exec(
-            select(Item.status, func.count(Item.id))
+            select(Item.status, func.count(col(Item.id)))
             .where(Item.owner_id == current_user.id)
             .group_by(Item.status)
         ).all()
@@ -53,10 +55,10 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
     top_owners: list[dict[str, Any]] = []
     if can_see_all_items(session, current_user):
         user_item_counts = session.exec(
-            select(User.email, func.count(Item.id))
+            select(User.email, func.count(col(Item.id)))
             .join(Item)
             .group_by(User.email)
-            .order_by(func.count(Item.id).desc())
+            .order_by(func.count(col(Item.id)).desc())
             .limit(5)
         ).all()
         top_owners = [
@@ -69,14 +71,14 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
         latest_stmt = (
             select(Item)
             .where(Item.status == "incoming")
-            .order_by(Item.created_at.desc())
+            .order_by(col(Item.created_at).desc())
             .limit(LATEST_INCOMING_LIMIT)
         )
     else:
         latest_stmt = (
             select(Item)
             .where(Item.owner_id == current_user.id, Item.status == "incoming")
-            .order_by(Item.created_at.desc())
+            .order_by(col(Item.created_at).desc())
             .limit(LATEST_INCOMING_LIMIT)
         )
     latest_incoming = list(session.exec(latest_stmt).all())
@@ -125,6 +127,8 @@ def get_dashboard_trends(
     dt_from = datetime.combine(from_date, time.min).replace(tzinfo=timezone.utc)
     dt_to = datetime.combine(to_date, time.max).replace(tzinfo=timezone.utc)
 
+    date_expr: Any
+    date_expr_hist: Any
     if group_by == "week":
         # date_trunc('week', ts) returns Monday 00:00; cast to date for grouping
         date_expr = func.date_trunc("week", Item.created_at)
@@ -136,14 +140,14 @@ def get_dashboard_trends(
     # Incoming: count items created per period (with permission filter)
     if can_see_all_items(session, current_user):
         incoming_stmt = (
-            select(date_expr.label("period"), func.count(Item.id).label("count"))
+            select(date_expr.label("period"), func.count(col(Item.id)).label("count"))
             .where(Item.created_at >= dt_from, Item.created_at <= dt_to)
             .group_by(date_expr)
             .order_by(date_expr)
         )
     else:
         incoming_stmt = (
-            select(date_expr.label("period"), func.count(Item.id).label("count"))
+            select(date_expr.label("period"), func.count(col(Item.id)).label("count"))
             .where(
                 Item.owner_id == current_user.id,
                 Item.created_at >= dt_from,
@@ -159,7 +163,7 @@ def get_dashboard_trends(
         shipped_stmt = (
             select(
                 date_expr_hist.label("period"),
-                func.count(ItemHistory.id).label("count"),
+                func.count(col(ItemHistory.id)).label("count"),
             )
             .where(
                 ItemHistory.field_name == "status",
@@ -174,9 +178,9 @@ def get_dashboard_trends(
         shipped_stmt = (
             select(
                 date_expr_hist.label("period"),
-                func.count(ItemHistory.id).label("count"),
+                func.count(col(ItemHistory.id)).label("count"),
             )
-            .join(Item, ItemHistory.item_id == Item.id)
+            .join(Item, col(ItemHistory.item_id) == Item.id)
             .where(
                 Item.owner_id == current_user.id,
                 ItemHistory.field_name == "status",
@@ -207,3 +211,39 @@ def get_dashboard_trends(
             {"period": _serialize_period(p), "count": c} for p, c in shipped_rows
         ],
     }
+
+
+@router.get("/warehouse-kpi", response_model=dict[str, Any])
+def get_warehouse_kpi(
+    session: SessionDep,
+    current_user: CurrentUser,
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
+) -> Any:
+    """
+    Операционные KPI склада за период (по умолчанию 30 дней).
+    Не заменяет /dashboard/stats — дополняет аналитику запасов.
+    """
+    _ = current_user  # права: любой авторизованный; агрегаты без ПДн в сводке
+    return compute_warehouse_kpis(
+        session, from_date=from_date, to_date=to_date
+    ).to_dict()
+
+
+@router.get("/warehouse-kpi/export")
+def export_warehouse_kpi(
+    session: SessionDep,
+    current_user: CurrentUser,
+    from_date: date | None = Query(None, alias="from"),
+    to_date: date | None = Query(None, alias="to"),
+) -> PlainTextResponse:
+    """CSV-экспорт сводки KPI склада."""
+    _ = current_user
+    snap = compute_warehouse_kpis(session, from_date=from_date, to_date=to_date)
+    body = warehouse_kpi_csv(snap)
+    filename = f"warehouse-kpi_{snap.from_date}_{snap.to_date}.csv"
+    return PlainTextResponse(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

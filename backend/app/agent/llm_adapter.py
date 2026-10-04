@@ -225,9 +225,11 @@ async def chat_completion(
                 retry_payload["max_tokens"] = fitted
                 r2 = await client.post(url, json=retry_payload)
                 r2.raise_for_status()
-                return r2.json()
+                data2 = r2.json()
+                return data2 if isinstance(data2, dict) else {"raw": data2}
         r.raise_for_status()
-        return r.json()
+        data = r.json()
+        return data if isinstance(data, dict) else {"raw": data}
 
 
 def _stream_payload_variants(

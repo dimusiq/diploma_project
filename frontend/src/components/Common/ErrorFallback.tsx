@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button.tsx"
 export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   const message = error instanceof Error ? error.message : String(error)
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center">
-      <FiAlertTriangle className="size-10 text-destructive" />
+    <div
+      role="alert"
+      className="flex flex-col items-center justify-center gap-4 rounded-lg border border-destructive/30 bg-destructive/5 p-8 text-center"
+    >
+      <FiAlertTriangle className="size-10 text-destructive" aria-hidden />
       <div>
         <h3 className="mb-1 text-lg font-semibold">Произошла ошибка</h3>
         <p className="max-w-md text-sm text-muted-foreground">

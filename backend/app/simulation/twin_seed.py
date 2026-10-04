@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.models import TwinQueueDepthProjection, User, Warehouse
 from app.services.warehouse_twin_metrics import build_twin_summary_dict
@@ -48,7 +48,7 @@ def resolve_simulation_warehouse_id(
         if wh is None:
             raise TwinSeedResolutionError(404, "Склад не найден")
         return warehouse_id
-    wh = session.exec(select(Warehouse).order_by(Warehouse.created_at)).first()
+    wh = session.exec(select(Warehouse).order_by(col(Warehouse.created_at))).first()
     if wh is None:
         raise TwinSeedResolutionError(400, "В системе нет складов")
     return wh.id

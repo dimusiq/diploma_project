@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import Session, select
@@ -45,7 +45,7 @@ def _payload_summary(payload: dict[str, Any]) -> dict[str, Any]:
 def twin_timeline_handler(session: Session, ev: DomainEvent) -> None:
     """Лента twin: идемпотентная вставка по domain_event_id."""
     stmt = (
-        insert(TwinProjectionEntry.__table__)
+        insert(cast(Any, TwinProjectionEntry).__table__)
         .values(
             id=uuid.uuid4(),
             domain_event_id=ev.id,
@@ -98,7 +98,7 @@ def twin_task_state_handler(session: Session, ev: DomainEvent) -> None:
         return
     now = datetime.now(timezone.utc)
     stmt = (
-        insert(TwinTaskStateProjection.__table__)
+        insert(cast(Any, TwinTaskStateProjection).__table__)
         .values(
             warehouse_task_id=task.id,
             warehouse_id=task.warehouse_id,
@@ -140,7 +140,7 @@ def twin_equipment_pose_handler(session: Session, ev: DomainEvent) -> None:
     if isinstance(src, str) and len(src) > 64:
         src = src[:64]
     stmt = (
-        insert(TwinEquipmentPoseProjection.__table__)
+        insert(cast(Any, TwinEquipmentPoseProjection).__table__)
         .values(
             equipment_id=eid,
             warehouse_id=wid_uuid,
@@ -174,7 +174,7 @@ def twin_queue_depth_handler(session: Session, ev: DomainEvent) -> None:
         return
     now = datetime.now(timezone.utc)
     stmt = (
-        insert(TwinQueueDepthProjection.__table__)
+        insert(cast(Any, TwinQueueDepthProjection).__table__)
         .values(
             id=uuid.uuid4(),
             warehouse_id=wid,
@@ -212,7 +212,7 @@ def twin_alert_open_handler(session: Session, ev: DomainEvent) -> None:
         msg = ev.payload.get("message")
         et = ev.payload.get("entity_type")
         stmt = (
-            insert(TwinAlertOpenProjection.__table__)
+            insert(cast(Any, TwinAlertOpenProjection).__table__)
             .values(
                 alert_id=aid,
                 severity=str(sev)[:32] if sev is not None else None,

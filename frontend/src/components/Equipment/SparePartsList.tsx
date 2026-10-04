@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 
 const PER_PAGE = 20
 
@@ -267,7 +268,7 @@ export function SparePartsList() {
       <FetchingIndicator active={isFetching && !!data} />
 
       {isLoading && !data ? (
-        <p className="text-muted-foreground">Загрузка…</p>
+        <ListLoadingBlock rows={6} className="min-h-[240px]" />
       ) : parts.length === 0 ? (
         <p className="text-muted-foreground">
           {alertsOnly

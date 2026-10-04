@@ -3,13 +3,11 @@
 Дедупликация и cooldown — при необходимости реализовать в вызывающем коде.
 """
 
-import json
-import math
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.core.config import settings
 from app.models import (
@@ -18,11 +16,7 @@ from app.models import (
     NOTIFICATION_SEVERITY_WARNING,
     WORK_ORDER_STATUS_CANCELED,
     WORK_ORDER_STATUS_DONE,
-    ChainAssignment,
-    Equipment,
     Item,
-    MaintenanceChainStep,
-    MaintenanceScheduleConfig,
     Notification,
     SparePart,
     User,
@@ -67,94 +61,30 @@ def _in_app_enabled(
     return bool(row.in_app_enabled)
 
 
-def _default_interval(session: "Session") -> int:
-    row = session.get(MaintenanceScheduleConfig, "default_intervals")
-    if row and row.value:
-        try:
-            arr = json.loads(row.value)
-            if isinstance(arr, list) and arr:
-                return int(arr[0])
-        except (ValueError, TypeError):
-            pass
-    return 500
-
-
-def _interval_for_equipment(session: "Session", equipment_id: uuid.UUID) -> int:
-    """Интервал ТО (м/ч) для единицы техники: первый шаг цепочки или default."""
-    assignment = session.exec(
-        select(ChainAssignment)
-        .where(ChainAssignment.equipment_id == equipment_id)
-        .limit(1)
-    ).first()
-    if not assignment:
-        return _default_interval(session)
-    first_step = session.exec(
-        select(MaintenanceChainStep)
-        .where(MaintenanceChainStep.chain_id == assignment.chain_id)
-        .order_by(MaintenanceChainStep.position)
-        .limit(1)
-    ).first()
-    if first_step:
-        return first_step.interval_hours
-    return _default_interval(session)
-
-
-def _get_overdue_equipment(session: "Session") -> list[Equipment]:
-    """Список единиц техники с просроченным ТО (логика как на фронте)."""
-    result = []
-    for eq in session.exec(select(Equipment)).all():
-        if eq.engine_hours is None:
-            continue
-        interval = _interval_for_equipment(session, eq.id)
-        next_at = math.ceil(eq.engine_hours / interval) * interval
-        if eq.engine_hours >= next_at:
-            result.append(eq)
-    return result
-
-
 def ensure_overdue_maintenance_notification(
     session: "Session", user_id: uuid.UUID
 ) -> None:
     """
-    Для каждой единицы техники с просроченным ТО создаёт уведомление единожды: только если
-    по этой технике для этого пользователя ещё не создавали уведомление (никакое, в любой момент).
-    Повторно уведомления не создаются.
+    Канонический контур: overdue по моточасам (wsim_device) → наряд ТО + уведомление.
+    Уведомление на пару (user, device) создаётся один раз.
     """
-    overdue_list = _get_overdue_equipment(session)
-    if not overdue_list:
-        return
     if not _in_app_enabled(session, user_id, OVERDUE_MAINTENANCE_TYPE):
+        # всё равно создаём наряды — уведомления отключены преференсами
+        from app.services.maintenance_auto import sync_overdue_maintenance
+
+        stats = sync_overdue_maintenance(session, actor_user_id=user_id)
+        if stats["work_orders_created"]:
+            session.commit()
         return
-    created_any = False
-    for eq in overdue_list:
-        existing = session.exec(
-            select(Notification).where(
-                Notification.user_id == user_id,
-                Notification.type == OVERDUE_MAINTENANCE_TYPE,
-                Notification.entity_id == eq.id,
-            )
-        ).first()
-        if existing:
-            continue
-        interval = _interval_for_equipment(session, eq.id)
-        next_at = math.ceil(eq.engine_hours / interval) * interval
-        title = f"Просрочено ТО: {eq.garage_number or eq.model}"
-        if eq.garage_number and eq.model:
-            title = f"Просрочено ТО: {eq.garage_number} — {eq.model}"
-        body = f"Наработка {eq.engine_hours} м/ч, порог ТО {next_at} м/ч. Откройте «Расписание ТО»."
-        create_notification(
-            session,
-            user_id,
-            type=OVERDUE_MAINTENANCE_TYPE,
-            severity=NOTIFICATION_SEVERITY_CRITICAL,
-            title=title,
-            body=body,
-            source="График ТО",
-            entity_type="equipment",
-            entity_id=eq.id,
-        )
-        created_any = True
-    if created_any:
+
+    from app.services.maintenance_auto import sync_overdue_maintenance
+
+    stats = sync_overdue_maintenance(
+        session,
+        actor_user_id=user_id,
+        notify_user_id=user_id,
+    )
+    if stats["work_orders_created"] or stats["notifications_created"]:
         session.commit()
         publish_notifications_updated(user_id)
 
@@ -165,12 +95,16 @@ def _get_items_for_warehouse_notifications(
     """Возвращает (просроченные, скоро истекающие) товары для пользователя."""
     today = date.today()
     expiry_limit = today + timedelta(days=WAREHOUSE_EXPIRING_DAYS)
-    stmt = select(Item).where(Item.expires_at.is_not(None))
+    stmt = select(Item).where(col(Item.expires_at).is_not(None))
     if not can_see_all_items:
         stmt = stmt.where(Item.owner_id == user_id)
     items = list(session.exec(stmt).all())
-    expired = [i for i in items if i.expires_at < today]
-    expiring_soon = [i for i in items if today <= i.expires_at <= expiry_limit]
+    expired = [i for i in items if i.expires_at is not None and i.expires_at < today]
+    expiring_soon = [
+        i
+        for i in items
+        if i.expires_at is not None and today <= i.expires_at <= expiry_limit
+    ]
     return (expired, expiring_soon)
 
 
@@ -200,7 +134,7 @@ def ensure_warehouse_notifications(
         if existing:
             continue
         title = f"Просрочен срок годности: {item.title}"
-        body = f"Срок годности истёк {item.expires_at.isoformat()}. Откройте «Склад»."
+        body = f"Срок годности истёк {item.expires_at.isoformat() if item.expires_at else '?'}. Откройте «Склад»."
         create_notification(
             session,
             user_id,
@@ -226,7 +160,7 @@ def ensure_warehouse_notifications(
         if existing:
             continue
         title = f"Скоро истекает срок годности: {item.title}"
-        body = f"Срок годности до {item.expires_at.isoformat()}. Откройте «Склад»."
+        body = f"Срок годности до {item.expires_at.isoformat() if item.expires_at else '?'}. Откройте «Склад»."
         create_notification(
             session,
             user_id,
@@ -341,8 +275,8 @@ def ensure_overdue_work_orders_notification(
     now = datetime.now(timezone.utc)
     overdue = session.exec(
         select(WorkOrder).where(
-            WorkOrder.due_at < now,
-            WorkOrder.status.notin_(
+            col(WorkOrder.due_at) < now,
+            col(WorkOrder.status).notin_(
                 [WORK_ORDER_STATUS_DONE, WORK_ORDER_STATUS_CANCELED]
             ),
         )
@@ -361,7 +295,8 @@ def ensure_overdue_work_orders_notification(
         if existing:
             continue
         title = f"Просрочен наряд: {wo.title}"
-        body = f"Срок выполнения истёк {wo.due_at.strftime('%d.%m.%Y %H:%M')}. Откройте «Наряды»."
+        due_s = wo.due_at.strftime("%d.%m.%Y %H:%M") if wo.due_at else "?"
+        body = f"Срок выполнения истёк {due_s}. Откройте «Наряды»."
         create_notification(
             session,
             user_id,
@@ -388,8 +323,8 @@ def ensure_low_spare_parts_notification(session: "Session", user_id: uuid.UUID) 
         return
     low_stock = session.exec(
         select(SparePart).where(
-            SparePart.min_quantity.is_not(None),
-            SparePart.quantity < SparePart.min_quantity,
+            col(SparePart.min_quantity).is_not(None),
+            col(SparePart.quantity) < SparePart.min_quantity,
         )
     ).all()
     if not low_stock:

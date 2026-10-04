@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -20,7 +22,7 @@ def test_free_slot_reuses_occupied_cache_within_batch() -> None:
     # LIMIT-проверка preferred: слот свободен / занят
     session.exec.return_value.first.return_value = None
 
-    world: dict = {"bridge": {}}
+    world: dict[str, Any] = {"bridge": {}}
     ctx = _DomainCtx(session, world, warehouse_id=uuid4(), actor_id=uuid4())
 
     # Три назначения подряд в одном батче

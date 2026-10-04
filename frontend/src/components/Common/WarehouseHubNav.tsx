@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils.ts"
 const HUB = [
   {
     to: "/warehouse",
-    label: "Остатки",
+    label: "Остатки на складе",
     match: (p: string) => p === "/warehouse",
   },
   {
@@ -16,14 +16,20 @@ const HUB = [
     match: (p: string) => p.startsWith("/warehouse-tasks"),
   },
   {
+    to: "/warehouse-3d",
+    label: "3D склад",
+    match: (p: string) => p.startsWith("/warehouse-3d"),
+  },
+  {
     to: "/digital-twin",
     label: "Digital Twin",
     match: (p: string) =>
       p.startsWith("/digital-twin") || p.startsWith("/warehouse-twin"),
+    search: { tab: "map" as const, view: "2d" as const },
   },
 ] as const
 
-/** Общие вкладки склада: остатки, задания, Digital Twin. */
+/** Общие вкладки склада: остатки, задания, 3D, Digital Twin. */
 export function WarehouseHubNav() {
   const { pathname } = useLocation()
   return (
@@ -37,6 +43,8 @@ export function WarehouseHubNav() {
           <RouterLink
             key={item.to}
             to={item.to}
+            search={"search" in item ? item.search : undefined}
+            aria-current={active ? "page" : undefined}
             className={cn(
               "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               active

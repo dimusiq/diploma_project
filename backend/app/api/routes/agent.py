@@ -214,13 +214,13 @@ def list_agent_user_chats(
     q = (
         select(AgentUserChat)
         .where(AgentUserChat.user_id == current_user.id)
-        .order_by(AgentUserChat.updated_at.desc())
+        .order_by(col(AgentUserChat.updated_at).desc())
         .offset(skip)
         .limit(limit)
     )
     rows = session.exec(q).all()
     count = session.exec(
-        select(func.count(AgentUserChat.id)).where(
+        select(func.count(col(AgentUserChat.id))).where(
             AgentUserChat.user_id == current_user.id
         )
     ).one()
@@ -271,7 +271,7 @@ def get_agent_user_chat(
     msgs = session.exec(
         select(AgentUserChatMessage)
         .where(AgentUserChatMessage.chat_id == chat_id)
-        .order_by(AgentUserChatMessage.seq)
+        .order_by(col(AgentUserChatMessage.seq))
     ).all()
     return AgentUserChatDetailPublic(
         id=chat.id,
@@ -323,7 +323,7 @@ def list_agent_chat_logs(
     rows = list(
         session.exec(
             select(AgentChatLog)
-            .order_by(AgentChatLog.created_at.desc())
+            .order_by(col(AgentChatLog.created_at).desc())
             .offset(skip)
             .limit(limit)
         ).all()
@@ -451,7 +451,7 @@ def get_agent_run(
     dependencies=[require_permission(PERM_AGENT_POLICIES_READ)],
 )
 def list_agent_policies(session: SessionDep, _current_user: CurrentUser) -> Any:
-    rows = list(session.exec(select(AgentPolicy).order_by(AgentPolicy.code)).all())
+    rows = list(session.exec(select(AgentPolicy).order_by(col(AgentPolicy.code))).all())
     return AgentPolicyList(
         data=[
             AgentPolicyPublic(
@@ -672,7 +672,7 @@ async def agent_chat_stream(
 
     uid = current_user.id
 
-    async def event_gen():
+    async def event_gen() -> Any:
         try:
             with Session(engine) as session:
                 user = session.get(User, uid)

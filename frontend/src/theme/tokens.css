@@ -38,11 +38,12 @@
   --input: oklch(0.922 0 0);
   --ring: oklch(0.52 0.095 232);
 
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Категориальная палитра графиков (≥3:1 к фону для non-text AA) */
+  --chart-1: oklch(0.48 0.12 232);
+  --chart-2: oklch(0.50 0.14 160);
+  --chart-3: oklch(0.55 0.13 85);
+  --chart-4: oklch(0.52 0.17 25);
+  --chart-5: oklch(0.46 0.10 250);
 
   --sidebar: oklch(0.965 0.004 250);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -53,10 +54,11 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
-  --semantic-success: 142 76% 36%;
-  --semantic-warning: 25 95% 53%;
-  --semantic-error: 0 84% 60%;
-  --semantic-info: 217 91% 60%;
+  /* Текст на светлом фоне ≥4.5:1; белый на bg-* — для баннеров/крупных меток */
+  --semantic-success: 142 72% 28%;
+  --semantic-warning: 25 90% 38%;
+  --semantic-error: 0 78% 42%;
+  --semantic-info: 217 80% 42%;
 }
 
 .dark {
@@ -84,23 +86,25 @@
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
 
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Светлее / насыщеннее, чтобы серии читались на тёмном фоне */
+  --chart-1: oklch(0.74 0.12 232);
+  --chart-2: oklch(0.76 0.13 160);
+  --chart-3: oklch(0.80 0.12 85);
+  --chart-4: oklch(0.74 0.15 25);
+  --chart-5: oklch(0.72 0.10 250);
 
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: oklch(0.62 0.1 232);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 
-  --semantic-success: 142 70% 45%;
-  --semantic-warning: 25 95% 55%;
-  --semantic-error: 0 72% 58%;
-  --semantic-info: 217 91% 65%;
+  /* На тёмном фоне — чуть светлее, сохраняя читаемость text-* */
+  --semantic-success: 142 65% 52%;
+  --semantic-warning: 32 95% 58%;
+  --semantic-error: 0 78% 68%;
+  --semantic-info: 217 85% 68%;
 }

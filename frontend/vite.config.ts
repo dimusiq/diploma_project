@@ -13,9 +13,10 @@ export default defineConfig({
     },
   },
   plugins: [
+    // Router-плагин до React: иначе autoCodeSplitting молча не применяется
+    TanStackRouterVite({ autoCodeSplitting: true }),
     tailwindcss(),
     react(),
-    TanStackRouterVite(),
     VitePWA({
       registerType: "autoUpdate",
       /* В dev по умолчанию SW выключен; в preview/production — только precache статики. */
@@ -71,6 +72,23 @@ export default defineConfig({
         ws: true,
         timeout: 0,
         proxyTimeout: 0,
+      },
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/exceljs")) return "exceljs"
+          if (id.includes("node_modules/recharts")) return "recharts"
+          if (
+            id.includes("node_modules/three") ||
+            id.includes("node_modules/@react-three")
+          ) {
+            return "three"
+          }
+          return undefined
+        },
       },
     },
   },

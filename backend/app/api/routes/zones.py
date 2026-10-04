@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.audit import get_client_ip, log_audit
@@ -31,7 +31,7 @@ def _resolve_warehouse_id(
         return warehouse_id
     wh = session.exec(select(Warehouse).where(Warehouse.code == "default")).first()
     if not wh:
-        wh = session.exec(select(Warehouse).order_by(Warehouse.created_at)).first()
+        wh = session.exec(select(Warehouse).order_by(col(Warehouse.created_at))).first()
     if not wh:
         raise HTTPException(status_code=500, detail="Не настроен ни один склад")
     return wh.id
@@ -50,7 +50,7 @@ def read_zones(
     stmt = select(WarehouseZone)
     if warehouse_id is not None:
         stmt = stmt.where(WarehouseZone.warehouse_id == warehouse_id)
-    return list(session.exec(stmt.order_by(WarehouseZone.name)).all())
+    return list(session.exec(stmt.order_by(col(WarehouseZone.name))).all())
 
 
 @router.get("/{id}", response_model=WarehouseZonePublic)

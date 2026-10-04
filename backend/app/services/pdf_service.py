@@ -1,8 +1,11 @@
 """Генерация PDF: накладная по отгрузке и этикетка со штрихкодом."""
 
+from __future__ import annotations
+
 import os
 import threading
 from io import BytesIO
+from typing import Any
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -11,7 +14,6 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
-    Flowable,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -22,17 +24,19 @@ from reportlab.platypus import (
 from app.models import Item
 
 
-class _DrawingFlowable(Flowable):
-    """Обёртка для reportlab Drawing, чтобы вставить в story."""
+class _DrawingFlowable:
+    """Duck-typed Flowable для reportlab Drawing (без наследования от Any)."""
 
-    def __init__(self, drawing):
-        super().__init__()
+    def __init__(self, drawing: Any) -> None:
         self.drawing = drawing
+        self.width = float(drawing.width)
+        self.height = float(drawing.height)
+        self.canv: Any = None
 
-    def wrap(self, availWidth, availHeight):
-        return (float(self.drawing.width), float(self.drawing.height))
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:
+        return (self.width, self.height)
 
-    def draw(self):
+    def draw(self) -> None:
         self.drawing.drawOn(self.canv, 0, 0)
 
 
@@ -83,7 +87,7 @@ def _register_cyrillic_fonts() -> None:
     _cyrillic_font_registered = True
 
 
-def _logo_flowable(max_width_pt: float):
+def _logo_flowable(max_width_pt: float) -> Table | None:
     """Загружает fastapi-logo.svg и возвращает центрированную таблицу с логотипом или None."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     svg_path = os.path.join(base_dir, "assets", "fastapi-logo.svg")
@@ -115,7 +119,7 @@ def _logo_flowable(max_width_pt: float):
         return None
 
 
-def _get_item_display(item: Item) -> dict:
+def _get_item_display(item: Item) -> dict[str, Any]:
     return {
         "title": item.title or "",
         "sku": item.sku or "—",

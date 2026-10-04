@@ -37,12 +37,12 @@ const buttonVariants = cva(
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
         sm: 'h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5',
         lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
-        xs: "h-7 gap-1 rounded-md px-2 text-xs has-[>svg]:px-2 [&_svg:not([class*='size-'])]:size-3",
+        xs: "h-11 min-h-11 gap-1 rounded-md px-3 text-xs has-[>svg]:px-2.5 [&_svg:not([class*='size-'])]:size-3.5",
         icon: 'size-9',
         'icon-sm': 'size-8',
         'icon-lg': 'size-10',
         'icon-xs':
-          "size-6 [&_svg:not([class*='size-'])]:size-3.5 rounded-md",
+          "size-11 min-h-11 min-w-11 [&_svg:not([class*='size-'])]:size-4 rounded-md",
       },
     },
     defaultVariants: {

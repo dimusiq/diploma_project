@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table.tsx"
 import { request } from "@/lib/apiClient.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 
 interface LogRow {
   id: string
@@ -37,7 +38,7 @@ export function AgentChatLogsAdmin() {
         хранятся — только превью до 500 символов.
       </p>
       {isPending ? (
-        <p className="text-sm">Загрузка…</p>
+        <ListLoadingBlock rows={5} className="min-h-[200px]" />
       ) : (
         <Table>
           <TableHeader>

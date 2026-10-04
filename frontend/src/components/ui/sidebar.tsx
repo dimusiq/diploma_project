@@ -231,9 +231,9 @@ function Sidebar({
           side={side}
         >
           <SheetHeader className='sr-only'>
-            <SheetTitle>Sidebar</SheetTitle>
+            <SheetTitle>Боковое меню</SheetTitle>
             <SheetDescription>
-              Displays the mobile sidebar.
+              Навигация по разделам приложения.
             </SheetDescription>
           </SheetHeader>
           <div className='flex h-full w-full flex-col'>
@@ -301,8 +301,8 @@ function SidebarTrigger({
 }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar, open } = useSidebar();
   const sidebarCopy = open
-    ? 'Collapse Sidebar'
-    : 'Open Sidebar';
+    ? 'Свернуть меню'
+    : 'Открыть меню';
 
   return (
     <Button
@@ -334,10 +334,10 @@ function SidebarRail({
       variant='ghost'
       data-sidebar='rail'
       data-slot='sidebar-rail'
-      aria-label='Toggle Sidebar'
+      aria-label='Переключить меню'
       tabIndex={-1}
       onClick={toggleSidebar}
-      title='Toggle Sidebar'
+      title='Переключить меню'
       className={cn(
         'hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden h-auto min-h-0 w-4 -translate-x-1/2 border-0 bg-transparent p-0 shadow-none hover:bg-transparent focus-visible:ring-0 data-[state=open]:bg-transparent',
         'transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] sm:flex',

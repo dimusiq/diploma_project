@@ -1,11 +1,11 @@
-"""CRUD API for InboundOrder (входящие заказы)."""
+"""CRUD API for InboundOrder (входящие заказы) + операция приёмки."""
 
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -14,9 +14,13 @@ from app.models import (
     InboundOrderList,
     InboundOrderPublic,
     InboundOrderUpdate,
+    InboundReceiveLineRequest,
+    InboundReceiveLineResult,
     Message,
     Warehouse,
 )
+from app.services.inbound_planning import plan_inbound_putaways
+from app.services.inbound_receiving import close_receiving, receive_line
 
 router = APIRouter(prefix="/inbound-orders", tags=["inbound-orders"])
 
@@ -31,7 +35,7 @@ def _resolve_warehouse_id(
         return warehouse_id
     wh = session.exec(select(Warehouse).where(Warehouse.code == "default")).first()
     if not wh:
-        wh = session.exec(select(Warehouse).order_by(Warehouse.created_at)).first()
+        wh = session.exec(select(Warehouse).order_by(col(Warehouse.created_at))).first()
     if not wh:
         raise HTTPException(status_code=500, detail="Не настроен ни один склад")
     return wh.id
@@ -52,7 +56,7 @@ def list_inbound_orders(
         count_stmt = count_stmt.where(InboundOrder.status == status)
     count = session.exec(count_stmt).one()
     rows = session.exec(
-        stmt.order_by(InboundOrder.created_at.desc()).offset(skip).limit(limit)
+        stmt.order_by(col(InboundOrder.created_at).desc()).offset(skip).limit(limit)
     ).all()
     return InboundOrderList(data=rows, count=count)
 
@@ -87,7 +91,14 @@ def create_inbound_order(
         extra=body.extra,
     )
     session.add(order)
-    session.commit()
+    session.flush()
+    try:
+        # Putaway появится после receive-line (факт приёмки).
+        plan_inbound_putaways(session, order)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     session.refresh(order)
     return order
 
@@ -107,7 +118,88 @@ def update_inbound_order(
     order.sqlmodel_update(update_data)
     order.updated_at = datetime.now(timezone.utc)
     session.add(order)
-    session.commit()
+    session.flush()
+    try:
+        plan_inbound_putaways(session, order)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    session.refresh(order)
+    return order
+
+
+@router.post(
+    "/{id}/receive-line",
+    response_model=InboundReceiveLineResult,
+)
+def receive_inbound_line(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+    body: InboundReceiveLineRequest,
+) -> Any:
+    order = session.get(InboundOrder, id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Входящий заказ не найден")
+    if body.line_index is None and not body.line_key:
+        raise HTTPException(
+            status_code=422, detail="Укажите line_index или line_key"
+        )
+    try:
+        result = receive_line(
+            session,
+            order,
+            received_quantity=body.received_quantity,
+            actor_user_id=current_user.id,
+            line_index=body.line_index,
+            line_key=body.line_key,
+            discrepancy_type=body.discrepancy_type,
+            discrepancy_reason=body.discrepancy_reason,
+            damage_quantity=body.damage_quantity,
+        )
+        session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception:
+        session.rollback()
+        raise
+    session.refresh(order)
+    item_raw = result.get("item_id")
+    item_id = uuid.UUID(str(item_raw)) if item_raw else None
+    return InboundReceiveLineResult(
+        order=InboundOrderPublic.model_validate(order),
+        line_index=int(result["line_index"]),
+        line_key=str(result["line_key"]),
+        item_id=item_id,
+        discrepancy=result.get("discrepancy"),
+        putaway_created=int(result.get("putaway_created") or 0),
+        putaway_task_ids=list(result.get("putaway_task_ids") or []),
+        idempotent=bool(result.get("idempotent")),
+    )
+
+
+@router.post("/{id}/close-receiving", response_model=InboundOrderPublic)
+def close_inbound_receiving(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+) -> Any:
+    order = session.get(InboundOrder, id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Входящий заказ не найден")
+    try:
+        close_receiving(session, order, actor_user_id=current_user.id)
+        session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception:
+        session.rollback()
+        raise
     session.refresh(order)
     return order
 

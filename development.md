@@ -81,6 +81,15 @@ docker compose up -d
 
 **Миграции**: для метрик twin и фильтра «товар на складе» в БД нужна колонка **`item.status`** (ревизия Alembic **`q5r6s7t8u9v0`**). После `git pull` всегда **`alembic upgrade head`** перед тестами и локальным API.
 
+**Прод: `cc9d0e1f2a3b` (GIN/trgm на `wsim_event`):** миграция делает `CREATE EXTENSION IF NOT EXISTS pg_trgm` и три `CREATE INDEX IF NOT EXISTS … USING gin` **без** `CONCURRENTLY`, внутри обычной транзакции Alembic. На большой таблице `wsim_event` это берёт **ACCESS EXCLUSIVE**-подобные блокировки записи на время построения индекса.
+
+Порядок на проде:
+
+1. Окно низкой нагрузки (или read-only режим записи в симулятор/журнал событий).
+2. Заранее (под суперпользователем БД, вне Alembic): `CREATE EXTENSION IF NOT EXISTS pg_trgm;` — чтобы шаг миграции не упирался в права приложения.
+3. `alembic upgrade head` (или `prestart`) в окне; следить за `pg_stat_activity` / длительностью.
+4. Если простой недопустим: не гонять эту ревизию «как есть» в пик — вынести индексы в отдельный autocommit-скрипт с `CREATE INDEX CONCURRENTLY` (Alembic: `op.get_context().commit_block()` / отдельная ревизия с `transaction_per_migration` + `CONCURRENTLY`), затем пометить ревизию применённой. Для свежих/небольших инсталляций текущая миграция достаточна.
+
 Traefik UI, to see how the routes are being handled by the proxy: http://localhost:8090
 
 **Note**: The first time you start your stack, it might take a minute for it to be ready. While the backend waits for the database to be ready and configures everything. You can check the logs to monitor it.

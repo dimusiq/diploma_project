@@ -6,6 +6,8 @@ sim_common, tasks, orders, movement, failures, sensors, conveyor, commands.
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.warehouse_sim.commands import (
     apply_command,
     device_command,
@@ -145,7 +147,7 @@ __all__ = [
 ]
 
 
-def process_workers(world: dict, dt: float) -> None:
+def process_workers(world: dict[str, Any], dt: float) -> None:
     world["accumulators"]["shift"] += dt
     advance_workers(world, dt)
     from app.warehouse_sim.bracelets import apply_bracelet_positions
@@ -160,7 +162,7 @@ def process_workers(world: dict, dt: float) -> None:
                 worker["status"] = "idle"
 
 
-def step_world(world: dict, dt: float) -> None:
+def step_world(world: dict[str, Any], dt: float) -> None:
     world["timeSec"] += dt
     process_truck_arrivals(world, dt)
     process_docks(world, dt)
@@ -182,7 +184,7 @@ def step_world(world: dict, dt: float) -> None:
     tick_cameras(world, dt)
 
 
-def advance_world(world: dict, seconds: float) -> None:
+def advance_world(world: dict[str, Any], seconds: float) -> None:
     left = seconds
     while left > 0:
         step = min(MAX_SUBSTEP_SEC, left)

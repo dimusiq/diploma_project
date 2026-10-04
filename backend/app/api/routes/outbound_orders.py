@@ -5,11 +5,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     Message,
+    OutboundConfirmPickRequest,
+    OutboundConfirmPickResult,
     OutboundFulfillmentDetail,
     OutboundFulfillmentList,
     OutboundOrder,
@@ -17,6 +19,7 @@ from app.models import (
     OutboundOrderList,
     OutboundOrderPublic,
     OutboundOrderUpdate,
+    OutboundPackRequest,
     Shipment,
     Warehouse,
 )
@@ -29,6 +32,8 @@ from app.services.outbound_fulfillment import (
     ship_order,
     to_detail,
 )
+from app.services.outbound_ops import confirm_pick, pack_order
+from app.services.outbound_planning import plan_outbound_picks
 
 router = APIRouter(prefix="/outbound-orders", tags=["outbound-orders"])
 
@@ -43,7 +48,7 @@ def _resolve_warehouse_id(
         return warehouse_id
     wh = session.exec(select(Warehouse).where(Warehouse.code == "default")).first()
     if not wh:
-        wh = session.exec(select(Warehouse).order_by(Warehouse.created_at)).first()
+        wh = session.exec(select(Warehouse).order_by(col(Warehouse.created_at))).first()
     if not wh:
         raise HTTPException(status_code=500, detail="Не настроен ни один склад")
     return wh.id
@@ -123,7 +128,7 @@ def list_outbound_orders(
         count_stmt = count_stmt.where(OutboundOrder.status == status)
     count = session.exec(count_stmt).one()
     rows = session.exec(
-        stmt.order_by(OutboundOrder.created_at.desc()).offset(skip).limit(limit)
+        stmt.order_by(col(OutboundOrder.created_at).desc()).offset(skip).limit(limit)
     ).all()
     return OutboundOrderList(data=rows, count=count)
 
@@ -150,6 +155,79 @@ def ship_outbound_order(
     id: uuid.UUID,
 ) -> Any:
     return ship_order(session, current_user, id)
+
+
+@router.post("/{id}/confirm-pick", response_model=OutboundConfirmPickResult)
+def confirm_outbound_pick(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+    body: OutboundConfirmPickRequest,
+) -> Any:
+    order = session.get(OutboundOrder, id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Исходящий заказ не найден")
+    try:
+        result = confirm_pick(
+            session,
+            order,
+            task_id=body.task_id,
+            actor_user_id=current_user.id,
+            outcome=body.outcome,
+            scanned_code=body.scanned_code,
+            scanned_slot_key=body.scanned_slot_key,
+            quantity=body.quantity,
+            reason=body.reason,
+        )
+        session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception:
+        session.rollback()
+        raise
+    session.refresh(order)
+    item_raw = result.get("item_id")
+    return OutboundConfirmPickResult(
+        order=OutboundOrderPublic.model_validate(order),
+        task_id=uuid.UUID(str(result["task_id"])),
+        status=str(result["status"]),
+        idempotent=bool(result.get("idempotent")),
+        incident=result.get("incident"),
+        alternative=result.get("alternative"),
+        confirmed_quantity=result.get("confirmed_quantity"),
+        item_id=uuid.UUID(str(item_raw)) if item_raw else None,
+    )
+
+
+@router.post("/{id}/pack", response_model=OutboundOrderPublic)
+def pack_outbound_order(
+    *,
+    session: SessionDep,
+    current_user: CurrentUser,
+    id: uuid.UUID,
+    body: OutboundPackRequest | None = None,
+) -> Any:
+    order = session.get(OutboundOrder, id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Исходящий заказ не найден")
+    try:
+        pack_order(
+            session,
+            order,
+            actor_user_id=current_user.id,
+            handling_units=(body.handling_units if body else None),
+        )
+        session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception:
+        session.rollback()
+        raise
+    session.refresh(order)
+    return order
 
 
 @router.get("/{id}", response_model=OutboundOrderPublic)
@@ -182,7 +260,13 @@ def create_outbound_order(
         extra=body.extra,
     )
     session.add(order)
-    session.commit()
+    session.flush()
+    try:
+        plan_outbound_picks(session, order)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     session.refresh(order)
     return order
 
@@ -202,7 +286,13 @@ def update_outbound_order(
     order.sqlmodel_update(update_data)
     order.updated_at = datetime.now(timezone.utc)
     session.add(order)
-    session.commit()
+    session.flush()
+    try:
+        plan_outbound_picks(session, order)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
     session.refresh(order)
     return order
 

@@ -54,7 +54,10 @@ def _cosine(a: list[float], b: list[float]) -> float:
     return dot / (na * nb)
 
 
-async def llm_embed_query(text: str) -> list[float] | None:
+def _embed_request_parts(
+    text: str,
+) -> tuple[str, str, dict[str, Any]] | None:
+    """(url, style, payload) или None, если эмбеддинги выключены/не сконфигурированы."""
     if not settings.AGENT_RAG_EMBEDDING_HTTP_ENABLED:
         return None
     base = resolve_llm_embeddings_base_url()
@@ -64,31 +67,28 @@ async def llm_embed_query(text: str) -> list[float] | None:
     if not model:
         return None
     style = settings.LLM_EMBEDDING_API_STYLE
-    timeout = httpx.Timeout(60.0, connect=10.0)
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            if style == "openai":
-                url = f"{base}/v1/embeddings"
-                payload: dict[str, Any] = {
-                    "model": model,
-                    "input": text[:8000],
-                }
-                r = await client.post(url, json=payload)
-                r.raise_for_status()
-                data = r.json()
-                rows = data.get("data")
-                if not isinstance(rows, list) or not rows:
-                    return None
-                emb = rows[0].get("embedding") if isinstance(rows[0], dict) else None
-            else:
-                url = f"{base}/api/embeddings"
-                payload = {"model": model, "prompt": text[:8000]}
-                r = await client.post(url, json=payload)
-                r.raise_for_status()
-                data = r.json()
-                emb = data.get("embedding")
-    except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError):
-        return None
+    clipped = text[:8000]
+    if style == "openai":
+        return (
+            f"{base}/v1/embeddings",
+            style,
+            {"model": model, "input": clipped},
+        )
+    return (
+        f"{base}/api/embeddings",
+        style,
+        {"model": model, "prompt": clipped},
+    )
+
+
+def _parse_embedding_response(style: str, data: dict[str, Any]) -> list[float] | None:
+    if style == "openai":
+        rows = data.get("data")
+        if not isinstance(rows, list) or not rows:
+            return None
+        emb = rows[0].get("embedding") if isinstance(rows[0], dict) else None
+    else:
+        emb = data.get("embedding")
     if not isinstance(emb, list):
         return None
     out: list[float] = []
@@ -100,6 +100,43 @@ async def llm_embed_query(text: str) -> list[float] | None:
     if len(out) != AGENT_EMBEDDING_VECTOR_DIMENSIONS:
         return None
     return out
+
+
+def llm_embed_query_sync(text: str) -> list[float] | None:
+    """Синхронный HTTP-эмбеддинг (для tool handlers / reindex без asyncio.run)."""
+    parts = _embed_request_parts(text)
+    if parts is None:
+        return None
+    url, style, payload = parts
+    timeout = httpx.Timeout(60.0, connect=10.0)
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            r = client.post(url, json=payload)
+            r.raise_for_status()
+            data = r.json()
+        if not isinstance(data, dict):
+            return None
+        return _parse_embedding_response(style, data)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError):
+        return None
+
+
+async def llm_embed_query(text: str) -> list[float] | None:
+    parts = _embed_request_parts(text)
+    if parts is None:
+        return None
+    url, style, payload = parts
+    timeout = httpx.Timeout(60.0, connect=10.0)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.post(url, json=payload)
+            r.raise_for_status()
+            data = r.json()
+        if not isinstance(data, dict):
+            return None
+        return _parse_embedding_response(style, data)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError):
+        return None
 
 
 def _vector_literal(vec: list[float]) -> str:

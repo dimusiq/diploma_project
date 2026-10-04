@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Request
 from sqlalchemy.orm.attributes import flag_modified
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.audit import get_client_ip, log_audit
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/warehouse", tags=["warehouse"])
 
 def _active_layout(session: Session) -> WarehouseLayout:
     row = session.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     if not row:
         raise HTTPException(

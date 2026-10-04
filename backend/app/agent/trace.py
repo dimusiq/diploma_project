@@ -12,7 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.agent.policy import redact_pii
+from app.agent.policy import redact_audit
 from app.agent.untrusted import safe_payload_meta
 
 _audit = logging.getLogger("app.agent.audit")
@@ -62,7 +62,7 @@ def _sanitize_for_audit(value: Any, *, depth: int = 0) -> Any:
     if depth > 8:
         return "[truncated]"
     if isinstance(value, str):
-        redacted = redact_pii(value)
+        redacted = redact_audit(value)
         if len(redacted) > 240:
             return safe_payload_meta(redacted, preview_len=80)
         return redacted

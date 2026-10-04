@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Блокирующий линт backend (CI: .github/workflows/lint-backend.yml).
 # Запуск: cd backend && uv run bash scripts/lint.sh
-# python -m … — чтобы брался интерпретатор окружения uv/venv, а не «голый» PATH.
-# mypy: переходные ослабления — [[tool.mypy.overrides]] в pyproject.toml (TODO до 2026-12-31).
+# Порядок и флаги совпадают с CI: mypy (strict) → ruff check → ruff format --check.
+# python -m … — интерпретатор окружения uv/venv, а не «голый» PATH.
 
 set -euo pipefail
 set -x

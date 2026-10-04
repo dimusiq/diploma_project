@@ -1,3 +1,4 @@
+from typing import Any
 import re
 
 from app.warehouse_sim.simulation import drop_off_pallet, pick_up_pallet
@@ -7,7 +8,7 @@ from app.warehouse_sim.world import DEMO_CONFIG, create_world
 CELL_ID_RE = re.compile(r"^R(0[1-8])([AB])-L([1-3])-C(0[1-9]|1[0-2])$")
 
 
-def _occupied_cells(world: dict) -> list[dict]:
+def _occupied_cells(world: dict[str, Any]) -> list[dict[str, Any]]:
     return [cell for cell in world["cells"] if cell.get("palletId")]
 
 

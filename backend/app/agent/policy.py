@@ -76,10 +76,14 @@ _PHONE_RE = re.compile(
     r"(?<!\d)(?:\+\d{1,3}[-.\s]*)?(?:\(\d{3}\)|\d{3})[-.\s]+\d{3}[-.\s]*\d{2}[-.\s]*\d{2}\b"
     r"|(?<!\d)\+\d{10,15}\b"
 )
-# ИНН физлица (12) / юрлица (10)
-_INN_RE = re.compile(r"\b\d{10}(?:\d{2})?\b")
-# СНИЛС: XXX-XXX-XXX XX или 11 цифр подряд
-_SNILS_RE = re.compile(r"\b\d{3}-\d{3}-\d{3}\s*\d{2}\b|\b\d{11}\b")
+# ИНН рядом с ключом/меткой (inn / ИНН / tax_id) — контекст важнее «голых» цифр.
+_INN_CONTEXT_RE = re.compile(
+    r"(?i)(?:\binn\b|\btax_id\b|\bинн\b)\s*[:=]?\s*[\"']?(\d{10}|\d{12})\b"
+)
+# Кандидат на ИНН без метки: только 10/12 цифр; решение — по контрольной сумме.
+_INN_BARE_RE = re.compile(r"(?<![\dA-Za-z_-])(\d{10}|\d{12})(?![\dA-Za-z_-])")
+# СНИЛС только с разделителями (голые 11 цифр = id/timestamp, не маскируем).
+_SNILS_FMT_RE = re.compile(r"\b(\d{3})-(\d{3})-(\d{3})[\s-]*(\d{2})\b")
 # Номер карты (13–19 цифр с разделителями или без)
 _CARD_RE = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
 # Паспорт РФ: серия и номер разделены пробелом (иначе голый ИНН = 10 цифр ловится как паспорт)
@@ -106,6 +110,43 @@ def _luhn_ok(digits: str) -> bool:
     return total % 10 == 0
 
 
+def _inn_checksum_ok(digits: str) -> bool:
+    """Контрольные разряды ИНН юрлица (10) / физлица (12)."""
+    if not digits.isdigit():
+        return False
+    nums = [int(c) for c in digits]
+    if len(nums) == 10:
+        coef = (2, 4, 10, 3, 5, 9, 4, 6, 8)
+        check = sum(nums[i] * coef[i] for i in range(9)) % 11 % 10
+        return check == nums[9]
+    if len(nums) == 12:
+        coef11 = (7, 2, 4, 10, 3, 5, 9, 4, 6, 8)
+        coef12 = (3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8)
+        n11 = sum(nums[i] * coef11[i] for i in range(10)) % 11 % 10
+        n12 = sum(nums[i] * coef12[i] for i in range(11)) % 11 % 10
+        return n11 == nums[10] and n12 == nums[11]
+    return False
+
+
+def _snils_checksum_ok(digits9: str, check2: str) -> bool:
+    """Контрольное число СНИЛС (первые 9 цифр + 2 контрольных)."""
+    if not (digits9.isdigit() and len(digits9) == 9 and check2.isdigit() and len(check2) == 2):
+        return False
+    # Для номеров ≤ 001-001-998 контроль не применялся — не маскируем как СНИЛС.
+    if int(digits9) <= 1_001_998:
+        return False
+    total = sum(int(digits9[i]) * (9 - i) for i in range(9))
+    if total < 100:
+        expected = total
+    elif total in (100, 101):
+        expected = 0
+    else:
+        expected = total % 101
+        if expected in (100, 101):
+            expected = 0
+    return expected == int(check2)
+
+
 def _redact_card_match(m: re.Match[str]) -> str:
     digits = re.sub(r"\D", "", m.group(0))
     if _luhn_ok(digits):
@@ -113,22 +154,69 @@ def _redact_card_match(m: re.Match[str]) -> str:
     return m.group(0)
 
 
-def redact_pii(text: str) -> str:
-    """Маскирование типичных PII/секретов (сообщения, логи, аудит, трейс)."""
-    if not text:
-        return text
+def _redact_inn_context_match(m: re.Match[str]) -> str:
+    """Сохраняет метку/ключ, подменяет только цифры ИНН."""
+    return m.group(0).replace(m.group(1), "[inn]", 1)
+
+
+def _redact_inn_bare_match(m: re.Match[str]) -> str:
+    digits = m.group(1)
+    if _inn_checksum_ok(digits):
+        return "[inn]"
+    return m.group(0)
+
+
+def _redact_snils_match(m: re.Match[str]) -> str:
+    digits9 = f"{m.group(1)}{m.group(2)}{m.group(3)}"
+    if _snils_checksum_ok(digits9, m.group(4)):
+        return "[snils]"
+    return m.group(0)
+
+
+def _redact_common(text: str) -> str:
+    """Общая маскировка: email/телефон/паспорт/секреты/карта + узкие ИНН/СНИЛС."""
     t = str(text)
     t = _EMAIL_RE.sub("[email]", t)
     t = _PHONE_RE.sub("[phone]", t)
-    t = _SNILS_RE.sub("[snils]", t)
+    t = _SNILS_FMT_RE.sub(_redact_snils_match, t)
     t = _PASSPORT_RF_RE.sub("[passport]", t)
     t = _SK_TOKEN_RE.sub("[secret_token]", t)
     t = _BEARER_RE.sub("[bearer_token]", t)
     t = _JWT_RE.sub("[jwt]", t)
     t = _CARD_RE.sub(_redact_card_match, t)
-    # ИНН после карт/СНИЛС, чтобы не перекрывать уже замаскированное
-    t = _INN_RE.sub("[inn]", t)
+    # Сначала контекстные ИНН, затем голые с валидной контрольной суммой.
+    t = _INN_CONTEXT_RE.sub(_redact_inn_context_match, t)
+    t = _INN_BARE_RE.sub(_redact_inn_bare_match, t)
     return t
+
+
+def redact_pii(text: str) -> str:
+    """
+    Маскирование ПДн/секретов в пользовательском тексте (чат агента).
+
+    ИНН: по метке inn/ИНН/tax_id или по контрольной сумме.
+    СНИЛС: только формат с разделителями и контрольным числом.
+    UUID, целые id, timestamp, SKU/артикулы без контрольной суммы ИНН не трогаем.
+    """
+    if not text:
+        return text
+    return _redact_common(text)
+
+
+def redact_audit(text: str) -> str:
+    """
+    Мягкая маскировка для аудита/трейса/preview инструментов.
+
+    Только реальные ПДн и секреты — без ущерба диагностике (item_id, timeSec, SKU).
+    """
+    if not text:
+        return text
+    return _redact_common(text)
+
+
+def sanitize_for_log(text: str) -> str:
+    """Alias для аудита/логов — см. ``redact_audit``."""
+    return redact_audit(text)
 
 
 def redact_user_message(text: str) -> str:

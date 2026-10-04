@@ -50,22 +50,28 @@ def resolve_inbox_event_type(integration_event_type: str) -> str:
 def _dispatch(
     session: Session, row: IntegrationInbox, domain_type: str
 ) -> DomainEvent | None:
+    from typing import cast
+
     if domain_type == TWIN_ONLY:
         return None
     if domain_type in h.INVENTORY_EVENT_TYPES:
-        return h.handle_inventory_typed(session, row, domain_type)
+        return cast(
+            DomainEvent | None, h.handle_inventory_typed(session, row, domain_type)
+        )
     if domain_type in h.SLOT_EVENT_TYPES:
-        return h.handle_slot_event(session, row, domain_type)
+        return cast(DomainEvent | None, h.handle_slot_event(session, row, domain_type))
     if domain_type == catalog.EVENT_EQUIPMENT_POSITION_UPDATED:
-        return h.handle_equipment_position(session, row)
+        return cast(DomainEvent | None, h.handle_equipment_position(session, row))
     if domain_type == catalog.EVENT_EQUIPMENT_BATTERY_UPDATED:
-        return h.handle_equipment_battery(session, row)
+        return cast(DomainEvent | None, h.handle_equipment_battery(session, row))
     if domain_type in h.TASK_EVENT_TYPES:
-        return h.handle_task_lifecycle(session, row, domain_type)
+        return cast(
+            DomainEvent | None, h.handle_task_lifecycle(session, row, domain_type)
+        )
     if domain_type == catalog.EVENT_QUEUE_DEPTH_UPDATED:
-        return h.handle_queue_depth(session, row)
+        return cast(DomainEvent | None, h.handle_queue_depth(session, row))
     if domain_type in (catalog.EVENT_ALERT_RAISED, catalog.EVENT_ALERT_RESOLVED):
-        return h.handle_alert(session, row, domain_type)
+        return cast(DomainEvent | None, h.handle_alert(session, row, domain_type))
     raise ValueError(f"Неподдерживаемый тип после маппинга: {domain_type}")
 
 

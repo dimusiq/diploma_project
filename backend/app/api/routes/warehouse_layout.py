@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.audit import get_client_ip, log_audit
@@ -65,7 +65,7 @@ def _sync_warehouses_active_layout(
 
 def _active_layout_row(session: SessionDep) -> WarehouseLayout:
     row = session.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     if not row:
         raise HTTPException(
@@ -110,8 +110,8 @@ def list_warehouse_layouts(
     """Список ревизий layout (без полного spec)."""
     stmt = select(WarehouseLayout).order_by(
         WarehouseLayout.code,
-        WarehouseLayout.version.desc(),
-        WarehouseLayout.created_at.desc(),
+        col(WarehouseLayout.version).desc(),
+        col(WarehouseLayout.created_at).desc(),
     )
     if warehouse_id is not None:
         stmt = stmt.where(WarehouseLayout.warehouse_id == warehouse_id)
@@ -274,7 +274,7 @@ def fork_warehouse_layout_draft(
     if src.warehouse_id is not None:
         stmt = stmt.where(WarehouseLayout.warehouse_id == src.warehouse_id)
     else:
-        stmt = stmt.where(WarehouseLayout.warehouse_id.is_(None))
+        stmt = stmt.where(col(WarehouseLayout.warehouse_id).is_(None))
     siblings = list(session.exec(stmt).all())
     max_v = max((s.version for s in siblings), default=0)
 
@@ -410,7 +410,7 @@ def read_route_graph_for_active_layout(
         session.exec(
             select(RouteNode)
             .where(RouteNode.warehouse_layout_id == layout.id)
-            .order_by(RouteNode.code)
+            .order_by(col(RouteNode.code))
         ).all()
     )
     edges = list(

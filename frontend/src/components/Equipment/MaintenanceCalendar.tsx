@@ -3,7 +3,9 @@ import { Fragment, useMemo, useState } from "react"
 import type { MaintenanceCalendarEventPublic } from "@/api/maintenanceCalendar"
 import { maintenanceCalendarApi } from "@/api/maintenanceCalendar"
 import { type WorkOrderPublic, workOrdersApi } from "@/api/workOrders"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 import { Button } from "@/components/ui/button.tsx"
+import { asArray } from "@/lib/asArray.ts"
 import { getMaintenanceScheduleStatusLabel } from "@/lib/statusLabels.ts"
 import { cn } from "@/lib/utils.ts"
 
@@ -131,6 +133,7 @@ export function MaintenanceCalendar({
     queryKey: ["work-orders", "events", rangeFromISO, rangeToISO],
     queryFn: () => workOrdersApi.events({ from: rangeFromISO, to: rangeToISO }),
     staleTime: 30_000,
+    placeholderData: (prev) => prev,
   })
 
   const { data: maintenanceEventsData, isLoading: maintenanceEventsLoading } =
@@ -138,11 +141,13 @@ export function MaintenanceCalendar({
       queryKey: ["maintenance-calendar-events"],
       queryFn: () => maintenanceCalendarApi.list({ limit: 200 }),
       staleTime: 60_000,
+      placeholderData: (prev) => prev,
     })
 
-  const workOrders = (workOrdersData?.data ?? []) as WorkOrderPublic[]
-  const maintenanceEvents = (maintenanceEventsData?.data ??
-    []) as MaintenanceCalendarEventPublic[]
+  const workOrders = asArray<WorkOrderPublic>(workOrdersData?.data)
+  const maintenanceEvents = asArray<MaintenanceCalendarEventPublic>(
+    maintenanceEventsData?.data,
+  )
 
   /** Палитры как у кнопок приложения (outline + Badge subtle). */
   const statusPalette: Record<string, "red" | "yellow" | "green" | "gray"> = {
@@ -224,7 +229,9 @@ export function MaintenanceCalendar({
         <div className="flex flex-col gap-3">
           <h3 className="font-heading text-sm font-semibold">События ТО</h3>
 
-          {maintenanceEventsLoading ? <p>Загрузка…</p> : null}
+          {maintenanceEventsLoading && !maintenanceEventsData ? (
+            <ListLoadingBlock rows={4} className="min-h-[160px]" />
+          ) : null}
           {!maintenanceEventsLoading && maintenanceEvents.length === 0 ? (
             <p className="text-muted-foreground">
               Нет событий для планирования.
@@ -350,10 +357,9 @@ export function MaintenanceCalendar({
           </div>
         </div>
 
-        {workOrdersLoading ? <p>Загрузка…</p> : null}
-
-        {!workOrdersLoading ? (
-          viewMode === "day" || viewMode === "week" ? (
+        {workOrdersLoading && !workOrdersData ? (
+          <ListLoadingBlock rows={6} className="min-h-[280px]" />
+        ) : viewMode === "day" || viewMode === "week" ? (
             <div
               className="grid gap-2"
               style={{
@@ -494,8 +500,7 @@ export function MaintenanceCalendar({
                 )
               })}
             </div>
-          )
-        ) : null}
+          )}
       </div>
     </div>
   )

@@ -12,7 +12,7 @@ from openpyxl.utils import get_column_letter
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from app.api.deps import CurrentUser, SessionDep, get_user_from_token_string
 from app.core.db import engine
@@ -92,10 +92,10 @@ def _item_filters(
         q = f"%{search.strip()}%"
         statement = statement.where(
             or_(
-                Item.title.ilike(q),
-                Item.description.ilike(q),
-                Item.sku.ilike(q),
-                Item.barcode.ilike(q),
+                col(Item.title).ilike(q),
+                col(Item.description).ilike(q),
+                col(Item.sku).ilike(q),
+                col(Item.barcode).ilike(q),
             )
         )
     if created_at_from is not None:
@@ -142,19 +142,26 @@ def read_items(
     Фильтры: status, search, category_id, created_at_from, created_at_to.
     Сортировка: sort_by (title, created_at, quantity, sku), sort_order (asc, desc).
     """
-    filters = {
-        "status": status,
-        "search": search,
-        "category_id": category_id,
-        "created_at_from": created_at_from,
-        "created_at_to": created_at_to,
-    }
     if can_see_all_items(session, current_user):
         count_statement = select(func.count()).select_from(Item)
-        count_statement = _item_filters(count_statement, **filters)
+        count_statement = _item_filters(
+            count_statement,
+            status=status,
+            search=search,
+            category_id=category_id,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
+        )
         count = session.exec(count_statement).one()
         statement = select(Item)
-        statement = _item_filters(statement, **filters)
+        statement = _item_filters(
+            statement,
+            status=status,
+            search=search,
+            category_id=category_id,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
+        )
         statement = _apply_order(statement, sort_by, sort_order)
         statement = statement.offset(skip).limit(limit)
         items = session.exec(statement).all()
@@ -164,10 +171,24 @@ def read_items(
             .select_from(Item)
             .where(Item.owner_id == current_user.id)
         )
-        count_statement = _item_filters(count_statement, **filters)
+        count_statement = _item_filters(
+            count_statement,
+            status=status,
+            search=search,
+            category_id=category_id,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
+        )
         count = session.exec(count_statement).one()
         statement = select(Item).where(Item.owner_id == current_user.id)
-        statement = _item_filters(statement, **filters)
+        statement = _item_filters(
+            statement,
+            status=status,
+            search=search,
+            category_id=category_id,
+            created_at_from=created_at_from,
+            created_at_to=created_at_to,
+        )
         statement = _apply_order(statement, sort_by, sort_order)
         statement = statement.offset(skip).limit(limit)
         items = session.exec(statement).all()
@@ -225,18 +246,18 @@ def _items_for_export(
     created_at_to: date | None,
 ) -> list[Item]:
     """Items list with same filters as read_items, no limit (for export)."""
-    filters = {
-        "status": status,
-        "search": search,
-        "category_id": category_id,
-        "created_at_from": created_at_from,
-        "created_at_to": created_at_to,
-    }
     if can_see_all_items(session, current_user):
         statement = select(Item)
     else:
         statement = select(Item).where(Item.owner_id == current_user.id)
-    statement = _item_filters(statement, **filters)
+    statement = _item_filters(
+        statement,
+        status=status,
+        search=search,
+        category_id=category_id,
+        created_at_from=created_at_from,
+        created_at_to=created_at_to,
+    )
     statement = _apply_order(statement, "created_at", "desc")
     return list(session.exec(statement).all())
 
@@ -261,7 +282,7 @@ def export_items(
     if format not in ("csv", "xlsx"):
         raise HTTPException(status_code=400, detail="format must be csv or xlsx")
     if item_ids:
-        statement = select(Item).where(Item.id.in_(item_ids))
+        statement = select(Item).where(col(Item.id).in_(item_ids))
         if not can_see_all_items(session, current_user):
             statement = statement.where(Item.owner_id == current_user.id)
         statement = _apply_order(statement, "created_at", "desc")
@@ -310,13 +331,13 @@ def export_items(
         ]
 
     if format == "csv":
-        buf = io.StringIO()
-        writer = csv.writer(buf)
+        csv_buf = io.StringIO()
+        writer = csv.writer(csv_buf)
         writer.writerow(headers_ru)
         for item in items:
             writer.writerow(_row(item))
         return Response(
-            content=buf.getvalue().encode("utf-8-sig"),
+            content=csv_buf.getvalue().encode("utf-8-sig"),
             media_type="text/csv; charset=utf-8",
             headers={"Content-Disposition": "attachment; filename=items_export.csv"},
         )
@@ -363,11 +384,11 @@ def export_items(
         )
         ws.column_dimensions[col_letter].width = min(50, max(max_len + 2, 12))
 
-    buf = io.BytesIO()
-    wb.save(buf)
-    buf.seek(0)
+    xlsx_buf = io.BytesIO()
+    wb.save(xlsx_buf)
+    xlsx_buf.seek(0)
     return Response(
-        content=buf.getvalue(),
+        content=xlsx_buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=items_export.xlsx"},
     )
@@ -538,7 +559,7 @@ def read_item_history(
         session.exec(
             select(ItemHistory)
             .where(ItemHistory.item_id == id)
-            .order_by(ItemHistory.changed_at.desc())
+            .order_by(col(ItemHistory.changed_at).desc())
         ).all()
     )
     return ItemHistoryList(

@@ -1,3 +1,4 @@
+from typing import Any
 import uuid
 from datetime import date, datetime, timezone
 
@@ -730,4 +731,4 @@ class MaintenanceCalendarEventList(SQLModel):
 class MaintenanceChainImportBody(SQLModel):
     """Тело запроса импорта из localStorage (массив цепочек в старом формате)."""
 
-    chains: list[dict]
+    chains: list[dict[str, Any]]

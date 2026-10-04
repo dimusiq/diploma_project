@@ -84,7 +84,7 @@ def demo_warehouse(session: Session) -> SimWarehouse | None:
     return session.exec(select(SimWarehouse).where(SimWarehouse.code == "DEMO")).first()
 
 
-def baseline_devices(config: dict | None = None) -> list[dict[str, Any]]:
+def baseline_devices(config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     topology = build_topology()
     return _create_devices({**DEFAULT_CONFIG, **(config or {})}, topology)
 
@@ -204,7 +204,7 @@ def list_config_devices(
         return []
     stmt = select(SimDevice).where(SimDevice.warehouse_id == warehouse.id)
     if not include_archived:
-        stmt = stmt.where(SimDevice.archived.is_(False))
+        stmt = stmt.where(col(SimDevice.archived).is_(False))
     return list(session.exec(stmt.order_by(col(SimDevice.code))).all())
 
 
@@ -270,9 +270,12 @@ def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
     if dup:
         raise HTTPException(status_code=409, detail="Код устройства уже занят")
     charging = zone_center("zone-chrg", build_topology()["zones"])
-    home = body.get("home") or {}
-    home_x = float(home.get("x") if home.get("x") is not None else charging.x)
-    home_z = float(home.get("z") if home.get("z") is not None else charging.z)
+    home_raw = body.get("home")
+    home: dict[str, Any] = home_raw if isinstance(home_raw, dict) else {}
+    hx = home.get("x")
+    hz = home.get("z")
+    home_x = float(hx if hx is not None else charging.x)
+    home_z = float(hz if hz is not None else charging.z)
     name = str(body.get("name") or code.upper())[:64]
     name_dup = session.exec(
         select(SimDevice).where(
@@ -288,8 +291,9 @@ def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
     battery = body.get("battery")
     if battery is None and kind in ("forklift", "agv", "amr", "radio_beacon"):
         battery = 80.0
-    configuration = (
-        body.get("configuration") if isinstance(body.get("configuration"), dict) else {}
+    config_raw = body.get("configuration")
+    configuration: dict[str, Any] = (
+        config_raw if isinstance(config_raw, dict) else {}
     )
     device_dict = create_device(
         code,
@@ -416,7 +420,7 @@ def serialize_fleet_device(
     maintenance: dict[str, Any] | None = None,
     deferred: list[str] | None = None,
     session: Session | None = None,
-    assignments: dict | None = None,
+    assignments: dict[Any, Any] | None = None,
 ) -> dict[str, Any]:
     meta = dict(row.meta or {})
     kind = str(meta.get("kind") or TYPE_TO_KIND.get(row.device_type) or "agv")
@@ -506,13 +510,32 @@ def serialize_fleet_device(
             enrich_fleet_payload as enrich_camera,
         )
 
-        payload = enrich_bracelet(session, payload, row, assignments=assignments)
+        bracelet_map = None
         camera_host_map = None
         camera_cam_map = None
-        if isinstance(assignments, dict) and assignments.get("__smart_cameras__"):
-            maps = assignments["__smart_cameras__"]
-            camera_host_map = maps.get("by_host")
-            camera_cam_map = maps.get("by_camera")
+        if isinstance(assignments, dict):
+            bracelet_map = {
+                k: v
+                for k, v in assignments.items()
+                if isinstance(k, uuid.UUID)
+            }
+            maps = assignments.get("__smart_cameras__")
+            if isinstance(maps, dict):
+                camera_host_map = maps.get("by_host")
+                camera_cam_map = maps.get("by_camera")
+        from typing import cast
+
+        from app.warehouse_sim.models import SimBraceletAssignment
+
+        payload = enrich_bracelet(
+            session,
+            payload,
+            row,
+            assignments=cast(
+                dict[uuid.UUID, SimBraceletAssignment] | None,
+                bracelet_map or None,
+            ),
+        )
         return enrich_camera(
             session,
             payload,

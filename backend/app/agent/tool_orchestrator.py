@@ -20,7 +20,7 @@ from app.agent.llm_adapter import (
     llm_inference_configured,
     resolve_llm_model,
 )
-from app.agent.policy import initial_messages, redact_pii
+from app.agent.policy import initial_messages, redact_audit
 from app.agent.reasoning_runtime import (
     StructuredReasoningRun,
     main_loop_task_kind,
@@ -209,27 +209,31 @@ def _fallback_answer_from_tools(tool_payload: list[dict[str, Any]]) -> str:
         events = d.get("events")
         if not isinstance(events, list):
             continue
-        best_name: str | None = None
-        best_hours: float | int | None = None
+        maint_best_name: str | None = None
+        maint_best_hours: float | int | None = None
         for e in events:
             if not isinstance(e, dict):
                 continue
             h = e.get("engine_hours")
             if not isinstance(h, (int, float)):
                 continue
-            if best_hours is None or h > best_hours:
-                best_hours = h
-                best_name = (
+            if maint_best_hours is None or h > maint_best_hours:
+                maint_best_hours = h
+                maint_best_name = (
                     str(e.get("equipment_name") or "единица техники").strip()
                     or "единица техники"
                 )
-        if best_hours is not None:
+        if maint_best_hours is not None:
             hours = (
-                int(best_hours)
-                if isinstance(best_hours, int) or float(best_hours).is_integer()
-                else best_hours
+                int(maint_best_hours)
+                if isinstance(maint_best_hours, int)
+                or float(maint_best_hours).is_integer()
+                else maint_best_hours
             )
-            return f"<answer>Максимум моточасов у техники «{best_name}»: {hours} ч.</answer>"
+            return (
+                f"<answer>Максимум моточасов у техники «{maint_best_name}»: "
+                f"{hours} ч.</answer>"
+            )
 
     for row in tool_payload:
         if str(row.get("tool") or "") != _READ_INV:
@@ -319,8 +323,8 @@ async def run_code_orchestrated_turn(
             reasoning.tool_calls.append(
                 {
                     "name": tool_name,
-                    "args_preview": redact_pii(raw_s)[:400],
-                    "result_preview": redact_pii(result)[:500],
+                    "args_preview": redact_audit(raw_s)[:400],
+                    "result_preview": redact_audit(result)[:500],
                 }
             )
         tool_payload.append(

@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.permissions import PERM_ROLES_READ
@@ -19,7 +19,7 @@ def read_roles(
     _: Any = require_permission(PERM_ROLES_READ),
 ) -> Any:
     """Список ролей (право roles.read)."""
-    roles = session.exec(select(Role).order_by(Role.name)).all()
+    roles = session.exec(select(Role).order_by(col(Role.name))).all()
     return list(roles)
 
 
@@ -36,22 +36,22 @@ def read_roles_detailed(
     _current_user: CurrentUser,
 ) -> Any:
     """Roles with permission codes and active user count."""
-    roles = list(session.exec(select(Role).order_by(Role.name)).all())
+    roles = list(session.exec(select(Role).order_by(col(Role.name))).all())
 
     result: list[RoleDetailPublic] = []
     for role in roles:
         perm_codes = list(
             session.exec(
                 select(Permission.code)
-                .join(RolePermission, RolePermission.permission_id == Permission.id)
+                .join(RolePermission, col(RolePermission.permission_id) == Permission.id)
                 .where(RolePermission.role_id == role.id)
-                .order_by(Permission.code)
+                .order_by(col(Permission.code))
             ).all()
         )
         user_count = session.exec(
             select(func.count())
             .select_from(User)
-            .where(User.role_id == role.id, User.deleted_at.is_(None))
+            .where(User.role_id == role.id, col(User.deleted_at).is_(None))
         ).one()
         result.append(
             RoleDetailPublic(

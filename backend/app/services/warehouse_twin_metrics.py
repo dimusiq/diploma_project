@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from datetime import date, datetime, timedelta, timezone
 
 from sqlmodel import Session, col, func, select
@@ -14,7 +16,7 @@ from app.schemas.warehouse_layout_spec import (
 )
 
 
-def build_twin_summary_dict(session: Session, user: User) -> dict:
+def build_twin_summary_dict(session: Session, user: User) -> dict[str, Any]:
     """Словарь полей для ответа TwinSummaryResponse (без циклических импортов роутов)."""
     see_all = can_see_all_items(session, user)
     show_events = can_read_audit(session, user)
@@ -22,7 +24,7 @@ def build_twin_summary_dict(session: Session, user: User) -> dict:
     if show_events:
         cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         ev_stmt = (
-            select(DomainEvent.event_type, func.count())  # type: ignore[arg-type]
+            select(DomainEvent.event_type, func.count())
             .where(DomainEvent.occurred_at >= cutoff)
             .group_by(DomainEvent.event_type)
         )
@@ -38,7 +40,7 @@ def build_twin_summary_dict(session: Session, user: User) -> dict:
     )
     if not see_all:
         row_stmt = row_stmt.where(Item.owner_id == user.id)
-    row_stmt = row_stmt.group_by(Item.storage_row).order_by(Item.storage_row)
+    row_stmt = row_stmt.group_by(col(Item.storage_row)).order_by(col(Item.storage_row))
     row_rows = session.exec(row_stmt).all()
     by_row = [
         {"storage_row": int(r), "item_count": int(n)}
@@ -67,7 +69,7 @@ def build_twin_summary_dict(session: Session, user: User) -> dict:
     expiring = session.exec(exp_stmt).one()
 
     layout = session.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     capacity: int | None = None
     if layout and isinstance(layout.spec, dict):

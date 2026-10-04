@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.config import settings
@@ -126,7 +126,7 @@ def read_feature_flags_detail(
     session: SessionDep,
     _current_user: CurrentUser,
 ) -> list[FeatureFlagPublic]:
-    rows = list(session.exec(select(FeatureFlag).order_by(FeatureFlag.key)).all())
+    rows = list(session.exec(select(FeatureFlag).order_by(col(FeatureFlag.key))).all())
     return [
         FeatureFlagPublic(key=r.key, enabled=bool(r.enabled), description=r.description)
         for r in rows
@@ -222,7 +222,7 @@ def integration_inbox_list(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
 ) -> IntegrationInboxList:
-    stmt = select(IntegrationInbox).order_by(IntegrationInbox.created_at.desc())
+    stmt = select(IntegrationInbox).order_by(col(IntegrationInbox.created_at).desc())
     if status is not None:
         stmt = stmt.where(IntegrationInbox.status == status)
     count_stmt = select(func.count()).select_from(IntegrationInbox)

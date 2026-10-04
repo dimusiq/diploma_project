@@ -182,7 +182,7 @@ def test_llm_embed_query_openai_ok(monkeypatch: pytest.MonkeyPatch) -> None:
                 request=httpx.Request("POST", url),
             )
 
-    monkeypatch.setattr(agent_rag.httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(httpx, "AsyncClient", _Client)
     out = asyncio.run(llm_embed_query("query text"))
     assert out is not None
     assert len(out) == AGENT_EMBEDDING_VECTOR_DIMENSIONS
@@ -214,5 +214,5 @@ def test_llm_embed_query_wrong_dimensions(monkeypatch: pytest.MonkeyPatch) -> No
                 request=httpx.Request("POST", url),
             )
 
-    monkeypatch.setattr(agent_rag.httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(httpx, "AsyncClient", _Client)
     assert asyncio.run(llm_embed_query("q")) is None

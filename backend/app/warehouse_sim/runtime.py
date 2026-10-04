@@ -24,8 +24,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, TypeVar
 
-from sqlalchemy import and_, func, or_
-from sqlmodel import Session, select
+from sqlalchemy import ColumnElement, and_, func, or_
+from sqlmodel import col, Session, select
 
 from app.core.db import engine
 from app.realtime.sse_common import format_sse, iter_sse_from_queue, put_drop_oldest
@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def _fleet_for_world() -> list[dict] | None:
+def _fleet_for_world() -> list[dict[str, Any]] | None:
     from app.warehouse_sim.fleet import load_active_runtime_devices
 
     try:
@@ -108,7 +108,7 @@ FF_CHUNK_MODEL_SEC = 60.0
 
 @dataclass(slots=True)
 class _SimSseSub:
-    queue: asyncio.Queue[dict]
+    queue: asyncio.Queue[dict[str, Any]]
     want_deltas: bool
 
 
@@ -131,11 +131,11 @@ class WarehouseSimRuntime:
         self._last_data = build_data(self.world, self.state, self.speed, 0)
         self._last_persisted_seq = 0
 
-    def motion(self) -> dict:
+    def motion(self) -> dict[str, Any]:
         with self._lock:
             return self._last_motion
 
-    def data(self) -> dict:
+    def data(self) -> dict[str, Any]:
         with self._lock:
             return self._last_data
 
@@ -322,36 +322,41 @@ class WarehouseSimRuntime:
     def _rebuild_subs_snapshot(self) -> None:
         self._subs_snapshot = tuple(self._subs)
 
-    def subscribe(self, *, want_deltas: bool = False) -> asyncio.Queue[dict]:
-        q: asyncio.Queue[dict] = asyncio.Queue(maxsize=32)
+    def subscribe(self, *, want_deltas: bool = False) -> asyncio.Queue[dict[str, Any]]:
+        q: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=32)
         with self._sub_lock:
             self._subs.append(_SimSseSub(queue=q, want_deltas=want_deltas))
             self._rebuild_subs_snapshot()
         return q
 
-    def unsubscribe(self, q: asyncio.Queue[dict]) -> None:
+    def unsubscribe(self, q: asyncio.Queue[dict[str, Any]]) -> None:
         with self._sub_lock:
             self._subs = [s for s in self._subs if s.queue is not q]
             self._rebuild_subs_snapshot()
 
-    def _broadcast(self, msg: dict) -> None:
+    def _broadcast(self, msg: dict[str, Any]) -> None:
         """Произвольное сообщение (camera.* и т.п.) — всем подписчикам."""
         for s in self._subs_snapshot:
             put_drop_oldest(s.queue, msg)
 
-    def _broadcast_snapshot(
-        self,
+    @staticmethod
+    def _prepare_snapshot_envelopes(
         kind: str,
-        payload: dict,
-        prev: dict | None,
-    ) -> None:
+        payload: dict[str, Any],
+        prev: dict[str, Any] | None,
+    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any] | None]:
         """
-        motion/data: legacy-клиентам — полный payload;
-        подписчикам с deltas=1 — mode=delta (или full, если дельта невыгодна).
+        CPU-часть broadcast: diff + json.dumps в should_send_full.
+        Безопасно вызывать из threadpool; публикация в asyncio.Queue — в loop.
         """
         ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         revision = int(payload.get("version") or 0)
-        legacy = {"v": 1, "type": kind, "ts": ts, "payload": payload}
+        legacy: dict[str, Any] = {
+            "v": 1,
+            "type": kind,
+            "ts": ts,
+            "payload": payload,
+        }
         full_env = envelope(kind, revision=revision, mode="full", payload=payload)
         full_env["ts"] = ts
 
@@ -372,7 +377,15 @@ class WarehouseSimRuntime:
                     base_revision=base_rev,
                 )
                 delta_env["ts"] = ts
+        return legacy, full_env, delta_env
 
+    def _emit_snapshot_envelopes(
+        self,
+        legacy: dict[str, Any],
+        full_env: dict[str, Any],
+        delta_env: dict[str, Any] | None,
+    ) -> None:
+        """Кладёт готовые envelope в очереди подписчиков (только из event loop)."""
         for s in self._subs_snapshot:
             if s.want_deltas and delta_env is not None:
                 put_drop_oldest(s.queue, delta_env)
@@ -381,7 +394,37 @@ class WarehouseSimRuntime:
             else:
                 put_drop_oldest(s.queue, legacy)
 
-    def _publish(self, kind: str, payload: dict) -> None:
+    def _broadcast_snapshot(
+        self,
+        kind: str,
+        payload: dict[str, Any],
+        prev: dict[str, Any] | None,
+    ) -> None:
+        """
+        motion/data: legacy-клиентам — полный payload;
+        подписчикам с deltas=1 — mode=delta (или full, если дельта невыгодна).
+
+        Sync-путь (control): prepare+emit в текущем потоке.
+        Горячий тик использует ``_broadcast_snapshot_async``.
+        """
+        legacy, full_env, delta_env = self._prepare_snapshot_envelopes(
+            kind, payload, prev
+        )
+        self._emit_snapshot_envelopes(legacy, full_env, delta_env)
+
+    async def _broadcast_snapshot_async(
+        self,
+        kind: str,
+        payload: dict[str, Any],
+        prev: dict[str, Any] | None,
+    ) -> None:
+        """Prepare (json.dumps) в threadpool, emit — в event loop."""
+        legacy, full_env, delta_env = await asyncio.to_thread(
+            self._prepare_snapshot_envelopes, kind, payload, prev
+        )
+        self._emit_snapshot_envelopes(legacy, full_env, delta_env)
+
+    def _publish(self, kind: str, payload: dict[str, Any]) -> None:
         """
         Публикация из sync-кода. Для motion/data после _refresh —
         полный кадр (редкие control-события). Горячий путь тика — _broadcast_snapshot.
@@ -436,26 +479,44 @@ class WarehouseSimRuntime:
             )
 
     def integration_metrics(self) -> dict[str, int]:
-        """Счётчики lag/ошибок интеграции (для диагностики)."""
+        """Счётчики lag/ошибок/dead-letter интеграции (память + durable outbox)."""
         with self._lock:
-            lag = len(self.world.get("integration_queue") or [])
+            queue_size = len(self.world.get("integration_queue") or [])
+        outbox_pending = 0
+        dead_letter = 0
+        try:
+            from app.warehouse_sim.integration_outbox import outbox_counts
+
+            with Session(engine) as session:
+                counts = outbox_counts(session)
+            outbox_pending = int(counts.get("pending") or 0)
+            dead_letter = int(counts.get("dead_letter") or 0)
+        except Exception:
+            logger.debug(
+                "integration_metrics: outbox_counts недоступен", exc_info=True
+            )
         return {
             "applied": int(getattr(self, "_integration_applied", 0)),
             "errors": int(getattr(self, "_integration_errors", 0)),
             "requeued": int(getattr(self, "_integration_requeued", 0)),
-            "lag": lag,
+            "queue_size": queue_size,
+            "outbox_pending": outbox_pending,
+            "dead_letter": dead_letter,
+            "lag": max(queue_size, outbox_pending),
         }
 
     def _flush_integration(self) -> None:
         """
-        Сливает integration_queue в WMS. Очередь очищается до apply, но при любой
-        ошибке события возвращаются в world (без потери). wsim_event — как раньше:
-        seq двигается только после успешной записи.
+        Сливает integration_queue в WMS через durable outbox.
+
+        Память не дренируется до успешного commit: сначала upsert в
+        ``wsim_integration_outbox``, затем apply+mark done в одной транзакции,
+        потом prune memory по ``event_key``. wsim_event: ``_last_persisted_seq``
+        растёт только после успешной записи журнала.
         """
         with self._lock:
             world = self.world
-            queue = list(world.get("integration_queue") or [])
-            world["integration_queue"] = []
+            memory_queue = list(world.get("integration_queue") or [])
             pending_events = [
                 e
                 for e in world.get("events") or []
@@ -474,16 +535,24 @@ class WarehouseSimRuntime:
                 logger.exception(
                     "Warehouse Device Server: не удалось сохранить журнал событий"
                 )
-        if not queue:
-            return
         try:
-            from app.warehouse_sim.integration import apply_integration_queue
+            from app.warehouse_sim.integration_outbox import (
+                ensure_enqueued,
+                outbox_counts,
+                process_integration_outbox,
+                prune_memory_queue,
+            )
 
             with Session(engine) as session:
-                result = apply_integration_queue(session, world, queue=queue)
+                if memory_queue:
+                    ensure_enqueued(session, memory_queue)
+                    session.commit()
+                result, done_keys = process_integration_outbox(session, world)
+                pending_after = int(outbox_counts(session).get("pending") or 0)
             applied = int(result.get("applied") or 0)
             requeued = int(result.get("requeued") or 0)
             errors = int(result.get("errors") or 0)
+            dead = int(result.get("dead_letter") or 0)
             self._integration_applied = (
                 int(getattr(self, "_integration_applied", 0)) + applied
             )
@@ -493,26 +562,31 @@ class WarehouseSimRuntime:
             self._integration_errors = (
                 int(getattr(self, "_integration_errors", 0)) + errors
             )
-            if errors or requeued:
+            self._integration_dead_letter = (
+                int(getattr(self, "_integration_dead_letter", 0)) + dead
+            )
+            if done_keys:
+                with self._lock:
+                    prune_memory_queue(self.world, done_keys)
+            if errors or requeued or dead:
                 logger.error(
-                    "Warehouse Device Server: integration batch errors=%s requeued=%s lag=%s",
+                    "Warehouse Device Server: integration batch errors=%s "
+                    "requeued=%s dead_letter=%s outbox_pending=%s",
                     errors,
                     requeued,
-                    len(world.get("integration_queue") or []),
+                    dead,
+                    pending_after,
                 )
         except Exception:
-            # apply не успел вернуть очередь — восстанавливаем здесь
-            with self._lock:
-                pending = list(world.get("integration_queue") or [])
-                world["integration_queue"] = list(queue) + pending
+            # Память не дренировали — outbox уже мог сохранить батч; не теряем.
             self._integration_errors = int(getattr(self, "_integration_errors", 0)) + 1
             self._integration_requeued = int(
                 getattr(self, "_integration_requeued", 0)
-            ) + len(queue)
+            ) + len(memory_queue)
             logger.exception(
                 "Warehouse Device Server: не удалось применить доменные изменения; "
-                "события возвращены в очередь (%s)",
-                len(queue),
+                "memory queue=%s (durable outbox сохранит при следующем flush)",
+                len(memory_queue),
             )
 
     def _seed_domain_inventory(self) -> None:
@@ -539,7 +613,7 @@ class WarehouseSimRuntime:
                 "Warehouse Device Server: не удалось сбросить доменные данные"
             )
 
-    def start(self) -> dict:
+    def start(self) -> dict[str, Any]:
         self._seed_domain_inventory()
         with self._lock:
             if self.state != SIM_RUNNING:
@@ -550,7 +624,7 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    def pause(self) -> dict:
+    def pause(self) -> dict[str, Any]:
         with self._lock:
             if self.state == SIM_RUNNING:
                 self.state = SIM_PAUSED
@@ -560,7 +634,7 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    def stop(self) -> dict:
+    def stop(self) -> dict[str, Any]:
         with self._lock:
             if self.state != SIM_STOPPED:
                 self.state = SIM_STOPPED
@@ -571,7 +645,7 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    def reset(self, config: dict | None = None) -> dict:
+    def reset(self, config: dict[str, Any] | None = None) -> dict[str, Any]:
         self._reset_domain()
         with self._lock:
             cfg = {**self.world.get("config", DEFAULT_CONFIG), **(config or {})}
@@ -587,7 +661,7 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    def start_demo(self) -> dict:
+    def start_demo(self) -> dict[str, Any]:
         self._reset_domain()
         with self._lock:
             self.world = create_world(DEMO_CONFIG, fleet=_fleet_for_world())
@@ -618,7 +692,7 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    def reset_demo(self) -> dict:
+    def reset_demo(self) -> dict[str, Any]:
         return self.reset(dict(DEMO_CONFIG))
 
     def sync_fleet_device(self, row: Any, *, previous_code: str | None = None) -> None:
@@ -664,7 +738,7 @@ class WarehouseSimRuntime:
             self._publish("data", self._last_data)
             self._publish("motion", self._last_motion)
 
-    def set_speed(self, speed: float) -> dict:
+    def set_speed(self, speed: float) -> dict[str, Any]:
         if speed not in SIM_SPEEDS:
             raise ValueError("Недопустимая скорость")
         with self._lock:
@@ -673,14 +747,14 @@ class WarehouseSimRuntime:
             self._publish("data", self._last_data)
         return self.data()
 
-    def set_config(self, patch: dict) -> dict:
+    def set_config(self, patch: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             self.world["config"].update(patch)
             self._refresh()
             self._publish("data", self._last_data)
         return self.data()
 
-    def command(self, body: dict) -> dict:
+    def command(self, body: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             apply_command(self.world, body)
             self._refresh()
@@ -689,8 +763,8 @@ class WarehouseSimRuntime:
         return self.data()
 
     def send_device_command(
-        self, device_id: str, command: str, payload: dict | None = None
-    ) -> dict:
+        self, device_id: str, command: str, payload: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         with self._lock:
             device_command(self.world, device_id, command, payload)
             self._refresh()
@@ -699,7 +773,7 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return telemetry
 
-    def apply_scenario(self, code: str) -> dict:
+    def apply_scenario(self, code: str) -> dict[str, Any]:
         with self._lock:
             apply_scenario(self.world, code)
             self._refresh()
@@ -709,7 +783,7 @@ class WarehouseSimRuntime:
 
     def inject_event(
         self, event_type: str, device_id: str | None, message: str | None
-    ) -> dict:
+    ) -> dict[str, Any]:
         with self._lock:
             if event_type == ev.EMERGENCY_STOP:
                 emergency_stop(self.world)
@@ -765,7 +839,7 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    def fast_forward(self, seconds: float) -> dict:
+    def fast_forward(self, seconds: float) -> dict[str, Any]:
         """Синхронный fast-forward (тесты/скрипты). HTTP — ``fast_forward_async``."""
         with self._lock:
             advance_world(self.world, max(0.0, seconds))
@@ -774,7 +848,7 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    async def fast_forward_async(self, seconds: float) -> dict:
+    async def fast_forward_async(self, seconds: float) -> dict[str, Any]:
         """
         Продвижение модельного времени чанками с отдачей event loop.
 
@@ -810,10 +884,10 @@ class WarehouseSimRuntime:
             last = now
             if wall <= 0:
                 continue
-            motion: dict | None = None
-            motion_prev: dict | None = None
-            data: dict | None = None
-            data_prev: dict | None = None
+            motion: dict[str, Any] | None = None
+            motion_prev: dict[str, Any] | None = None
+            data: dict[str, Any] | None = None
+            data_prev: dict[str, Any] | None = None
             with self._lock:
                 if self.state == SIM_RUNNING:
                     advance_world(self.world, wall * self.speed)
@@ -838,9 +912,9 @@ class WarehouseSimRuntime:
             await self._flush_integration_async()
             self._drain_vision()
             if motion is not None:
-                self._broadcast_snapshot("motion", motion, motion_prev)
+                await self._broadcast_snapshot_async("motion", motion, motion_prev)
             if data is not None:
-                self._broadcast_snapshot("data", data, data_prev)
+                await self._broadcast_snapshot_async("data", data, data_prev)
 
 
 _runtime: WarehouseSimRuntime | None = None
@@ -1060,23 +1134,23 @@ def query_event_log(
     memory_only = [e for e in memory if e.get("type") == ev.SENSOR_READING]
     sensor_count = len(memory_only)
 
-    conditions = []
+    conditions: list[ColumnElement[bool]] = []
     if severity:
-        conditions.append(SimEvent.severity == severity)
+        conditions.append(col(SimEvent.severity) == severity)
     if event_type:
-        conditions.append(SimEvent.event_type == event_type)
+        conditions.append(col(SimEvent.event_type) == event_type)
     if q:
         needle = f"%{q}%"
         conditions.append(
-            or_(SimEvent.message.ilike(needle), SimEvent.event_type.ilike(needle))
+            or_(col(SimEvent.message).ilike(needle), col(SimEvent.event_type).ilike(needle))
         )
     if device_id:
         # @> — под GIN(jsonb_path_ops) / GIN(jsonb)
-        conditions.append(SimEvent.payload.contains({"deviceId": device_id}))
+        conditions.append(col(SimEvent.payload).contains({"deviceId": device_id}))
     if from_ts is not None:
-        conditions.append(SimEvent.occurred_at >= from_ts)
+        conditions.append(col(SimEvent.occurred_at) >= from_ts)
     if to_ts is not None:
-        conditions.append(SimEvent.occurred_at <= to_ts)
+        conditions.append(col(SimEvent.occurred_at) <= to_ts)
 
     stmt = select(SimEvent)
     count_stmt = select(func.count()).select_from(SimEvent)
@@ -1086,7 +1160,7 @@ def query_event_log(
         count_stmt = count_stmt.where(clause)
 
     db_count = int(session.exec(count_stmt).one() or 0)
-    ordered_stmt = stmt.order_by(SimEvent.seq.desc())
+    ordered_stmt = stmt.order_by(col(SimEvent.seq).desc())
 
     if not memory_only:
         rows = list(
@@ -1119,7 +1193,7 @@ def persist_run_row(session: Session, rt: WarehouseSimRuntime) -> None:
     wh = session.exec(select(SimWarehouse).where(SimWarehouse.code == "DEMO")).first()
     if wh is None:
         return
-    row = session.exec(select(SimRun).where(SimRun.is_active.is_(True))).first()
+    row = session.exec(select(SimRun).where(col(SimRun.is_active).is_(True))).first()
     now = datetime.now(timezone.utc)
     if row is None:
         row = SimRun(warehouse_id=wh.id, is_active=True)

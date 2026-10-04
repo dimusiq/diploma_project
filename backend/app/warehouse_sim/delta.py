@@ -54,8 +54,8 @@ def _id_key_for_motion_list(name: str) -> str:
     return "id"
 
 
-def _entity_map(rows: list[dict] | None, id_key: str) -> dict[Any, dict]:
-    out: dict[Any, dict] = {}
+def _entity_map(rows: list[dict[str, Any]] | None, id_key: str) -> dict[Any, dict[str, Any]]:
+    out: dict[Any, dict[str, Any]] = {}
     for row in rows or []:
         if not isinstance(row, dict):
             continue
@@ -67,13 +67,13 @@ def _entity_map(rows: list[dict] | None, id_key: str) -> dict[Any, dict]:
 
 
 def _list_patch(
-    prev_rows: list[dict] | None,
-    curr_rows: list[dict] | None,
+    prev_rows: list[dict[str, Any]] | None,
+    curr_rows: list[dict[str, Any]] | None,
     id_key: str,
 ) -> dict[str, Any] | None:
     prev = _entity_map(prev_rows, id_key)
     curr = _entity_map(curr_rows, id_key)
-    upsert: list[dict] = []
+    upsert: list[dict[str, Any]] = []
     for kid, row in curr.items():
         old = prev.get(kid)
         if old != row:
@@ -89,7 +89,7 @@ def _list_patch(
     return patch
 
 
-def diff_motion(prev: dict | None, curr: dict) -> dict[str, Any] | None:
+def diff_motion(prev: dict[str, Any] | None, curr: dict[str, Any]) -> dict[str, Any] | None:
     """Патч motion относительно prev; None если изменений нет."""
     if not prev:
         return None
@@ -107,7 +107,7 @@ def diff_motion(prev: dict | None, curr: dict) -> dict[str, Any] | None:
     return patch or None
 
 
-def diff_data(prev: dict | None, curr: dict) -> dict[str, Any] | None:
+def diff_data(prev: dict[str, Any] | None, curr: dict[str, Any]) -> dict[str, Any] | None:
     if not prev:
         return None
     patch: dict[str, Any] = {}
@@ -125,10 +125,10 @@ def diff_data(prev: dict | None, curr: dict) -> dict[str, Any] | None:
 
 
 def apply_list_patch(
-    prev_rows: list[dict] | None,
+    prev_rows: list[dict[str, Any]] | None,
     patch: dict[str, Any] | None,
     id_key: str,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Применяет upsert/remove, сохраняя порядок (обновления на месте, новые в конец)."""
     rows = list(prev_rows or [])
     if not patch:
@@ -150,7 +150,7 @@ def apply_list_patch(
     return rows
 
 
-def apply_motion_delta(base: dict, patch: dict[str, Any]) -> dict:
+def apply_motion_delta(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     out = dict(base)
     for key in _MOTION_SCALARS:
         if key in patch:
@@ -166,7 +166,7 @@ def apply_motion_delta(base: dict, patch: dict[str, Any]) -> dict:
     return out
 
 
-def apply_data_delta(base: dict, patch: dict[str, Any]) -> dict:
+def apply_data_delta(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
     out = dict(base)
     for key in _DATA_SCALARS:
         if key in patch:
@@ -185,7 +185,7 @@ def envelope(
     *,
     revision: int,
     mode: str,
-    payload: dict,
+    payload: dict[str, Any],
     base_revision: int | None = None,
 ) -> dict[str, Any]:
     msg: dict[str, Any] = {
@@ -200,7 +200,7 @@ def envelope(
     return msg
 
 
-def should_send_full(delta_payload: dict, full_payload: dict) -> bool:
+def should_send_full(delta_payload: dict[str, Any], full_payload: dict[str, Any]) -> bool:
     """Если дельта почти полного размера — дешевле отдать full."""
     try:
         dsz = len(json.dumps(delta_payload, ensure_ascii=False, default=str))

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from app.warehouse_sim.rng import (
@@ -16,8 +18,8 @@ from app.warehouse_sim.rng import (
 
 
 def test_mulberry32_sequence_deterministic() -> None:
-    a: dict = {"rng_state": 0xC0FFEE}
-    b: dict = {"rng_state": 0xC0FFEE}
+    a: dict[str, Any] = {"rng_state": 0xC0FFEE}
+    b: dict[str, Any] = {"rng_state": 0xC0FFEE}
     seq_a = [next_random(a) for _ in range(32)]
     seq_b = [next_random(b) for _ in range(32)]
     assert seq_a == seq_b
@@ -28,17 +30,19 @@ def test_mulberry32_sequence_deterministic() -> None:
 
 
 def test_mulberry32_known_first_draw() -> None:
-    """Зафиксированный первый draw для seed=1 (контракт с фронт-прототипом)."""
-    h: dict = {"rng_state": 1}
+    """Зафиксированный первый draw для seed=1 (контракт mulberry32 / JS-прототип)."""
+    h: dict[str, Any] = {"rng_state": 1}
     x = next_random(h)
-    # Не «магическая» KPI-константа: проверяем только инварианты + стабильность
-    assert 0.0 <= x < 1.0
-    h2: dict = {"rng_state": 1}
+    # Точное значение: смена алгоритма / сдвиг констант mulberry32 ломает тест.
+    assert x == pytest.approx(0.025473770452663302, rel=0, abs=1e-15)
+    assert h["rng_state"] == 1831565814
+    h2: dict[str, Any] = {"rng_state": 1}
     assert next_random(h2) == x
+    assert next_random(h2) == pytest.approx(0.1281359081622213, rel=0, abs=1e-15)
 
 
 def test_rand_helpers_bounds() -> None:
-    h: dict = {"rng_state": 42}
+    h: dict[str, Any] = {"rng_state": 42}
     assert 1.0 <= rand_range(h, 1.0, 2.0) <= 2.0
     n = rand_int(h, 3, 7)
     assert 3 <= n <= 7

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table.tsx"
 import { Textarea } from "@/components/ui/textarea.tsx"
 import useCustomToast from "@/hooks/useCustomToast.ts"
+import { ListLoadingBlock } from "@/components/Common/ListLoadingBlock.tsx"
 
 function formatDt(s: string): string {
   return new Date(s).toLocaleString("ru-RU", {
@@ -112,7 +113,7 @@ export function AgentGovernanceAdmin() {
         клику (GET /agent/runs/&#123;id&#125;).
       </p>
       {runsQ.isPending ? (
-        <p className="text-sm">Загрузка…</p>
+        <ListLoadingBlock rows={5} className="min-h-[200px]" />
       ) : runsQ.isError ? (
         <p className="text-sm text-destructive">
           Не удалось загрузить запуски.

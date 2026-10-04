@@ -10,7 +10,7 @@ import math
 import random
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 PutawayRule = Literal["nearest", "round_robin", "random"]
 
@@ -67,7 +67,7 @@ class SimulationKpis:
 class SimulationResult:
     kpis: SimulationKpis
     horizon_minutes: float
-    event_trace_tail: list[dict] = field(default_factory=list)
+    event_trace_tail: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -106,8 +106,8 @@ def run_discrete_event_simulation(cfg: SimulationConfig) -> SimulationResult:
     pick_queue: deque[tuple[float, int]] = deque()
 
     seq = 0
-    heap: list[tuple[float, int, str, dict]] = []
-    trace: list[dict] = []
+    heap: list[tuple[float, int, str, dict[str, Any]]] = []
+    trace: list[dict[str, Any]] = []
 
     pallet_id = 0
     pick_id = 0

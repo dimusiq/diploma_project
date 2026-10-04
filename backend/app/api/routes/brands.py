@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.audit import get_client_ip, log_audit
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/brands", tags=["brands"])
 @router.get("/", response_model=list[BrandPublic])
 def read_brands(session: SessionDep, _current_user: CurrentUser) -> Any:
     """Список брендов (для выбора в форме техники и в админке)."""
-    return list(session.exec(select(Brand).order_by(Brand.name)).all())
+    return list(session.exec(select(Brand).order_by(col(Brand.name))).all())
 
 
 @router.get("/{id}", response_model=BrandPublic)

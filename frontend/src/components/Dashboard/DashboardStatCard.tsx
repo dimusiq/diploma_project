@@ -12,18 +12,18 @@ interface DashboardStatCardProps {
 }
 
 const colorMap = {
-  info: "text-blue-600 dark:text-blue-400",
-  success: "text-green-600 dark:text-green-400",
-  warning: "text-orange-600 dark:text-orange-400",
-  error: "text-red-600 dark:text-red-400",
+  info: "text-info",
+  success: "text-success",
+  warning: "text-warning",
+  error: "text-error",
   muted: "text-muted-foreground",
 } as const
 
 const iconColorMap = {
-  info: "text-blue-600 dark:text-blue-400",
-  success: "text-green-600 dark:text-green-400",
-  warning: "text-orange-600 dark:text-orange-400",
-  error: "text-red-600 dark:text-red-400",
+  info: "text-info",
+  success: "text-success",
+  warning: "text-warning",
+  error: "text-error",
   muted: "text-muted-foreground",
 } as const
 

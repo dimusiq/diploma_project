@@ -1,3 +1,4 @@
+from typing import cast, Any
 import asyncio
 import uuid
 
@@ -12,7 +13,7 @@ def test_items_sse_heartbeat_on_asyncio_timeout(
 ) -> None:
     async def immediate_timeout(aw: object, **_k: object) -> object:
         if hasattr(aw, "close"):
-            aw.close()  # type: ignore[attr-defined]
+            aw.close()
         raise asyncio.TimeoutError()
 
     monkeypatch.setattr(
@@ -26,7 +27,7 @@ def test_items_sse_heartbeat_on_asyncio_timeout(
         assert b"ok" in first
         ping = await anext(gen)
         assert b"ping" in ping
-        await gen.aclose()
+        await cast(Any, gen).aclose()
 
     asyncio.run(_run())
 
@@ -36,7 +37,7 @@ def test_notification_sse_heartbeat_on_asyncio_timeout(
 ) -> None:
     async def immediate_timeout(aw: object, **_k: object) -> object:
         if hasattr(aw, "close"):
-            aw.close()  # type: ignore[attr-defined]
+            aw.close()
         raise asyncio.TimeoutError()
 
     monkeypatch.setattr(
@@ -50,6 +51,6 @@ def test_notification_sse_heartbeat_on_asyncio_timeout(
         assert b"ok" in first
         ping = await anext(gen)
         assert b"ping" in ping
-        await gen.aclose()
+        await cast(Any, gen).aclose()
 
     asyncio.run(_run())

@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.core.config import settings
 from app.models import AuditLog, Warehouse, WarehouseTask
@@ -98,7 +98,7 @@ def test_simulation_pause_is_audited(
     row = db.exec(
         select(AuditLog)
         .where(AuditLog.action == "simulation.pause")
-        .order_by(AuditLog.created_at.desc())
+        .order_by(col(AuditLog.created_at).desc())
     ).first()
     assert row is not None
     assert row.user_id is not None

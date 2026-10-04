@@ -13,6 +13,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs.tsx"
+import { WarehouseHubNav } from "@/components/Common/WarehouseHubNav.tsx"
 import { WarehouseTasksView } from "@/components/warehouse/WarehouseTasksView.tsx"
 import type {
   DigitalTwinTab,
@@ -58,6 +59,8 @@ export function DigitalTwinWorkspace({
         Операционное пространство склада: карта, задания, события и аналитика.
         Управление runtime симуляции — в Device Monitor.
       </p>
+
+      <WarehouseHubNav />
 
       <Tabs
         value={tab}

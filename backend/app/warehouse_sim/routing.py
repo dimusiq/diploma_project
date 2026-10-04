@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import heapq
 from collections.abc import Iterable
 
@@ -36,7 +38,7 @@ def _corner_cells(path: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return corners
 
 
-def blocked_cells(racks: Iterable[dict]) -> set[tuple[int, int]]:
+def blocked_cells(racks: Iterable[dict[str, Any]]) -> set[tuple[int, int]]:
     """Клетки внутри footprint стеллажа. Зазор спины A/B < 1 м — непроходим."""
     blocked: set[tuple[int, int]] = set()
     for rack in racks:
@@ -57,7 +59,7 @@ def blocked_cells(racks: Iterable[dict]) -> set[tuple[int, int]]:
 def astar_path(
     start: dict[str, float],
     goal: dict[str, float],
-    racks: Iterable[dict],
+    racks: Iterable[dict[str, Any]],
     extra_blocked: set[tuple[int, int]] | None = None,
 ) -> list[dict[str, float]]:
     """
@@ -140,7 +142,7 @@ def astar_path(
 
 def path_blocked_by_device(
     next_point: dict[str, float],
-    others: Iterable[dict],
+    others: Iterable[dict[str, Any]],
     radius: float = VEHICLE_BLOCK_RADIUS,
 ) -> bool:
     """Близость к другой машине. Радиус выведен из габарита, не из ширины проезда.

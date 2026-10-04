@@ -11,6 +11,8 @@ integration_handlers / integration_slots.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import logging
 import uuid
 
@@ -65,18 +67,21 @@ __all__ = [
 
 def apply_integration_queue(
     session: Session,
-    world: dict,
-    queue: list[dict] | None = None,
+    world: dict[str, Any],
+    queue: list[dict[str, Any]] | None = None,
 ) -> dict[str, int]:
     """
     Применяет накопленные simulation events к WMS одним батчем (один commit).
 
-    При ошибке — rollback всего батча и возврат событий в ``world["integration_queue"]``
-    (порядок сохраняется; уже накопившиеся после drain идут следом).
+    Если ``queue is None`` — дренирует ``world["integration_queue"]`` и при ошибке
+    возвращает батч обратно. Если очередь передана явно — world не дренируется
+    и при ошибке не дублируется (caller/outbox владеет жизненным циклом).
     """
+    drained_from_world = False
     if queue is None:
         queue = list(world.get("integration_queue") or [])
         world["integration_queue"] = []
+        drained_from_world = True
     if not queue:
         return {"applied": 0, "errors": 0, "requeued": 0, "commits": 0}
     ctx = _DomainCtx.from_session(session, world)
@@ -96,16 +101,18 @@ def apply_integration_queue(
         session.commit()
     except Exception:
         session.rollback()
-        pending = list(world.get("integration_queue") or [])
-        world["integration_queue"] = list(queue) + pending
+        if drained_from_world:
+            pending = list(world.get("integration_queue") or [])
+            world["integration_queue"] = list(queue) + pending
         logger.exception(
-            "warehouse_sim integration batch failed (%s events), requeued",
+            "warehouse_sim integration batch failed (%s events), requeued=%s",
             len(queue),
+            drained_from_world,
         )
         return {
             "applied": 0,
             "errors": 1,
-            "requeued": len(queue),
+            "requeued": len(queue) if drained_from_world else 0,
             "commits": 0,
         }
     _publish_integration(
@@ -122,7 +129,7 @@ def apply_integration_queue(
     }
 
 
-def seed_world_inventory(session: Session, world: dict) -> int:
+def seed_world_inventory(session: Session, world: dict[str, Any]) -> int:
     """Создаёт Item для паллет, уже лежащих в ячейках (стартовые остатки симуляции)."""
     bridge = world.setdefault("bridge", empty_bridge())
     if bridge.get("seeded"):
@@ -150,7 +157,7 @@ def seed_world_inventory(session: Session, world: dict) -> int:
                 "sku": dict(sku) if sku else None,
             },
         }
-        _ensure_item(ctx, rec["context"], status="warehouse")
+        _ensure_item(ctx, cast(dict[str, Any], rec["context"]), status="warehouse")
         created += 1
     session.commit()
     bridge["seeded"] = True
@@ -189,7 +196,7 @@ def reset_demo_domain(session: Session) -> dict[str, int]:
         text("DELETE FROM item WHERE barcode LIKE :pfx"),
         {"pfx": f"{BARCODE_PREFIX}%"},
     )
-    counts["items"] = items_n.rowcount if items_n is not None else 0
+    counts["items"] = int(getattr(items_n, "rowcount", 0) or 0)
     inbound_n = session.execute(
         text("DELETE FROM inbound_order WHERE extra->>'source' = :src"),
         {"src": SOURCE},
@@ -203,9 +210,10 @@ def reset_demo_domain(session: Session) -> dict[str, int]:
         {"src": SOURCE},
     )
     session.execute(text("DELETE FROM wsim_event"))
-    counts["inbound"] = inbound_n.rowcount if inbound_n is not None else 0
-    counts["outbound"] = outbound_n.rowcount if outbound_n is not None else 0
-    counts["shipments"] = shipment_n.rowcount if shipment_n is not None else 0
+    session.execute(text("DELETE FROM wsim_integration_outbox"))
+    counts["inbound"] = int(getattr(inbound_n, "rowcount", 0) or 0)
+    counts["outbound"] = int(getattr(outbound_n, "rowcount", 0) or 0)
+    counts["shipments"] = int(getattr(shipment_n, "rowcount", 0) or 0)
     session.commit()
     _publish_integration(occupancy=True, orders=True, items_changed=True)
     return counts

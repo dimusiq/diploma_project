@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import math
 
 from app.warehouse_sim.layout import (
@@ -58,13 +60,13 @@ DEMO_STAFF = (
 )
 
 
-def on_demo_shift(row: dict) -> bool:
+def on_demo_shift(row: dict[str, Any]) -> bool:
     """Больничный и отпуск не выходят на смену и не получают задачи."""
     status = row.get("status") or "working"
     return status in ("working", "break") and row.get("shift", DEMO_SHIFT) == DEMO_SHIFT
 
 
-def match_camera_person(entity_id: str | None, workers: list[dict]) -> dict:
+def match_camera_person(entity_id: str | None, workers: list[dict[str, Any]]) -> dict[str, Any]:
     """Сопоставление detection → SimPerson по id трека. Имени по лицу нет."""
     if entity_id:
         for worker in workers:
@@ -80,11 +82,11 @@ def match_camera_person(entity_id: str | None, workers: list[dict]) -> dict:
     return {"matched": False, "label": "Неизвестный человек", "employee_code": None}
 
 
-def _stop(x: float, z: float, label: str) -> dict:
+def _stop(x: float, z: float, label: str) -> dict[str, Any]:
     return {"x": x, "z": z, "label": label}
 
 
-def demo_routes() -> list[list[dict]]:
+def demo_routes() -> list[list[dict[str, Any]]]:
     aisle2 = AISLE_Z[1]
     return [
         [
@@ -108,11 +110,11 @@ def demo_routes() -> list[list[dict]]:
     ]
 
 
-def pedestrian_path(start: dict, goal: dict, racks) -> list[dict]:
+def pedestrian_path(start: dict[str, Any], goal: dict[str, Any], racks: Any) -> list[dict[str, Any]]:
     return astar_path(start, goal, racks)
 
 
-def _bind_staff(worker: dict, spec: dict, row: dict) -> None:
+def _bind_staff(worker: dict[str, Any], spec: dict[str, Any], row: dict[str, Any]) -> None:
     worker["code"] = spec["person_code"]
     worker["workerId"] = row.get("worker_id", spec["worker_id"])
     worker["employeeCode"] = spec["employee_code"]
@@ -123,7 +125,7 @@ def _bind_staff(worker: dict, spec: dict, row: dict) -> None:
     worker["name"] = spec["display_name"]
 
 
-def seed_workers(workers: list[dict], racks, roster: list[dict] | None = None) -> None:
+def seed_workers(workers: list[dict[str, Any]], racks: Any, roster: list[dict[str, Any]] | None = None) -> None:
     routes = demo_routes()
     roster_rows = {
         row["employee_code"]: row
@@ -171,7 +173,7 @@ def seed_workers(workers: list[dict], racks, roster: list[dict] | None = None) -
         worker["path"] = []
 
 
-def _next_leg(worker: dict, racks) -> None:
+def _next_leg(worker: dict[str, Any], racks: Any) -> None:
     stops = worker.get("stops") or []
     if len(stops) < 2:
         worker["path"] = []
@@ -184,7 +186,7 @@ def _next_leg(worker: dict, racks) -> None:
     worker["path"] = pedestrian_path(worker["pos"], goal, racks)
 
 
-def advance_workers(world: dict, dt: float) -> None:
+def advance_workers(world: dict[str, Any], dt: float) -> None:
     racks = world["topology"]["racks"]
     for worker in world["workers"]:
         if worker.get("status") != "walking":
@@ -219,7 +221,7 @@ def _heading(dx: float, dz: float) -> float:
     return math.atan2(dx, dz)
 
 
-def path_crosses_rack(points: list[dict], racks) -> bool:
+def path_crosses_rack(points: list[dict[str, Any]], racks: Any) -> bool:
     blocked = blocked_cells(racks)
     if not points:
         return False
@@ -253,7 +255,7 @@ def path_crosses_rack(points: list[dict], racks) -> bool:
     return False
 
 
-def people_snapshot(world: dict) -> list[dict]:
+def people_snapshot(world: dict[str, Any]) -> list[dict[str, Any]]:
     rows = []
     for worker in world["workers"]:
         if not worker.get("pos"):

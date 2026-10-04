@@ -23,7 +23,7 @@ def _default_warehouse_id(session: Session) -> uuid.UUID | None:
     any_w = session.exec(select(Warehouse).limit(1)).first()
     return any_w.id if any_w else None
 
-def _item_scope(session: Session, user: User):
+def _item_scope(session: Session, user: User) -> Any:
     stmt = select(Item)
     if not can_see_all_items(session, user):
         stmt = stmt.where(Item.owner_id == user.id)

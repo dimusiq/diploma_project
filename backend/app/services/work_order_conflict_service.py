@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime
 from typing import Any, TypedDict
 
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import SessionDep
 from app.models import (
@@ -67,12 +67,12 @@ def find_overlapping_conflicts(
 
     equipment_stmt = select(WorkOrder).where(
         WorkOrder.equipment_id == equipment_id,
-        WorkOrder.status.in_(BLOCKING_STATUSES),
-        WorkOrder.start_at.is_not(None),
-        WorkOrder.end_at.is_not(None),
+        col(WorkOrder.status).in_(BLOCKING_STATUSES),
+        col(WorkOrder.start_at).is_not(None),
+        col(WorkOrder.end_at).is_not(None),
         # overlap: existing.start < new.end AND existing.end > new.start
-        WorkOrder.start_at < end_at,
-        WorkOrder.end_at > start_at,
+        col(WorkOrder.start_at) < end_at,
+        col(WorkOrder.end_at) > start_at,
     )
     if exclude_work_order_id is not None:
         equipment_stmt = equipment_stmt.where(WorkOrder.id != exclude_work_order_id)
@@ -83,11 +83,11 @@ def find_overlapping_conflicts(
     if assigned_to_id is not None:
         assigned_stmt = select(WorkOrder).where(
             WorkOrder.assigned_to_id == assigned_to_id,
-            WorkOrder.status.in_(BLOCKING_STATUSES),
-            WorkOrder.start_at.is_not(None),
-            WorkOrder.end_at.is_not(None),
-            WorkOrder.start_at < end_at,
-            WorkOrder.end_at > start_at,
+            col(WorkOrder.status).in_(BLOCKING_STATUSES),
+            col(WorkOrder.start_at).is_not(None),
+            col(WorkOrder.end_at).is_not(None),
+            col(WorkOrder.start_at) < end_at,
+            col(WorkOrder.end_at) > start_at,
         )
         if exclude_work_order_id is not None:
             assigned_stmt = assigned_stmt.where(WorkOrder.id != exclude_work_order_id)

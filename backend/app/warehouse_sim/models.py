@@ -837,6 +837,40 @@ class SimEvent(SQLModel, table=True):
     )
 
 
+# --- Durable outbox интеграции симуляции → WMS ---
+
+OUTBOX_PENDING = "pending"
+OUTBOX_DONE = "done"
+OUTBOX_DEAD_LETTER = "dead_letter"
+
+
+class SimIntegrationOutbox(SQLModel, table=True):
+    """
+    Персистентная очередь simulation→WMS.
+
+    Событие сначала попадает сюда (по ``event_key``), применяется к домену,
+    и только после успешного commit помечается ``done``. Рестарт процесса
+    не теряет незаписанные события; повторная обработка идемпотентна.
+    """
+
+    __tablename__ = "wsim_integration_outbox"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    event_key: str = Field(max_length=128, unique=True, index=True)
+    sim_seq: int = Field(
+        default=0,
+        sa_column=Column(BigInteger, nullable=False, index=True),
+    )
+    payload: dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSONB, nullable=False)
+    )
+    status: str = Field(default=OUTBOX_PENDING, max_length=16, index=True)
+    attempts: int = Field(default=0, ge=0)
+    last_error: str | None = Field(default=None, max_length=2048)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    completed_at: datetime | None = Field(default=None, index=True)
+
+
 # --- Сценарии и прогоны ---
 
 

@@ -8,6 +8,7 @@
 
 import asyncio
 from datetime import datetime, timezone
+from typing import Any
 
 import redis
 from sqlmodel import Session
@@ -24,7 +25,7 @@ async def report_scheduler_loop(
     *,
     redis_url: str | None = None,
 ) -> None:
-    r: redis.Redis | None = None
+    r: redis.Redis[Any] | None = None
     if redis_url:
         r = redis.from_url(redis_url, decode_responses=True)
 

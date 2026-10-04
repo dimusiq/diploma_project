@@ -9,7 +9,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import or_
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.permissions import PERM_WAREHOUSE_TELEMETRY_INGEST, PERM_ZONES_MANAGE
@@ -188,19 +188,19 @@ def read_semantic_overview(
     if warehouse_id is not None:
         stmt_sla = stmt_sla.where(
             or_(
-                TwinSlaDefinition.warehouse_id == warehouse_id,
-                TwinSlaDefinition.warehouse_id.is_(None),
+                col(TwinSlaDefinition.warehouse_id) == warehouse_id,
+                col(TwinSlaDefinition.warehouse_id).is_(None),
             )
         )
         stmt_rule = stmt_rule.where(
             or_(
-                TwinBusinessRule.warehouse_id == warehouse_id,
-                TwinBusinessRule.warehouse_id.is_(None),
+                col(TwinBusinessRule.warehouse_id) == warehouse_id,
+                col(TwinBusinessRule.warehouse_id).is_(None),
             )
         )
-    sla_rows = list(session.exec(stmt_sla.order_by(TwinSlaDefinition.code)).all())
+    sla_rows = list(session.exec(stmt_sla.order_by(col(TwinSlaDefinition.code))).all())
     rule_rows = list(
-        session.exec(stmt_rule.order_by(TwinBusinessRule.priority.desc())).all()
+        session.exec(stmt_rule.order_by(col(TwinBusinessRule.priority).desc())).all()
     )
     return TwinSemanticOverviewResponse(
         vocabulary=build_default_vocabulary(),
@@ -251,22 +251,22 @@ def list_sla_definitions(
     if warehouse_id is not None:
         stmt = stmt.where(
             or_(
-                TwinSlaDefinition.warehouse_id == warehouse_id,
-                TwinSlaDefinition.warehouse_id.is_(None),
+                col(TwinSlaDefinition.warehouse_id) == warehouse_id,
+                col(TwinSlaDefinition.warehouse_id).is_(None),
             )
         )
     count_stmt = select(func.count()).select_from(TwinSlaDefinition)
     if warehouse_id is not None:
         count_stmt = count_stmt.where(
             or_(
-                TwinSlaDefinition.warehouse_id == warehouse_id,
-                TwinSlaDefinition.warehouse_id.is_(None),
+                col(TwinSlaDefinition.warehouse_id) == warehouse_id,
+                col(TwinSlaDefinition.warehouse_id).is_(None),
             )
         )
     count = session.exec(count_stmt).one()
     rows = list(
         session.exec(
-            stmt.order_by(TwinSlaDefinition.code).offset(skip).limit(limit)
+            stmt.order_by(col(TwinSlaDefinition.code)).offset(skip).limit(limit)
         ).all()
     )
     return TwinSlaDefinitionList(data=[_sla_public(r) for r in rows], count=count)
@@ -313,22 +313,24 @@ def list_business_rules(
     if warehouse_id is not None:
         stmt = stmt.where(
             or_(
-                TwinBusinessRule.warehouse_id == warehouse_id,
-                TwinBusinessRule.warehouse_id.is_(None),
+                col(TwinBusinessRule.warehouse_id) == warehouse_id,
+                col(TwinBusinessRule.warehouse_id).is_(None),
             )
         )
     count_stmt = select(func.count()).select_from(TwinBusinessRule)
     if warehouse_id is not None:
         count_stmt = count_stmt.where(
             or_(
-                TwinBusinessRule.warehouse_id == warehouse_id,
-                TwinBusinessRule.warehouse_id.is_(None),
+                col(TwinBusinessRule.warehouse_id) == warehouse_id,
+                col(TwinBusinessRule.warehouse_id).is_(None),
             )
         )
     count = session.exec(count_stmt).one()
     rows = list(
         session.exec(
-            stmt.order_by(TwinBusinessRule.priority.desc(), TwinBusinessRule.code)
+            stmt.order_by(
+                col(TwinBusinessRule.priority).desc(), col(TwinBusinessRule.code)
+            )
             .offset(skip)
             .limit(limit)
         ).all()

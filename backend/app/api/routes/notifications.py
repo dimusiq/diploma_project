@@ -1,3 +1,4 @@
+from typing import Any
 """API центра уведомлений: список, счётчик непрочитанных, отметка прочитанным."""
 
 import uuid
@@ -6,7 +7,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import update
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.permissions import can_see_all_items, can_view_maintenance_schedule
@@ -48,7 +49,7 @@ async def notifications_sse(current_user: CurrentUser) -> StreamingResponse:
 def ensure_notifications(
     session: SessionDep,
     current_user: CurrentUser,
-) -> dict:
+) -> dict[str, Any]:
     """Проверить и создать недостающие уведомления (ТО, склад). Вызывать при открытии панели уведомлений."""
     if can_view_maintenance_schedule(session, current_user):
         ensure_overdue_maintenance_notification(session, current_user.id)
@@ -65,15 +66,15 @@ def ensure_notifications(
 def get_unread_count(
     session: SessionDep,
     current_user: CurrentUser,
-) -> dict:
+) -> dict[str, Any]:
     """Количество непрочитанных уведомлений текущего пользователя."""
     count = session.exec(
         select(func.count())
         .select_from(Notification)
         .where(
             Notification.user_id == current_user.id,
-            Notification.is_read.is_(False),
-            Notification.archived_at.is_(None),
+            col(Notification.is_read).is_(False),
+            col(Notification.archived_at).is_(None),
         )
     ).one()
     return {"count": count}
@@ -92,20 +93,20 @@ def list_notifications(
     """Список уведомлений текущего пользователя. Только свои."""
     statement = select(Notification).where(
         Notification.user_id == current_user.id,
-        Notification.archived_at.is_(None),
+        col(Notification.archived_at).is_(None),
     )
     count_statement = (
         select(func.count())
         .select_from(Notification)
         .where(
             Notification.user_id == current_user.id,
-            Notification.archived_at.is_(None),
+            col(Notification.archived_at).is_(None),
         )
     )
 
     if unread_only:
-        statement = statement.where(Notification.is_read.is_(False))
-        count_statement = count_statement.where(Notification.is_read.is_(False))
+        statement = statement.where(col(Notification.is_read).is_(False))
+        count_statement = count_statement.where(col(Notification.is_read).is_(False))
     if severity and severity in NOTIFICATION_SEVERITIES:
         statement = statement.where(Notification.severity == severity)
         count_statement = count_statement.where(Notification.severity == severity)
@@ -113,7 +114,7 @@ def list_notifications(
         statement = statement.where(Notification.type == type)
         count_statement = count_statement.where(Notification.type == type)
 
-    statement = statement.order_by(Notification.created_at.desc())
+    statement = statement.order_by(col(Notification.created_at).desc())
     count = session.exec(count_statement).one()
     statement = statement.offset(skip).limit(limit)
     items = list(session.exec(statement).all())
@@ -129,7 +130,7 @@ def mark_notification_read(
     session: SessionDep,
     current_user: CurrentUser,
     id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """Отметить уведомление как прочитанное."""
     notification = session.get(Notification, id)
     if not notification:
@@ -148,20 +149,20 @@ def mark_notification_read(
 def mark_all_read(
     session: SessionDep,
     current_user: CurrentUser,
-) -> dict:
+) -> dict[str, Any]:
     """Отметить все уведомления пользователя как прочитанные (один массовый UPDATE)."""
     now = datetime.now(timezone.utc)
     stmt = (
         update(Notification)
         .where(
-            Notification.user_id == current_user.id,
-            Notification.is_read.is_(False),
+            col(Notification.user_id) == current_user.id,
+            col(Notification.is_read).is_(False),
         )
         .values(is_read=True, read_at=now)
     )
     result = session.execute(stmt)
     session.commit()
-    marked = result.rowcount if result.rowcount is not None else 0
+    marked = int(getattr(result, "rowcount", 0) or 0)
     publish_notifications_updated(current_user.id)
     return {"message": "ok", "marked": marked}
 
@@ -170,7 +171,7 @@ def mark_all_read(
 def clear_all_notifications(
     session: SessionDep,
     current_user: CurrentUser,
-) -> dict:
+) -> dict[str, Any]:
     """
     Скрыть (архивировать) все уведомления текущего пользователя.
 
@@ -180,13 +181,13 @@ def clear_all_notifications(
     stmt = (
         update(Notification)
         .where(
-            Notification.user_id == current_user.id,
-            Notification.archived_at.is_(None),
+            col(Notification.user_id) == current_user.id,
+            col(Notification.archived_at).is_(None),
         )
         .values(archived_at=now, is_read=True, read_at=now)
     )
     result = session.execute(stmt)
     session.commit()
-    archived = result.rowcount if result.rowcount is not None else 0
+    archived = int(getattr(result, "rowcount", 0) or 0)
     publish_notifications_updated(current_user.id)
     return {"message": "ok", "archived": archived}

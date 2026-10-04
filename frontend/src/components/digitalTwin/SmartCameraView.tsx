@@ -76,10 +76,10 @@ function modelLabel(model: string, sceneViewport: boolean): string {
 }
 
 function tone(className: string): string {
-  if (className === "person") return "border-sky-400 text-sky-50"
-  if (className === "obstacle") return "border-red-500 text-red-50"
-  if (className === "pallet" || className === "box") return "border-emerald-400 text-emerald-50"
-  return "border-amber-400 text-amber-50"
+  if (className === "person") return "border-info text-white"
+  if (className === "obstacle") return "border-error text-white"
+  if (className === "pallet" || className === "box") return "border-success text-white"
+  return "border-warning text-white"
 }
 
 function clock(timestamp: string | undefined): string {
@@ -206,11 +206,11 @@ export function SmartCameraView({
             <>
               <div className="absolute top-2 left-2 font-mono text-[10px] leading-tight text-white/90">
                 <div>CAM-{name}</div>
-                <div className="text-red-400">● REC</div>
+                <div className="text-error">● REC</div>
                 <div>{stamp}</div>
                 <div>{shownFps.toFixed(1)} FPS</div>
               </div>
-              <div className="absolute top-2 right-2 bg-black/70 px-2 py-0.5 font-mono text-[10px] text-emerald-300">
+              <div className="absolute top-2 right-2 bg-black/70 px-2 py-0.5 font-mono text-[10px] text-success">
                 LIVE
               </div>
             </>
@@ -265,7 +265,7 @@ export function SmartCameraView({
             )}
           {liveView && personHit ? (
             <div
-              className="bg-sky-950/90 px-2 py-1 font-mono text-[11px] text-sky-100"
+              className="bg-info/90 px-2 py-1 font-mono text-[11px] text-white"
               style={{ position: "absolute", top: 28, right: 8 }}
             >
               PERSON DETECTED
@@ -273,7 +273,7 @@ export function SmartCameraView({
           ) : null}
           {liveView && obstacle ? (
             <div
-              className="bg-red-950/90 px-2 py-1 font-mono text-[11px] text-red-100"
+              className="bg-error/90 px-2 py-1 font-mono text-[11px] text-white"
               style={{ position: "absolute", right: 8, bottom: 8, left: 8 }}
             >
               ⚠ ОБЪЕКТ НА ТРАЕКТОРИИ
@@ -296,9 +296,9 @@ export function SmartCameraView({
 
       {liveView && (personHit || obstacle) ? (
         <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
-          {personHit ? <span className="text-sky-200">PERSON DETECTED</span> : null}
-          {obstacle ? <span className="text-red-200">⚠ ОБЪЕКТ НА ТРАЕКТОРИИ</span> : null}
-          {held ? <span className="text-red-100">AGV остановлен</span> : null}
+          {personHit ? <span className="text-info">PERSON DETECTED</span> : null}
+          {obstacle ? <span className="text-error">⚠ ОБЪЕКТ НА ТРАЕКТОРИИ</span> : null}
+          {held ? <span className="text-error">AGV остановлен</span> : null}
         </div>
       ) : null}
 
@@ -311,7 +311,7 @@ export function SmartCameraView({
           <dd>{modelLabel(model, sceneViewport)}</dd>
         </div>
         <div>
-          <dt className="text-stone-500">STATUS</dt>
+          <dt className="text-stone-500">Статус</dt>
           <dd>{state === "live" ? "LIVE" : state === "disabled" ? "DISABLED" : "OFFLINE"}</dd>
         </div>
         <div>

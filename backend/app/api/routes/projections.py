@@ -68,7 +68,7 @@ def post_projections_replay(
     twin_deleted = 0
     if body.purge_twin_timeline:
         r = session.execute(delete(TwinProjectionEntry))
-        twin_deleted = r.rowcount or 0
+        twin_deleted = int(getattr(r, "rowcount", 0) or 0) or 0
         session.execute(delete(TwinTaskStateProjection))
         session.execute(delete(TwinEquipmentPoseProjection))
         session.execute(delete(TwinQueueDepthProjection))
@@ -80,7 +80,7 @@ def post_projections_replay(
             col(ProjectionConsumerProcessed.consumer_name).in_(body.consumer_names)
         )
     cr = session.execute(proc_stmt)
-    proc_deleted = cr.rowcount or 0
+    proc_deleted = int(getattr(cr, "rowcount", 0) or 0) or 0
 
     enq = enqueue_replay_all_domain_events(session)
     session.commit()

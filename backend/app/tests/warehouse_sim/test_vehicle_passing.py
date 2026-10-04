@@ -1,3 +1,4 @@
+from typing import Any
 """Две машины разъезжаются в одном проезде, не задевая стеллажи.
 
 Один габарит на все mobile vehicles: ширина AGV/AMR (1.28 м) больше
@@ -76,7 +77,7 @@ def test_two_vehicles_can_pass() -> None:
                 points.append({"x": cursor, "z": z})
             return points
 
-        device_a = {
+        device_a: dict[str, Any] = {
             "id": "a",
             "kind": kind_a,
             "status": "moving",
@@ -84,7 +85,7 @@ def test_two_vehicles_can_pass() -> None:
             "pos": {"x": x - length, "z": z_a},
             "path": lane(z_a, x - length, x + length * 2),
         }
-        device_b = {
+        device_b: dict[str, Any] = {
             "id": "b",
             "kind": kind_b,
             "status": "moving",

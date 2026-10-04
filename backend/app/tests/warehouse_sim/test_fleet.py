@@ -12,7 +12,7 @@ def test_baseline_park_composition() -> None:
     assert {"fl-1", "agv-1", "amr-1", "cnv-1", "dock-in-1", "scn-PACK", "chg-1"} <= set(
         ids
     )
-    by_cat = {}
+    by_cat: dict[str, list[str]] = {}
     for device in devices:
         by_cat.setdefault(category_of(device["kind"]), []).append(device["id"])
     assert set(by_cat["transport"]) >= {"fl-1", "agv-1", "amr-1"}

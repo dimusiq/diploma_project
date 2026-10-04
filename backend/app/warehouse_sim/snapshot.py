@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from datetime import datetime, timezone
 
 from app.warehouse_sim.layout import ZONE_PACKING, ZONE_RECEIVING, ZONE_SHIPPING
@@ -9,7 +11,7 @@ from app.warehouse_sim.traffic import current_speed
 from app.warehouse_sim.world import DAY_START_SEC
 
 
-def clone_device(device: dict) -> dict:
+def clone_device(device: dict[str, Any]) -> dict[str, Any]:
     return {
         **device,
         "pos": dict(device["pos"]),
@@ -19,7 +21,7 @@ def clone_device(device: dict) -> dict:
     }
 
 
-def build_motion(world: dict, running: bool, version: int) -> dict:
+def build_motion(world: dict[str, Any], running: bool, version: int) -> dict[str, Any]:
     rack_fill = [
         {"rackId": rack["id"], "occupied": 0, "total": rack["bays"] * rack["levels"]}
         for rack in world["topology"]["racks"]
@@ -103,7 +105,7 @@ def build_motion(world: dict, running: bool, version: int) -> dict:
     }
 
 
-def build_data(world: dict, state: str, speed: float, version: int) -> dict:
+def build_data(world: dict[str, Any], state: str, speed: float, version: int) -> dict[str, Any]:
     occupied = sum(1 for c in world["cells"] if c["palletId"] is not None)
     event_counts = sorted(
         ({"type": k, "count": v} for k, v in world["eventCountsByType"].items()),
@@ -148,7 +150,7 @@ def build_data(world: dict, state: str, speed: float, version: int) -> dict:
     }
 
 
-def build_kpi(world: dict, state: str) -> dict:
+def build_kpi(world: dict[str, Any], state: str) -> dict[str, Any]:
     devices = world["devices"]
     active_devices = sum(
         1 for d in devices if d["online"] and d["status"] not in ("offline",)

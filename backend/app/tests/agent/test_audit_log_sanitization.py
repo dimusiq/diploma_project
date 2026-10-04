@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import json
 import logging
 import uuid
@@ -11,7 +13,7 @@ from app.agent.tool_safety import ToolSafetyClass
 from app.agent.trace import AgentTrace, log_trace_audit
 
 
-def test_log_tool_run_masks_pii_and_uses_hash(caplog) -> None:
+def test_log_tool_run_masks_pii_and_uses_hash(caplog: Any) -> None:
     payload_in = json.dumps(
         {"q": "клиент ops@warehouse.test тел +7 999 111-22-33 ИНН 7707083893"},
         ensure_ascii=False,
@@ -45,7 +47,7 @@ def test_log_tool_run_masks_pii_and_uses_hash(caplog) -> None:
     assert "[email]" in data["input"]["preview"] or "[inn]" in data["input"]["preview"]
 
 
-def test_log_trace_audit_redacts_step_previews(caplog) -> None:
+def test_log_trace_audit_redacts_step_previews(caplog: Any) -> None:
     trace = AgentTrace.new()
     trace.add_step(
         "act",

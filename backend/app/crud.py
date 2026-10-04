@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import col, Session, select
 
 from app.core.security import get_password_hash, verify_password
 from app.models import (
@@ -16,7 +16,7 @@ from app.models import (
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
-    update = {"hashed_password": get_password_hash(user_create.password)}
+    update: dict[str, Any] = {"hashed_password": get_password_hash(user_create.password)}
     if user_create.role_id is None:
         viewer = session.exec(select(Role).where(Role.name == ROLE_VIEWER)).first()
         if viewer:
@@ -47,7 +47,7 @@ def get_user_by_email(
 ) -> User | None:
     statement = select(User).where(User.email == email)
     if not include_deleted:
-        statement = statement.where(User.deleted_at.is_(None))
+        statement = statement.where(col(User.deleted_at).is_(None))
     return session.exec(statement).first()
 
 

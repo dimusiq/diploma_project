@@ -1,3 +1,4 @@
+from typing import Any
 from datetime import datetime, timezone
 
 import httpx
@@ -37,7 +38,7 @@ def test_email(email_to: EmailStr) -> Message:
     dependencies=[Depends(get_current_active_superuser)],
     status_code=200,
 )
-def send_due_reports_now(session: SessionDep) -> dict:
+def send_due_reports_now(session: SessionDep) -> dict[str, Any]:
     """
     Ручной запуск рассылки “отчётов, которые должны уйти сейчас”.
     Полезно для проверки в dev/staging без ожидания расписания.
@@ -53,7 +54,7 @@ async def health_check() -> bool:
 
 
 @router.get("/health", response_model=None)
-def health_with_db(session: SessionDep) -> dict:
+def health_with_db(session: SessionDep) -> dict[str, Any]:
     """
     Health check for load balancers/monitoring. Returns 200 with database status.
     """
@@ -66,7 +67,7 @@ def health_with_db(session: SessionDep) -> dict:
 
 
 @router.get("/readiness", response_model=None)
-def readiness_probe(session: SessionDep) -> dict:
+def readiness_probe(session: SessionDep) -> dict[str, Any]:
     """
     Детальная готовность: БД, inference (VLLM_BASE_URL / LLM_OPENAI_BASE_URL / OLLAMA_BASE_URL), Redis.
     Воркер фоновых задач в этом процессе не проверяется — см. отдельный деплой worker.
@@ -101,8 +102,8 @@ def readiness_probe(session: SessionDep) -> dict:
         try:
             import redis as redis_lib
 
-            r = redis_lib.Redis.from_url(redis_url, socket_connect_timeout=2)
-            r.ping()
+            redis_client = redis_lib.Redis.from_url(redis_url, socket_connect_timeout=2)
+            redis_client.ping()
             components["redis"] = "ok"
         except Exception:
             components["redis"] = "error"

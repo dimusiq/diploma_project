@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from app.warehouse_sim.simulation import device_command, is_mobile_kind
 from app.warehouse_sim.traffic import current_speed
@@ -10,13 +10,13 @@ from app.warehouse_sim.world import create_device
 
 
 class DeviceServer:
-    def __init__(self, world: dict) -> None:
+    def __init__(self, world: dict[str, Any]) -> None:
         self._world = world
 
-    def bind(self, world: dict) -> None:
+    def bind(self, world: dict[str, Any]) -> None:
         self._world = world
 
-    def register_device(self, spec: dict[str, Any]) -> dict:
+    def register_device(self, spec: dict[str, Any]) -> dict[str, Any]:
         did = spec["id"]
         if did in self._world["deviceById"]:
             raise ValueError(f"Устройство {did} уже зарегистрировано")
@@ -46,16 +46,16 @@ class DeviceServer:
             d for d in self._world["devices"] if d["id"] != device_id
         ]
 
-    def get_device(self, device_id: str) -> dict:
+    def get_device(self, device_id: str) -> dict[str, Any]:
         device = self._world["deviceById"].get(device_id)
         if device is None:
             raise KeyError(device_id)
-        return device
+        return cast(dict[str, Any], device)
 
-    def get_devices(self) -> list[dict]:
+    def get_devices(self) -> list[dict[str, Any]]:
         return list(self._world["devices"])
 
-    def update_device_state(self, device_id: str, patch: dict[str, Any]) -> dict:
+    def update_device_state(self, device_id: str, patch: dict[str, Any]) -> dict[str, Any]:
         device = self.get_device(device_id)
         for key, value in patch.items():
             if key == "id":
@@ -64,12 +64,12 @@ class DeviceServer:
         return device
 
     def send_command(
-        self, device_id: str, command: str, payload: dict | None = None
-    ) -> dict:
+        self, device_id: str, command: str, payload: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         device_command(self._world, device_id, command, payload)
         return self.get_device(device_id)
 
-    def get_device_telemetry(self, device_id: str) -> dict:
+    def get_device_telemetry(self, device_id: str) -> dict[str, Any]:
         device = self.get_device(device_id)
         return {
             "deviceId": device["id"],

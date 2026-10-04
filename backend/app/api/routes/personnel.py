@@ -1,7 +1,7 @@
 """Справочник сотрудников склада. Runtime-позиция приходит из симуляции."""
 
 import uuid
-from typing import Any
+from typing import Any, TypeGuard
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlmodel import col, or_, select
@@ -32,7 +32,7 @@ from app.models import (
 router = APIRouter(prefix="/personnel", tags=["personnel"])
 
 
-def _runtime_workers() -> list[dict]:
+def _runtime_workers() -> list[dict[str, Any]]:
     from app.warehouse_sim.runtime import get_runtime
 
     try:
@@ -41,7 +41,7 @@ def _runtime_workers() -> list[dict]:
         return []
 
 
-def _runtime_device(code: str | None) -> dict | None:
+def _runtime_device(code: str | None) -> dict[str, Any] | None:
     if not code:
         return None
     from app.warehouse_sim.runtime import get_runtime
@@ -52,7 +52,7 @@ def _runtime_device(code: str | None) -> dict | None:
         return None
 
 
-def _match_worker(employee: WarehouseEmployee, workers: list[dict]) -> dict | None:
+def _match_worker(employee: WarehouseEmployee, workers: list[dict[str, Any]]) -> dict[str, Any] | None:
     employee_id = str(employee.id)
     for worker in workers:
         if worker.get("employeeCode") == employee.employee_code:
@@ -62,7 +62,7 @@ def _match_worker(employee: WarehouseEmployee, workers: list[dict]) -> dict | No
     return None
 
 
-def _present(worker: dict | None) -> bool:
+def _present(worker: dict[str, Any] | None) -> TypeGuard[dict[str, Any]]:
     return bool(worker and worker.get("spawned", True) and worker.get("pos"))
 
 
@@ -95,11 +95,20 @@ def _bracelet_info(
 def _public(
     session: SessionDep,
     employee: WarehouseEmployee,
-    worker: dict | None,
+    worker: dict[str, Any] | None,
 ) -> PersonnelPublic:
     present = _present(worker)
     bracelet = _bracelet_info(session, employee)
-    zone = worker.get("current_zone") if present else None
+    zone: str | None = None
+    motion_status: str | None = None
+    person_code: str | None = None
+    speed: float | None = None
+    if worker is not None and present:
+        zone = worker.get("current_zone")
+        motion_status = worker.get("status")
+        person_code = worker.get("code")
+        if worker.get("status") == "walking":
+            speed = float(worker.get("speed") or 0.0)
     location_source = None
     location_stale = False
     last_signal = None
@@ -127,11 +136,9 @@ def _public(
         created_at=employee.created_at,
         updated_at=employee.updated_at,
         current_zone=zone,
-        motion_status=worker.get("status") if present else None,
-        person_code=worker.get("code") if present else None,
-        speed=float(worker.get("speed") or 0.0)
-        if present and worker.get("status") == "walking"
-        else None,
+        motion_status=motion_status,
+        person_code=person_code,
+        speed=speed,
         bracelet=bracelet,
         location_source=location_source,
         location_stale=location_stale,
@@ -504,18 +511,27 @@ def read_activity(
     employee = _get_or_404(session, employee_id)
     worker = _match_worker(employee, _runtime_workers())
     present = _present(worker)
+    person_code = runtime_id = zone = motion_status = target = task_id = None
+    speed = None
+    if worker is not None and present:
+        person_code = worker.get("code")
+        runtime_id = worker.get("id")
+        zone = worker.get("current_zone")
+        motion_status = worker.get("status")
+        target = worker.get("target")
+        task_id = worker.get("taskId")
+        if worker.get("status") == "walking":
+            speed = float(worker.get("speed") or 0.0)
     return PersonnelActivity(
         present=present,
         on_shift=present and employee.status in ("working", "break"),
-        person_code=worker.get("code") if present else None,
-        runtime_id=worker.get("id") if present else None,
-        zone=worker.get("current_zone") if present else None,
-        motion_status=worker.get("status") if present else None,
-        speed=float(worker.get("speed") or 0.0)
-        if present and worker.get("status") == "walking"
-        else None,
-        target=worker.get("target") if present else None,
-        task_id=worker.get("taskId") if present else None,
+        person_code=person_code,
+        runtime_id=runtime_id,
+        zone=zone,
+        motion_status=motion_status,
+        speed=speed,
+        target=target,
+        task_id=task_id,
     )
 
 

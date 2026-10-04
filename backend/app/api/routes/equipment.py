@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
-from sqlmodel import func, select, update
+from sqlmodel import col, func, select, update
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import (
@@ -49,7 +49,11 @@ def _get_or_404(session: SessionDep, id: uuid.UUID) -> Equipment:
 
 
 def _equipment_to_public(eq: Equipment, brand: Brand | None = None) -> EquipmentPublic:
-    name = brand.name if brand else (getattr(eq, "brand", None) and eq.brand.name or "")
+    if brand is not None:
+        name = brand.name
+    else:
+        linked = eq.brand
+        name = linked.name if linked is not None else ""
     return EquipmentPublic(
         id=eq.id,
         equipment_type=eq.equipment_type,
@@ -102,27 +106,27 @@ def read_equipment_list(
     """Список складской техники. Бренды задаются в панели администрирования."""
     statement = (
         select(Equipment, Brand)
-        .join(Brand, Equipment.brand_id == Brand.id)
-        .where(Equipment.equipment_type.in_(EQUIPMENT_TYPES))
+        .join(Brand, col(Equipment.brand_id) == col(Brand.id))
+        .where(col(Equipment.equipment_type).in_(EQUIPMENT_TYPES))
     )
     count_statement = (
         select(func.count())
         .select_from(Equipment)
-        .where(Equipment.equipment_type.in_(EQUIPMENT_TYPES))
+        .where(col(Equipment.equipment_type).in_(EQUIPMENT_TYPES))
     )
 
     if search and search.strip():
         q = f"%{search.strip()}%"
         cond = (
-            Equipment.vin.ilike(q)
-            | Equipment.serial_number.ilike(q)
-            | Equipment.garage_number.ilike(q)
-            | Brand.name.ilike(q)
-            | Equipment.model.ilike(q)
+            col(Equipment.vin).ilike(q)
+            | col(Equipment.serial_number).ilike(q)
+            | col(Equipment.garage_number).ilike(q)
+            | col(Brand.name).ilike(q)
+            | col(Equipment.model).ilike(q)
         )
         statement = statement.where(cond)
         count_statement = count_statement.join(
-            Brand, Equipment.brand_id == Brand.id
+            Brand, col(Equipment.brand_id) == col(Brand.id)
         ).where(cond)
     if current_status is not None and current_status != "":
         statement = statement.where(Equipment.current_status == current_status)
@@ -147,64 +151,64 @@ def read_equipment_list(
     if sort_by in SORT_FIELDS and order in ("asc", "desc"):
         if sort_by == "brand_model":
             if order == "asc":
-                statement = statement.order_by(Brand.name.asc(), Equipment.model.asc())
+                statement = statement.order_by(col(Brand.name).asc(), col(Equipment.model).asc())
             else:
                 statement = statement.order_by(
-                    Brand.name.desc(), Equipment.model.desc()
+                    col(Brand.name).desc(), col(Equipment.model).desc()
                 )
         elif sort_by == "engine_hours":
             if order == "asc":
                 statement = statement.order_by(
-                    Equipment.engine_hours.asc().nulls_last()
+                    col(Equipment.engine_hours).asc().nulls_last()
                 )
             else:
                 statement = statement.order_by(
-                    Equipment.engine_hours.desc().nulls_first()
+                    col(Equipment.engine_hours).desc().nulls_first()
                 )
         elif sort_by == "commissioned_at":
             if order == "asc":
                 statement = statement.order_by(
-                    Equipment.commissioned_at.asc().nulls_last()
+                    col(Equipment.commissioned_at).asc().nulls_last()
                 )
             else:
                 statement = statement.order_by(
-                    Equipment.commissioned_at.desc().nulls_first()
+                    col(Equipment.commissioned_at).desc().nulls_first()
                 )
         elif sort_by == "current_status":
             if order == "asc":
-                statement = statement.order_by(Equipment.current_status.asc())
+                statement = statement.order_by(col(Equipment.current_status).asc())
             else:
-                statement = statement.order_by(Equipment.current_status.desc())
+                statement = statement.order_by(col(Equipment.current_status).desc())
         elif sort_by == "serial_number":
             if order == "asc":
                 statement = statement.order_by(
-                    Equipment.serial_number.asc().nulls_last()
+                    col(Equipment.serial_number).asc().nulls_last()
                 )
             else:
                 statement = statement.order_by(
-                    Equipment.serial_number.desc().nulls_first()
+                    col(Equipment.serial_number).desc().nulls_first()
                 )
         elif sort_by == "garage_number":
             if order == "asc":
                 statement = statement.order_by(
-                    Equipment.garage_number.asc().nulls_last()
+                    col(Equipment.garage_number).asc().nulls_last()
                 )
             else:
                 statement = statement.order_by(
-                    Equipment.garage_number.desc().nulls_first()
+                    col(Equipment.garage_number).desc().nulls_first()
                 )
         elif sort_by == "equipment_type":
             if order == "asc":
-                statement = statement.order_by(Equipment.equipment_type.asc())
+                statement = statement.order_by(col(Equipment.equipment_type).asc())
             else:
-                statement = statement.order_by(Equipment.equipment_type.desc())
+                statement = statement.order_by(col(Equipment.equipment_type).desc())
         elif sort_by == "zone":
             if order == "asc":
-                statement = statement.order_by(Equipment.zone.asc().nulls_last())
+                statement = statement.order_by(col(Equipment.zone).asc().nulls_last())
             else:
-                statement = statement.order_by(Equipment.zone.desc().nulls_first())
+                statement = statement.order_by(col(Equipment.zone).desc().nulls_first())
     else:
-        statement = statement.order_by(Equipment.created_at.desc())
+        statement = statement.order_by(col(Equipment.created_at).desc())
 
     statement = statement.offset(skip).limit(limit)
     rows = list(session.exec(statement).all())
@@ -224,12 +228,12 @@ def read_all_maintenance_records(
 ) -> Any:
     """Общий список проведённых ТО (для раздела «Рабочие заказы»)."""
     statement = select(MaintenanceRecord, SimDevice).join(
-        SimDevice, MaintenanceRecord.equipment_id == SimDevice.id
+        SimDevice, col(MaintenanceRecord.equipment_id) == col(SimDevice.id)
     )
     count_statement = (
         select(func.count())
         .select_from(MaintenanceRecord)
-        .join(SimDevice, MaintenanceRecord.equipment_id == SimDevice.id)
+        .join(SimDevice, col(MaintenanceRecord.equipment_id) == col(SimDevice.id))
     )
     if equipment_id is not None:
         statement = statement.where(MaintenanceRecord.equipment_id == equipment_id)
@@ -239,7 +243,7 @@ def read_all_maintenance_records(
 
     count = session.exec(count_statement).one()
     statement = (
-        statement.order_by(MaintenanceRecord.performed_at.desc())
+        statement.order_by(col(MaintenanceRecord.performed_at).desc())
         .offset(skip)
         .limit(limit)
     )
@@ -270,7 +274,7 @@ def read_equipment_maintenance_records(
     statement = (
         select(MaintenanceRecord)
         .where(MaintenanceRecord.equipment_id == equipment_id)
-        .order_by(MaintenanceRecord.performed_at.desc())
+        .order_by(col(MaintenanceRecord.performed_at).desc())
     )
     records = list(session.exec(statement).all())
     count = len(records)
@@ -420,7 +424,7 @@ def patch_equipment_current_status(
         raise HTTPException(status_code=404, detail="Техника не найдена")
     session.exec(
         update(Equipment)
-        .where(Equipment.id == id)
+        .where(col(Equipment.id) == id)
         .values(current_status=body.current_status)
     )
     session.commit()

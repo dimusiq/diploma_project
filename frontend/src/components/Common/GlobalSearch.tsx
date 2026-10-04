@@ -176,7 +176,7 @@ export function GlobalSearch() {
                 {results.items.length > 0 && (
                   <div className='mb-2'>
                     <p className='mb-1 px-2 text-xs font-medium text-muted-foreground'>
-                      Товары
+                      Поступления
                     </p>
                     {results.items.map((item) => (
                       <button

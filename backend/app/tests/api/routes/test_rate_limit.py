@@ -1,3 +1,4 @@
+from typing import Any
 from app.core.config import settings
 from app.core.rate_limit import (
     LOGIN_MAX_PER_MINUTE,
@@ -6,7 +7,7 @@ from app.core.rate_limit import (
 )
 
 
-def test_login_rate_limit_allows_then_blocks(monkeypatch) -> None:
+def test_login_rate_limit_allows_then_blocks(monkeypatch: Any) -> None:
     monkeypatch.setattr(settings, "REDIS_URL", None)
     reset_login_rate_limit()
     key = "test-ip-rate-limit"

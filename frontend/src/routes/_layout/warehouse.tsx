@@ -36,7 +36,9 @@ function Warehouse() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="mx-auto w-full max-w-full px-4">
-        <h1 className="font-heading pt-12 text-2xl font-semibold">Склад</h1>
+        <h1 className="font-heading pt-12 text-2xl font-semibold">
+          Остатки на складе
+        </h1>
         <WarehouseHubNav />
         <ItemDataTable
           status="warehouse"

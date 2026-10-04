@@ -11,9 +11,9 @@ import { fetchAgentPermissions } from "@/api/agent.ts"
 import { cn } from "@/lib/utils"
 
 const baseNavItems = [
-  { icon: FiTarget, label: "Tower", path: "/control-tower", requiresAssistant: false },
-  { icon: FiBox, label: "Склад", path: "/warehouse", requiresAssistant: false },
-  { icon: FiList, label: "Задания", path: "/warehouse-tasks", requiresAssistant: false },
+  { icon: FiTarget, label: "Обзор", path: "/control-tower", requiresAssistant: false },
+  { icon: FiBox, label: "Остатки", path: "/warehouse", requiresAssistant: false },
+  { icon: FiList, label: "Мои", path: "/warehouse-tasks", requiresAssistant: false },
   { icon: FiMessageCircle, label: "Ассистент", path: "/assistant", requiresAssistant: true },
   { icon: FiMoreHorizontal, label: "Ещё", path: "/settings", requiresAssistant: false },
 ]
@@ -45,12 +45,16 @@ export function BottomNav() {
             <Link
               key={item.path}
               to={item.path}
+              search={
+                item.path === "/warehouse-tasks" ? { mine: true } : undefined
+              }
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 py-1 text-xs transition-colors",
+                "flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-1 text-xs transition-colors",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground",
               )}
+              aria-current={isActive ? "page" : undefined}
             >
               <item.icon className="size-5" />
               <span>{item.label}</span>

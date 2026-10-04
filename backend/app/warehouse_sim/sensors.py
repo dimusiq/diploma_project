@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.rng import rand_chance, rand_normal, rand_range
 from app.warehouse_sim.sim_common import (
@@ -12,7 +14,7 @@ from app.warehouse_sim.sim_common import (
 )
 
 
-def process_sensors(world: dict, dt: float) -> None:
+def process_sensors(world: dict[str, Any], dt: float) -> None:
     world["accumulators"]["sensorSample"] += dt
     if world["accumulators"]["sensorSample"] < SENSOR_SAMPLE_SEC:
         return

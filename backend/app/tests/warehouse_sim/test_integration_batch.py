@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import asyncio
 from unittest.mock import MagicMock
 
@@ -35,7 +37,7 @@ def test_apply_integration_queue_one_commit_per_batch(
 
     n = 12
     queue = [{"type": f"evt-{i}"} for i in range(n)]
-    world: dict = {"bridge": {}, "integration_queue": []}
+    world: dict[str, Any] = {"bridge": {}, "integration_queue": []}
     result = apply_integration_queue(session, world, queue=queue)
 
     assert result["applied"] == n
@@ -54,7 +56,7 @@ def test_apply_integration_queue_requeues_on_error(
         lambda _s, _w: ctx,
     )
 
-    def _apply(_ctx: object, rec: dict) -> dict:
+    def _apply(_ctx: object, rec: dict[str, Any]) -> dict[str, Any]:
         if rec.get("type") == "bad":
             raise RuntimeError("boom")
         return {}
@@ -65,17 +67,31 @@ def test_apply_integration_queue_requeues_on_error(
         lambda **_kw: None,
     )
 
+    # Явно переданная очередь: world не дренируется и при ошибке не дублируется.
     queue = [{"type": "ok"}, {"type": "bad"}, {"type": "later"}]
-    world: dict = {"bridge": {}, "integration_queue": [{"type": "newer"}]}
+    world: dict[str, Any] = {"bridge": {}, "integration_queue": [{"type": "newer"}]}
     result = apply_integration_queue(session, world, queue=queue)
 
     assert result["applied"] == 0
     assert result["errors"] == 1
-    assert result["requeued"] == 3
+    assert result["requeued"] == 0
     assert result["commits"] == 0
     session.rollback.assert_called()
     session.commit.assert_not_called()
-    assert world["integration_queue"] == queue + [{"type": "newer"}]
+    assert world["integration_queue"] == [{"type": "newer"}]
+
+    # drain из world (queue=None): при ошибке батч возвращается в очередь.
+    world2: dict[str, Any] = {
+        "bridge": {},
+        "integration_queue": [{"type": "ok"}, {"type": "bad"}, {"type": "later"}],
+    }
+    result2 = apply_integration_queue(session, world2, queue=None)
+    assert result2["requeued"] == 3
+    assert world2["integration_queue"] == [
+        {"type": "ok"},
+        {"type": "bad"},
+        {"type": "later"},
+    ]
 
 
 def test_fast_forward_async_yields_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -34,14 +34,18 @@ from app.warehouse_sim.integration_slots import (
 )
 
 
-def _apply_one(ctx: _DomainCtx, rec: dict) -> dict[str, Any]:
-    handler = _HANDLERS.get(rec.get("type"))
+def _apply_one(ctx: _DomainCtx, rec: dict[str, Any]) -> dict[str, Any]:
+    event_type = rec.get("type")
+    handler = _HANDLERS.get(event_type) if isinstance(event_type, str) else None
     if handler is None:
         return {}
-    return handler(ctx, rec.get("context") or {}) or {}
+    context = rec.get("context") or {}
+    if not isinstance(context, dict):
+        return {}
+    return handler(ctx, context) or {}
 
 
-def _on_truck_arrived(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_truck_arrived(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     truck = c.get("truck") or {}
     truck_id = truck.get("id")
     if not truck_id:
@@ -91,7 +95,7 @@ def _on_truck_arrived(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"orders": True}
 
 
-def _on_receiving_started(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_receiving_started(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     inbound = c.get("inbound")
     truck = c.get("truck") or {}
     if inbound:
@@ -116,7 +120,7 @@ def _on_receiving_started(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"orders": True}
 
 
-def _on_item_received(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_item_received(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     item = _ensure_item(ctx, c, status="incoming")
     inbound = c.get("inbound")
     if inbound:
@@ -134,7 +138,7 @@ def _on_item_received(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"item_id": item.id, "orders": True, "occupancy": False}
 
 
-def _on_item_stored(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_item_stored(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     item = _ensure_item(ctx, c, status="incoming")
     slot = _slot_from_context(c)
     coords = _free_slot(ctx, slot, exclude=item.id)
@@ -156,7 +160,7 @@ def _on_item_stored(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"item_id": item.id, "occupancy": True, "orders": True}
 
 
-def _on_item_picked(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_item_picked(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     pallet = c.get("pallet") or {}
     if not pallet.get("id"):
         outbound = c.get("outbound") or {}
@@ -185,7 +189,7 @@ def _on_item_picked(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"item_id": item.id, "occupancy": True, "orders": True}
 
 
-def _on_item_packed(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_item_packed(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     outbound = c.get("outbound") or {}
     item_ids = []
     for pid in outbound.get("palletIds") or []:
@@ -219,7 +223,7 @@ def _on_item_packed(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     }
 
 
-def _on_item_shipped(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_item_shipped(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     outbound = c.get("outbound")
     pallet = c.get("pallet")
     item = None
@@ -253,7 +257,7 @@ def _on_item_shipped(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"item_id": item.id if item else None, "occupancy": True, "orders": True}
 
 
-def _on_truck_departed(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_truck_departed(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     truck = c.get("truck") or {}
     ship_id = ctx.bridge["trucks"].get(truck.get("id"))
     if ship_id:
@@ -277,15 +281,15 @@ def _on_truck_departed(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
         oid = _uuid(ctx.bridge["outbound"].get(outbound["id"]))
         if not oid:
             continue
-        order = ctx.session.get(OutboundOrder, oid)
-        if order:
-            order.status = "shipped"
-            order.updated_at = ctx.now
-            ctx.session.add(order)
+        outbound_order = ctx.session.get(OutboundOrder, oid)
+        if outbound_order:
+            outbound_order.status = "shipped"
+            outbound_order.updated_at = ctx.now
+            ctx.session.add(outbound_order)
     return {"orders": True}
 
 
-def _on_order_created(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_order_created(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     outbound = c.get("outbound")
     if not outbound:
         return {}
@@ -303,7 +307,7 @@ def _on_order_created(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"orders": True}
 
 
-def _on_order_released(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_order_released(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     outbound = c.get("outbound")
     if not outbound:
         return {}
@@ -322,7 +326,7 @@ def _on_order_released(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"orders": True}
 
 
-def _on_task_created(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_task_created(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     task = c.get("task")
     if not task:
         return {}
@@ -331,7 +335,7 @@ def _on_task_created(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"task_id": row.id}
 
 
-def _on_task_assigned(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_task_assigned(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     task = c.get("task")
     if not task:
         return {}
@@ -347,7 +351,7 @@ def _on_task_assigned(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"task_id": row.id}
 
 
-def _on_task_started(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_task_started(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     task = c.get("task")
     if not task:
         return {}
@@ -358,7 +362,7 @@ def _on_task_started(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"task_id": row.id}
 
 
-def _on_task_completed(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_task_completed(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     task = c.get("task")
     if not task:
         return {}
@@ -370,7 +374,7 @@ def _on_task_completed(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"task_id": row.id}
 
 
-def _on_task_blocked(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_task_blocked(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     task = c.get("task")
     if not task:
         return {}
@@ -386,14 +390,14 @@ def _on_task_blocked(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
     return {"task_id": row.id}
 
 
-def _on_device_error(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_device_error(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     task = c.get("task")
     if task:
         return _on_task_blocked(ctx, c)
     return {}
 
 
-def _on_device_recovered(ctx: _DomainCtx, c: dict) -> dict[str, Any]:
+def _on_device_recovered(ctx: _DomainCtx, c: dict[str, Any]) -> dict[str, Any]:
     device = c.get("device") or {}
     device_id = device.get("id")
     if not device_id:

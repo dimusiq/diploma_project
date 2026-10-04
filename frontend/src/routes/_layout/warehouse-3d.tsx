@@ -42,6 +42,7 @@ import type { ItemPublic } from '@/client/index.ts';
 import { ItemsService } from '@/client/index.ts';
 import { ErrorFallback } from '@/components/Common/ErrorFallback.tsx';
 import { WarehouseHubNav } from '@/components/Common/WarehouseHubNav.tsx';
+import { WarehouseViewRouteSwitcher } from '@/components/deviceServer/WarehouseViewSwitcher.tsx';
 import { deviceSimulation } from '@/components/deviceServer/simStore.ts';
 import { Button } from '@/components/ui/button.tsx';
 import {
@@ -845,13 +846,13 @@ function Warehouse3DPage() {
             variant='outline'
             className='font-medium'
           >
-            <RouterLink to='/warehouse'>Склад</RouterLink>
+            <RouterLink to='/warehouse'>Остатки на складе</RouterLink>
           </Button>
           <FiChevronRight
             className='size-3 shrink-0'
             aria-hidden
           />
-          <span>Цифровой двойник</span>
+          <span>3D склад</span>
         </div>
         <div className='mb-3 flex flex-wrap items-start justify-between gap-3'>
           <div className='min-w-0 flex-1'>
@@ -859,6 +860,7 @@ function Warehouse3DPage() {
               3D модель склада
             </h1>
           </div>
+          <WarehouseViewRouteSwitcher active='3d' />
         </div>
 
         <WarehouseHubNav />

@@ -20,7 +20,7 @@ export function OfflineBanner() {
 
   return (
     <output
-      className="block bg-orange-500 px-4 py-2 text-center text-sm text-white"
+      className="block bg-warning px-4 py-2 text-center text-sm text-white"
       aria-live="polite"
     >
       <p className="font-medium">Нет соединения с интернетом</p>

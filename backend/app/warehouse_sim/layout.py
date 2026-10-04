@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from dataclasses import dataclass
 
 from app.warehouse_sim.vehicle_dimensions import (
@@ -81,19 +83,19 @@ class Vec2:
         return {"x": self.x, "z": self.z}
 
 
-def distance(a: Vec2 | dict, b: Vec2 | dict) -> float:
+def distance(a: Vec2 | dict[str, Any], b: Vec2 | dict[str, Any]) -> float:
     ax, az = _xz(a)
     bx, bz = _xz(b)
-    return ((ax - bx) ** 2 + (az - bz) ** 2) ** 0.5
+    return float(((ax - bx) ** 2 + (az - bz) ** 2) ** 0.5)
 
 
-def _xz(p: Vec2 | dict) -> tuple[float, float]:
+def _xz(p: Vec2 | dict[str, Any]) -> tuple[float, float]:
     if isinstance(p, Vec2):
         return p.x, p.z
     return float(p["x"]), float(p["z"])
 
 
-def zone_center(zone_id: str, zones: list[dict]) -> Vec2:
+def zone_center(zone_id: str, zones: list[dict[str, Any]]) -> Vec2:
     for zone in zones:
         if zone["id"] == zone_id:
             return Vec2(zone["x"] + zone["w"] / 2, zone["z"] + zone["d"] / 2)
@@ -120,7 +122,7 @@ def _same_point(a: Vec2, b: Vec2) -> bool:
     return abs(a.x - b.x) < 0.05 and abs(a.z - b.z) < 0.05
 
 
-def route_between(from_p: Vec2 | dict, to_p: Vec2 | dict) -> list[dict[str, float]]:
+def route_between(from_p: Vec2 | dict[str, Any], to_p: Vec2 | dict[str, Any]) -> list[dict[str, float]]:
     """Ортогональный маршрут по рабочим проездам и продольным коридорам."""
     start = Vec2(*_xz(from_p))
     goal = Vec2(*_xz(to_p))
@@ -168,7 +170,7 @@ def route_between(from_p: Vec2 | dict, to_p: Vec2 | dict) -> list[dict[str, floa
     return result if result else [goal.as_dict()]
 
 
-def build_zones() -> list[dict]:
+def build_zones() -> list[dict[str, Any]]:
     return [
         {
             "id": ZONE_RECEIVING,
@@ -233,8 +235,8 @@ def build_zones() -> list[dict]:
     ]
 
 
-def build_racks() -> list[dict]:
-    racks: list[dict] = []
+def build_racks() -> list[dict[str, Any]]:
+    racks: list[dict[str, Any]] = []
     for index in range(BLOCK_COUNT):
         block_id = f"B{index + 1:02d}"
         origin = _block_origin_z(index)
@@ -263,13 +265,13 @@ def build_racks() -> list[dict]:
     return racks
 
 
-def build_blocks(racks: list[dict] | None = None) -> list[dict]:
+def build_blocks(racks: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     if racks is None:
         racks = build_racks()
-    by_block: dict[str, list[dict]] = {}
+    by_block: dict[str, list[dict[str, Any]]] = {}
     for rack in racks:
         by_block.setdefault(str(rack["blockId"]), []).append(rack)
-    blocks: list[dict] = []
+    blocks: list[dict[str, Any]] = []
     for index in range(BLOCK_COUNT):
         block_id = f"B{index + 1:02d}"
         pair = by_block[block_id]
@@ -289,9 +291,9 @@ def build_blocks(racks: list[dict] | None = None) -> list[dict]:
     return blocks
 
 
-def build_aisles(racks: list[dict]) -> list[dict]:
+def build_aisles(racks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     by_id = {rack["id"]: rack for rack in racks}
-    aisles: list[dict] = []
+    aisles: list[dict[str, Any]] = []
     for i, z in enumerate(AISLE_Z):
         rack_ids: list[str] = []
         if i == 0:
@@ -311,7 +313,7 @@ def build_aisles(racks: list[dict]) -> list[dict]:
     return aisles
 
 
-def _cell_approach(rack: dict, bay: int) -> dict[str, float]:
+def _cell_approach(rack: dict[str, Any], bay: int) -> dict[str, float]:
     """Подъезд с внешней стороны стеллажа (не со стороны общей спины)."""
     bay_width = rack["w"] / rack["bays"]
     x = rack["x"] + (bay - 0.5) * bay_width
@@ -322,8 +324,8 @@ def _cell_approach(rack: dict, bay: int) -> dict[str, float]:
     return {"x": x, "z": z}
 
 
-def build_cells(racks: list[dict]) -> list[dict]:
-    cells: list[dict] = []
+def build_cells(racks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cells: list[dict[str, Any]] = []
     for rack in racks:
         for bay in range(1, rack["bays"] + 1):
             pos = _cell_approach(rack, bay)
@@ -342,7 +344,7 @@ def build_cells(racks: list[dict]) -> list[dict]:
     return cells
 
 
-def build_docks() -> list[dict]:
+def build_docks() -> list[dict[str, Any]]:
     inbound = [
         {
             "id": f"dock-in-{i + 1}",
@@ -366,7 +368,7 @@ def build_docks() -> list[dict]:
     return inbound + outbound
 
 
-def build_topology() -> dict:
+def build_topology() -> dict[str, Any]:
     racks = build_racks()
     return {
         "width": WAREHOUSE_WIDTH,
@@ -381,12 +383,12 @@ def build_topology() -> dict:
     }
 
 
-def work_aisle_gaps(racks: list[dict] | None = None) -> list[dict]:
+def work_aisle_gaps(racks: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """Ширина каждого рабочего проезда: кромка стеллажа до кромки следующего."""
     if racks is None:
         racks = build_racks()
     by_id = {rack["id"]: rack for rack in racks}
-    gaps: list[dict] = []
+    gaps: list[dict[str, Any]] = []
     first = by_id["rack-1-A"]
     gaps.append(
         {
@@ -419,7 +421,7 @@ def work_aisle_gaps(racks: list[dict] | None = None) -> list[dict]:
     return gaps
 
 
-def clearance_report(racks: list[dict] | None = None) -> list[str]:
+def clearance_report(racks: list[dict[str, Any]] | None = None) -> list[str]:
     """Строки проверки геометрии проезда. Пустой список не возвращается: каждая строка PASS или FAIL."""
     if racks is None:
         racks = build_racks()

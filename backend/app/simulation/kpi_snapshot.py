@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import and_, extract, func
@@ -19,7 +21,7 @@ from app.models import (
 from app.services.warehouse_twin_metrics import build_twin_summary_dict
 
 
-def build_kpi_snapshot(session: Session, user: User) -> dict:
+def build_kpi_snapshot(session: Session, user: User) -> dict[str, Any]:
     """
     Baseline KPI по правам пользователя.
     Метрики «операционного контура» (очереди доков, длина пути отбора, replen latency)
@@ -29,21 +31,21 @@ def build_kpi_snapshot(session: Session, user: User) -> dict:
     twin = build_twin_summary_dict(session, user)
 
     layout = session.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     wh_id = layout.warehouse_id if layout else None
 
     occupancy_by_zone: list[dict[str, object]] = []
     if wh_id is not None:
         z_stmt = (
-            select(WarehouseZone.name, func.count(Item.id))  # type: ignore[arg-type]
+            select(WarehouseZone.name, func.count(col(Item.id)))
             .select_from(Item)
             .join(
                 WarehouseRack,
                 and_(
-                    WarehouseRack.row_index == Item.storage_row,
-                    WarehouseRack.warehouse_id == wh_id,
-                    WarehouseRack.zone_id.is_not(None),
+                    col(WarehouseRack.row_index) == Item.storage_row,
+                    col(WarehouseRack.warehouse_id) == wh_id,
+                    col(WarehouseRack.zone_id).is_not(None),
                 ),
             )
             .join(WarehouseZone, WarehouseZone.id == WarehouseRack.zone_id)  # type: ignore[arg-type]
@@ -52,18 +54,18 @@ def build_kpi_snapshot(session: Session, user: User) -> dict:
         )
         if not see_all:
             z_stmt = z_stmt.where(Item.owner_id == user.id)
-        z_stmt = z_stmt.group_by(WarehouseZone.name).order_by(WarehouseZone.name)
+        z_stmt = z_stmt.group_by(WarehouseZone.name).order_by(col(WarehouseZone.name))
         for name, n in session.exec(z_stmt).all():
             occupancy_by_zone.append({"zone_name": str(name), "item_count": int(n)})
 
     slot_stmt = (
-        select(Item.storage_level, func.count())  # type: ignore[arg-type]
+        select(Item.storage_level, func.count())
         .where(Item.status == "warehouse")
         .where(col(Item.storage_level).is_not(None))
     )
     if not see_all:
         slot_stmt = slot_stmt.where(Item.owner_id == user.id)
-    slot_stmt = slot_stmt.group_by(Item.storage_level).order_by(Item.storage_level)
+    slot_stmt = slot_stmt.group_by(col(Item.storage_level)).order_by(col(Item.storage_level))
     occupancy_by_slot_level: list[dict[str, object]] = []
     for lvl, n in session.exec(slot_stmt).all():
         if lvl is None:
@@ -74,7 +76,7 @@ def build_kpi_snapshot(session: Session, user: User) -> dict:
         )
 
     dwell_stmt = select(
-        func.avg(extract("epoch", func.now() - Item.created_at))  # type: ignore[arg-type]
+        func.avg(extract("epoch", func.now() - Item.created_at))
     ).where(Item.status == "warehouse")
     if not see_all:
         dwell_stmt = dwell_stmt.where(Item.owner_id == user.id)

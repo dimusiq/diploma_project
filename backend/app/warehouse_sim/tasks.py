@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.layout import PACKING_POINT, ZONE_STORAGE
 from app.warehouse_sim.rng import rand_chance, rand_range
@@ -17,7 +19,7 @@ from app.warehouse_sim.sim_common import (
 from app.warehouse_sim.traffic import find_task
 
 
-def create_task(world: dict, draft: dict) -> dict:
+def create_task(world: dict[str, Any], draft: dict[str, Any]) -> dict[str, Any]:
     world["counters"]["task"] += 1
     task = {
         "id": f"T-{world['counters']['task']:06d}",
@@ -53,7 +55,7 @@ def create_task(world: dict, draft: dict) -> dict:
     return task
 
 
-def _device_can_take(device: dict, kinds: list[str]) -> bool:
+def _device_can_take(device: dict[str, Any], kinds: list[str]) -> bool:
     if device["kind"] not in kinds:
         return False
     if not device["online"] or device["status"] != "idle" or device["taskId"]:
@@ -69,7 +71,7 @@ def _device_can_take(device: dict, kinds: list[str]) -> bool:
     return True
 
 
-def assign_tasks(world: dict) -> None:
+def assign_tasks(world: dict[str, Any]) -> None:
     pending = [t for t in world["tasks"] if t["status"] == "pending"]
     pending.sort(key=lambda t: (-t["priority"], t["createdAt"]))
     for task in pending:
@@ -132,7 +134,7 @@ def assign_tasks(world: dict) -> None:
         )
 
 
-def seed_demo_agv_task(world: dict) -> dict | None:
+def seed_demo_agv_task(world: dict[str, Any]) -> dict[str, Any] | None:
     """Детерминированный отбор для AGV-01. Назначение идёт через assign_tasks."""
     agv = world["deviceById"].get("agv-1")
     if agv is None or agv.get("taskId") or not agv.get("online"):
@@ -178,7 +180,7 @@ def seed_demo_agv_task(world: dict) -> dict | None:
     )
 
 
-def finish_task(world: dict, device: dict, task: dict) -> None:
+def finish_task(world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]) -> None:
     task["status"] = "done"
     task["doneAt"] = world["timeSec"]
     task["deviceId"] = device["id"]
@@ -228,7 +230,7 @@ def finish_task(world: dict, device: dict, task: dict) -> None:
     )
 
 
-def abort_task(world: dict, device: dict, reason: str) -> None:
+def abort_task(world: dict[str, Any], device: dict[str, Any], reason: str) -> None:
     task = find_task(world, device.get("taskId"))
     release_worker(world, device.get("workerId"))
     device["workerId"] = None

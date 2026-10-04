@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.layout import (
     PACKING_POINT,
@@ -29,24 +31,25 @@ from app.warehouse_sim.world import format_sscc
 
 
 # lazy import внутри process_devices избегает цикла movement ↔ failures
-def _repair_device(world: dict, device: dict, auto: bool = False) -> None:
+def _repair_device(world: dict[str, Any], device: dict[str, Any], auto: bool = False) -> None:
     from app.warehouse_sim.failures import repair_device
 
     repair_device(world, device, auto)
 
 
-def _inject_fault(world: dict, device: dict, cause: str) -> None:
+def _inject_fault(world: dict[str, Any], device: dict[str, Any], cause: str) -> None:
     from app.warehouse_sim.failures import inject_fault
 
     inject_fault(world, device, cause)
 
 
-def advance_along_path(device: dict, dt: float, world: dict) -> None:
+def advance_along_path(device: dict[str, Any], dt: float, world: dict[str, Any]) -> None:
     """Шаг position += direction * speed * dt. Ожидание решает resolve_traffic, не эта функция."""
     # cameraHold = safety stop caused by object directly in AGV path.
     if device.get("cameraHold") or device.get("status") == "waiting":
         return
-    scale = float(device.get("cruise") if device.get("cruise") is not None else 1.0)
+    cruise = device.get("cruise")
+    scale = float(1.0 if cruise is None else cruise)
     if scale <= 0:
         return
     budget = float(device["speed"]) * scale * dt
@@ -104,7 +107,7 @@ def advance_along_path(device: dict, dt: float, world: dict) -> None:
         device["status"] = "moving"
 
 
-def pick_up_pallet(world: dict, device: dict, task: dict) -> None:
+def pick_up_pallet(world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]) -> None:
     if task["kind"] == "unload":
         truck = next(
             (t for t in world["trucks"] if t["id"] == task.get("truckId")), None
@@ -141,22 +144,23 @@ def pick_up_pallet(world: dict, device: dict, task: dict) -> None:
                 pallet["id"],
             )
         return
-    pallet = world["pallets"].get(task["palletId"]) if task.get("palletId") else None
-    if not pallet:
+    picked_raw = world["pallets"].get(task["palletId"]) if task.get("palletId") else None
+    if not isinstance(picked_raw, dict):
         return
+    picked: dict[str, Any] = picked_raw
     if task["kind"] == "pick" and task.get("cellId"):
         cell = world["cellById"].get(task["cellId"])
-        if cell and cell["palletId"] == pallet["id"]:
+        if cell and cell["palletId"] == picked["id"]:
             cell["palletId"] = None
-    pallet["locationKind"] = "device"
-    pallet["locationId"] = device["id"]
-    pallet["state"] = (
-        "PICKED" if task["kind"] == "pick" else pallet.get("state", "STORED")
+    picked["locationKind"] = "device"
+    picked["locationId"] = device["id"]
+    picked["state"] = (
+        "PICKED" if task["kind"] == "pick" else picked.get("state", "STORED")
     )
-    device["palletId"] = pallet["id"]
+    device["palletId"] = picked["id"]
 
 
-def drop_off_pallet(world: dict, device: dict, task: dict) -> None:
+def drop_off_pallet(world: dict[str, Any], device: dict[str, Any], task: dict[str, Any]) -> None:
     pallet = world["pallets"].get(task["palletId"]) if task.get("palletId") else None
     kind = task["kind"]
     if kind == "unload":
@@ -297,7 +301,7 @@ def drop_off_pallet(world: dict, device: dict, task: dict) -> None:
             )
 
 
-def request_charge(world: dict, device: dict, force: bool = False) -> None:
+def request_charge(world: dict[str, Any], device: dict[str, Any], force: bool = False) -> None:
     if device.get("taskId") and not force:
         return
     chargers = [d for d in world["devices"] if d["kind"] == "charger"]
@@ -337,7 +341,7 @@ def request_charge(world: dict, device: dict, force: bool = False) -> None:
     device["path"] = _plan_path(world, device["pos"], charger["pos"])
 
 
-def complete_charge(world: dict, device: dict) -> None:
+def complete_charge(world: dict[str, Any], device: dict[str, Any]) -> None:
     task = find_task(world, device.get("taskId"))
     if device["battery"] is not None:
         device["battery"] = 100.0
@@ -357,7 +361,7 @@ def complete_charge(world: dict, device: dict) -> None:
         device["path"] = []
 
 
-def process_devices(world: dict, dt: float) -> None:
+def process_devices(world: dict[str, Any], dt: float) -> None:
     for item in resolve_traffic(world):
         device = item["device"]
         worker = item["worker"]

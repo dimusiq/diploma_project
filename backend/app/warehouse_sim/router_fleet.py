@@ -63,7 +63,10 @@ def list_fleet(
         active_assignments_by_host,
     )
 
-    assignments = active_assignments_map(session, device_ids=[row.id for row in rows])
+    bracelet_map = active_assignments_map(
+        session, device_ids=[row.id for row in rows]
+    )
+    assignments: dict[Any, Any] = dict(bracelet_map)
     assignments["__smart_cameras__"] = {
         "by_host": active_assignments_by_host(
             session, host_ids=[row.id for row in rows]

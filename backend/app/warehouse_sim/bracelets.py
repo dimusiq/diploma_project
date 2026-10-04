@@ -99,7 +99,7 @@ def active_assignment_for_device(
     return session.exec(
         select(SimBraceletAssignment).where(
             SimBraceletAssignment.device_id == device_id,
-            SimBraceletAssignment.unassigned_at.is_(None),
+            col(SimBraceletAssignment.unassigned_at).is_(None),
         )
     ).first()
 
@@ -110,7 +110,7 @@ def active_assignment_for_employee(
     return session.exec(
         select(SimBraceletAssignment).where(
             SimBraceletAssignment.employee_id == employee_id,
-            SimBraceletAssignment.unassigned_at.is_(None),
+            col(SimBraceletAssignment.unassigned_at).is_(None),
         )
     ).first()
 
@@ -119,7 +119,7 @@ def active_assignments_map(
     session: Session, *, device_ids: list[uuid.UUID] | None = None
 ) -> dict[uuid.UUID, SimBraceletAssignment]:
     stmt = select(SimBraceletAssignment).where(
-        SimBraceletAssignment.unassigned_at.is_(None)
+        col(SimBraceletAssignment.unassigned_at).is_(None)
     )
     if device_ids is not None:
         if not device_ids:
@@ -159,7 +159,7 @@ def list_available_bracelets(session: Session) -> list[dict[str, Any]]:
         session.exec(
             select(SimDevice)
             .where(SimDevice.device_type == DEVICE_RADIO_BEACON)
-            .where(SimDevice.archived.is_(False))
+            .where(col(SimDevice.archived).is_(False))
             .order_by(col(SimDevice.code))
         ).all()
     )
@@ -529,10 +529,10 @@ def ensure_demo_bracelets(session: Session, warehouse_id: uuid.UUID) -> None:
         ).first()
         if row is None:
             device = create_device(
-                spec["code"],
+                str(spec["code"]),
                 KIND_RADIO_BEACON,
-                spec["name"],
-                {"x": spec["x"], "z": spec["z"]},
+                str(spec["name"]),
+                {"x": float(str(spec["x"])), "z": float(str(spec["z"]))},
                 battery=spec["battery"],
                 zoneId="zone-storage",
                 serialNumber=spec["serial"],

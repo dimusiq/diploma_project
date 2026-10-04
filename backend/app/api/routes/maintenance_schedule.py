@@ -5,7 +5,7 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
 from app.core.audit import get_client_ip, log_audit
@@ -73,7 +73,7 @@ def _get_chain_steps(
         session.exec(
             select(MaintenanceChainStep)
             .where(MaintenanceChainStep.chain_id == chain_id)
-            .order_by(MaintenanceChainStep.position)
+            .order_by(col(MaintenanceChainStep.position))
         )
     )
 
@@ -111,7 +111,7 @@ def _log_chain_audit(
 def get_my_permissions(
     session: SessionDep,
     current_user: CurrentUser,
-) -> dict:
+) -> dict[str, Any]:
     """Права текущего пользователя на расписание ТО (для UI: показывать ли кнопки редактирования)."""
     return {
         "can_view": can_view_maintenance_schedule(session, current_user),
@@ -130,7 +130,7 @@ def list_chains(
             status_code=403, detail="Недостаточно прав для просмотра расписания ТО"
         )
     chains = list(
-        session.exec(select(MaintenanceChain).order_by(MaintenanceChain.name))
+        session.exec(select(MaintenanceChain).order_by(col(MaintenanceChain.name)))
     )
     result = []
     for chain in chains:
@@ -353,7 +353,7 @@ def delete_chain(
     request: Request,
     current_user: CurrentUser,
     chain_id: uuid.UUID,
-) -> dict:
+) -> dict[str, Any]:
     """Удалить цепочку ТО."""
     chain = session.get(MaintenanceChain, chain_id)
     if not chain:
@@ -397,7 +397,7 @@ def get_chain_history(
         session.exec(
             select(MaintenanceChainAudit)
             .where(MaintenanceChainAudit.chain_id == chain_id)
-            .order_by(MaintenanceChainAudit.created_at.desc())
+            .order_by(col(MaintenanceChainAudit.created_at).desc())
         )
     )
     result = []

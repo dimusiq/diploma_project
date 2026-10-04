@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.exc import OperationalError, ProgrammingError
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 
 from app import crud
 from app.api.deps import (
@@ -53,17 +53,17 @@ def read_users(
     """
     if deleted:
         count_statement = (
-            select(func.count()).select_from(User).where(User.deleted_at.isnot(None))
+            select(func.count()).select_from(User).where(col(User.deleted_at).isnot(None))
         )
         statement = (
-            select(User).where(User.deleted_at.isnot(None)).offset(skip).limit(limit)
+            select(User).where(col(User.deleted_at).isnot(None)).offset(skip).limit(limit)
         )
     else:
         count_statement = (
-            select(func.count()).select_from(User).where(User.deleted_at.is_(None))
+            select(func.count()).select_from(User).where(col(User.deleted_at).is_(None))
         )
         statement = (
-            select(User).where(User.deleted_at.is_(None)).offset(skip).limit(limit)
+            select(User).where(col(User.deleted_at).is_(None)).offset(skip).limit(limit)
         )
     count = session.exec(count_statement).one()
     users = session.exec(statement).all()

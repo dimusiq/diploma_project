@@ -32,6 +32,8 @@ export function FetchingIndicator({
         className,
       )}
       style={{ minHeight: minH }}
+      aria-live="polite"
+      aria-atomic="true"
       {...props}
     >
       {children}

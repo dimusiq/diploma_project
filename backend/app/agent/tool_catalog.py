@@ -251,6 +251,33 @@ def _catalog() -> list[CatalogTool]:
             parameters={},
         ),
         CatalogTool(
+            name="suggest_putaway_slot",
+            version="1",
+            safety=ToolSafetyClass.READ,
+            permission_code=PERM_AGENT_USE,
+            description=(
+                "Подобрать ячейку размещения (putaway) с учётом ABC и стратегии "
+                "(top_up_then_abc | abc_nearest | nearest_empty). Без записи в БД."
+            ),
+            parameters={
+                "sku": {"type": "string", "description": "Артикул"},
+                "quantity": {"type": "integer", "description": "Количество к размещению"},
+                "weight_kg": {
+                    "type": "number",
+                    "description": "Вес единицы/паллеты (тяжёлое — нижние ярусы)",
+                },
+                "abc_class": {
+                    "type": "string",
+                    "description": "A|B|C (если известен; иначе из истории движений)",
+                },
+                "strategy": {
+                    "type": "string",
+                    "description": "top_up_then_abc | abc_nearest | nearest_empty",
+                },
+                "warehouse_id": {"type": "string", "description": "UUID склада"},
+            },
+        ),
+        CatalogTool(
             name="enqueue_integration_inbox",
             version="1",
             # ACT: пишет строку в БД — обязан проходить _act_gate / sandbox.

@@ -64,6 +64,9 @@ export type ItemPublic = {
   title: string
   description?: string | null
   quantity?: number
+  reserved_quantity?: number
+  /** quantity − reserved_quantity (≥ 0) */
+  available?: number
   sku?: string | null
   barcode?: string | null
   unit?: string | null

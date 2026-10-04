@@ -131,6 +131,60 @@ class InboundOrderList(SQLModel):
     count: int
 
 
+class InboundReceiveLineRequest(SQLModel):
+    """Фиксация факта приёмки по одной строке заказа."""
+
+    line_index: int | None = Field(default=None, ge=0)
+    line_key: str | None = Field(default=None, max_length=128)
+    received_quantity: int = Field(ge=0)
+    discrepancy_type: str | None = Field(
+        default=None,
+        max_length=32,
+        description="shortage|overage|damage (опционально; иначе выводится из количеств)",
+    )
+    discrepancy_reason: str | None = Field(default=None, max_length=512)
+    damage_quantity: int = Field(default=0, ge=0)
+
+
+class InboundReceiveLineResult(SQLModel):
+    order: "InboundOrderPublic"
+    line_index: int
+    line_key: str
+    item_id: uuid.UUID | None = None
+    discrepancy: dict[str, Any] | None = None
+    putaway_created: int = 0
+    putaway_task_ids: list[str] = []
+    idempotent: bool = False
+
+
+class OutboundConfirmPickRequest(SQLModel):
+    """Подтверждение задания отбора (scan-verify) или инцидент «нет товара»."""
+
+    task_id: uuid.UUID
+    outcome: str = Field(default="ok", max_length=32, description="ok|no_stock")
+    scanned_code: str | None = Field(default=None, max_length=200)
+    scanned_slot_key: str | None = Field(default=None, max_length=128)
+    quantity: int | None = Field(default=None, ge=1)
+    reason: str | None = Field(default=None, max_length=512)
+
+
+class OutboundConfirmPickResult(SQLModel):
+    order: "OutboundOrderPublic"
+    task_id: uuid.UUID
+    status: str
+    idempotent: bool = False
+    incident: dict[str, Any] | None = None
+    alternative: dict[str, Any] | None = None
+    confirmed_quantity: int | None = None
+    item_id: uuid.UUID | None = None
+
+
+class OutboundPackRequest(SQLModel):
+    """Фиксация упаковки (короба/паллеты опционально)."""
+
+    handling_units: list[dict[str, Any]] | None = None
+
+
 class OutboundOrderCreate(SQLModel):
     code: str = Field(min_length=1, max_length=64)
     warehouse_id: uuid.UUID | None = None

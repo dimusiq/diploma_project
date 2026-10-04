@@ -142,7 +142,7 @@ describe("ItemDataTable", () => {
 
     await renderTable()
 
-    expect(await screen.findByText("N/A")).toBeInTheDocument()
+    expect(await screen.findByText("—")).toBeInTheDocument()
   })
 
   it("shows dash for missing sku", async () => {

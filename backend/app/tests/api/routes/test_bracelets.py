@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import uuid
 
 from fastapi.testclient import TestClient
@@ -30,7 +32,7 @@ def _create_bracelet(
     headers: dict[str, str],
     *,
     code: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     suffix = uuid.uuid4().hex[:6]
     body = {
         "kind": KIND_RADIO_BEACON,
@@ -41,12 +43,14 @@ def _create_bracelet(
     }
     response = client.post(FLEET, headers=headers, json=body)
     assert response.status_code == 200, response.text
-    return response.json()
+    data = response.json()
+    assert isinstance(data, dict)
+    return data
 
 
 def _create_employee(
     client: TestClient, headers: dict[str, str], *, code: str | None = None
-) -> dict:
+) -> dict[str, Any]:
     suffix = uuid.uuid4().hex[:6].upper()
     body = {
         "employee_code": code or f"EMP-T{suffix}",
@@ -59,7 +63,9 @@ def _create_employee(
     }
     response = client.post(f"{PERSONNEL}/", headers=headers, json=body)
     assert response.status_code == 200, response.text
-    return response.json()
+    data = response.json()
+    assert isinstance(data, dict)
+    return data
 
 
 def test_create_bracelet_as_equipment(

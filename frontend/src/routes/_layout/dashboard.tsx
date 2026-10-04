@@ -29,7 +29,10 @@ import {
 } from "recharts"
 import { getDashboardTrends } from "@/api/dashboard.ts"
 import { downloadItemsExport } from "@/api/exportItems.ts"
-import { getInventorySnapshots } from "@/api/inventorySnapshots.ts"
+import {
+  getInventorySnapshots,
+  type InventorySnapshotItem,
+} from "@/api/inventorySnapshots.ts"
 import { DashboardService } from "@/client/index.ts"
 import {
   pieHoverActiveShape,
@@ -37,6 +40,8 @@ import {
 } from "@/components/Charts/pieHoverShapes.tsx"
 import { ErrorFallback } from "@/components/Common/ErrorFallback.tsx"
 import { DashboardStatCard } from "@/components/Dashboard/DashboardStatCard.tsx"
+import { WarehouseKpiSection } from "@/components/Dashboard/WarehouseKpiSection.tsx"
+import { asArray } from "@/lib/asArray.ts"
 import { Button } from "@/components/ui/button.tsx"
 import { Card, CardContent } from "@/components/ui/card.tsx"
 import {
@@ -124,8 +129,9 @@ export function Dashboard() {
   })
 
   const snapshotChartData = useMemo(() => {
-    if (!snapshots?.length) return []
-    return snapshots.map((s) => ({
+    const rows = asArray<InventorySnapshotItem>(snapshots)
+    if (!rows.length) return []
+    return rows.map((s) => ({
       date: s.taken_at.slice(0, 10),
       total_items: s.total_items,
       total_quantity: s.total_quantity,
@@ -205,13 +211,13 @@ export function Dashboard() {
       }))
     : []
 
-  // Colors for pie chart
+  // Цвета серий — из theme tokens (--chart-1…5), светлая/тёмная тема
   const COLORS = [
-    "oklch(0.6 0.2 250)",
-    "oklch(0.65 0.18 160)",
-    "oklch(0.75 0.15 85)",
-    "oklch(0.65 0.2 25)",
-    "oklch(0.6 0.15 310)",
+    "var(--chart-1)",
+    "var(--chart-2)",
+    "var(--chart-3)",
+    "var(--chart-4)",
+    "var(--chart-5)",
   ]
 
   // Merge trends into one array for chart: { period, incoming, shipped }
@@ -234,12 +240,13 @@ export function Dashboard() {
   })()
 
   // Prepare data for top owners bar chart
-  const topOwnersData = stats.top_owners
-    ? stats.top_owners.map((owner) => ({
-        name: owner.owner_email?.split("@")[0] || "Unknown", // Show only username part
-        items: owner.item_count || 0,
-      }))
-    : []
+  const topOwnersData = asArray<{
+    owner_email?: string
+    item_count?: number
+  }>(stats.top_owners).map((owner) => ({
+    name: owner.owner_email?.split("@")[0] || "Unknown",
+    items: owner.item_count || 0,
+  }))
 
   return (
     <div className="mx-auto w-full max-w-full px-4">
@@ -300,6 +307,10 @@ export function Dashboard() {
             </span>
           </RouterLink>
         </Button>
+      </div>
+
+      <div className="mb-8">
+        <WarehouseKpiSection from={trendRange.from} to={trendRange.to} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -416,9 +427,9 @@ export function Dashboard() {
             <h3 className="mb-3 font-heading text-sm font-semibold">
               Последние поступления
             </h3>
-            {stats.latest_incoming && stats.latest_incoming.length > 0 ? (
+            {asArray(stats.latest_incoming).length > 0 ? (
               <div className="flex flex-col gap-2">
-                {stats.latest_incoming.map((item) => (
+                {asArray<LatestIncomingItem>(stats.latest_incoming).map((item) => (
                   <div
                     key={item.id}
                     className="border-b border-border py-2 last:border-b-0"
@@ -483,7 +494,7 @@ export function Dashboard() {
                           `${name} ${((percent as number) * 100).toFixed(0)}%`
                         }
                         outerRadius={80}
-                        fill="oklch(0.6 0.15 310)"
+                        fill="var(--chart-5)"
                         dataKey="value"
                         activeShape={pieHoverActiveShape}
                         inactiveShape={pieHoverInactiveStyle}
@@ -530,11 +541,11 @@ export function Dashboard() {
                       <Legend />
                       <Bar
                         dataKey="items"
-                        fill="oklch(0.6 0.15 310)"
+                        fill="var(--chart-1)"
                         activeBar={{
-                          fill: "oklch(0.6 0.15 310)",
+                          fill: "var(--chart-1)",
                           opacity: 0.88,
-                          stroke: "oklch(0.55 0.18 310)",
+                          stroke: "var(--chart-5)",
                           strokeWidth: 2,
                         }}
                       />
@@ -578,8 +589,8 @@ export function Dashboard() {
             </div>
             <div className="h-[300px] min-w-0">
               {trendsLoading ? (
-                <div className="flex h-full items-center justify-center">
-                  <p className="text-sm text-muted-foreground">Загрузка...</p>
+                <div className="flex h-full items-center justify-center" aria-busy="true">
+                  <Skeleton className="h-[240px] w-full" />
                 </div>
               ) : trendsChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
@@ -616,12 +627,12 @@ export function Dashboard() {
                     <Bar
                       dataKey="incoming"
                       name="Поступления"
-                      fill="oklch(0.65 0.18 160)"
+                      fill="var(--chart-2)"
                       radius={[4, 4, 0, 0]}
                       activeBar={{
-                        fill: "oklch(0.65 0.18 160)",
+                        fill: "var(--chart-2)",
                         opacity: 0.88,
-                        stroke: "oklch(0.55 0.18 160)",
+                        stroke: "var(--chart-1)",
                         strokeWidth: 2,
                       }}
                     />
@@ -629,7 +640,7 @@ export function Dashboard() {
                       type="monotone"
                       dataKey="shipped"
                       name="Отгрузки"
-                      stroke="oklch(0.65 0.2 25)"
+                      stroke="var(--chart-4)"
                       strokeWidth={2}
                       dot={{ r: 3 }}
                     />
@@ -653,8 +664,8 @@ export function Dashboard() {
             </h3>
             <div className="h-[300px] min-w-0">
               {snapshotsLoading ? (
-                <div className="flex h-full items-center justify-center">
-                  <p className="text-sm text-muted-foreground">Загрузка...</p>
+                <div className="flex h-full items-center justify-center" aria-busy="true">
+                  <Skeleton className="h-[240px] w-full" />
                 </div>
               ) : snapshotChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
@@ -687,7 +698,7 @@ export function Dashboard() {
                       type="monotone"
                       dataKey="total_quantity"
                       name="Количество (шт)"
-                      stroke="oklch(0.6 0.2 250)"
+                      stroke="var(--chart-1)"
                       strokeWidth={2}
                       dot={{ r: 3 }}
                     />
@@ -695,7 +706,7 @@ export function Dashboard() {
                       type="monotone"
                       dataKey="total_items"
                       name="Позиций"
-                      stroke="oklch(0.65 0.18 160)"
+                      stroke="var(--chart-2)"
                       strokeWidth={2}
                       dot={{ r: 3 }}
                     />
@@ -719,9 +730,12 @@ export function Dashboard() {
         </h3>
         <Card>
           <CardContent>
-            {stats.top_owners && stats.top_owners.length > 0 ? (
+            {asArray(stats.top_owners).length > 0 ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {stats.top_owners.map((owner, index) => (
+                {asArray<{
+                  owner_email?: string
+                  item_count?: number
+                }>(stats.top_owners).map((owner, index) => (
                   <div
                     key={owner.owner_email ?? `owner-${index}`}
                     className="rounded-md border border-border p-3"

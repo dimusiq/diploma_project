@@ -27,9 +27,36 @@ export interface ScanResult {
   quick_actions: string[]
 }
 
+export interface ScanConfirmPickBody {
+  order_id: string
+  task_id: string
+  code: string
+  outcome?: "ok" | "no_stock"
+  scanned_slot_key?: string | null
+  quantity?: number | null
+  reason?: string | null
+}
+
+export interface ScanConfirmPickResult {
+  order_id: string
+  order_status: string
+  task_id: string
+  status: string
+  idempotent?: boolean
+  incident?: Record<string, unknown> | null
+  alternative?: Record<string, unknown> | null
+  confirmed_quantity?: number | null
+  item_id?: string | null
+}
+
 export const scanApi = {
   lookup: (code: string) =>
     request<ScanResult>(
       `/api/v1/scan?code=${encodeURIComponent(code)}`,
     ),
+  confirmPick: (body: ScanConfirmPickBody) =>
+    request<ScanConfirmPickResult>("/api/v1/scan/confirm-pick", {
+      method: "POST",
+      body,
+    }),
 }

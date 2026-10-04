@@ -80,7 +80,7 @@ def _sev(name: str) -> str:
 
 
 def emit(
-    world: dict,
+    world: dict[str, Any],
     event_type: str,
     severity: str,
     message: str,
@@ -90,7 +90,7 @@ def emit(
     zone_id: str | None = None,
     task_id: str | None = None,
     order_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     world["counters"]["event"] += 1
     event = {
         "id": world["counters"]["event"],
@@ -119,7 +119,7 @@ def emit(
     return event
 
 
-def _enqueue_integration(world: dict, event: dict) -> None:
+def _enqueue_integration(world: dict[str, Any], event: dict[str, Any]) -> None:
     if event.get("type") not in INTEGRATION_EVENT_TYPES:
         return
     queue = world.setdefault("integration_queue", [])
@@ -132,7 +132,7 @@ def _enqueue_integration(world: dict, event: dict) -> None:
     )
 
 
-def _integration_context(world: dict, event: dict) -> dict[str, Any]:
+def _integration_context(world: dict[str, Any], event: dict[str, Any]) -> dict[str, Any]:
     ctx: dict[str, Any] = {}
     entity_id = event.get("entityId")
     task_id = event.get("taskId")
@@ -277,49 +277,60 @@ def _integration_context(world: dict, event: dict) -> dict[str, Any]:
     return ctx
 
 
-def sku_code(world: dict, sku_id: str) -> str:
+def sku_code(world: dict[str, Any], sku_id: str) -> str:
     for sku in world["skus"]:
         if sku["id"] == sku_id:
-            return sku["code"]
+            return str(sku["code"])
     return sku_id
 
 
-def find_free_cell(world: dict, near: dict, prefer_near: bool = True) -> dict | None:
-    free = [c for c in world["cells"] if c["palletId"] is None and not c["blocked"]]
+def find_free_cell(world: dict[str, Any], near: dict[str, Any], prefer_near: bool = True) -> dict[str, Any] | None:
+    free = [
+        c
+        for c in world["cells"]
+        if isinstance(c, dict) and c["palletId"] is None and not c["blocked"]
+    ]
     if not free:
         return None
     if not prefer_near:
-        return free[0]
+        first = free[0]
+        return first if isinstance(first, dict) else None
     best = min(
         free,
         key=lambda c: (
             (c["pos"]["x"] - near["x"]) ** 2 + (c["pos"]["z"] - near["z"]) ** 2
         ),
     )
-    return best
+    return best if isinstance(best, dict) else None
 
 
-def find_stock_cell(world: dict, sku_id: str, reserved: set[str]) -> dict | None:
+def find_stock_cell(world: dict[str, Any], sku_id: str, reserved: set[str]) -> dict[str, Any] | None:
     for cell in world["cells"]:
+        if not isinstance(cell, dict):
+            continue
         pid = cell["palletId"]
         if not pid or pid in reserved:
             continue
         pallet = world["pallets"].get(pid)
-        if pallet and pallet["skuId"] == sku_id and pallet.get("orderId") is None:
+        if (
+            isinstance(pallet, dict)
+            and pallet["skuId"] == sku_id
+            and pallet.get("orderId") is None
+        ):
             return cell
     return None
 
 
-def dock_by_id(world: dict, dock_id: str | None) -> dict | None:
+def dock_by_id(world: dict[str, Any], dock_id: str | None) -> dict[str, Any] | None:
     if not dock_id:
         return None
     for dock in world["topology"]["docks"]:
-        if dock["id"] == dock_id:
+        if isinstance(dock, dict) and dock["id"] == dock_id:
             return dock
     return None
 
 
-def _plan_path(world: dict, start: dict, goal: dict) -> list[dict]:
+def _plan_path(world: dict[str, Any], start: dict[str, Any], goal: dict[str, Any]) -> list[dict[str, Any]]:
     extra: set[tuple[int, int]] = set()
     moving = [
         d
@@ -331,17 +342,20 @@ def _plan_path(world: dict, start: dict, goal: dict) -> list[dict]:
     return astar_path(start, goal, world["topology"]["racks"], extra_blocked=extra)
 
 
-def pick_worker(world: dict, kind: str) -> dict | None:
+def pick_worker(world: dict[str, Any], kind: str) -> dict[str, Any] | None:
     role = {"unload": "receiver", "load": "loader", "pick": "picker"}.get(
         kind, "operator"
     )
-    idle = [w for w in world["workers"] if w["status"] == "idle"]
+    idle = [
+        w for w in world["workers"] if isinstance(w, dict) and w["status"] == "idle"
+    ]
     if not idle:
         return None
-    return next((w for w in idle if w["role"] == role), idle[0])
+    chosen = next((w for w in idle if w["role"] == role), idle[0])
+    return chosen if isinstance(chosen, dict) else None
 
 
-def release_worker(world: dict, worker_id: str | None) -> None:
+def release_worker(world: dict[str, Any], worker_id: str | None) -> None:
     if not worker_id:
         return
     for worker in world["workers"]:
@@ -353,7 +367,7 @@ def release_worker(world: dict, worker_id: str | None) -> None:
             return
 
 
-def fire_scan(world: dict, scanner_id: str, label: str, entity_id: str) -> bool:
+def fire_scan(world: dict[str, Any], scanner_id: str, label: str, entity_id: str) -> bool:
     scanner = world["deviceById"].get(scanner_id)
     world["metrics"]["scans"] += 1
     if scanner and scanner["online"] and scanner["status"] != "fault":
@@ -381,7 +395,7 @@ def fire_scan(world: dict, scanner_id: str, label: str, entity_id: str) -> bool:
     return True
 
 
-def _plate(world: dict) -> str:
+def _plate(world: dict[str, Any]) -> str:
     letters = "АВЕКМНОРСТУХ"
     l1 = letters[rand_int(world, 0, len(letters) - 1)]
     l2 = letters[rand_int(world, 0, len(letters) - 1)]
@@ -389,7 +403,7 @@ def _plate(world: dict) -> str:
     return f"{l1}{rand_int(world, 100, 999)}{l2}{l3} {rand_int(world, 10, 99)}"
 
 
-def handling_time(world: dict, kind: str, at_source: bool) -> float:
+def handling_time(world: dict[str, Any], kind: str, at_source: bool) -> float:
     if kind == "unload":
         return rand_normal(world, 24 if at_source else 14, 5, 8, 50)
     if kind == "putaway":
@@ -405,7 +419,7 @@ def handling_time(world: dict, kind: str, at_source: bool) -> float:
     return 12
 
 
-def trim_history(world: dict) -> None:
+def trim_history(world: dict[str, Any]) -> None:
     done = [t for t in world["tasks"] if t["status"] == "done"]
     if len(done) > MAX_DONE_TASKS:
         keep = {t["id"] for t in done[-MAX_DONE_TASKS:]}

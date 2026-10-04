@@ -1,6 +1,6 @@
 import uuid
 from collections.abc import Generator
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -53,7 +53,7 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
             detail="Could not validate credentials",
         )
     user = session.exec(
-        select(User).where(User.id == user_id).options(selectinload(User.role))
+        select(User).where(User.id == user_id).options(selectinload(cast(Any, User.role)))
     ).first()
     if not user:
         raise HTTPException(
@@ -128,7 +128,7 @@ def get_current_user_can_manage_users(
     return current_user
 
 
-def require_permission(permission_code: str):
+def require_permission(permission_code: str) -> Any:
     """Зависимость: текущий пользователь должен иметь указанное право."""
 
     def _dependency(session: SessionDep, current_user: CurrentUser) -> User:

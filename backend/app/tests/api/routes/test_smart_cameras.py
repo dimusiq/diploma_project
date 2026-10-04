@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import uuid
 
 from fastapi.testclient import TestClient
@@ -21,14 +23,15 @@ from app.warehouse_sim.smart_cameras import (
 FLEET = f"{settings.API_V1_STR}/warehouse-sim/fleet"
 
 
-def _find(client: TestClient, headers: dict[str, str], code: str) -> dict:
+def _find(client: TestClient, headers: dict[str, str], code: str) -> dict[str, Any]:
     listed = client.get(FLEET, headers=headers)
     assert listed.status_code == 200, listed.text
     row = next(item for item in listed.json()["data"] if item["code"] == code)
+    assert isinstance(row, dict)
     return row
 
 
-def _create_camera(client: TestClient, headers: dict[str, str]) -> dict:
+def _create_camera(client: TestClient, headers: dict[str, str]) -> dict[str, Any]:
     suffix = uuid.uuid4().hex[:6]
     response = client.post(
         FLEET,
@@ -41,7 +44,9 @@ def _create_camera(client: TestClient, headers: dict[str, str]) -> dict:
         },
     )
     assert response.status_code == 200, response.text
-    return response.json()
+    data = response.json()
+    assert isinstance(data, dict)
+    return data
 
 
 def test_assign_get_and_mount_sides(
@@ -159,9 +164,9 @@ def test_replace_and_unassign(
 
     db.expire_all()
     assert active_assignment_for_camera(db, uuid.UUID(first["id"])) is None
-    assert active_assignment_for_host(
-        db, uuid.UUID(agv["id"])
-    ).camera_device_id == uuid.UUID(second["id"])
+    host_asg = active_assignment_for_host(db, uuid.UUID(agv["id"]))
+    assert host_asg is not None
+    assert host_asg.camera_device_id == uuid.UUID(second["id"])
     assert list(
         db.exec(
             select(AuditLog.action).where(AuditLog.action == "SMART_CAMERA_REPLACED")

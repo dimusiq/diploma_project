@@ -164,7 +164,7 @@ def _seed_warehouse(session: Session) -> None:
     cells = build_cells(topology["racks"])
     for rack in topology["racks"]:
         zone = zone_rows.get(rack["zoneId"])
-        row = SimRack(
+        rack_row = SimRack(
             warehouse_id=wh.id,
             zone_id=zone.id if zone else None,
             code=rack["code"],
@@ -176,7 +176,7 @@ def _seed_warehouse(session: Session) -> None:
             bays=rack["bays"],
             levels=rack["levels"],
         )
-        session.add(row)
+        session.add(rack_row)
         session.flush()
         for cell in cells:
             if cell["rackId"] != rack["id"]:
@@ -184,7 +184,7 @@ def _seed_warehouse(session: Session) -> None:
             session.add(
                 SimStorageLocation(
                     warehouse_id=wh.id,
-                    rack_id=row.id,
+                    rack_id=rack_row.id,
                     code=cell["id"],
                     bay=cell["bay"],
                     level=cell["level"],

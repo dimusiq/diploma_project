@@ -1,6 +1,6 @@
 import warnings
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import cast, Annotated, Any, Literal
 
 from pydantic import (
     AliasChoices,
@@ -81,13 +81,16 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> PostgresDsn:
-        return MultiHostUrl.build(
-            scheme="postgresql+psycopg",
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
+        return cast(
+            PostgresDsn,
+            MultiHostUrl.build(
+                scheme="postgresql+psycopg",
+                username=self.POSTGRES_USER,
+                password=self.POSTGRES_PASSWORD,
+                host=self.POSTGRES_SERVER,
+                port=self.POSTGRES_PORT,
+                path=self.POSTGRES_DB,
+            ),
         )
 
     SMTP_TLS: bool = True

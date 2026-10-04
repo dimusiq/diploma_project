@@ -1,3 +1,4 @@
+from typing import Any
 import uuid
 
 from fastapi.testclient import TestClient
@@ -25,9 +26,9 @@ def _create_order(
     *,
     code: str,
     status: str,
-    extra: dict | None = None,
-    lines: dict | None = None,
-) -> dict:
+    extra: dict[str, Any] | None = None,
+    lines: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     r = client.post(
         f"{settings.API_V1_STR}/outbound-orders/",
         headers=headers,
@@ -40,7 +41,9 @@ def _create_order(
         },
     )
     assert r.status_code == 200, r.text
-    return r.json()
+    data = r.json()
+    assert isinstance(data, dict)
+    return data
 
 
 def test_ready_for_shipment_uses_packed_orders_not_item_status(
@@ -186,7 +189,7 @@ def test_cannot_ship_picking_order(
         f"{settings.API_V1_STR}/outbound-orders/{picking['id']}/ship",
         headers=superuser_token_headers,
     )
-    assert r.status_code == 400
+    assert r.status_code == 409
 
 
 def test_ship_forbidden_for_normal_user(

@@ -6,7 +6,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
-from sqlmodel import Session, func, select
+from sqlmodel import col, Session, func, select
 
 from app.core.db import engine
 from app.models import InventorySnapshot, Item, Warehouse
@@ -50,7 +50,7 @@ def compute_inventory_snapshot(session: Session) -> bool:
 
     status_rows = session.exec(
         select(
-            Item.status, func.count(Item.id), func.coalesce(func.sum(Item.quantity), 0)
+            Item.status, func.count(col(Item.id)), func.coalesce(func.sum(Item.quantity), 0)
         ).group_by(Item.status)
     ).all()
     by_status = {

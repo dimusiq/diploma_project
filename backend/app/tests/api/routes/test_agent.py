@@ -1,3 +1,4 @@
+from typing import Any
 import json
 import uuid
 from unittest.mock import AsyncMock, patch
@@ -66,7 +67,7 @@ def test_agent_include_reasoning_debug_forbidden_for_viewer(
 
 
 def test_agent_chat_viewer_fallback_without_ollama(
-    client: TestClient, normal_user_token_headers: dict[str, str], monkeypatch
+    client: TestClient, normal_user_token_headers: dict[str, str], monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(settings, "VLLM_BASE_URL", None)
     monkeypatch.setattr(settings, "LLM_OPENAI_BASE_URL", None)
@@ -109,7 +110,7 @@ def test_agent_chat_logs_superuser(
 
 
 def test_agent_chat_stream_fallback_without_llm(
-    client: TestClient, superuser_token_headers: dict[str, str], monkeypatch
+    client: TestClient, superuser_token_headers: dict[str, str], monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(settings, "VLLM_BASE_URL", None)
     monkeypatch.setattr(settings, "LLM_OPENAI_BASE_URL", None)
@@ -130,7 +131,7 @@ def test_agent_chat_stream_fallback_without_llm(
 
 
 def test_agent_chat_fallback_without_ollama(
-    client: TestClient, superuser_token_headers: dict[str, str], monkeypatch
+    client: TestClient, superuser_token_headers: dict[str, str], monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(settings, "VLLM_BASE_URL", None)
     monkeypatch.setattr(settings, "LLM_OPENAI_BASE_URL", None)
@@ -152,12 +153,12 @@ def test_agent_chat_fallback_without_ollama(
 
 
 def test_agent_chat_with_ollama_mock(
-    client: TestClient, superuser_token_headers: dict[str, str], monkeypatch
+    client: TestClient, superuser_token_headers: dict[str, str], monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(settings, "VLLM_BASE_URL", "http://vllm.test")
     monkeypatch.setattr(settings, "OLLAMA_MODEL", "test-model")
 
-    async def fake_run(*_a, **_kw):
+    async def fake_run(*_a: Any, **_kw: Any) -> AgentChatOutcome:
         return AgentChatOutcome(
             reply="OK: ответ",
             llm_available=True,
@@ -191,7 +192,7 @@ def test_agent_chat_with_ollama_mock(
 
 
 def test_agent_chat_public_reasoning_omitted_by_default(
-    client: TestClient, normal_user_token_headers: dict[str, str], monkeypatch
+    client: TestClient, normal_user_token_headers: dict[str, str], monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(settings, "VLLM_BASE_URL", None)
     monkeypatch.setattr(settings, "LLM_OPENAI_BASE_URL", None)
@@ -247,7 +248,7 @@ def test_agent_chat_user_chat_not_found(
 
 
 def test_agent_chat_persists_user_chat_messages(
-    client: TestClient, normal_user_token_headers: dict[str, str], monkeypatch
+    client: TestClient, normal_user_token_headers: dict[str, str], monkeypatch: Any
 ) -> None:
     monkeypatch.setattr(settings, "VLLM_BASE_URL", None)
     monkeypatch.setattr(settings, "LLM_OPENAI_BASE_URL", None)

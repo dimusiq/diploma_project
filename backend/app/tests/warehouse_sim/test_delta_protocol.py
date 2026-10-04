@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from copy import deepcopy
+from typing import Any, cast
 
 from app.warehouse_sim.delta import (
     apply_data_delta,
@@ -86,11 +87,10 @@ def test_broadcast_backpressure_n_subscribers() -> None:
         rt.unsubscribe(q)
 
 
-def test_sse_stream_ready_and_full_then_delta(monkeypatch) -> None:
+def test_sse_stream_ready_and_full_then_delta() -> None:
     from app.warehouse_sim.runtime import sse_stream
 
     rt = WarehouseSimRuntime()
-    monkeypatch.setattr(rt, "_flush_integration", lambda: None)
 
     async def _run() -> None:
         gen = sse_stream(rt, deltas=True)
@@ -115,7 +115,7 @@ def test_sse_stream_ready_and_full_then_delta(monkeypatch) -> None:
         assert delta_msg["mode"] == "delta"
         assert delta_msg["type"] == "motion"
         assert "timeSec" in delta_msg["payload"]
-        await gen.aclose()
+        await cast(Any, gen).aclose()
 
     asyncio.run(_run())
 
@@ -134,3 +134,58 @@ def test_parallel_subscribers_consistent_revision() -> None:
         payloads.append(msg["payload"]["version"])
         rt.unsubscribe(q)
     assert payloads == [42, 42, 42]
+
+
+def test_sse_reconnect_since_skips_initial_full() -> None:
+    """Реконнект с since>=revision: нет повторного full data/motion (только ready → delta)."""
+    from app.warehouse_sim.runtime import sse_stream
+
+    rt = WarehouseSimRuntime()
+    data = rt.data()
+    motion = rt.motion()
+    cur_rev = max(int(data.get("version") or 0), int(motion.get("version") or 0))
+    assert cur_rev >= 0
+
+    async def _run() -> None:
+        gen = sse_stream(rt, deltas=True, since=cur_rev)
+        ready = json.loads((await anext(gen)).decode().split("data: ", 1)[1])
+        assert ready["type"] == "ready"
+        assert ready["deltas"] is True
+        assert int(ready["revision"]) == cur_rev
+
+        prev = rt.motion()
+        nxt = dict(prev)
+        nxt["version"] = int(prev.get("version") or 0) + 1
+        nxt["timeSec"] = float(prev.get("timeSec") or 0) + 0.5
+        rt._broadcast_snapshot("motion", nxt, prev)
+
+        delta_raw = await anext(gen)
+        delta_msg = json.loads(delta_raw.decode().split("data: ", 1)[1])
+        assert delta_msg["type"] == "motion"
+        assert delta_msg["mode"] == "delta"
+        assert delta_msg.get("mode") != "full"
+        await cast(Any, gen).aclose()
+
+    asyncio.run(_run())
+
+
+def test_sse_stale_since_sends_full_snapshot() -> None:
+    """Устаревший since снова отдаёт full кадры — клиент не остаётся на дырявом состоянии."""
+    from app.warehouse_sim.runtime import sse_stream
+
+    rt = WarehouseSimRuntime()
+    data = rt.data()
+    motion = rt.motion()
+    cur_rev = max(int(data.get("version") or 0), int(motion.get("version") or 0))
+
+    async def _run() -> None:
+        gen = sse_stream(rt, deltas=True, since=max(0, cur_rev - 1) if cur_rev else -1)
+        ready = json.loads((await anext(gen)).decode().split("data: ", 1)[1])
+        assert ready["type"] == "ready"
+        data_msg = json.loads((await anext(gen)).decode().split("data: ", 1)[1])
+        motion_msg = json.loads((await anext(gen)).decode().split("data: ", 1)[1])
+        assert data_msg["type"] == "data" and data_msg["mode"] == "full"
+        assert motion_msg["type"] == "motion" and motion_msg["mode"] == "full"
+        await cast(Any, gen).aclose()
+
+    asyncio.run(_run())

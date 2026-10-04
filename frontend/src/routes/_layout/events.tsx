@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { z } from "zod"
+import { SectionErrorBoundary } from "@/components/Common/SectionErrorBoundary.tsx"
 import { EventStreamPanel } from "@/components/deviceServer/EventStreamPanel.tsx"
 import { deviceSimulation } from "@/components/deviceServer/simStore.ts"
 import { EventReplay } from "@/components/events/EventReplay.tsx"
@@ -27,12 +28,16 @@ function EventsPage() {
         История склада и симуляции из PostgreSQL, дополненная живым потоком
         SSE. Управление runtime остаётся в Device Monitor.
       </p>
-      <EventReplay />
-      <EventStreamPanel
-        variant="operator"
-        persistHistory
-        focusEventId={event ?? null}
-      />
+      <SectionErrorBoundary title="replay">
+        <EventReplay />
+      </SectionErrorBoundary>
+      <SectionErrorBoundary title="event-stream">
+        <EventStreamPanel
+          variant="operator"
+          persistHistory
+          focusEventId={event ?? null}
+        />
+      </SectionErrorBoundary>
     </div>
   )
 }

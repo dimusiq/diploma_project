@@ -27,11 +27,14 @@ uv run fastapi run --reload app/main.py
 uv run pytest app/tests -q
 ```
 
-Линт:
+Линт (как в CI `.github/workflows/lint-backend.yml`):
 
 ```bash
-uv run ruff check app
+uv run bash scripts/lint.sh
+# = mypy app --no-incremental && ruff check app --no-cache && ruff format app --check
 ```
+
+**Прод-риск индексов `wsim_event` (`cc9d0e1f2a3b`):** см. раздел «Миграции» в [../development.md](../development.md) — `CREATE INDEX` без `CONCURRENTLY` блокирует запись; `pg_trgm` лучше создать заранее под суперпользователем.
 
 ## Полезные пути
 

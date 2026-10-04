@@ -28,4 +28,12 @@ TASK_STATUS_MAP = {
     "failed": "cancelled",
 }
 _STATUS_CHAIN = ("incoming", "warehouse", "shipment", "shipped")
-_OUTBOUND_RANK = {"open": 0, "picking": 1, "packed": 2, "shipped": 3, "closed": 4}
+_OUTBOUND_RANK = {
+    "open": 0,
+    "confirmed": 0,
+    "picking": 1,
+    "picking_complete": 2,
+    "packed": 3,
+    "shipped": 4,
+    "closed": 5,
+}

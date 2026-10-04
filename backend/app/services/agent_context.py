@@ -25,7 +25,7 @@ def build_warehouse_context_for_user(session: Session, user: User) -> str:
     lines: list[str] = []
 
     layout = session.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     if layout:
         spec = layout.spec
@@ -62,10 +62,10 @@ def build_warehouse_context_for_user(session: Session, user: User) -> str:
         select(func.count())
         .select_from(Item)
         .where(
-            Item.storage_row.is_not(None),
-            Item.storage_level.is_not(None),
-            Item.storage_cell_x.is_not(None),
-            Item.storage_cell_z.is_not(None),
+            col(Item.storage_row).is_not(None),
+            col(Item.storage_level).is_not(None),
+            col(Item.storage_cell_x).is_not(None),
+            col(Item.storage_cell_z).is_not(None),
         )
     )
     if not see_all:
@@ -167,7 +167,7 @@ def build_twin_queue_depth_snapshot_block(
         "twin_queue_projection_rows": 0,
     }
     layout = session.exec(
-        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+        select(WarehouseLayout).where(col(WarehouseLayout.is_active).is_(True))
     ).first()
     if layout is None:
         return None, meta

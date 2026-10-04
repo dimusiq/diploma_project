@@ -1,3 +1,4 @@
+from typing import Any
 import uuid
 
 from fastapi.testclient import TestClient
@@ -16,7 +17,7 @@ from app.tests.api.routes.test_warehouse_sim import _headers_for_role
 PREFIX = f"{settings.API_V1_STR}/personnel"
 
 
-def _payload(code: str, **extra: object) -> dict:
+def _payload(code: str, **extra: Any) -> dict[str, Any]:
     body = {
         "employee_code": code,
         "first_name": "Мария",
@@ -111,7 +112,7 @@ def test_personnel_status_rules(
 ) -> None:
     headers = superuser_token_headers
 
-    def create(status: str, **extra: object):
+    def create(status: str, **extra: Any) -> tuple[Any, str]:
         code = f"EMP-S{uuid.uuid4().hex[:6].upper()}"
         body = _payload(code, status=status, **extra)
         return client.post(f"{PREFIX}/", headers=headers, json=body), code

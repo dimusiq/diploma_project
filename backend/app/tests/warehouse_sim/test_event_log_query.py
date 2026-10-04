@@ -41,7 +41,7 @@ def test_annotate_event_orders_one_resolve_per_unique_token(
         "app.services.outbound_fulfillment.resolve_outbound_id",
         fake_resolve,
     )
-    events = [
+    events: list[dict[str, Any]] = [
         {"id": 1, "orderId": "sim-A"},
         {"id": 2, "orderId": "sim-A"},
         {"id": 3, "orderId": "sim-B"},
@@ -90,12 +90,12 @@ def test_query_event_log_uses_sql_offset_limit(
             self.event_type = "info.tick"
             self.severity = "info"
             self.message = f"evt-{seq}"
-            self.payload = {}
+            self.payload: dict[str, Any] = {}
 
     sqls: list[str] = []
     session = MagicMock()
 
-    def _exec(stmt: object) -> MagicMock:
+    def _exec(stmt: Any) -> MagicMock:
         try:
             sqls.append(
                 str(stmt.compile(compile_kwargs={"literal_binds": True})).upper()
@@ -158,12 +158,12 @@ def test_query_event_log_sensors_merge_then_slice(
             self.event_type = "task.done"
             self.severity = "info"
             self.message = f"db-{seq}"
-            self.payload = {}
+            self.payload: dict[str, Any] = {}
 
     sqls: list[str] = []
     session = MagicMock()
 
-    def _exec(stmt: object) -> MagicMock:
+    def _exec(stmt: Any) -> MagicMock:
         try:
             sqls.append(
                 str(stmt.compile(compile_kwargs={"literal_binds": True})).upper()

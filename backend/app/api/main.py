@@ -13,6 +13,7 @@ from app.api.routes import (
     equipment_telemetry,
     inbound_orders,
     integrations,
+    inventory_counts,
     inventory_snapshots,
     items,
     login,
@@ -63,6 +64,7 @@ api_router.include_router(warehouse_sim_router)
 api_router.include_router(equipment_telemetry.router)
 api_router.include_router(integrations.router)
 api_router.include_router(items.router)
+api_router.include_router(inventory_counts.router)
 api_router.include_router(inbound_orders.router)
 api_router.include_router(outbound_orders.router)
 api_router.include_router(personnel.router)

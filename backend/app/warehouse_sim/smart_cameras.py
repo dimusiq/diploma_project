@@ -93,7 +93,7 @@ def active_assignment_for_camera(
     return session.exec(
         select(SimSmartCameraAssignment).where(
             SimSmartCameraAssignment.camera_device_id == camera_device_id,
-            SimSmartCameraAssignment.unassigned_at.is_(None),
+            col(SimSmartCameraAssignment.unassigned_at).is_(None),
         )
     ).first()
 
@@ -104,7 +104,7 @@ def active_assignment_for_host(
     return session.exec(
         select(SimSmartCameraAssignment).where(
             SimSmartCameraAssignment.host_device_id == host_device_id,
-            SimSmartCameraAssignment.unassigned_at.is_(None),
+            col(SimSmartCameraAssignment.unassigned_at).is_(None),
         )
     ).first()
 
@@ -113,7 +113,7 @@ def active_assignments_by_host(
     session: Session, *, host_ids: list[uuid.UUID] | None = None
 ) -> dict[uuid.UUID, SimSmartCameraAssignment]:
     stmt = select(SimSmartCameraAssignment).where(
-        SimSmartCameraAssignment.unassigned_at.is_(None)
+        col(SimSmartCameraAssignment.unassigned_at).is_(None)
     )
     if host_ids is not None:
         if not host_ids:
@@ -127,7 +127,7 @@ def active_assignments_by_camera(
     session: Session, *, camera_ids: list[uuid.UUID] | None = None
 ) -> dict[uuid.UUID, SimSmartCameraAssignment]:
     stmt = select(SimSmartCameraAssignment).where(
-        SimSmartCameraAssignment.unassigned_at.is_(None)
+        col(SimSmartCameraAssignment.unassigned_at).is_(None)
     )
     if camera_ids is not None:
         if not camera_ids:
@@ -150,7 +150,7 @@ def list_available_cameras(session: Session) -> list[dict[str, Any]]:
             select(SimDevice).where(
                 SimDevice.warehouse_id == warehouse.id,
                 SimDevice.device_type == DEVICE_SMART_CAMERA,
-                SimDevice.archived.is_(False),
+                col(SimDevice.archived).is_(False),
             )
         ).all()
     )
@@ -429,7 +429,7 @@ def sync_runtime_camera_links(session: Session, world: dict[str, Any]) -> None:
     links = list(
         session.exec(
             select(SimSmartCameraAssignment).where(
-                SimSmartCameraAssignment.unassigned_at.is_(None)
+                col(SimSmartCameraAssignment.unassigned_at).is_(None)
             )
         ).all()
     )
@@ -530,10 +530,10 @@ def ensure_demo_smart_cameras(session: Session, warehouse_id: uuid.UUID) -> None
         ).first()
         if row is None:
             device = create_device(
-                spec["code"],
+                str(spec["code"]),
                 KIND_SMART_CAMERA,
-                spec["name"],
-                {"x": spec["x"], "z": spec["z"]},
+                str(spec["name"]),
+                {"x": float(str(spec["x"])), "z": float(str(spec["z"]))},
                 zoneId="zone-storage",
                 serialNumber=spec["serial"],
                 model="Scene camera",

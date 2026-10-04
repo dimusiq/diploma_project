@@ -1,3 +1,4 @@
+from typing import cast, Any
 """Скорость, разъезд без взаимного ожидания и детерминированные пешеходы."""
 
 from copy import deepcopy
@@ -35,7 +36,7 @@ QUIET = {
 
 def _mobile(
     device_id: str, kind: str, x: float, z: float, goal_x: float, speed: float = 1.5
-) -> dict:
+) -> dict[str, Any]:
     return {
         "id": device_id,
         "kind": kind,
@@ -202,7 +203,7 @@ def test_person_cannot_cross_rack() -> None:
         assert not path_crosses_rack([worker["pos"]], racks)
 
 
-def _put_person(world, agv, x: float, z: float):
+def _put_person(world: Any, agv: Any, x: float, z: float) -> dict[str, Any]:
     worker = world["workers"][0]
     agv["status"] = "moving"
     agv["pos"] = {"x": 30.0, "z": AISLE_Z[8]}
@@ -212,7 +213,7 @@ def _put_person(world, agv, x: float, z: float):
     worker["stops"] = []
     worker["path"] = []
     worker["pos"] = {"x": x, "z": z}
-    return worker
+    return cast(dict[str, Any], worker)
 
 
 def test_person_ahead_slows_then_resumes() -> None:
