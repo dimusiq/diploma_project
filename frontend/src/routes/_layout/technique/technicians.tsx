@@ -13,10 +13,15 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { request } from "@/lib/apiClient"
+import { fetchAllPages } from "@/lib/fetchAllPages"
 
 export const Route = createFileRoute("/_layout/technique/technicians")({
   component: TechniciansSection,
 })
+
+/** Согласовано с Query(le=…) на бэкенде. */
+const USERS_PAGE = 500
+const WORK_ORDERS_PAGE = 200
 
 interface UserPublic {
   id: string
@@ -57,14 +62,26 @@ function TechniciansSection() {
   useEffect(() => {
     async function load() {
       try {
-        const [usersRes, rolesRes, woRes] = await Promise.all([
-          request<UsersResponse>("/api/v1/users/?limit=500"),
+        const [allUsers, rolesRes, allWorkOrders] = await Promise.all([
+          fetchAllPages<UserPublic>({
+            pageSize: USERS_PAGE,
+            fetchPage: (skip, limit) =>
+              request<UsersResponse>(
+                `/api/v1/users/?skip=${skip}&limit=${limit}`,
+              ),
+          }),
           request<RolePublic[]>("/api/v1/roles/"),
-          request<WorkOrderListResponse>("/api/v1/work-orders?limit=500"),
+          fetchAllPages<WorkOrderPublic>({
+            pageSize: WORK_ORDERS_PAGE,
+            fetchPage: (skip, limit) =>
+              request<WorkOrderListResponse>(
+                `/api/v1/work-orders?skip=${skip}&limit=${limit}`,
+              ),
+          }),
         ])
-        setUsers(usersRes.data)
+        setUsers(allUsers)
         setRoles(rolesRes)
-        setWorkOrders(woRes.data)
+        setWorkOrders(allWorkOrders)
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Ошибка загрузки")
       } finally {
