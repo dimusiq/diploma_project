@@ -202,3 +202,43 @@ def test_ship_incomplete_returns_409(db: Session) -> None:
     with pytest.raises(HTTPException) as exc:
         ship_order(db, shipper, order.id)
     assert exc.value.status_code == 409
+
+
+def test_partial_pick_records_shortfall_variance(db: Session) -> None:
+    """Частичное количество → pick_variances; со склада списывается только факт."""
+    user = create_random_user(db)
+    order, tasks, items = _order_with_three_picks(db)
+    item0 = items[0]
+    db.refresh(item0)
+    qty_before = int(item0.quantity or 0)
+    reserved_before = int(item0.reserved_quantity or 0)
+    # tasks[0] план quantity=2
+    result = confirm_pick(
+        db,
+        order,
+        task_id=tasks[0].id,
+        actor_user_id=user.id,
+        scanned_code=items[0].sku or "",
+        quantity=1,
+    )
+    db.commit()
+    db.refresh(order)
+    db.refresh(tasks[0])
+    db.refresh(item0)
+
+    assert result["confirmed_quantity"] == 1
+    assert result["status"] == "completed"
+    payload = tasks[0].payload or {}
+    assert payload.get("shortfall", {}).get("short_by") == 1
+    ff = (order.extra or {}).get("fulfillment") or {}
+    variances = ff.get("pick_variances") or []
+    assert any(
+        isinstance(v, dict)
+        and v.get("type") == "short_pick"
+        and str(v.get("task_id")) == str(tasks[0].id)
+        and int(v.get("short_by") or 0) == 1
+        for v in variances
+    )
+    # Резерв 2 снят, списано только 1.
+    assert int(item0.quantity or 0) == qty_before - 1
+    assert int(item0.reserved_quantity or 0) == reserved_before - 2

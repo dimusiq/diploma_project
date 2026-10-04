@@ -95,8 +95,17 @@ def reserve_for_task(
     return row
 
 
-def consume_for_task(session: Session, task: WarehouseTask) -> bool:
-    """Подтверждение отбора: списать quantity и снять резерв. True если было active."""
+def consume_for_task(
+    session: Session,
+    task: WarehouseTask,
+    quantity: int | None = None,
+) -> bool:
+    """
+    Подтверждение отбора: списать факт и снять весь резерв задачи.
+
+    ``quantity`` — фактически подтверждённое (может быть меньше резерва при недоборе);
+    остаток резерва возвращается в доступный остаток без списания.
+    """
     row = session.exec(
         select(ItemReservation).where(
             ItemReservation.warehouse_task_id == task.id,
@@ -106,11 +115,17 @@ def consume_for_task(session: Session, task: WarehouseTask) -> bool:
     if row is None:
         return False
     item = _lock_item(session, row.item_id)
-    qty = int(row.quantity)
+    reserved_qty = int(row.quantity)
+    if quantity is None:
+        consume_qty = reserved_qty
+    else:
+        consume_qty = max(0, min(reserved_qty, int(quantity)))
     reserved = int(item.reserved_quantity or 0)
     on_hand = int(item.quantity or 0)
-    item.reserved_quantity = max(0, reserved - qty)
-    item.quantity = max(0, on_hand - qty)
+    # Снимаем весь резерв задачи; списываем только подтверждённое.
+    item.reserved_quantity = max(0, reserved - reserved_qty)
+    item.quantity = max(0, on_hand - consume_qty)
+    row.quantity = consume_qty
     row.status = RESERVATION_CONSUMED
     row.updated_at = datetime.now(timezone.utc)
     session.add(item)

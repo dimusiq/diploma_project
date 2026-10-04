@@ -294,8 +294,16 @@ export function WarehouseTasksView({
                 assigned_user_id: me.id,
               })
             }
-            onRefresh={() => {
-              showSuccessToast("Задание обработано")
+            onRefresh={(info) => {
+              if (info?.queued) {
+                showSuccessToast("Сохранено офлайн — отправится при сети")
+              } else if (info?.shortfall) {
+                showSuccessToast("Отбор с недобором зафиксирован")
+              } else if (info?.outcome === "no_stock") {
+                showSuccessToast("Инцидент зафиксирован")
+              } else {
+                showSuccessToast("Задание обработано")
+              }
               void handleRefresh()
             }}
           />

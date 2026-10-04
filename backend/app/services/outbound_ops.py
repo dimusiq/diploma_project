@@ -454,7 +454,7 @@ def confirm_pick(
             },
         )
     )
-    _consume_for_task(session, task)
+    _consume_for_task(session, task, quantity=confirm_qty)
 
     line_index = payload.get("line_index")
     try:
@@ -482,6 +482,41 @@ def confirm_pick(
         else:
             new_incs.append(dict(row))
     ff["incidents"] = new_incs
+    planned_qty = int(payload.get("quantity") or 0)
+    if planned_qty > 0 and confirm_qty < planned_qty:
+        # Недобор виден менеджеру в fulfillment.pick_variances.
+        raw_var = ff.get("pick_variances")
+        variances: list[Any] = raw_var if isinstance(raw_var, list) else []
+        kept_var = [
+            dict(x)
+            for x in variances
+            if isinstance(x, dict) and str(x.get("task_id")) != str(task.id)
+        ]
+        kept_var.append(
+            {
+                "id": str(uuid.uuid4()),
+                "type": "short_pick",
+                "status": "open",
+                "task_id": str(task.id),
+                "sku": payload.get("sku"),
+                "slot_key": payload.get("slot_key"),
+                "planned": planned_qty,
+                "confirmed": confirm_qty,
+                "short_by": planned_qty - confirm_qty,
+                "created_at": now.isoformat(),
+            }
+        )
+        ff["pick_variances"] = kept_var
+        # Новый dict — иначе SQLAlchemy может не увидеть мутацию JSONB.
+        task.payload = {
+            **payload,
+            "shortfall": {
+                "planned": planned_qty,
+                "confirmed": confirm_qty,
+                "short_by": planned_qty - confirm_qty,
+            },
+        }
+        session.add(task)
     if order.status in {"open", "confirmed"}:
         order.status = PICKING_STATUS
     _save_fulfillment(order, extra, ff)
@@ -505,6 +540,7 @@ def confirm_pick(
                 "source": "outbound_ops",
                 "task_id": str(task.id),
                 "scanned_code": scanned_code.strip(),
+                "shortfall": planned_qty > 0 and confirm_qty < planned_qty,
             },
         },
         strict_payload=False,
