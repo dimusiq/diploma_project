@@ -1,4 +1,5 @@
 """CRUD API for OutboundOrder (исходящие заказы) и operational-отгрузка."""
+
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -32,7 +33,9 @@ from app.services.outbound_fulfillment import (
 router = APIRouter(prefix="/outbound-orders", tags=["outbound-orders"])
 
 
-def _resolve_warehouse_id(session: SessionDep, warehouse_id: uuid.UUID | None) -> uuid.UUID:
+def _resolve_warehouse_id(
+    session: SessionDep, warehouse_id: uuid.UUID | None
+) -> uuid.UUID:
     if warehouse_id is not None:
         wh = session.get(Warehouse, warehouse_id)
         if not wh:
@@ -135,7 +138,9 @@ def get_outbound_fulfillment(
     if not order:
         raise HTTPException(status_code=404, detail="Исходящий заказ не найден")
     shipment = session.get(Shipment, order.shipment_id) if order.shipment_id else None
-    return to_detail(session, order, shipment=shipment, tasks=related_tasks(session, order))
+    return to_detail(
+        session, order, shipment=shipment, tasks=related_tasks(session, order)
+    )
 
 
 @router.post("/{id}/ship", response_model=OutboundFulfillmentDetail)

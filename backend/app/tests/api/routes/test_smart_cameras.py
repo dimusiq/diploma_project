@@ -61,7 +61,9 @@ def test_assign_get_and_mount_sides(
     assert body["code"] == camera["code"]
     assert body["host"]["code"] == "agv-2"
 
-    host_view = client.get(f"{FLEET}/{agv['id']}/smart-camera", headers=superuser_token_headers)
+    host_view = client.get(
+        f"{FLEET}/{agv['id']}/smart-camera", headers=superuser_token_headers
+    )
     assert host_view.status_code == 200
     assert host_view.json()["smart_camera"]["device_id"] == camera["id"]
 
@@ -71,7 +73,9 @@ def test_assign_get_and_mount_sides(
 
     db.expire_all()
     actions = list(
-        db.exec(select(AuditLog.action).where(AuditLog.action == "SMART_CAMERA_ASSIGNED")).all()
+        db.exec(
+            select(AuditLog.action).where(AuditLog.action == "SMART_CAMERA_ASSIGNED")
+        ).all()
     )
     assert actions
 
@@ -155,14 +159,18 @@ def test_replace_and_unassign(
 
     db.expire_all()
     assert active_assignment_for_camera(db, uuid.UUID(first["id"])) is None
-    assert active_assignment_for_host(db, uuid.UUID(agv["id"])).camera_device_id == uuid.UUID(
-        second["id"]
-    )
+    assert active_assignment_for_host(
+        db, uuid.UUID(agv["id"])
+    ).camera_device_id == uuid.UUID(second["id"])
     assert list(
-        db.exec(select(AuditLog.action).where(AuditLog.action == "SMART_CAMERA_REPLACED")).all()
+        db.exec(
+            select(AuditLog.action).where(AuditLog.action == "SMART_CAMERA_REPLACED")
+        ).all()
     )
 
-    available = client.get(f"{FLEET}/smart-cameras/available", headers=superuser_token_headers)
+    available = client.get(
+        f"{FLEET}/smart-cameras/available", headers=superuser_token_headers
+    )
     assert available.status_code == 200
     free_codes = {row["code"] for row in available.json()["data"]}
     assert first["code"] in free_codes
@@ -192,7 +200,9 @@ def test_replace_and_unassign(
     assert history
     assert all(row.unassigned_at is not None for row in history)
     assert list(
-        db.exec(select(AuditLog.action).where(AuditLog.action == "SMART_CAMERA_UNASSIGNED")).all()
+        db.exec(
+            select(AuditLog.action).where(AuditLog.action == "SMART_CAMERA_UNASSIGNED")
+        ).all()
     )
 
     runtime = get_runtime().world["deviceById"].get("agv-2")
@@ -229,7 +239,9 @@ def test_smart_camera_rbac(client: TestClient, db: Session) -> None:
 def test_category_smart_cameras(
     client: TestClient, superuser_token_headers: dict[str, str]
 ) -> None:
-    listed = client.get(f"{FLEET}?category=smart_cameras", headers=superuser_token_headers)
+    listed = client.get(
+        f"{FLEET}?category=smart_cameras", headers=superuser_token_headers
+    )
     assert listed.status_code == 200
     assert listed.json()["count"] >= 2
     assert all(row["kind"] == "smart_camera" for row in listed.json()["data"])

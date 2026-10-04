@@ -23,6 +23,16 @@ MOBILE = ("forklift", "agv", "amr")
 ACTIVE = ("moving", "waiting", "loading", "unloading")
 
 
+def find_task(world: dict, task_id: str | None) -> dict | None:
+    """Найти задание по id в world['tasks'] (единая точка для simulation/traffic)."""
+    if not task_id:
+        return None
+    for task in world.get("tasks") or []:
+        if task["id"] == task_id:
+            return task
+    return None
+
+
 def body_size(kind: str) -> tuple[float, float]:
     dims = VEHICLE_PHYSICAL_DIMENSIONS.get(kind) or VEHICLE_PHYSICAL_DIMENSIONS["agv"]
     return float(dims["width"]), float(dims["length"])
@@ -57,16 +67,9 @@ def bodies_overlap(device: dict, other: dict, lookahead: float = 0.0) -> bool:
     return -0.25 < forward < long_limit and abs(lateral) < lat_limit
 
 
-def _task(world: dict, device: dict) -> dict | None:
-    task_id = device.get("taskId")
-    if not task_id:
-        return None
-    return next((task for task in world.get("tasks") or [] if task["id"] == task_id), None)
-
-
 def priority_key(world: dict, device: dict, other: dict | None = None) -> tuple:
     """Больше — выше приоритет. Id в ключ не входит: ничья снимается отдельно."""
-    task = _task(world, device)
+    task = find_task(world, device.get("taskId"))
     inside = bool(other) and bodies_overlap(device, other, lookahead=0.0)
     in_section = 1 if device.get("passLead") or inside else 0
     has_task = 1 if task else 0
@@ -168,7 +171,9 @@ def resolve_traffic(world: dict) -> list[dict]:
     devices = [
         device
         for device in world["devices"]
-        if device.get("kind") in MOBILE and device.get("status") in ACTIVE and device.get("path")
+        if device.get("kind") in MOBILE
+        and device.get("status") in ACTIVE
+        and device.get("path")
     ]
     obstacles = [
         device
@@ -185,7 +190,8 @@ def resolve_traffic(world: dict) -> list[dict]:
         rivals = [
             other
             for other in obstacles
-            if other["id"] != device["id"] and bodies_overlap(device, other, lookahead=1.2)
+            if other["id"] != device["id"]
+            and bodies_overlap(device, other, lookahead=1.2)
         ]
         person = _person_ahead(device, world.get("workers") or [])
         if person is not None:
@@ -217,9 +223,13 @@ def resolve_traffic(world: dict) -> list[dict]:
                 device["passLead"] = False
                 _clear_wait(device)
             continue
-        rival = max(rivals, key=lambda item: (*priority_key(world, item, device), item["id"]))
+        rival = max(
+            rivals, key=lambda item: (*priority_key(world, item, device), item["id"])
+        )
         lead = outranks(world, device, rival)
-        moving_pair = rival.get("status") in ("moving", "waiting") and bool(rival.get("path"))
+        moving_pair = rival.get("status") in ("moving", "waiting") and bool(
+            rival.get("path")
+        )
         if moving_pair:
             device["passSide"] = 1 if device["id"] < rival["id"] else -1
             device["passRival"] = rival["id"]
@@ -252,7 +262,7 @@ def current_speed(device: dict) -> float:
 def agv_motion_diagnostic(world: dict, device_id: str = "agv-1") -> dict:
     """Снимок движения одной машины: задача отдельно от cameraHold."""
     device = world["deviceById"][device_id]
-    task = _task(world, device)
+    task = find_task(world, device.get("taskId"))
     return {
         "id": device["id"],
         "taskId": device.get("taskId"),
@@ -280,12 +290,17 @@ def traffic_snapshot(world: dict) -> list[dict]:
         rows.append(
             {
                 "device_id": device["id"],
-                "position": {"x": round(float(device["pos"]["x"]), 2), "z": round(float(device["pos"]["z"]), 2)},
+                "position": {
+                    "x": round(float(device["pos"]["x"]), 2),
+                    "z": round(float(device["pos"]["z"]), 2),
+                },
                 "speed": round(current_speed(device), 2),
                 "target_speed": float(device.get("speed") or 0.0),
                 "status": device.get("status"),
                 "waiting_for": device.get("waitingFor"),
-                "waiting_seconds": round(float(device.get("waitingDuration") or 0.0), 2),
+                "waiting_seconds": round(
+                    float(device.get("waitingDuration") or 0.0), 2
+                ),
                 "next_waypoint": dict(nxt) if nxt else None,
             }
         )

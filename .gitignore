@@ -1,4 +1,7 @@
 .vscode
+# Локальные секреты / окружение (шаблон — .env.example)
+.env
+!.env.example
 # Загруженные аватары (каталог с .gitkeep сохраняем)
 backend/data/avatars/*
 !backend/data/avatars/.gitkeep

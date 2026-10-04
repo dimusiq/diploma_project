@@ -8,7 +8,13 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import ROLE_MANAGER, ROLE_VIEWER, ROLE_WAREHOUSE, AuditLog, WarehouseEmployee
+from app.models import (
+    ROLE_MANAGER,
+    ROLE_VIEWER,
+    ROLE_WAREHOUSE,
+    AuditLog,
+    WarehouseEmployee,
+)
 from app.tests.api.routes.test_warehouse_sim import _headers_for_role
 from app.warehouse_sim.bracelets import KIND_RADIO_BEACON, active_assignment_for_device
 from app.warehouse_sim.models import SimBraceletAssignment
@@ -52,14 +58,18 @@ def test_bulk_department_move(
     assert moved.status_code == 200, moved.text
     assert moved.json()["updated"] == 3
     assert moved.json()["department"] == "Склад №2"
-    assert 'Склад №2' in moved.json()["message"]
+    assert "Склад №2" in moved.json()["message"]
 
     db.expire_all()
     for row_id in (a["id"], b["id"], c["id"]):
         assert db.get(WarehouseEmployee, uuid.UUID(row_id)).department == "Склад №2"
 
     actions = list(
-        db.exec(select(AuditLog.action).where(AuditLog.action == "PERSONNEL_BULK_DEPARTMENT_CHANGE")).all()
+        db.exec(
+            select(AuditLog.action).where(
+                AuditLog.action == "PERSONNEL_BULK_DEPARTMENT_CHANGE"
+            )
+        ).all()
     )
     assert actions
 
@@ -104,20 +114,26 @@ def test_bulk_delete_frees_bracelets_and_keeps_history(
     assert active_assignment_for_device(db, uuid.UUID(device_id)) is None
     history = list(
         db.exec(
-            select(SimBraceletAssignment).where(SimBraceletAssignment.device_id == uuid.UUID(device_id))
+            select(SimBraceletAssignment).where(
+                SimBraceletAssignment.device_id == uuid.UUID(device_id)
+            )
         ).all()
     )
     assert history
     assert all(row.unassigned_at is not None for row in history)
     # История сохраняется; employee_id может быть NULL после SET NULL / unassign.
-    assert any(row.employee_id is None or row.unassigned_at is not None for row in history)
+    assert any(
+        row.employee_id is None or row.unassigned_at is not None for row in history
+    )
 
     fleet = client.get(f"{FLEET}/{device_id}", headers=superuser_token_headers)
     assert fleet.status_code == 200
     assert fleet.json()["assigned_employee"] is None
 
     audits = list(
-        db.exec(select(AuditLog.action).where(AuditLog.action == "PERSONNEL_BULK_DELETE")).all()
+        db.exec(
+            select(AuditLog.action).where(AuditLog.action == "PERSONNEL_BULK_DELETE")
+        ).all()
     )
     assert audits
 
@@ -211,7 +227,9 @@ def test_bulk_rbac(client: TestClient, db: Session) -> None:
     assert ok.status_code == 200, ok.text
 
 
-def test_departments_list(client: TestClient, superuser_token_headers: dict[str, str]) -> None:
+def test_departments_list(
+    client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
     _create(client, superuser_token_headers, department="Склад №7")
     response = client.get(f"{PREFIX}/departments", headers=superuser_token_headers)
     assert response.status_code == 200

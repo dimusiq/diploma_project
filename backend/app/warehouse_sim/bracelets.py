@@ -8,7 +8,6 @@ wsim_bracelet_assignment с историей. Runtime-положение сот�
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -25,6 +24,7 @@ from app.warehouse_sim.models import (
     SimBraceletAssignment,
     SimDevice,
 )
+from app.warehouse_sim.timeutil import iso_utc, utcnow
 
 KIND_RADIO_BEACON = "radio_beacon"
 
@@ -65,18 +65,6 @@ DEMO_BRACELET_SPECS = (
         "z": 12.0,
     },
 )
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _iso(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.isoformat().replace("+00:00", "Z")
 
 
 def is_bracelet(row: SimDevice) -> bool:
@@ -130,7 +118,9 @@ def active_assignment_for_employee(
 def active_assignments_map(
     session: Session, *, device_ids: list[uuid.UUID] | None = None
 ) -> dict[uuid.UUID, SimBraceletAssignment]:
-    stmt = select(SimBraceletAssignment).where(SimBraceletAssignment.unassigned_at.is_(None))
+    stmt = select(SimBraceletAssignment).where(
+        SimBraceletAssignment.unassigned_at.is_(None)
+    )
     if device_ids is not None:
         if not device_ids:
             return {}
@@ -142,18 +132,26 @@ def active_assignments_map(
 def _require_bracelet(session: Session, device_id: uuid.UUID) -> SimDevice:
     row = get_device_row(session, device_id)
     if not is_bracelet(row):
-        raise HTTPException(status_code=400, detail="Устройство не является браслетом-радиомаяком")
+        raise HTTPException(
+            status_code=400, detail="Устройство не является браслетом-радиомаяком"
+        )
     return row
 
 
 def _assert_assignable(row: SimDevice) -> None:
     if row.archived:
-        raise HTTPException(status_code=409, detail="Архивированный браслет нельзя назначить")
+        raise HTTPException(
+            status_code=409, detail="Архивированный браслет нельзя назначить"
+        )
     if not row.enabled:
-        raise HTTPException(status_code=409, detail="Отключённый браслет нельзя назначить")
+        raise HTTPException(
+            status_code=409, detail="Отключённый браслет нельзя назначить"
+        )
     meta = row.meta or {}
     if meta.get("inMaintenance") or row.status == DEVICE_STATUS_MAINTENANCE:
-        raise HTTPException(status_code=409, detail="Браслет на обслуживании нельзя назначить")
+        raise HTTPException(
+            status_code=409, detail="Браслет на обслуживании нельзя назначить"
+        )
 
 
 def list_available_bracelets(session: Session) -> list[dict[str, Any]]:
@@ -207,7 +205,7 @@ def _bracelet_summary(
         "location_source": location_source,
         "location_stale": location_stale,
         "position": rt.get("pos") or {"x": row.x, "z": row.y},
-        "assigned_at": _iso(assignment.assigned_at) if assignment else None,
+        "assigned_at": iso_utc(assignment.assigned_at) if assignment else None,
         "employee": (
             {
                 "id": str(employee.id),
@@ -217,7 +215,7 @@ def _bracelet_summary(
             if employee
             else None
         ),
-        "created_at": _iso(row.created_at),
+        "created_at": iso_utc(row.created_at),
     }
 
 
@@ -233,13 +231,20 @@ def bracelet_for_employee(
     row = session.get(SimDevice, assignment.device_id)
     if row is None:
         return None
-    return _bracelet_summary(row, assignment=assignment, employee=employee, runtime=runtime)
+    return _bracelet_summary(
+        row, assignment=assignment, employee=employee, runtime=runtime
+    )
 
 
 def assignment_history(
-    session: Session, *, employee_id: uuid.UUID | None = None, device_id: uuid.UUID | None = None
+    session: Session,
+    *,
+    employee_id: uuid.UUID | None = None,
+    device_id: uuid.UUID | None = None,
 ) -> list[dict[str, Any]]:
-    stmt = select(SimBraceletAssignment).order_by(col(SimBraceletAssignment.assigned_at).desc())
+    stmt = select(SimBraceletAssignment).order_by(
+        col(SimBraceletAssignment.assigned_at).desc()
+    )
     if employee_id is not None:
         stmt = stmt.where(SimBraceletAssignment.employee_id == employee_id)
     if device_id is not None:
@@ -251,7 +256,11 @@ def assignment_history(
         employee = (
             session.get(WarehouseEmployee, row.employee_id) if row.employee_id else None
         )
-        previous = session.get(SimDevice, row.previous_device_id) if row.previous_device_id else None
+        previous = (
+            session.get(SimDevice, row.previous_device_id)
+            if row.previous_device_id
+            else None
+        )
         result.append(
             {
                 "id": str(row.id),
@@ -261,9 +270,11 @@ def assignment_history(
                 "employee_id": str(row.employee_id) if row.employee_id else None,
                 "employee_code": employee.employee_code if employee else None,
                 "employee_name": employee_full_name(employee) if employee else None,
-                "assigned_at": _iso(row.assigned_at),
-                "unassigned_at": _iso(row.unassigned_at),
-                "previous_device_id": str(row.previous_device_id) if row.previous_device_id else None,
+                "assigned_at": iso_utc(row.assigned_at),
+                "unassigned_at": iso_utc(row.unassigned_at),
+                "previous_device_id": str(row.previous_device_id)
+                if row.previous_device_id
+                else None,
                 "previous_device_code": previous.code if previous else None,
                 "notes": row.notes,
                 "active": row.unassigned_at is None,
@@ -284,7 +295,9 @@ def assign_bracelet(
     row = _require_bracelet(session, device_id)
     _assert_assignable(row)
     if active_assignment_for_device(session, device_id) is not None:
-        raise HTTPException(status_code=409, detail="Браслет уже закреплён за другим сотрудником")
+        raise HTTPException(
+            status_code=409, detail="Браслет уже закреплён за другим сотрудником"
+        )
     if active_assignment_for_employee(session, employee.id) is not None:
         raise HTTPException(
             status_code=409,
@@ -293,7 +306,7 @@ def assign_bracelet(
     assignment = SimBraceletAssignment(
         device_id=device_id,
         employee_id=employee.id,
-        assigned_at=_utcnow(),
+        assigned_at=utcnow(),
         assigned_by_user_id=user_id,
         previous_device_id=previous_device_id,
         notes=notes,
@@ -318,7 +331,7 @@ def unassign_bracelet(
     assignment = active_assignment_for_employee(session, employee.id)
     if assignment is None:
         return None
-    assignment.unassigned_at = _utcnow()
+    assignment.unassigned_at = utcnow()
     session.add(assignment)
     session.flush()
     return assignment
@@ -337,7 +350,7 @@ def replace_bracelet(
     if current is not None:
         if current.device_id == new_device_id:
             return current
-        current.unassigned_at = _utcnow()
+        current.unassigned_at = utcnow()
         session.add(current)
         session.flush()
     try:
@@ -369,7 +382,11 @@ def enrich_fleet_payload(
     payload["assigned_employee"] = None
     if not is_bracelet(row):
         return payload
-    map_ = assignments if assignments is not None else active_assignments_map(session, device_ids=[row.id])
+    map_ = (
+        assignments
+        if assignments is not None
+        else active_assignments_map(session, device_ids=[row.id])
+    )
     assignment = map_.get(row.id)
     if assignment is None:
         return payload
@@ -387,13 +404,19 @@ def enrich_fleet_payload(
 def sync_runtime_links(session: Session, world: dict[str, Any]) -> None:
     """Проставляет в world связи браслет→сотрудник для зеркалирования координат."""
     rows = list(
-        session.exec(select(SimDevice).where(SimDevice.device_type == DEVICE_RADIO_BEACON)).all()
+        session.exec(
+            select(SimDevice).where(SimDevice.device_type == DEVICE_RADIO_BEACON)
+        ).all()
     )
     assignments = active_assignments_map(session, device_ids=[row.id for row in rows])
     links: list[dict[str, Any]] = []
     for row in rows:
         assignment = assignments.get(row.id)
-        employee = session.get(WarehouseEmployee, assignment.employee_id) if assignment else None
+        employee = (
+            session.get(WarehouseEmployee, assignment.employee_id)
+            if assignment
+            else None
+        )
         links.append(
             {
                 "deviceId": row.code,
@@ -411,12 +434,10 @@ def apply_bracelet_positions(world: dict[str, Any]) -> None:
     if not links:
         return
     workers = list(world.get("workers") or [])
-    by_code = {
-        w.get("employeeCode"): w for w in workers if w.get("employeeCode")
-    }
+    by_code = {w.get("employeeCode"): w for w in workers if w.get("employeeCode")}
     by_id = {str(w.get("workerId") or ""): w for w in workers if w.get("workerId")}
     devices = world.get("deviceById") or {}
-    now_iso = _iso(_utcnow())
+    now_iso = iso_utc(utcnow())
     sim_time = float(world.get("timeSec") or 0)
     for link in links:
         device = devices.get(link["deviceId"])
@@ -458,7 +479,11 @@ def persist_bracelet_signal_meta(session: Session, world: dict[str, Any]) -> Non
         device = devices.get(link["deviceId"])
         if device is None:
             continue
-        row = session.get(SimDevice, uuid.UUID(link["deviceUuid"])) if link.get("deviceUuid") else None
+        row = (
+            session.get(SimDevice, uuid.UUID(link["deviceUuid"]))
+            if link.get("deviceUuid")
+            else None
+        )
         if row is None:
             continue
         meta = dict(row.meta or {})
@@ -479,7 +504,7 @@ def persist_bracelet_signal_meta(session: Session, world: dict[str, Any]) -> Non
             changed = True
         if changed:
             row.meta = meta
-            row.updated_at = _utcnow()
+            row.updated_at = utcnow()
             if device.get("online") is False:
                 row.status = DEVICE_STATUS_OFFLINE
             elif device.get("inMaintenance"):
@@ -494,7 +519,7 @@ def ensure_demo_bracelets(session: Session, warehouse_id: uuid.UUID) -> None:
     from app.warehouse_sim.fleet import KIND_TO_TYPE, persist_meta
     from app.warehouse_sim.world import create_device
 
-    now = _utcnow()
+    now = utcnow()
     for spec in DEMO_BRACELET_SPECS:
         row = session.exec(
             select(SimDevice).where(
@@ -550,5 +575,3 @@ def ensure_demo_bracelets(session: Session, warehouse_id: uuid.UUID) -> None:
             )
         )
     session.flush()
-
-

@@ -1,4 +1,5 @@
 """Rate limiting for login: Redis when REDIS_URL is set, else in-process memory."""
+
 from __future__ import annotations
 
 import logging
@@ -35,9 +36,7 @@ def _get_redis_pool() -> redis.ConnectionPool | None:
     if _redis_pool is None:
         with _redis_pool_lock:
             if _redis_pool is None:
-                _redis_pool = redis.ConnectionPool.from_url(
-                    url, decode_responses=True
-                )
+                _redis_pool = redis.ConnectionPool.from_url(url, decode_responses=True)
     return _redis_pool
 
 

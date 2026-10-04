@@ -27,6 +27,8 @@ async def warehouse_projection_reconcile_loop(stop_event: asyncio.Event) -> None
         except Exception:
             logger.exception("Warehouse slot projection refresh failed")
         try:
-            await asyncio.wait_for(stop_event.wait(), timeout=PROJECTION_RECONCILE_INTERVAL_SEC)
+            await asyncio.wait_for(
+                stop_event.wait(), timeout=PROJECTION_RECONCILE_INTERVAL_SEC
+            )
         except asyncio.TimeoutError:
             continue

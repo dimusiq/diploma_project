@@ -55,12 +55,16 @@ def normalize_event_payload(
     Для типов из VERSIONED_EVENT_TYPES при strict_typed_events=True требуется модель v1.
     """
     if payload_schema_version != 1:
-        raise ValueError(f"Unsupported payload_schema_version: {payload_schema_version}")
+        raise ValueError(
+            f"Unsupported payload_schema_version: {payload_schema_version}"
+        )
 
     if strict_typed_events and event_type in catalog.VERSIONED_EVENT_TYPES:
         model = PAYLOAD_MODEL_V1.get(event_type)
         if model is None:
-            raise ValueError(f"No payload model registered for event_type={event_type!r} v1")
+            raise ValueError(
+                f"No payload model registered for event_type={event_type!r} v1"
+            )
         return model.model_validate(payload).model_dump(mode="json")
 
     # legacy / свободная форма

@@ -8,8 +8,7 @@ from typing import Any
 
 from sqlmodel import Session, func, select
 
-from app.models import AgentUserChat, AgentUserChatMessage
-from app.models import User
+from app.models import AgentUserChat, AgentUserChatMessage, User
 from app.services.agent_chat import AgentChatOutcome
 
 
@@ -66,7 +65,9 @@ def append_user_chat_turn(
         ),
         "run_id": str(run_uuid) if run_uuid else None,
     }
-    assistant_body = assistant_reply_text if assistant_reply_text is not None else outcome.reply
+    assistant_body = (
+        assistant_reply_text if assistant_reply_text is not None else outcome.reply
+    )
     a_msg = AgentUserChatMessage(
         chat_id=chat_id,
         seq=base + 1,

@@ -99,14 +99,20 @@ def test_rename_and_status_propagate_to_maintenance_and_work_orders(
         headers=superuser_token_headers,
     )
     assert all_mr.status_code == 200
-    listed_mr = next(row for row in all_mr.json()["data"] if row["id"] == created_mr.json()["id"])
+    listed_mr = next(
+        row for row in all_mr.json()["data"] if row["id"] == created_mr.json()["id"]
+    )
     assert listed_mr["equipment_id"] == device_id
     assert listed_mr["equipment_name"] == new_name
 
     wo = client.post(
         f"{settings.API_V1_STR}/work-orders",
         headers=superuser_token_headers,
-        json={"equipment_id": device_id, "title": "Наряд identity", "priority": "medium"},
+        json={
+            "equipment_id": device_id,
+            "title": "Наряд identity",
+            "priority": "medium",
+        },
     )
     assert wo.status_code == 200
     assert wo.json()["equipment_id"] == device_id

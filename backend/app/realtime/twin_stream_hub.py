@@ -10,7 +10,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import threading
 import time
 import uuid
@@ -18,6 +17,8 @@ from collections import deque
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
+
+from app.realtime.sse_common import format_sse, iter_sse_from_queue, put_drop_oldest
 
 # Каналы (подписка клиента — подмножество)
 CHANNEL_OCCUPANCY = "occupancy"
@@ -64,6 +65,7 @@ class _TwinSubscriber:
 
 
 _subscribers: list[_TwinSubscriber] = []
+_subscribers_snapshot: tuple[_TwinSubscriber, ...] = ()
 
 # --- coalesce state (loop thread only for timers; flags from any thread via call_soon) ---
 _occupancy_dirty = False
@@ -135,37 +137,32 @@ def parse_channels_param(raw: str | None) -> frozenset[str]:
     return frozenset(valid) if valid else ALL_CHANNELS
 
 
+def _rebuild_subs_snapshot() -> None:
+    global _subscribers_snapshot
+    _subscribers_snapshot = tuple(_subscribers)
+
+
 def subscribe_twin(*, channels: frozenset[str]) -> asyncio.Queue[dict]:
     q: asyncio.Queue[dict] = asyncio.Queue(maxsize=64)
     with _sub_lock:
         _subscribers.append(_TwinSubscriber(queue=q, channels=channels))
+        _rebuild_subs_snapshot()
     return q
 
 
 def unsubscribe_twin(q: asyncio.Queue[dict]) -> None:
     with _sub_lock:
         _subscribers[:] = [s for s in _subscribers if s.queue is not q]
+        _rebuild_subs_snapshot()
 
 
 def _broadcast(msg: dict) -> None:
     _record_history(msg)
-    with _sub_lock:
-        subs = list(_subscribers)
     ch = msg.get("channel")
-    for s in subs:
+    for s in _subscribers_snapshot:
         if ch not in s.channels:
             continue
-        try:
-            s.queue.put_nowait(msg)
-        except asyncio.QueueFull:
-            try:
-                s.queue.get_nowait()
-            except asyncio.QueueEmpty:
-                pass
-            try:
-                s.queue.put_nowait(msg)
-            except asyncio.QueueFull:
-                pass
+        put_drop_oldest(s.queue, msg)
 
 
 def _broadcast_on_loop(msg: dict) -> None:
@@ -281,7 +278,9 @@ def publish_occupancy_changed() -> None:
                 return
             _occupancy_dirty = False
             _broadcast(
-                _envelope(CHANNEL_OCCUPANCY, "occupancy_changed", {"reason": "projection"})
+                _envelope(
+                    CHANNEL_OCCUPANCY, "occupancy_changed", {"reason": "projection"}
+                )
             )
 
         _occupancy_timer = loop.call_later(_OCCUPANCY_DEBOUNCE_SEC, _flush)
@@ -306,7 +305,11 @@ def publish_item_movement(
     _reason = reason
 
     def _schedule() -> None:
-        global _item_movement_dirty, _item_movement_timer, _item_movement_ids, _last_item_movement_reason
+        global \
+            _item_movement_dirty, \
+            _item_movement_timer, \
+            _item_movement_ids, \
+            _last_item_movement_reason
         _item_movement_dirty = True
         _last_item_movement_reason = _reason
         if _id_str is not None:
@@ -315,7 +318,11 @@ def publish_item_movement(
         _cancel_timer(_item_movement_timer)
 
         def _flush() -> None:
-            global _item_movement_timer, _item_movement_dirty, _item_movement_ids, _last_item_movement_reason
+            global \
+                _item_movement_timer, \
+                _item_movement_dirty, \
+                _item_movement_ids, \
+                _last_item_movement_reason
             _item_movement_timer = None
             if not _item_movement_dirty:
                 return
@@ -377,16 +384,6 @@ def publish_equipment_position_sample(
         pass
 
 
-def _format_sse(data: dict | None = None, *, comment: str | None = None) -> bytes:
-    lines: list[str] = []
-    if comment is not None:
-        lines.append(f": {comment}")
-    if data is not None:
-        lines.append(f"data: {json.dumps(data, ensure_ascii=False)}")
-    lines.append("")
-    return ("\n".join(lines) + "\n").encode("utf-8")
-
-
 async def twin_sse_stream(
     *,
     channels: frozenset[str],
@@ -394,18 +391,18 @@ async def twin_sse_stream(
 ) -> AsyncIterator[bytes]:
     _ensure_hub_loop()
     q = subscribe_twin(channels=channels)
+    start = [
+        format_sse(comment="twin ok"),
+        *[
+            format_sse(msg)
+            for msg in history_messages_for_replay(
+                channels=channels, replay_seconds=replay_seconds
+            )
+        ],
+        format_sse({"type": "twin_replay_done", "channels": sorted(channels)}),
+    ]
     try:
-        yield _format_sse(comment="twin ok")
-        for msg in history_messages_for_replay(
-            channels=channels, replay_seconds=replay_seconds
-        ):
-            yield _format_sse(msg)
-        yield _format_sse({"type": "twin_replay_done", "channels": sorted(channels)})
-        while True:
-            try:
-                msg = await asyncio.wait_for(q.get(), timeout=15.0)
-                yield _format_sse(msg)
-            except asyncio.TimeoutError:
-                yield _format_sse(comment="ping")
+        async for chunk in iter_sse_from_queue(q, on_start=start):
+            yield chunk
     finally:
         unsubscribe_twin(q)

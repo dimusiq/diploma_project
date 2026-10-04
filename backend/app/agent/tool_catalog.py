@@ -53,7 +53,10 @@ def _catalog() -> list[CatalogTool]:
             ),
             parameters={
                 "sku_fragment": {"type": "string", "description": "Подстрока SKU"},
-                "title_fragment": {"type": "string", "description": "Подстрока названия"},
+                "title_fragment": {
+                    "type": "string",
+                    "description": "Подстрока названия",
+                },
                 "limit": {"type": "integer", "description": "1–50, по умолчанию 15"},
             },
         ),
@@ -76,8 +79,14 @@ def _catalog() -> list[CatalogTool]:
             ),
             parameters={
                 "sku": {"type": "string", "description": "SKU или фрагмент"},
-                "exact": {"type": "boolean", "description": "Точное совпадение, иначе ILIKE"},
-                "limit": {"type": "integer", "description": "Макс. записей, по умолчанию 20"},
+                "exact": {
+                    "type": "boolean",
+                    "description": "Точное совпадение, иначе ILIKE",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Макс. записей, по умолчанию 20",
+                },
             },
         ),
         CatalogTool(
@@ -101,8 +110,14 @@ def _catalog() -> list[CatalogTool]:
                 "не все занятые ячейки склада)."
             ),
             parameters={
-                "slot_key": {"type": "string", "description": "Ключ ячейки (если пусто — выборка)"},
-                "limit": {"type": "integer", "description": "Лимит записей при отсутствии slot_key"},
+                "slot_key": {
+                    "type": "string",
+                    "description": "Ключ ячейки (если пусто — выборка)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Лимит записей при отсутствии slot_key",
+                },
             },
         ),
         CatalogTool(
@@ -114,7 +129,9 @@ def _catalog() -> list[CatalogTool]:
                 "Псевдо-загрузка по зонам: top-N зон по числу товаров на складе (привязка ряд→зона активного layout); "
                 "остальные зоны в ответ не попадают."
             ),
-            parameters={"limit_rows": {"type": "integer", "description": "Макс. зон в ответе"}},
+            parameters={
+                "limit_rows": {"type": "integer", "description": "Макс. зон в ответе"}
+            },
         ),
         CatalogTool(
             name="get_expiring_inventory",
@@ -126,7 +143,10 @@ def _catalog() -> list[CatalogTool]:
                 "items_total_in_horizon — всего в окне; count/items_returned — только усечённый список (limit)."
             ),
             parameters={
-                "days": {"type": "integer", "description": "Горизонт в днях, по умолчанию 30"},
+                "days": {
+                    "type": "integer",
+                    "description": "Горизонт в днях, по умолчанию 30",
+                },
                 "limit": {"type": "integer", "description": "Макс. позиций"},
             },
         ),
@@ -141,7 +161,10 @@ def _catalog() -> list[CatalogTool]:
             ),
             parameters={
                 "limit": {"type": "integer", "description": "Макс. записей"},
-                "status": {"type": "string", "description": "Фильтр по статусу, опционально"},
+                "status": {
+                    "type": "string",
+                    "description": "Фильтр по статусу, опционально",
+                },
             },
         ),
         CatalogTool(
@@ -182,7 +205,10 @@ def _catalog() -> list[CatalogTool]:
                     "type": "string",
                     "description": "Фильтр: overdue | due_soon | ok; пусто — все три статуса",
                 },
-                "limit": {"type": "integer", "description": "Макс. записей, по умолчанию 50"},
+                "limit": {
+                    "type": "integer",
+                    "description": "Макс. записей, по умолчанию 50",
+                },
             },
         ),
         CatalogTool(
@@ -195,7 +221,10 @@ def _catalog() -> list[CatalogTool]:
             ),
             parameters={
                 "limit": {"type": "integer", "description": "Макс. событий"},
-                "event_type_prefix": {"type": "string", "description": "Фильтр по префиксу типа"},
+                "event_type_prefix": {
+                    "type": "string",
+                    "description": "Фильтр по префиксу типа",
+                },
             },
             requires_audit_read=True,
         ),
@@ -224,18 +253,23 @@ def _catalog() -> list[CatalogTool]:
         CatalogTool(
             name="enqueue_integration_inbox",
             version="1",
-            safety=ToolSafetyClass.PROPOSE,
+            # ACT: пишет строку в БД — обязан проходить _act_gate / sandbox.
+            safety=ToolSafetyClass.ACT,
             permission_code=PERM_INTEGRATIONS_INBOX_WRITE,
             description=(
                 "Записать событие во входящую очередь интеграций (реальный коннектор к WMS/ERP/PLC): "
-                "данные попадут в integration_inbox для последующей обработки воркером."
+                "данные попадут в integration_inbox для последующей обработки воркером. "
+                "Мутация: в sandbox и без подтверждения не выполняется."
             ),
             parameters={
                 "source": {
                     "type": "string",
                     "description": "Источник: wms, erp, plc, tms, custom",
                 },
-                "event_type": {"type": "string", "description": "Тип события во внешней системе"},
+                "event_type": {
+                    "type": "string",
+                    "description": "Тип события во внешней системе",
+                },
                 "payload": {
                     "type": "object",
                     "description": "Тело события (JSON)",
@@ -250,7 +284,10 @@ def _catalog() -> list[CatalogTool]:
             permission_code=PERM_AGENT_USE,
             description="Запуск дискретно-событийной симуляции «что если» (только расчёт KPI, без изменения БД).",
             parameters={
-                "duration_hours": {"type": "number", "description": "Длительность сценария в часах"},
+                "duration_hours": {
+                    "type": "number",
+                    "description": "Длительность сценария в часах",
+                },
                 "dock_bays": {"type": "integer"},
                 "num_forklifts": {"type": "integer"},
                 "num_operators": {"type": "integer"},
@@ -273,7 +310,10 @@ def _catalog() -> list[CatalogTool]:
             ),
             parameters={
                 "task_type": {"type": "string", "description": "move|putaway|pick|…"},
-                "note": {"type": "string", "description": "Комментарий / детали для оператора"},
+                "note": {
+                    "type": "string",
+                    "description": "Комментарий / детали для оператора",
+                },
                 "priority": {"type": "integer"},
                 "slot_key": {
                     "type": "string",
@@ -299,7 +339,10 @@ def _catalog() -> list[CatalogTool]:
             safety=ToolSafetyClass.ACT,
             permission_code=PERM_AGENT_USE,
             description="Создать задание инвентаризации (cycle count).",
-            parameters={"scope": {"type": "string", "description": "row|zone|sku"}, "hint": {"type": "string"}},
+            parameters={
+                "scope": {"type": "string", "description": "row|zone|sku"},
+                "hint": {"type": "string"},
+            },
         ),
         CatalogTool(
             name="reassign_pick_task",
@@ -354,7 +397,9 @@ def _catalog() -> list[CatalogTool]:
             safety=ToolSafetyClass.ACT,
             permission_code=PERM_AGENT_USE,
             description="Пересборка проекций (опасно; только суперпользователь).",
-            parameters={"consumer": {"type": "string", "description": "имя consumer или all"}},
+            parameters={
+                "consumer": {"type": "string", "description": "имя consumer или all"}
+            },
             superuser_only=True,
         ),
         CatalogTool(
@@ -363,7 +408,9 @@ def _catalog() -> list[CatalogTool]:
             safety=ToolSafetyClass.ACT,
             permission_code=PERM_AGENT_USE,
             description="Переиндексация базы знаний ассистента.",
-            parameters={"chunk_id": {"type": "string", "description": "опционально один chunk"}},
+            parameters={
+                "chunk_id": {"type": "string", "description": "опционально один chunk"}
+            },
             superuser_only=True,
         ),
         CatalogTool(

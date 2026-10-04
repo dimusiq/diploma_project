@@ -36,6 +36,7 @@ from app.api.deps import (
     get_current_active_superuser,
     require_permission,
 )
+from app.core.db import engine
 from app.core.permissions import (
     PERM_AGENT_POLICIES_MANAGE,
     PERM_AGENT_POLICIES_READ,
@@ -46,17 +47,10 @@ from app.core.permissions import (
     can_view_maintenance_schedule,
     user_has_permission,
 )
-from app.core.db import engine
 from app.models import (
     AgentChatLog,
     AgentChatLogList,
     AgentChatLogPublic,
-    AgentUserChat,
-    AgentUserChatDetailPublic,
-    AgentUserChatListResponse,
-    AgentUserChatMessage,
-    AgentUserChatMessagePublic,
-    AgentUserChatPublic,
     AgentOperationSession,
     AgentOperationSessionCreate,
     AgentOperationSessionList,
@@ -77,12 +71,20 @@ from app.models import (
     AgentRun,
     AgentRunList,
     AgentRunPublic,
+    AgentUserChat,
+    AgentUserChatDetailPublic,
+    AgentUserChatListResponse,
+    AgentUserChatMessage,
+    AgentUserChatMessagePublic,
+    AgentUserChatPublic,
     User,
 )
 from app.realtime.twin_stream_hub import publish_agent_run_finished
-from app.services.agent_chat import AgentChatOutcome, iter_agent_chat_sse_events, run_agent_chat
-
-logger = logging.getLogger(__name__)
+from app.services.agent_chat import (
+    AgentChatOutcome,
+    iter_agent_chat_sse_events,
+    run_agent_chat,
+)
 from app.services.agent_operations import (
     append_session_fact,
     get_operation_session_for_user,
@@ -90,6 +92,8 @@ from app.services.agent_operations import (
 from app.services.agent_pending_actions import execute_pending_action
 from app.services.agent_rate_limit import enforce_agent_chat_rate_limit
 from app.services.agent_user_chats import append_user_chat_turn, get_user_chat_for_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -352,7 +356,9 @@ def list_agent_tools_catalog(
     current_user: CurrentUser,
 ) -> AgentToolsListResponse:
     has_audit = user_has_permission(session, current_user, PERM_AUDIT_READ)
-    has_inbox = user_has_permission(session, current_user, PERM_INTEGRATIONS_INBOX_WRITE)
+    has_inbox = user_has_permission(
+        session, current_user, PERM_INTEGRATIONS_INBOX_WRITE
+    )
     has_maint = can_view_maintenance_schedule(session, current_user)
     items = tools_for_user(
         is_superuser=bool(current_user.is_superuser),
@@ -870,7 +876,9 @@ def get_operation_session(
     current_user: CurrentUser,
     session_id: uuid.UUID,
 ) -> Any:
-    row = get_operation_session_for_user(session, session_id=session_id, user=current_user)
+    row = get_operation_session_for_user(
+        session, session_id=session_id, user=current_user
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="Сессия не найдена")
     return _op_public(row)
@@ -887,7 +895,9 @@ def patch_operation_session(
     session_id: uuid.UUID,
     body: AgentOperationSessionPatch,
 ) -> Any:
-    row = get_operation_session_for_user(session, session_id=session_id, user=current_user)
+    row = get_operation_session_for_user(
+        session, session_id=session_id, user=current_user
+    )
     if row is None:
         raise HTTPException(status_code=404, detail="Сессия не найдена")
     if body.title is not None:
@@ -963,7 +973,9 @@ def list_pending_actions(
     count = session.exec(count_stmt).one()
     rows = list(
         session.exec(
-            stmt.order_by(col(AgentPendingAction.created_at).desc()).offset(skip).limit(limit)
+            stmt.order_by(col(AgentPendingAction.created_at).desc())
+            .offset(skip)
+            .limit(limit)
         ).all()
     )
     return AgentPendingActionList(data=[_pending_public(r) for r in rows], count=count)
@@ -1005,8 +1017,12 @@ def execute_pending_action_route(
     current_user: CurrentUser,
     pending_id: uuid.UUID,
 ) -> Any:
-    row, out = execute_pending_action(session, actor=current_user, pending_id=pending_id)
-    return AgentPendingExecuteResponse(status=row.status, tool_output_excerpt=out[:4000])
+    row, out = execute_pending_action(
+        session, actor=current_user, pending_id=pending_id
+    )
+    return AgentPendingExecuteResponse(
+        status=row.status, tool_output_excerpt=out[:4000]
+    )
 
 
 @router.post(
@@ -1059,8 +1075,10 @@ def list_orchestration_jobs(
     )
     if status:
         stmt = stmt.where(AgentOrchestrationJob.status == status)
-    count_stmt = select(func.count()).select_from(AgentOrchestrationJob).where(
-        AgentOrchestrationJob.user_id == current_user.id
+    count_stmt = (
+        select(func.count())
+        .select_from(AgentOrchestrationJob)
+        .where(AgentOrchestrationJob.user_id == current_user.id)
     )
     if status:
         count_stmt = count_stmt.where(AgentOrchestrationJob.status == status)

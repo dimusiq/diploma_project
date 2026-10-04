@@ -16,9 +16,7 @@ def scan_lookup(
     code: str = Query(..., min_length=1, max_length=200),
 ) -> dict[str, Any]:
     """Look up an item by barcode or SKU."""
-    stmt = select(Item).where(
-        (col(Item.barcode) == code) | (col(Item.sku) == code)
-    )
+    stmt = select(Item).where((col(Item.barcode) == code) | (col(Item.sku) == code))
     item = session.exec(stmt).first()
     if not item:
         raise HTTPException(status_code=404, detail="Товар не найден")

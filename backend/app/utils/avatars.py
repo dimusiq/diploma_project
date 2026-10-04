@@ -33,9 +33,7 @@ def process_avatar_image(raw: bytes) -> tuple[bytes, str]:
         img = Image.open(bio)
         img.load()
     except Exception:
-        raise HTTPException(
-            status_code=400, detail="Недопустимый формат изображения"
-        )
+        raise HTTPException(status_code=400, detail="Недопустимый формат изображения")
     bio.seek(0)
     img = Image.open(bio)
     img = img.convert("RGBA")

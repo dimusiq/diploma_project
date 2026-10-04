@@ -1,4 +1,5 @@
 """API для раздела «Список техники» — складская техника, бренды из справочника."""
+
 import uuid
 from typing import Any
 
@@ -86,7 +87,9 @@ def read_equipment_list(
     _current_user: CurrentUser,
     skip: int = 0,
     limit: int = 100,
-    search: str | None = Query(None, description="Поиск по VIN, серийному номеру, бренду, модели"),
+    search: str | None = Query(
+        None, description="Поиск по VIN, серийному номеру, бренду, модели"
+    ),
     current_status: str | None = Query(None, description="Фильтр по состоянию"),
     equipment_type: str | None = Query(None, description="Фильтр по типу техники"),
     brand_id: uuid.UUID | None = Query(None, description="Фильтр по бренду"),
@@ -102,8 +105,10 @@ def read_equipment_list(
         .join(Brand, Equipment.brand_id == Brand.id)
         .where(Equipment.equipment_type.in_(EQUIPMENT_TYPES))
     )
-    count_statement = select(func.count()).select_from(Equipment).where(
-        Equipment.equipment_type.in_(EQUIPMENT_TYPES)
+    count_statement = (
+        select(func.count())
+        .select_from(Equipment)
+        .where(Equipment.equipment_type.in_(EQUIPMENT_TYPES))
     )
 
     if search and search.strip():
@@ -116,13 +121,23 @@ def read_equipment_list(
             | Equipment.model.ilike(q)
         )
         statement = statement.where(cond)
-        count_statement = count_statement.join(Brand, Equipment.brand_id == Brand.id).where(cond)
+        count_statement = count_statement.join(
+            Brand, Equipment.brand_id == Brand.id
+        ).where(cond)
     if current_status is not None and current_status != "":
         statement = statement.where(Equipment.current_status == current_status)
-        count_statement = count_statement.where(Equipment.current_status == current_status)
-    if equipment_type is not None and equipment_type != "" and equipment_type in EQUIPMENT_TYPES:
+        count_statement = count_statement.where(
+            Equipment.current_status == current_status
+        )
+    if (
+        equipment_type is not None
+        and equipment_type != ""
+        and equipment_type in EQUIPMENT_TYPES
+    ):
         statement = statement.where(Equipment.equipment_type == equipment_type)
-        count_statement = count_statement.where(Equipment.equipment_type == equipment_type)
+        count_statement = count_statement.where(
+            Equipment.equipment_type == equipment_type
+        )
     if brand_id is not None:
         statement = statement.where(Equipment.brand_id == brand_id)
         count_statement = count_statement.where(Equipment.brand_id == brand_id)
@@ -134,17 +149,27 @@ def read_equipment_list(
             if order == "asc":
                 statement = statement.order_by(Brand.name.asc(), Equipment.model.asc())
             else:
-                statement = statement.order_by(Brand.name.desc(), Equipment.model.desc())
+                statement = statement.order_by(
+                    Brand.name.desc(), Equipment.model.desc()
+                )
         elif sort_by == "engine_hours":
             if order == "asc":
-                statement = statement.order_by(Equipment.engine_hours.asc().nulls_last())
+                statement = statement.order_by(
+                    Equipment.engine_hours.asc().nulls_last()
+                )
             else:
-                statement = statement.order_by(Equipment.engine_hours.desc().nulls_first())
+                statement = statement.order_by(
+                    Equipment.engine_hours.desc().nulls_first()
+                )
         elif sort_by == "commissioned_at":
             if order == "asc":
-                statement = statement.order_by(Equipment.commissioned_at.asc().nulls_last())
+                statement = statement.order_by(
+                    Equipment.commissioned_at.asc().nulls_last()
+                )
             else:
-                statement = statement.order_by(Equipment.commissioned_at.desc().nulls_first())
+                statement = statement.order_by(
+                    Equipment.commissioned_at.desc().nulls_first()
+                )
         elif sort_by == "current_status":
             if order == "asc":
                 statement = statement.order_by(Equipment.current_status.asc())
@@ -152,14 +177,22 @@ def read_equipment_list(
                 statement = statement.order_by(Equipment.current_status.desc())
         elif sort_by == "serial_number":
             if order == "asc":
-                statement = statement.order_by(Equipment.serial_number.asc().nulls_last())
+                statement = statement.order_by(
+                    Equipment.serial_number.asc().nulls_last()
+                )
             else:
-                statement = statement.order_by(Equipment.serial_number.desc().nulls_first())
+                statement = statement.order_by(
+                    Equipment.serial_number.desc().nulls_first()
+                )
         elif sort_by == "garage_number":
             if order == "asc":
-                statement = statement.order_by(Equipment.garage_number.asc().nulls_last())
+                statement = statement.order_by(
+                    Equipment.garage_number.asc().nulls_last()
+                )
             else:
-                statement = statement.order_by(Equipment.garage_number.desc().nulls_first())
+                statement = statement.order_by(
+                    Equipment.garage_number.desc().nulls_first()
+                )
         elif sort_by == "equipment_type":
             if order == "asc":
                 statement = statement.order_by(Equipment.equipment_type.asc())
@@ -185,7 +218,9 @@ def read_all_maintenance_records(
     _current_user: CurrentUser,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
-    equipment_id: uuid.UUID | None = Query(None, description="Фильтр по единице техники"),
+    equipment_id: uuid.UUID | None = Query(
+        None, description="Фильтр по единице техники"
+    ),
 ) -> Any:
     """Общий список проведённых ТО (для раздела «Рабочие заказы»)."""
     statement = select(MaintenanceRecord, SimDevice).join(
@@ -198,7 +233,9 @@ def read_all_maintenance_records(
     )
     if equipment_id is not None:
         statement = statement.where(MaintenanceRecord.equipment_id == equipment_id)
-        count_statement = count_statement.where(MaintenanceRecord.equipment_id == equipment_id)
+        count_statement = count_statement.where(
+            MaintenanceRecord.equipment_id == equipment_id
+        )
 
     count = session.exec(count_statement).one()
     statement = (
@@ -251,7 +288,9 @@ def read_equipment_maintenance_records(
     return MaintenanceRecordList(data=items, count=count)
 
 
-@router.post("/{equipment_id}/maintenance-records", response_model=MaintenanceRecordPublic)
+@router.post(
+    "/{equipment_id}/maintenance-records", response_model=MaintenanceRecordPublic
+)
 def create_maintenance_record(
     session: SessionDep,
     _current_user: CurrentUser,
@@ -294,7 +333,9 @@ def download_equipment_import_template(_current_user: CurrentUser) -> Response:
 
 
 @router.get("/{id}", response_model=EquipmentPublic)
-def read_equipment(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
+def read_equipment(
+    session: SessionDep, _current_user: CurrentUser, id: uuid.UUID
+) -> Any:
     """Получить единицу техники по ID."""
     equipment = _get_or_404(session, id)
     if equipment.equipment_type not in EQUIPMENT_TYPES:
@@ -401,7 +442,10 @@ def update_equipment(
     update_data = body.model_dump(exclude_unset=True)
     if "equipment_type" in update_data:
         _validate_equipment_type(update_data["equipment_type"])
-    if "brand_id" in update_data and session.get(Brand, update_data["brand_id"]) is None:
+    if (
+        "brand_id" in update_data
+        and session.get(Brand, update_data["brand_id"]) is None
+    ):
         raise HTTPException(status_code=400, detail="Указанный бренд не найден")
     equipment.sqlmodel_update(update_data)
     session.add(equipment)

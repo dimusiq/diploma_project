@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 
 from app.core.agent_vector import AGENT_EMBEDDING_VECTOR_DIMENSIONS
 from app.models import AgentKnowledgeChunk
-from app.services.agent_rag import ollama_embed
+from app.services.agent_rag import llm_embed_query
 
 
 async def embed_chunk(session: Session, chunk_id: uuid.UUID) -> bool:
@@ -16,7 +16,7 @@ async def embed_chunk(session: Session, chunk_id: uuid.UUID) -> bool:
     if not chunk:
         return False
     text = f"{chunk.title.strip()}\n{chunk.content.strip()}"
-    vec = await ollama_embed(text)
+    vec = await llm_embed_query(text)
     if not vec or len(vec) != AGENT_EMBEDDING_VECTOR_DIMENSIONS:
         return False
     chunk.embedding = vec

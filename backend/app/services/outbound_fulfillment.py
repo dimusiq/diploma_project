@@ -184,7 +184,9 @@ def related_equipment(
         try:
             device = session.get(SimDevice, uuid.UUID(token))
         except ValueError:
-            device = session.exec(select(SimDevice).where(SimDevice.code == token)).first()
+            device = session.exec(
+                select(SimDevice).where(SimDevice.code == token)
+            ).first()
         if device is None:
             continue
         found.append(
@@ -303,7 +305,9 @@ def to_public(
     pick_ok = picking_complete(order, task_rows)
     pack_ok = packing_complete(order)
     transport = _transport(order, shipment)
-    ready_at = order.updated_at if order.status in {READY_STATUS, SHIPPED_STATUS} else None
+    ready_at = (
+        order.updated_at if order.status in {READY_STATUS, SHIPPED_STATUS} else None
+    )
     return OutboundFulfillmentPublic(
         id=order.id,
         warehouse_id=order.warehouse_id,
@@ -326,7 +330,9 @@ def to_public(
     )
 
 
-def related_items(session: Session, order: OutboundOrder, tasks: list[WarehouseTask]) -> list[Item]:
+def related_items(
+    session: Session, order: OutboundOrder, tasks: list[WarehouseTask]
+) -> list[Item]:
     ids: set[uuid.UUID] = set()
     for task in tasks:
         payload = task.payload if isinstance(task.payload, dict) else {}
@@ -375,16 +381,28 @@ def _timeline(
         OutboundTimelineEvent(at=order.created_at, kind="created", label="Создан")
     ]
     pick_started = next(
-        (t for t in tasks if t.task_type == "pick" and t.status in {"in_progress", "completed"}),
+        (
+            t
+            for t in tasks
+            if t.task_type == "pick" and t.status in {"in_progress", "completed"}
+        ),
         None,
     )
     if pick_started or order.status in {"picking", READY_STATUS, SHIPPED_STATUS}:
         at = pick_started.updated_at if pick_started else order.updated_at
-        rows.append(OutboundTimelineEvent(at=at, kind="picking_started", label="Picking начат"))
+        rows.append(
+            OutboundTimelineEvent(at=at, kind="picking_started", label="Picking начат")
+        )
     if picking_complete(order, tasks):
-        pick_done = [t for t in tasks if t.task_type == "pick" and t.status == "completed"]
+        pick_done = [
+            t for t in tasks if t.task_type == "pick" and t.status == "completed"
+        ]
         at = max((t.updated_at for t in pick_done), default=order.updated_at)
-        rows.append(OutboundTimelineEvent(at=at, kind="picking_completed", label="Picking завершён"))
+        rows.append(
+            OutboundTimelineEvent(
+                at=at, kind="picking_completed", label="Picking завершён"
+            )
+        )
     if packing_complete(order):
         rows.append(
             OutboundTimelineEvent(
@@ -406,7 +424,9 @@ def _timeline(
         )
     for ev in events:
         label = ev.event_type
-        rows.append(OutboundTimelineEvent(at=ev.occurred_at, kind=ev.event_type, label=label))
+        rows.append(
+            OutboundTimelineEvent(at=ev.occurred_at, kind=ev.event_type, label=label)
+        )
     rows.sort(key=lambda row: row.at)
     return rows
 
@@ -433,7 +453,9 @@ def to_detail(
                 sku_id=str(row.get("skuId") or row.get("sku") or "") or None,
                 pallets=int(row.get("pallets") or 0),
                 picked=int(row.get("picked") or 0),
-                quantity=int(row.get("quantity") or row.get("qty") or row.get("pallets") or 0),
+                quantity=int(
+                    row.get("quantity") or row.get("qty") or row.get("pallets") or 0
+                ),
             )
             for row in parse_line_items(order.lines)
         ],
@@ -443,7 +465,9 @@ def to_detail(
                 task_type=task.task_type,
                 status=task.status,
                 updated_at=task.updated_at,
-                source=_payload_text(task.payload or {}, "source", "from_zone", "source_zone"),
+                source=_payload_text(
+                    task.payload or {}, "source", "from_zone", "source_zone"
+                ),
                 destination=_payload_text(
                     task.payload or {}, "destination", "to_zone", "destination_zone"
                 ),
@@ -496,7 +520,9 @@ def _apply_board_filters(
         try:
             day = date.fromisoformat(ready_date.strip())
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail="Некорректная дата готовности") from exc
+            raise HTTPException(
+                status_code=400, detail="Некорректная дата готовности"
+            ) from exc
         start = datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
         stmt = stmt.where(
             OutboundOrder.updated_at >= start,
@@ -517,8 +543,10 @@ def list_board(
     ready_date: str | None = None,
 ) -> OutboundFulfillmentList:
     stmt = select(OutboundOrder).where(OutboundOrder.status == status)
-    count_stmt = select(func.count()).select_from(OutboundOrder).where(
-        OutboundOrder.status == status
+    count_stmt = (
+        select(func.count())
+        .select_from(OutboundOrder)
+        .where(OutboundOrder.status == status)
     )
     stmt = _apply_board_filters(
         stmt,
@@ -543,7 +571,9 @@ def list_board(
     shipment_ids = [row.shipment_id for row in rows if row.shipment_id]
     shipments: dict[uuid.UUID, Shipment] = {}
     if shipment_ids:
-        for ship in session.exec(select(Shipment).where(col(Shipment.id).in_(shipment_ids))).all():
+        for ship in session.exec(
+            select(Shipment).where(col(Shipment.id).in_(shipment_ids))
+        ).all():
             shipments[ship.id] = ship
     data: list[OutboundFulfillmentPublic] = []
     for order in rows:
@@ -553,7 +583,9 @@ def list_board(
         data.append(
             to_public(
                 order,
-                shipment=shipments.get(order.shipment_id) if order.shipment_id else None,
+                shipment=shipments.get(order.shipment_id)
+                if order.shipment_id
+                else None,
                 tasks=tasks,
             )
         )
@@ -629,7 +661,9 @@ def _ship_item(session: Session, item: Item, user: User) -> None:
     sync_projection_for_item(session, item)
 
 
-def ship_order(session: Session, user: User, order_id: uuid.UUID) -> OutboundFulfillmentDetail:
+def ship_order(
+    session: Session, user: User, order_id: uuid.UUID
+) -> OutboundFulfillmentDetail:
     if not can_change_status(session, user):
         raise HTTPException(
             status_code=403, detail="The user doesn't have enough privileges"
@@ -704,4 +738,6 @@ def ship_order(session: Session, user: User, order_id: uuid.UUID) -> OutboundFul
         event_type="wms.outbound_shipped",
         payload={"order_id": str(order.id), "code": order.code},
     )
-    return to_detail(session, order, shipment=shipment, tasks=related_tasks(session, order))
+    return to_detail(
+        session, order, shipment=shipment, tasks=related_tasks(session, order)
+    )

@@ -1,4 +1,5 @@
 """API центра уведомлений: список, счётчик непрочитанных, отметка прочитанным."""
+
 import uuid
 from datetime import datetime, timezone
 
@@ -67,7 +68,9 @@ def get_unread_count(
 ) -> dict:
     """Количество непрочитанных уведомлений текущего пользователя."""
     count = session.exec(
-        select(func.count()).select_from(Notification).where(
+        select(func.count())
+        .select_from(Notification)
+        .where(
             Notification.user_id == current_user.id,
             Notification.is_read.is_(False),
             Notification.archived_at.is_(None),
@@ -91,9 +94,13 @@ def list_notifications(
         Notification.user_id == current_user.id,
         Notification.archived_at.is_(None),
     )
-    count_statement = select(func.count()).select_from(Notification).where(
-        Notification.user_id == current_user.id,
-        Notification.archived_at.is_(None),
+    count_statement = (
+        select(func.count())
+        .select_from(Notification)
+        .where(
+            Notification.user_id == current_user.id,
+            Notification.archived_at.is_(None),
+        )
     )
 
     if unread_only:

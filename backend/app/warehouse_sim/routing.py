@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import heapq
-from typing import Iterable
+from collections.abc import Iterable
 
 from app.warehouse_sim.layout import (
     WAREHOUSE_DEPTH,
@@ -29,7 +29,7 @@ def _corner_cells(path: list[tuple[int, int]]) -> list[tuple[int, int]]:
     if len(path) <= 2:
         return path
     corners = [path[0]]
-    for prev, cur, nxt in zip(path, path[1:], path[2:]):
+    for prev, cur, nxt in zip(path, path[1:], path[2:], strict=False):
         if (cur[0] - prev[0], cur[1] - prev[1]) != (nxt[0] - cur[0], nxt[1] - cur[1]):
             corners.append(cur)
     corners.append(path[-1])

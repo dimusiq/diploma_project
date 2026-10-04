@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlmodel import Session
 
+from app.agent.contracts import AgentToolContext, ToolSafetyClass
 from app.agent.tool_catalog import CATALOG_BY_NAME
-from app.agent.tool_registry import invoke_tool
-from app.agent.tool_safety import AgentToolContext, ToolSafetyClass
 from app.core.config import settings
 from app.models import AgentPendingAction, User
 
@@ -22,8 +21,13 @@ def execute_pending_action(
     actor: User,
     pending_id: uuid.UUID,
 ) -> tuple[AgentPendingAction, str]:
+    # Lazy: services.pending_actions ↔ agent.tool_registry
+    from app.agent.tool_registry import invoke_tool
+
     if not actor.is_superuser:
-        raise HTTPException(status_code=403, detail="Только суперпользователь может выполнить действие")
+        raise HTTPException(
+            status_code=403, detail="Только суперпользователь может выполнить действие"
+        )
     if bool(getattr(settings, "AGENT_SANDBOX_MODE", True)):
         raise HTTPException(
             status_code=409,

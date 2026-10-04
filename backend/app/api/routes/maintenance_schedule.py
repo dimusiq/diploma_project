@@ -1,4 +1,5 @@
 """API расписания ТО: цепочки, шаги, привязка техники, журнал изменений."""
+
 import json
 import uuid
 from typing import Any
@@ -32,13 +33,22 @@ from app.services.canonical_equipment import get_canonical_device
 
 router = APIRouter(prefix="/maintenance-schedule", tags=["maintenance-schedule"])
 
-ALLOWED_COLOR_TAGS = {"blue", "purple", "orange", "cyan", "teal", "pink", "violet", "indigo"}
+ALLOWED_COLOR_TAGS = {
+    "blue",
+    "purple",
+    "orange",
+    "cyan",
+    "teal",
+    "pink",
+    "violet",
+    "indigo",
+}
 DEFAULT_COLOR = "blue"
 DEFAULT_REMIND = 50
 
 
 def _chain_to_public(
-    session: SessionDep,
+    _session: SessionDep,
     chain: MaintenanceChain,
     steps: list[MaintenanceChainStep],
     equipment_ids: list[uuid.UUID],
@@ -56,7 +66,9 @@ def _chain_to_public(
     )
 
 
-def _get_chain_steps(session: SessionDep, chain_id: uuid.UUID) -> list[MaintenanceChainStep]:
+def _get_chain_steps(
+    session: SessionDep, chain_id: uuid.UUID
+) -> list[MaintenanceChainStep]:
     return list(
         session.exec(
             select(MaintenanceChainStep)
@@ -66,7 +78,9 @@ def _get_chain_steps(session: SessionDep, chain_id: uuid.UUID) -> list[Maintenan
     )
 
 
-def _get_chain_equipment_ids(session: SessionDep, chain_id: uuid.UUID) -> list[uuid.UUID]:
+def _get_chain_equipment_ids(
+    session: SessionDep, chain_id: uuid.UUID
+) -> list[uuid.UUID]:
     rows = session.exec(
         select(ChainAssignment.equipment_id).where(ChainAssignment.chain_id == chain_id)
     ).all()
@@ -112,8 +126,12 @@ def list_chains(
 ) -> Any:
     """Список цепочек ТО (просмотр — право maintenance_schedule.view)."""
     if not can_view_maintenance_schedule(session, current_user):
-        raise HTTPException(status_code=403, detail="Недостаточно прав для просмотра расписания ТО")
-    chains = list(session.exec(select(MaintenanceChain).order_by(MaintenanceChain.name)))
+        raise HTTPException(
+            status_code=403, detail="Недостаточно прав для просмотра расписания ТО"
+        )
+    chains = list(
+        session.exec(select(MaintenanceChain).order_by(MaintenanceChain.name))
+    )
     result = []
     for chain in chains:
         steps = _get_chain_steps(session, chain.id)
@@ -175,7 +193,9 @@ def update_config(
 ) -> Any:
     """Обновить глобальные настройки (право maintenance_schedule.edit)."""
     if not can_edit_maintenance_schedule(session, current_user):
-        raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования")
+        raise HTTPException(
+            status_code=403, detail="Недостаточно прав для редактирования"
+        )
     for key, value in [
         ("default_intervals", json.dumps(body.default_intervals)),
         ("default_remind_before_hours", str(body.default_remind_before_hours)),
@@ -203,8 +223,14 @@ def create_chain(
     body: MaintenanceChainCreate,
 ) -> Any:
     """Создать цепочку ТО."""
-    color_tag = body.color_tag if body.color_tag in ALLOWED_COLOR_TAGS else DEFAULT_COLOR
-    remind = body.remind_before_hours if body.remind_before_hours is not None else DEFAULT_REMIND
+    color_tag = (
+        body.color_tag if body.color_tag in ALLOWED_COLOR_TAGS else DEFAULT_COLOR
+    )
+    remind = (
+        body.remind_before_hours
+        if body.remind_before_hours is not None
+        else DEFAULT_REMIND
+    )
     chain = MaintenanceChain(
         name=body.name.strip(),
         color_tag=color_tag,
@@ -262,7 +288,9 @@ def update_chain(
     if not chain:
         raise HTTPException(status_code=404, detail="Цепочка не найдена")
     old_steps = _get_chain_steps(session, chain_id)
-    old_intervals = [s.interval_hours for s in sorted(old_steps, key=lambda x: x.position)]
+    old_intervals = [
+        s.interval_hours for s in sorted(old_steps, key=lambda x: x.position)
+    ]
 
     if body.name is not None:
         chain.name = body.name.strip()
@@ -277,7 +305,9 @@ def update_chain(
         for pos, ih in enumerate(body.interval_hours):
             if ih > 0:
                 session.add(
-                    MaintenanceChainStep(chain_id=chain.id, position=pos, interval_hours=ih)
+                    MaintenanceChainStep(
+                        chain_id=chain.id, position=pos, interval_hours=ih
+                    )
                 )
         _log_chain_audit(
             session,
@@ -289,7 +319,9 @@ def update_chain(
         )
 
     if body.equipment_ids is not None:
-        for a in session.exec(select(ChainAssignment).where(ChainAssignment.chain_id == chain_id)):
+        for a in session.exec(
+            select(ChainAssignment).where(ChainAssignment.chain_id == chain_id)
+        ):
             session.delete(a)
         for eid in body.equipment_ids:
             if get_canonical_device(session, eid):
@@ -398,7 +430,7 @@ def get_chain_history(
 def import_chains_from_local(
     *,
     session: SessionDep,
-    request: Request,
+    _request: Request,
     current_user: CurrentUser,
     body: MaintenanceChainImportBody,
 ) -> Any:
@@ -416,14 +448,18 @@ def import_chains_from_local(
         color_tag = str(raw.get("colorTag", raw.get("color_tag", DEFAULT_COLOR)))
         if color_tag not in ALLOWED_COLOR_TAGS:
             color_tag = DEFAULT_COLOR
-        remind = raw.get("remindBeforeHours", raw.get("remind_before_hours", DEFAULT_REMIND))
+        remind = raw.get(
+            "remindBeforeHours", raw.get("remind_before_hours", DEFAULT_REMIND)
+        )
         if not isinstance(remind, (int, float)) or remind < 0:
             remind = DEFAULT_REMIND
         remind = int(remind)
         interval_hours = raw.get("intervalHours", raw.get("interval_hours", []))
         if not isinstance(interval_hours, list):
             interval_hours = []
-        interval_hours = [int(x) for x in interval_hours if isinstance(x, (int, float)) and x > 0]
+        interval_hours = [
+            int(x) for x in interval_hours if isinstance(x, (int, float)) and x > 0
+        ]
         equipment_ids = raw.get("equipmentIds", raw.get("equipment_ids", []))
         if not isinstance(equipment_ids, list):
             equipment_ids = []
@@ -435,11 +471,15 @@ def import_chains_from_local(
                     eq_uuids.append(uid)
             except (ValueError, TypeError):
                 pass
-        chain = MaintenanceChain(name=name, color_tag=color_tag, remind_before_hours=remind)
+        chain = MaintenanceChain(
+            name=name, color_tag=color_tag, remind_before_hours=remind
+        )
         session.add(chain)
         session.flush()
         for pos, ih in enumerate(interval_hours):
-            session.add(MaintenanceChainStep(chain_id=chain.id, position=pos, interval_hours=ih))
+            session.add(
+                MaintenanceChainStep(chain_id=chain.id, position=pos, interval_hours=ih)
+            )
         for eid in eq_uuids:
             session.add(ChainAssignment(chain_id=chain.id, equipment_id=eid))
         _log_chain_audit(

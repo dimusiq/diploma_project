@@ -17,7 +17,9 @@ _UUID_RE = re.compile(
 )
 # Диапазоны вида «1–2» / «1-2» из шаблона ответа — не считаем их фактами из склада.
 _RANGE_RE = re.compile(r"\b\d+\s*[–-]\s*\d+\b")
-_ANSWER_INNER_RE = re.compile(r"<answer>\s*(.*?)\s*</answer>", re.DOTALL | re.IGNORECASE)
+_ANSWER_INNER_RE = re.compile(
+    r"<answer>\s*(.*?)\s*</answer>", re.DOTALL | re.IGNORECASE
+)
 _NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)?")
 
 
@@ -78,7 +80,9 @@ def numbers_grounded_in_text(answer_slice: str, grounding: str) -> bool:
     return True
 
 
-def apply_numeric_grounding_guardrail(answer: str, messages: list[dict[str, Any]]) -> str:
+def apply_numeric_grounding_guardrail(
+    answer: str, messages: list[dict[str, Any]]
+) -> str:
     if not bool(getattr(settings, "AGENT_ANSWER_GUARDRAIL_ENABLED", True)):
         return answer
     slice_ = _text_for_numeric_check(answer)

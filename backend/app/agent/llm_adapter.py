@@ -7,10 +7,10 @@ Chat: POST {base}/v1/chat/completions.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from enum import Enum
 import json
 import re
+from collections.abc import AsyncIterator
+from enum import Enum
 from typing import Any
 
 import httpx
@@ -51,11 +51,6 @@ def llm_inference_configured() -> bool:
     return resolve_llm_chat_base_url() is not None
 
 
-def ollama_configured() -> bool:
-    """Устаревшее имя: используйте llm_inference_configured."""
-    return llm_inference_configured()
-
-
 def resolve_llm_model(kind: LlmTaskKind) -> str:
     if kind == LlmTaskKind.EMBEDDING:
         return (settings.LLM_EMBED_MODEL or "").strip()
@@ -71,11 +66,6 @@ def resolve_llm_model(kind: LlmTaskKind) -> str:
     return (settings.OLLAMA_MODEL or "").strip()
 
 
-def resolve_ollama_model(kind: LlmTaskKind) -> str:
-    """Устаревшее имя: используйте resolve_llm_model."""
-    return resolve_llm_model(kind)
-
-
 def agent_chat_sampling_openai_fields(task_kind: LlmTaskKind) -> dict[str, Any]:
     """Поля temperature / top_p / max_tokens / repetition_penalty для основного агента."""
     if task_kind not in (LlmTaskKind.CHAT, LlmTaskKind.REASONING):
@@ -86,9 +76,8 @@ def agent_chat_sampling_openai_fields(task_kind: LlmTaskKind) -> dict[str, Any]:
         "max_tokens": int(getattr(settings, "AGENT_LLM_MAX_TOKENS", 512)),
     }
     rp = getattr(settings, "AGENT_LLM_REPETITION_PENALTY", None)
-    if (
-        rp is not None
-        and bool(getattr(settings, "AGENT_LLM_SEND_REPETITION_PENALTY", True))
+    if rp is not None and bool(
+        getattr(settings, "AGENT_LLM_SEND_REPETITION_PENALTY", True)
     ):
         out["repetition_penalty"] = float(rp)
     return out
@@ -107,7 +96,9 @@ _CTX_ERR_RE = re.compile(
 )
 
 
-def _fit_max_tokens_from_vllm_400(error_text: str, requested_max_tokens: int | None) -> int | None:
+def _fit_max_tokens_from_vllm_400(
+    error_text: str, requested_max_tokens: int | None
+) -> int | None:
     """
     Парсит типичную ошибку vLLM про длину контекста и возвращает безопасный max_tokens.
     Оставляем небольшой буфер, чтобы повторный запрос не упёрся в ту же границу.
@@ -174,7 +165,9 @@ def build_openai_chat_payload(
     return payload
 
 
-def extract_assistant_message(data: dict[str, Any]) -> tuple[str | None, dict[str, Any] | None]:
+def extract_assistant_message(
+    data: dict[str, Any],
+) -> tuple[str | None, dict[str, Any] | None]:
     """Текст ответа или None; второе значение — сырое message из choices[0]."""
     choices = data.get("choices") or []
     if not choices:
@@ -331,12 +324,18 @@ async def iter_chat_completion_text_stream(
                         choices = chunk.get("choices") or []
                         if not choices:
                             continue
-                        delta = (choices[0].get("delta") or {}) if isinstance(choices[0], dict) else {}
+                        delta = (
+                            (choices[0].get("delta") or {})
+                            if isinstance(choices[0], dict)
+                            else {}
+                        )
                         piece = delta.get("content")
                         if piece and isinstance(piece, str):
                             yield piece
                 return
-        text = await chat_completion_text_only_compat(messages=messages, task_kind=task_kind)
+        text = await chat_completion_text_only_compat(
+            messages=messages, task_kind=task_kind
+        )
         if text:
             yield text
 

@@ -59,7 +59,9 @@ async def run_chat_with_tools(
     if reasoning:
         reasoning.main_loop_task = loop_kind.value
         reasoning.models_used["main_loop"] = main_model
-        reasoning.models_used["embedding"] = resolve_llm_model(LlmTaskKind.EMBEDDING) or "(off)"
+        reasoning.models_used["embedding"] = (
+            resolve_llm_model(LlmTaskKind.EMBEDDING) or "(off)"
+        )
 
     if reasoning:
         ri = await run_router_intent(user_message)
@@ -118,7 +120,9 @@ async def iter_chat_with_tools_stream(
     if reasoning:
         reasoning.main_loop_task = loop_kind.value
         reasoning.models_used["main_loop"] = main_model
-        reasoning.models_used["embedding"] = resolve_llm_model(LlmTaskKind.EMBEDDING) or "(off)"
+        reasoning.models_used["embedding"] = (
+            resolve_llm_model(LlmTaskKind.EMBEDDING) or "(off)"
+        )
 
     if reasoning:
         ri = await run_router_intent(user_message)

@@ -11,7 +11,6 @@ from app.models import (
     ROLE_WAREHOUSE,
     Brand,
     Role,
-    User,
     UserCreate,
 )
 
@@ -64,7 +63,9 @@ def init_db(session: Session) -> None:
             session.commit()
             session.refresh(user)
         admin_role = session.exec(select(Role).where(Role.name == ROLE_ADMIN)).first()
-        if admin_role and (user.role_id is None or (user.role and user.role.name != ROLE_ADMIN)):
+        if admin_role and (
+            user.role_id is None or (user.role and user.role.name != ROLE_ADMIN)
+        ):
             user.role_id = admin_role.id
             session.add(user)
             session.commit()

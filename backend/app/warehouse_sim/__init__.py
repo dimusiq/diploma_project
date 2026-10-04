@@ -13,4 +13,6 @@ Warehouse Device Server — симулятор склада и генерато�
 Доступ: `is_superuser` или `user.role.name == ROLE_ADMIN`.
 """
 
-from app.warehouse_sim import models as _models  # noqa: F401 — регистрация таблиц SQLModel
+from app.warehouse_sim import (
+    models as _models,  # noqa: F401 — регистрация таблиц SQLModel
+)

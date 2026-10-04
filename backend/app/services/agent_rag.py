@@ -16,6 +16,7 @@ from app.agent.llm_adapter import (
     resolve_llm_embeddings_base_url,
     resolve_llm_model,
 )
+from app.agent.untrusted import wrap_untrusted
 from app.core.agent_vector import AGENT_EMBEDDING_VECTOR_DIMENSIONS
 from app.core.config import settings
 from app.models import AgentKnowledgeChunk
@@ -23,12 +24,13 @@ from app.models import AgentKnowledgeChunk
 
 def _tokenize(text: str) -> set[str]:
     return {
-        m.group(0).lower()
-        for m in re.finditer(r"[A-Za-zА-Яа-яЁёІіЇїЄє0-9]{2,}", text)
+        m.group(0).lower() for m in re.finditer(r"[A-Za-zА-Яа-яЁёІіЇїЄє0-9]{2,}", text)
     }
 
 
-def _keyword_scores(query: str, chunks: list[AgentKnowledgeChunk]) -> list[tuple[float, AgentKnowledgeChunk]]:
+def _keyword_scores(
+    query: str, chunks: list[AgentKnowledgeChunk]
+) -> list[tuple[float, AgentKnowledgeChunk]]:
     q = _tokenize(query)
     if not q:
         return [(0.0, c) for c in chunks]
@@ -98,11 +100,6 @@ async def llm_embed_query(text: str) -> list[float] | None:
     if len(out) != AGENT_EMBEDDING_VECTOR_DIMENSIONS:
         return None
     return out
-
-
-async def ollama_embed(text: str) -> list[float] | None:
-    """Устаревшее имя: то же, что llm_embed_query."""
-    return await llm_embed_query(text)
 
 
 def _vector_literal(vec: list[float]) -> str:
@@ -186,5 +183,10 @@ def build_rag_context_block(
     meta["rag_mode"] = mode
     parts = []
     for c in selected:
-        parts.append(f"### {c.title}\n{c.content}")
+        raw = f"### {c.title}\n{c.content}"
+        parts.append(
+            wrap_untrusted(
+                "rag_chunk", raw, source=str(getattr(c, "id", "") or c.title)
+            )
+        )
     return "\n\n".join(parts), meta

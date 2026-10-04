@@ -34,8 +34,7 @@ def compute_inventory_snapshot(session: Session) -> bool:
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     existing = session.exec(
-        select(InventorySnapshot)
-        .where(
+        select(InventorySnapshot).where(
             InventorySnapshot.warehouse_id == wh.id,
             InventorySnapshot.label == SNAPSHOT_LABEL,
             InventorySnapshot.taken_at >= today_start,
@@ -50,8 +49,9 @@ def compute_inventory_snapshot(session: Session) -> bool:
     ).one()
 
     status_rows = session.exec(
-        select(Item.status, func.count(Item.id), func.coalesce(func.sum(Item.quantity), 0))
-        .group_by(Item.status)
+        select(
+            Item.status, func.count(Item.id), func.coalesce(func.sum(Item.quantity), 0)
+        ).group_by(Item.status)
     ).all()
     by_status = {
         status: {"count": int(cnt), "quantity": int(qty)}

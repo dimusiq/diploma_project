@@ -151,6 +151,15 @@ export async function fetchSimScenarios(): Promise<SimScenarioDef[]> {
   return res.data
 }
 
-export function simStreamUrl(): string {
-  return `${BASE}/stream`
+export function simStreamUrl(options?: {
+  deltas?: boolean
+  since?: number
+}): string {
+  const q = new URLSearchParams()
+  if (options?.deltas) q.set("deltas", "true")
+  if (options?.since != null && Number.isFinite(options.since)) {
+    q.set("since", String(Math.max(0, Math.floor(options.since))))
+  }
+  const qs = q.toString()
+  return qs ? `${BASE}/stream?${qs}` : `${BASE}/stream`
 }

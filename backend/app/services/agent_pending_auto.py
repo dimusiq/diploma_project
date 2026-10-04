@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app.agent.tool_safety import ToolSafetyClass
+from app.agent.contracts import ToolSafetyClass
 from app.core.config import settings
 from app.models import AgentPendingAction, User
 

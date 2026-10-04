@@ -106,7 +106,9 @@ def list_connectors_stub(_current_user: CurrentUser) -> ConnectorCatalogResponse
 
 
 @router.get("/layer-status", response_model=IntegrationLayerStatusResponse)
-def integration_layer_status(_current_user: CurrentUser) -> IntegrationLayerStatusResponse:
+def integration_layer_status(
+    _current_user: CurrentUser,
+) -> IntegrationLayerStatusResponse:
     """Машиночитаемая сводка: адаптеры, брокер, outbox/replay, inbox (факт vs план)."""
     return build_integration_layer_status(settings)
 

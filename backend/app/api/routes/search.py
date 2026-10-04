@@ -8,7 +8,7 @@ from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import InboundOrder, Item, OutboundOrder, WarehouseTask, WorkOrder
-from app.warehouse_sim.models import SimEvent, SimDevice
+from app.warehouse_sim.models import SimDevice, SimEvent
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -59,20 +59,23 @@ def global_search(
         for e in session.exec(eq_stmt).all()
     ]
 
-    wo_stmt = (
-        select(WorkOrder)
-        .where(col(WorkOrder.title).ilike(pattern))
-        .limit(LIMIT)
-    )
+    wo_stmt = select(WorkOrder).where(col(WorkOrder.title).ilike(pattern)).limit(LIMIT)
     work_orders = [
         {"id": str(w.id), "title": w.title, "status": w.status}
         for w in session.exec(wo_stmt).all()
     ]
 
     orders = [
-        {"id": str(row.id), "code": row.code, "status": row.status, "direction": "inbound"}
+        {
+            "id": str(row.id),
+            "code": row.code,
+            "status": row.status,
+            "direction": "inbound",
+        }
         for row in session.exec(
-            select(InboundOrder).where(col(InboundOrder.code).ilike(pattern)).limit(LIMIT)
+            select(InboundOrder)
+            .where(col(InboundOrder.code).ilike(pattern))
+            .limit(LIMIT)
         ).all()
     ]
     orders.extend(
@@ -83,7 +86,9 @@ def global_search(
             "direction": "outbound",
         }
         for row in session.exec(
-            select(OutboundOrder).where(col(OutboundOrder.code).ilike(pattern)).limit(LIMIT)
+            select(OutboundOrder)
+            .where(col(OutboundOrder.code).ilike(pattern))
+            .limit(LIMIT)
         ).all()
     )
 
@@ -94,7 +99,9 @@ def global_search(
             "status": row.status,
         }
         for row in session.exec(
-            select(WarehouseTask).where(col(WarehouseTask.task_type).ilike(pattern)).limit(LIMIT)
+            select(WarehouseTask)
+            .where(col(WarehouseTask.task_type).ilike(pattern))
+            .limit(LIMIT)
         ).all()
     ]
 

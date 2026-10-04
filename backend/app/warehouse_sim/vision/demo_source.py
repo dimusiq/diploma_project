@@ -98,7 +98,10 @@ def phase_index(elapsed: float) -> int:
 
 
 def raw_detections(elapsed: float) -> list[dict[str, Any]]:
-    return [dict(item) | {"bbox": dict(item["bbox"])} for item in DEMO_PHASES[phase_index(elapsed)]]
+    return [
+        dict(item) | {"bbox": dict(item["bbox"])}
+        for item in DEMO_PHASES[phase_index(elapsed)]
+    ]
 
 
 def _plural(count: int, forms: tuple[str, str, str]) -> str:
@@ -116,7 +119,13 @@ def _plural(count: int, forms: tuple[str, str, str]) -> str:
 def _place(bbox: dict[str, float]) -> str:
     cx = float(bbox["x"]) + float(bbox["width"]) / 2
     cy = float(bbox["y"]) + float(bbox["height"]) / 2
-    horizontal = "слева" if cx < FRAME_WIDTH * 0.38 else "справа" if cx > FRAME_WIDTH * 0.62 else "по центру"
+    horizontal = (
+        "слева"
+        if cx < FRAME_WIDTH * 0.38
+        else "справа"
+        if cx > FRAME_WIDTH * 0.62
+        else "по центру"
+    )
     depth = "впереди" if cy < FRAME_HEIGHT * 0.62 else "рядом"
     if horizontal == "по центру":
         return depth

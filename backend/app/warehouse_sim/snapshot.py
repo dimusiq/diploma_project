@@ -72,7 +72,9 @@ def build_motion(world: dict, running: bool, version: int) -> dict:
                 "x": w["pos"]["x"],
                 "z": w["pos"]["z"],
                 "heading": float(w.get("heading") or 0.0),
-                "speed": float(w.get("speed") or 0.0) if w.get("status") == "walking" else 0.0,
+                "speed": float(w.get("speed") or 0.0)
+                if w.get("status") == "walking"
+                else 0.0,
                 "status": w.get("status"),
                 "target": w.get("target"),
                 "currentZone": w.get("current_zone"),
@@ -123,7 +125,11 @@ def build_data(world: dict, state: str, speed: float, version: int) -> dict:
         "trucks": [{**t, "pos": dict(t["pos"])} for t in world["trucks"]],
         "inbound": [dict(i) for i in world["inbound"][-40:]],
         "outbound": [
-            {**o, "lines": [dict(ln) for ln in o["lines"]], "palletIds": list(o["palletIds"])}
+            {
+                **o,
+                "lines": [dict(ln) for ln in o["lines"]],
+                "palletIds": list(o["palletIds"]),
+            }
             for o in world["outbound"][-60:]
         ],
         "tasks": [
@@ -144,8 +150,14 @@ def build_data(world: dict, state: str, speed: float, version: int) -> dict:
 
 def build_kpi(world: dict, state: str) -> dict:
     devices = world["devices"]
-    active_devices = sum(1 for d in devices if d["online"] and d["status"] not in ("offline",))
-    active_tasks = sum(1 for t in world["tasks"] if t["status"] in ("pending", "assigned", "in_progress"))
+    active_devices = sum(
+        1 for d in devices if d["online"] and d["status"] not in ("offline",)
+    )
+    active_tasks = sum(
+        1
+        for t in world["tasks"]
+        if t["status"] in ("pending", "assigned", "in_progress")
+    )
     errors = sum(1 for e in world["events"][:80] if e["severity"] == "error")
     warnings = sum(1 for e in world["events"][:80] if e["severity"] == "warning")
     inbound_trucks = sum(1 for t in world["trucks"] if t["direction"] == "inbound")

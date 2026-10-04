@@ -246,6 +246,140 @@ function parseSseBlocks(buffer: string): { events: string[]; rest: string } {
   return { events, rest }
 }
 
+type EntityPatch<T> = { upsert?: T[]; remove?: Array<string | number> }
+
+function entityId(row: object, idKey: string): string {
+  return String((row as Record<string, unknown>)[idKey])
+}
+
+function mergeById<T extends object>(
+  prev: T[],
+  patch: EntityPatch<T> | undefined,
+  idKey: string,
+): T[] {
+  if (!patch) return prev
+  const remove = new Set((patch.remove ?? []).map(String))
+  const rows = remove.size
+    ? prev.filter((row) => !remove.has(entityId(row, idKey)))
+    : [...prev]
+  const index = new Map(rows.map((row, i) => [entityId(row, idKey), i]))
+  for (const row of patch.upsert ?? []) {
+    const key = entityId(row, idKey)
+    const at = index.get(key)
+    if (at == null) {
+      index.set(key, rows.length)
+      rows.push(row)
+    } else {
+      rows[at] = row
+    }
+  }
+  return rows
+}
+
+function applyMotionDelta(
+  base: MotionSnapshot,
+  patch: Record<string, unknown>,
+): MotionSnapshot {
+  return {
+    ...base,
+    version: (patch.version as number | undefined) ?? base.version,
+    timeSec: (patch.timeSec as number | undefined) ?? base.timeSec,
+    running: (patch.running as boolean | undefined) ?? base.running,
+    devices: mergeById(
+      base.devices,
+      patch.devices as EntityPatch<DeviceMotion> | undefined,
+      "id",
+    ),
+    trucks: mergeById(
+      base.trucks,
+      patch.trucks as EntityPatch<TruckMotion> | undefined,
+      "id",
+    ),
+    workers: mergeById(
+      base.workers ?? [],
+      patch.workers as EntityPatch<WorkerMotion> | undefined,
+      "id",
+    ),
+    rackFill: mergeById(
+      base.rackFill,
+      patch.rackFill as EntityPatch<RackFill> | undefined,
+      "rackId",
+    ),
+    zonePallets:
+      (patch.zonePallets as Record<string, number> | undefined) ??
+      base.zonePallets,
+  }
+}
+
+function applyDataDelta(
+  base: DataSnapshot,
+  patch: Record<string, unknown>,
+): DataSnapshot {
+  const next: DataSnapshot = {
+    ...base,
+    version: (patch.version as number | undefined) ?? base.version,
+    timeSec: (patch.timeSec as number | undefined) ?? base.timeSec,
+    dayStartSec: (patch.dayStartSec as number | undefined) ?? base.dayStartSec,
+    realTime: (patch.realTime as string | undefined) ?? base.realTime,
+    state: (patch.state as SimRunState | undefined) ?? base.state,
+    running: (patch.running as boolean | undefined) ?? base.running,
+    speed: (patch.speed as SimSpeed | undefined) ?? base.speed,
+    scenario: (patch.scenario as string | undefined) ?? base.scenario,
+    cellsTotal: (patch.cellsTotal as number | undefined) ?? base.cellsTotal,
+    cellsOccupied:
+      (patch.cellsOccupied as number | undefined) ?? base.cellsOccupied,
+    palletsTotal:
+      (patch.palletsTotal as number | undefined) ?? base.palletsTotal,
+    devices: mergeById(
+      base.devices,
+      patch.devices as EntityPatch<SimDevice> | undefined,
+      "id",
+    ),
+    trucks: mergeById(
+      base.trucks,
+      patch.trucks as EntityPatch<SimTruck> | undefined,
+      "id",
+    ),
+    inbound: mergeById(
+      base.inbound,
+      patch.inbound as EntityPatch<SimInbound> | undefined,
+      "id",
+    ),
+    outbound: mergeById(
+      base.outbound,
+      patch.outbound as EntityPatch<SimOutbound> | undefined,
+      "id",
+    ),
+    tasks: mergeById(
+      base.tasks,
+      patch.tasks as EntityPatch<SimTask> | undefined,
+      "id",
+    ),
+    workers: mergeById(
+      base.workers,
+      patch.workers as EntityPatch<SimWorker> | undefined,
+      "id",
+    ),
+    events: mergeById(
+      base.events,
+      patch.events as EntityPatch<SimEvent> | undefined,
+      "id",
+    ),
+  }
+  if (patch.config) next.config = patch.config as SimConfig
+  if (patch.topology) next.topology = patch.topology as SimTopology
+  if (patch.metrics) next.metrics = patch.metrics as SimMetrics
+  if (patch.kpi) next.kpi = patch.kpi as SimKpi
+  if (patch.skuLabels) next.skuLabels = patch.skuLabels as Record<string, string>
+  if (patch.eventCounts) {
+    next.eventCounts = patch.eventCounts as Array<{ type: string; count: number }>
+  }
+  if (patch.occupiedCellIds) {
+    next.occupiedCellIds = patch.occupiedCellIds as string[]
+  }
+  return next
+}
+
 class DeviceSimulationClient {
   private motionSnapshot: MotionSnapshot = emptyMotion()
   private dataSnapshot: DataSnapshot = emptyData()
@@ -254,6 +388,8 @@ class DeviceSimulationClient {
   private started = false
   private sseOpen = false
   private abort: AbortController | null = null
+  /** Последняя ревизия SSE (для since= при reconnect). */
+  private streamRevision = 0
 
   get sseConnected(): boolean {
     return this.sseOpen
@@ -376,10 +512,18 @@ class DeviceSimulationClient {
       this.abort?.abort()
       this.abort = new AbortController()
       try {
-        const res = await fetch(getApiUrl(simStreamUrl()), {
-          headers: { Authorization: `Bearer ${token}` },
-          signal: this.abort.signal,
-        })
+        const res = await fetch(
+          getApiUrl(
+            simStreamUrl({
+              deltas: true,
+              since: this.streamRevision > 0 ? this.streamRevision : undefined,
+            }),
+          ),
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            signal: this.abort.signal,
+          },
+        )
         if (!res.ok || !res.body) {
           this.setSseOpen(false)
           await new Promise((r) => setTimeout(r, 4000))
@@ -403,12 +547,39 @@ class DeviceSimulationClient {
             try {
               const msg = JSON.parse(raw) as {
                 type?: string
-                payload?: DataSnapshot | MotionSnapshot
+                mode?: string
+                revision?: number
+                payload?: DataSnapshot | MotionSnapshot | Record<string, unknown>
+              }
+              if (typeof msg.revision === "number") {
+                this.streamRevision = Math.max(this.streamRevision, msg.revision)
+              }
+              if (msg.type === "ready" && typeof msg.revision === "number") {
+                this.streamRevision = Math.max(this.streamRevision, msg.revision)
+                continue
               }
               if (msg.type === "data" && msg.payload) {
-                this.applyData(msg.payload as DataSnapshot)
+                if (msg.mode === "delta") {
+                  this.applyData(
+                    applyDataDelta(
+                      this.dataSnapshot,
+                      msg.payload as Record<string, unknown>,
+                    ),
+                  )
+                } else {
+                  this.applyData(msg.payload as DataSnapshot)
+                }
               } else if (msg.type === "motion" && msg.payload) {
-                this.applyMotion(msg.payload as MotionSnapshot)
+                if (msg.mode === "delta") {
+                  this.applyMotion(
+                    applyMotionDelta(
+                      this.motionSnapshot,
+                      msg.payload as Record<string, unknown>,
+                    ),
+                  )
+                } else {
+                  this.applyMotion(msg.payload as MotionSnapshot)
+                }
               } else if (
                 msg.type === "camera.status" ||
                 msg.type === "camera.detection" ||

@@ -3,7 +3,7 @@
 ## Быстрый старт (локальная разработка)
 
 ```bash
-# 1. Убедитесь, что в корне есть .env (пример — см. раздел «Переменные окружения»)
+# 1. cp .env.example .env  (или см. раздел «Переменные окружения»)
 
 # 2. Собрать образы и запустить все сервисы
 docker compose up --build -d
@@ -70,12 +70,14 @@ SECRET_KEY=changethis
 FIRST_SUPERUSER=admin@example.com
 FIRST_SUPERUSER_PASSWORD=changethis
 
-# PostgreSQL
+# PostgreSQL (один блок; без дублей ключей)
+# localhost — для uvicorn на хосте; в docker-compose.yml backend/worker
+# получают POSTGRES_SERVER=db явно.
+POSTGRES_SERVER=localhost
+POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=changethis
 POSTGRES_DB=app
-POSTGRES_SERVER=db
-POSTGRES_PORT=5432
 
 # Образы
 DOCKER_IMAGE_BACKEND=backend

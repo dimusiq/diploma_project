@@ -65,15 +65,19 @@ def list_warehouse_tasks(
     stmt = select(WarehouseTask).where(WarehouseTask.warehouse_id == wid)
     if status is not None:
         stmt = stmt.where(WarehouseTask.status == status)
-    count_stmt = select(func.count()).select_from(WarehouseTask).where(
-        WarehouseTask.warehouse_id == wid
+    count_stmt = (
+        select(func.count())
+        .select_from(WarehouseTask)
+        .where(WarehouseTask.warehouse_id == wid)
     )
     if status is not None:
         count_stmt = count_stmt.where(WarehouseTask.status == status)
     count = session.exec(count_stmt).one()
     rows = list(
         session.exec(
-            stmt.order_by(WarehouseTask.priority.desc(), WarehouseTask.updated_at.desc())
+            stmt.order_by(
+                WarehouseTask.priority.desc(), WarehouseTask.updated_at.desc()
+            )
             .offset(skip)
             .limit(limit)
         ).all()

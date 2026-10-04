@@ -13,7 +13,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from app.agent.agent_errors import AgentContextBuildError, AgentError
-from app.agent.evaluation import note_reply_for_evaluation
 from app.agent.llm_adapter import llm_inference_configured, resolve_llm_model
 from app.agent.memory import build_chat_context
 from app.agent.planner import iter_chat_with_tools_stream
@@ -138,7 +137,6 @@ async def run_agent_chat(
             log_trace_audit(trace)
             raise
         trace.add_step("finish", detail="llm_ok", model=model_name)
-        note_reply_for_evaluation(reply, trace)
         public = build_public_reasoning_view(final_reply=reply, run=reasoning)
         trace.internal_reasoning = reasoning.to_internal_dict()
         log_trace_audit(trace)
@@ -260,7 +258,6 @@ async def iter_agent_chat_sse_events(
             if ev.get("type") == "done":
                 reply = str(ev.get("reply") or "")
                 trace.add_step("finish", detail="llm_ok", model=model_name)
-                note_reply_for_evaluation(reply, trace)
                 public = build_public_reasoning_view(final_reply=reply, run=reasoning)
                 trace.internal_reasoning = reasoning.to_internal_dict()
                 log_trace_audit(trace)

@@ -1,11 +1,11 @@
 """ABC classification of items by movement frequency."""
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
-from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Query
-from sqlmodel import select, func, col
 from sqlalchemy import desc
+from sqlmodel import col, func, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import Item, ItemHistory
@@ -57,14 +57,16 @@ def get_abc_classification(
             c_count += 1
 
         item = session.get(Item, row.item_id)
-        result.append({
-            "item_id": str(row.item_id),
-            "title": item.title if item else "Unknown",
-            "sku": item.sku if item else None,
-            "movement_count": row.movement_count,
-            "cumulative_pct": round(pct * 100, 1),
-            "abc_class": cls,
-        })
+        result.append(
+            {
+                "item_id": str(row.item_id),
+                "title": item.title if item else "Unknown",
+                "sku": item.sku if item else None,
+                "movement_count": row.movement_count,
+                "cumulative_pct": round(pct * 100, 1),
+                "abc_class": cls,
+            }
+        )
 
     return {
         "items": result,

@@ -77,9 +77,7 @@ def _kpi_effect_hint(tool_calls: list[dict[str, Any]]) -> str | None:
             ToolSafetyClass.ACT,
             ToolSafetyClass.PROPOSE,
         ):
-            return (
-                "Есть propose/act — перепроверьте фактическое состояние read-инструментом или в UI."
-            )
+            return "Есть propose/act — перепроверьте фактическое состояние read-инструментом или в UI."
     return None
 
 
@@ -109,9 +107,7 @@ def _operational_cycle_summary(run: StructuredReasoningRun) -> dict[str, str]:
         "observe": "сервер: " + (", ".join(obs) if obs else "базовый контекст"),
         "reason": f"раундов LLM: {run.llm_rounds}{intent}",
         "act": (
-            f"инструментов: {len(run.tool_calls)}"
-            if run.tool_calls
-            else "без вызовов"
+            f"инструментов: {len(run.tool_calls)}" if run.tool_calls else "без вызовов"
         ),
         "verify": (
             f"проверок JSON: {len(run.verify_rounds)}"
@@ -221,7 +217,7 @@ async def run_router_intent(user_message: str) -> dict[str, Any] | None:
         return None
     sys = (
         "Ты маршрутизатор запросов к складскому ассистенту. Ответь ТОЛЬКО одним JSON-объектом без markdown, "
-        'поля: intent (краткая строка: question|inventory|layout|equipment|tasks|other), '
+        "поля: intent (краткая строка: question|inventory|layout|equipment|tasks|other), "
         "topics (массив строк-ключевых слов на русском или английском, до 5)."
     )
     messages = [
@@ -244,6 +240,10 @@ async def run_router_intent(user_message: str) -> dict[str, Any] | None:
             raw = re.sub(r"^```\w*\n?", "", raw)
             raw = re.sub(r"\n?```$", "", raw)
         parsed = json.loads(raw)
-        return parsed if isinstance(parsed, dict) else {"intent": "other", "raw": raw[:200]}
+        return (
+            parsed
+            if isinstance(parsed, dict)
+            else {"intent": "other", "raw": raw[:200]}
+        )
     except (json.JSONDecodeError, Exception):
         return {"intent": "other", "parse_error": True}

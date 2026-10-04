@@ -44,7 +44,9 @@ class SimCommandBody(BaseModel):
 
 
 class DeviceCommandBody(BaseModel):
-    command: Literal["START", "STOP", "RESET", "MOVE", "CHARGE", "LOAD", "UNLOAD", "FAIL", "RECOVER"]
+    command: Literal[
+        "START", "STOP", "RESET", "MOVE", "CHARGE", "LOAD", "UNLOAD", "FAIL", "RECOVER"
+    ]
     payload: dict[str, Any] | None = None
 
 
@@ -119,4 +121,3 @@ class DeviceMaintenancePatch(BaseModel):
     scheduled_at: str | None = None
     performed_by: str | None = Field(default=None, max_length=128)
     notes: str | None = Field(default=None, max_length=2048)
-

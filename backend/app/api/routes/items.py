@@ -71,6 +71,7 @@ def _allowed_next_statuses(current: str) -> list[str]:
 
 class ShippingNoteRequest(BaseModel):
     """Тело запроса для печати накладной."""
+
     item_ids: list[uuid.UUID]
 
 
@@ -98,10 +99,14 @@ def _item_filters(
             )
         )
     if created_at_from is not None:
-        dt_from = datetime.combine(created_at_from, time.min).replace(tzinfo=timezone.utc)
+        dt_from = datetime.combine(created_at_from, time.min).replace(
+            tzinfo=timezone.utc
+        )
         statement = statement.where(Item.created_at >= dt_from)
     if created_at_to is not None:
-        dt_to = datetime.combine(created_at_to + timedelta(days=1), time.min).replace(tzinfo=timezone.utc)
+        dt_to = datetime.combine(created_at_to + timedelta(days=1), time.min).replace(
+            tzinfo=timezone.utc
+        )
         statement = statement.where(Item.created_at < dt_to)
     return statement
 
@@ -263,11 +268,28 @@ def export_items(
         items = list(session.exec(statement).all())
     else:
         items = _items_for_export(
-            session, current_user, status, search, category_id, created_at_from, created_at_to
+            session,
+            current_user,
+            status,
+            search,
+            category_id,
+            created_at_from,
+            created_at_to,
         )
     headers_ru: list[str] = [
-        "ID", "Название", "Описание", "Кол-во", "Артикул", "Штрихкод", "Ед. изм.",
-        "Срок годности", "Местоположение", "Статус", "Категория", "Дата создания", "Владелец (ID)",
+        "ID",
+        "Название",
+        "Описание",
+        "Кол-во",
+        "Артикул",
+        "Штрихкод",
+        "Ед. изм.",
+        "Срок годности",
+        "Местоположение",
+        "Статус",
+        "Категория",
+        "Дата создания",
+        "Владелец (ID)",
     ]
 
     def _row(item: Item) -> list[str]:
@@ -311,7 +333,9 @@ def export_items(
         top=Side(style="thin"),
         bottom=Side(style="thin"),
     )
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_fill = PatternFill(
+        start_color="4472C4", end_color="4472C4", fill_type="solid"
+    )
     header_font = Font(bold=True, color="FFFFFF", size=11)
     header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     cell_alignment = Alignment(vertical="center", wrap_text=True)
@@ -320,7 +344,9 @@ def export_items(
     for item in items:
         ws.append(_row(item))
 
-    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=len(headers_ru)):
+    for row in ws.iter_rows(
+        min_row=1, max_row=ws.max_row, min_col=1, max_col=len(headers_ru)
+    ):
         for cell in row:
             cell.border = thin_border
             cell.alignment = cell_alignment
@@ -353,7 +379,9 @@ def _get_item_or_404(
     item = session.get(Item, id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    if not can_see_all_items(session, current_user) and (item.owner_id != current_user.id):
+    if not can_see_all_items(session, current_user) and (
+        item.owner_id != current_user.id
+    ):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return item
 
@@ -466,7 +494,10 @@ def shipping_note_pdf(
         item = session.get(Item, item_id)
         if not item:
             raise HTTPException(status_code=404, detail=f"Item {item_id} not found")
-        if not can_see_all_items(session, current_user) and item.owner_id != current_user.id:
+        if (
+            not can_see_all_items(session, current_user)
+            and item.owner_id != current_user.id
+        ):
             raise HTTPException(status_code=403, detail="Not enough permissions")
         items.append(item)
     pdf_bytes = build_shipping_note_pdf(items)
@@ -505,7 +536,9 @@ def read_item_history(
     _get_item_or_404(session, current_user, id)
     rows = list(
         session.exec(
-            select(ItemHistory).where(ItemHistory.item_id == id).order_by(ItemHistory.changed_at.desc())
+            select(ItemHistory)
+            .where(ItemHistory.item_id == id)
+            .order_by(ItemHistory.changed_at.desc())
         ).all()
     )
     return ItemHistoryList(
@@ -722,7 +755,6 @@ def update_item(
     publish_item_movement(item_id=item.id, reason="updated")
     publish_occupancy_changed()
     return item
-
 
 
 @router.delete("/{id}")

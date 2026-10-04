@@ -22,14 +22,18 @@ def test_catalog_contains_act_and_admin_tools() -> None:
 
 
 def test_get_recent_events_requires_audit_in_payload_filter() -> None:
-    with_audit = {t.name for t in tools_for_user(is_superuser=False, has_audit_read=True)}
+    with_audit = {
+        t.name for t in tools_for_user(is_superuser=False, has_audit_read=True)
+    }
     without = {t.name for t in tools_for_user(is_superuser=False, has_audit_read=False)}
     assert "get_recent_events" in with_audit
     assert "get_recent_events" not in without
 
 
 def test_admin_tools_only_for_superuser_payload() -> None:
-    names_user = {t.name for t in tools_for_user(is_superuser=False, has_audit_read=True)}
+    names_user = {
+        t.name for t in tools_for_user(is_superuser=False, has_audit_read=True)
+    }
     names_su = {t.name for t in tools_for_user(is_superuser=True, has_audit_read=True)}
     assert "reindex_knowledge" not in names_user
     assert "reindex_knowledge" in names_su

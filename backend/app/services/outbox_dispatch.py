@@ -101,7 +101,9 @@ def process_outbox_batch(
             process_single_outbox(session, ob, consumers=consumers)
             processed += 1
         except Exception:
-            logger.exception("Outbox dispatch failed for domain_event_id=%s", ob.domain_event_id)
+            logger.exception(
+                "Outbox dispatch failed for domain_event_id=%s", ob.domain_event_id
+            )
             failed += 1
             ob.attempts = (ob.attempts or 0) + 1
             ob.last_error = "consumer_error"

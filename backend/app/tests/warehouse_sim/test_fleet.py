@@ -9,7 +9,9 @@ def test_baseline_park_composition() -> None:
     ids = [d["id"] for d in devices]
     assert len(devices) == 38
     assert ids == list(dict.fromkeys(ids))
-    assert {"fl-1", "agv-1", "amr-1", "cnv-1", "dock-in-1", "scn-PACK", "chg-1"} <= set(ids)
+    assert {"fl-1", "agv-1", "amr-1", "cnv-1", "dock-in-1", "scn-PACK", "chg-1"} <= set(
+        ids
+    )
     by_cat = {}
     for device in devices:
         by_cat.setdefault(category_of(device["kind"]), []).append(device["id"])

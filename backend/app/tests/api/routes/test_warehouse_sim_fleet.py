@@ -34,7 +34,10 @@ def test_get_fleet_returns_baseline_park(
         "dock_door",
         "charger",
     }
-    assert any(row["code"] == "agv-1" and row["category"] == "transport" for row in body["data"])
+    assert any(
+        row["code"] == "agv-1" and row["category"] == "transport"
+        for row in body["data"]
+    )
     assert {cat["id"] for cat in body["categories"]} >= {
         "all",
         "transport",
@@ -90,7 +93,11 @@ def test_admin_creates_patches_and_archives_fleet_device(
     created = client.post(
         _fleet_url(),
         headers=superuser_token_headers,
-        json={"kind": "agv", "name": f"AGV Test Fleet {uuid4().hex[:6]}", "code": f"agv-ft-{uuid4().hex[:8]}"},
+        json={
+            "kind": "agv",
+            "name": f"AGV Test Fleet {uuid4().hex[:6]}",
+            "code": f"agv-ft-{uuid4().hex[:8]}",
+        },
     )
     assert created.status_code == 200
     row = created.json()
@@ -108,7 +115,11 @@ def test_admin_creates_patches_and_archives_fleet_device(
     patched = client.patch(
         f"{_fleet_url()}/{device_id}",
         headers=superuser_token_headers,
-        json={"name": f"AGV Alpha {uuid4().hex[:6]}", "speed": 1.7, "configuration": {"zoneId": "zone-chrg"}},
+        json={
+            "name": f"AGV Alpha {uuid4().hex[:6]}",
+            "speed": 1.7,
+            "configuration": {"zoneId": "zone-chrg"},
+        },
     )
     assert patched.status_code == 200
     assert patched.json()["name"].startswith("AGV Alpha")
@@ -157,7 +168,11 @@ def test_role_admin_can_change_fleet(client: TestClient, db: Session) -> None:
     created = client.post(
         _fleet_url(),
         headers=headers,
-        json={"kind": "forklift", "name": f"FL Admin {uuid4().hex[:6]}", "code": f"fl-adm-{uuid4().hex[:8]}"},
+        json={
+            "kind": "forklift",
+            "name": f"FL Admin {uuid4().hex[:6]}",
+            "code": f"fl-adm-{uuid4().hex[:8]}",
+        },
     )
     assert created.status_code == 200
     device_id = created.json()["id"]
@@ -227,7 +242,9 @@ def test_maintenance_crud_and_blocks_new_tasks(
         json={"status": "in_progress"},
     )
     assert started.status_code == 200
-    device = client.get(f"{_fleet_url()}/{agv['id']}", headers=superuser_token_headers).json()
+    device = client.get(
+        f"{_fleet_url()}/{agv['id']}", headers=superuser_token_headers
+    ).json()
     assert device["inMaintenance"] is True
 
     runtime = get_runtime().world["deviceById"]["agv-1"]
@@ -240,7 +257,9 @@ def test_maintenance_crud_and_blocks_new_tasks(
         headers=superuser_token_headers,
         json={"status": "completed"},
     )
-    restored = client.get(f"{_fleet_url()}/{agv['id']}", headers=superuser_token_headers).json()
+    restored = client.get(
+        f"{_fleet_url()}/{agv['id']}", headers=superuser_token_headers
+    ).json()
     assert restored["inMaintenance"] is False
 
 
@@ -297,12 +316,18 @@ def test_archived_device_is_offline_in_runtime(
     created = client.post(
         _fleet_url(),
         headers=superuser_token_headers,
-        json={"kind": "agv", "name": f"AGV Arch {uuid4().hex[:6]}", "code": f"agv-arch-{uuid4().hex[:8]}"},
+        json={
+            "kind": "agv",
+            "name": f"AGV Arch {uuid4().hex[:6]}",
+            "code": f"agv-arch-{uuid4().hex[:8]}",
+        },
     )
     assert created.status_code == 200
     device_id = created.json()["id"]
     code = created.json()["code"]
-    archived = client.delete(f"{_fleet_url()}/{device_id}", headers=superuser_token_headers)
+    archived = client.delete(
+        f"{_fleet_url()}/{device_id}", headers=superuser_token_headers
+    )
     assert archived.status_code == 200
     runtime = get_runtime().world["deviceById"].get(code)
     if runtime is not None:

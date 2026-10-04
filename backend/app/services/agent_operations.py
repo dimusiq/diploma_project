@@ -34,7 +34,9 @@ def format_operation_memory_block(op: AgentOperationSession) -> str | None:
         lines: list[str] = []
         for i, f in enumerate(tail, start=1):
             if isinstance(f, dict):
-                lines.append(f"{i}. {json.dumps(f, ensure_ascii=False, default=str)[:500]}")
+                lines.append(
+                    f"{i}. {json.dumps(f, ensure_ascii=False, default=str)[:500]}"
+                )
             else:
                 lines.append(f"{i}. {str(f)[:500]}")
         parts.append("Недавние факты из этой сессии:\n" + "\n".join(lines))

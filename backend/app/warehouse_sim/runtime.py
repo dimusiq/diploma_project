@@ -16,19 +16,27 @@ Warehouse Device Server не шарит состояние между проце
 from __future__ import annotations
 
 import asyncio
-import json
+import copy
 import logging
 import threading
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TypeVar
 
 from sqlalchemy import and_, func, or_
 from sqlmodel import Session, select
 
 from app.core.db import engine
+from app.realtime.sse_common import format_sse, iter_sse_from_queue, put_drop_oldest
 from app.services.outbound_fulfillment import annotate_event_orders
 from app.warehouse_sim import events as ev
+from app.warehouse_sim.delta import (
+    diff_data,
+    diff_motion,
+    envelope,
+    should_send_full,
+)
 from app.warehouse_sim.devices import DeviceServer
 from app.warehouse_sim.models import (
     SIM_PAUSED,
@@ -55,6 +63,8 @@ from app.warehouse_sim.world import DEFAULT_CONFIG, DEMO_CONFIG, create_world
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
+
 
 def _fleet_for_world() -> list[dict] | None:
     from app.warehouse_sim.fleet import load_active_runtime_devices
@@ -63,7 +73,9 @@ def _fleet_for_world() -> list[dict] | None:
         with Session(engine) as session:
             return load_active_runtime_devices(session)
     except Exception:
-        logger.exception("Не удалось загрузить persistent fleet, используем встроенный парк")
+        logger.exception(
+            "Не удалось загрузить persistent fleet, используем встроенный парк"
+        )
         return None
 
 
@@ -90,6 +102,14 @@ TICK_SEC = 0.05
 MAX_WALL_STEP = 0.25
 DATA_PUBLISH_SEC = 0.25
 MOTION_PUBLISH_SEC = 0.1
+# Чанк модельного времени для HTTP fast-forward (между чанками отдаём event loop).
+FF_CHUNK_MODEL_SEC = 60.0
+
+
+@dataclass(slots=True)
+class _SimSseSub:
+    queue: asyncio.Queue[dict]
+    want_deltas: bool
 
 
 class WarehouseSimRuntime:
@@ -104,7 +124,8 @@ class WarehouseSimRuntime:
         self._stop = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._subs: list[asyncio.Queue[dict]] = []
+        self._subs: list[_SimSseSub] = []
+        self._subs_snapshot: tuple[_SimSseSub, ...] = ()
         self._sub_lock = threading.Lock()
         self._last_motion = build_motion(self.world, False, 0)
         self._last_data = build_data(self.world, self.state, self.speed, 0)
@@ -117,6 +138,170 @@ class WarehouseSimRuntime:
     def data(self) -> dict:
         with self._lock:
             return self._last_data
+
+    def read_world(self, *keys: str) -> dict[str, Any]:
+        """
+        Согласованный снимок выбранных ключей ``world`` под RLock.
+        Возвращает deepcopy — вызывающий не держит live-ссылки.
+        """
+        with self._lock:
+            return {k: copy.deepcopy(self.world.get(k)) for k in keys}
+
+    def view_layout(self) -> Any:
+        """Топология склада (deepcopy)."""
+        return self.read_world("topology").get("topology")
+
+    def view_tasks(
+        self,
+        *,
+        status: str | None = None,
+        device_id: str | None = None,
+    ) -> dict[str, Any]:
+        with self._lock:
+            tasks = copy.deepcopy(self.world.get("tasks") or [])
+        if status:
+            tasks = [t for t in tasks if t.get("status") == status]
+        if device_id:
+            tasks = [t for t in tasks if t.get("deviceId") == device_id]
+        return {"data": tasks, "count": len(tasks)}
+
+    def view_orders(self) -> dict[str, Any]:
+        with self._lock:
+            return {
+                "inbound": copy.deepcopy((self.world.get("inbound") or [])[-40:]),
+                "outbound": copy.deepcopy((self.world.get("outbound") or [])[-60:]),
+                "trucks": copy.deepcopy(self.world.get("trucks") or []),
+            }
+
+    def view_devices_list(self) -> dict[str, Any]:
+        with self._lock:
+            devices = copy.deepcopy(self.world.get("devices") or [])
+        return {"data": devices, "count": len(devices)}
+
+    def view_hub(self) -> dict[str, Any]:
+        """
+        Один locked-снимок layout/tasks/orders (+ счётчики) для согласованного чтения.
+        Используется тестами concurrent-доступа и может использоваться хаб-эндпоинтами.
+        """
+        with self._lock:
+            tasks = copy.deepcopy(self.world.get("tasks") or [])
+            pallets = self.world.get("pallets") or {}
+            return {
+                "layout": copy.deepcopy(self.world.get("topology")),
+                "tasks": {"data": tasks, "count": len(tasks)},
+                "orders": {
+                    "inbound": copy.deepcopy((self.world.get("inbound") or [])[-40:]),
+                    "outbound": copy.deepcopy((self.world.get("outbound") or [])[-60:]),
+                    "trucks": copy.deepcopy(self.world.get("trucks") or []),
+                },
+                "pallets_total": len(pallets),
+                "tasks_total": len(tasks),
+            }
+
+    def view_devices_by_code(self) -> dict[str, dict[str, Any]]:
+        with self._lock:
+            return {
+                d["id"]: copy.deepcopy(d) for d in (self.world.get("devices") or [])
+            }
+
+    def view_device(self, device_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            device = (self.world.get("deviceById") or {}).get(device_id)
+            return copy.deepcopy(device) if device is not None else None
+
+    def view_device_telemetry(self, device_id: str) -> dict[str, Any]:
+        with self._lock:
+            return self.devices.get_device_telemetry(device_id)
+
+    def view_workers(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return copy.deepcopy(self.world.get("workers") or [])
+
+    def mutate_world(self, fn: Callable[[dict[str, Any]], T]) -> T:
+        """Выполнить ``fn(world)`` под RLock (единственный способ мутации снаружи)."""
+        with self._lock:
+            return fn(self.world)
+
+    def refresh_and_publish(self) -> None:
+        """Пересобрать motion/data и разослать подписчикам (под RLock)."""
+        with self._lock:
+            self._refresh()
+            self._publish("data", self._last_data)
+            self._publish("motion", self._last_motion)
+
+    def flush_integration(self) -> None:
+        """Публичный flush очереди интеграции в WMS."""
+        self._flush_integration()
+
+    def drain_vision(self) -> None:
+        """Публичный слив vision_outbox в SSE."""
+        self._drain_vision()
+
+    def advance_model(self, seconds: float, *, refresh: bool = True) -> None:
+        """Продвижение модельного времени под RLock без DB-flush (тики/тесты)."""
+        with self._lock:
+            advance_world(self.world, max(0.0, float(seconds)))
+            if refresh:
+                self._refresh()
+
+    def control_camera(
+        self,
+        device_id: str,
+        action: str,
+        confidence_threshold: float | None = None,
+        class_name: str | None = None,
+        entity_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Управление камерой под lock + refresh; затем vision/integration flush."""
+        from app.warehouse_sim.vision.service import control_camera as _control
+
+        with self._lock:
+            live = (self.world.get("deviceById") or {}).get(device_id)
+            if live is None:
+                raise KeyError(device_id)
+            status = _control(
+                self.world,
+                live,
+                action,
+                confidence_threshold,
+                class_name,
+                entity_id,
+            )
+            self._refresh()
+        self._drain_vision()
+        self._flush_integration()
+        return status
+
+    def rebind_smart_cameras(self) -> None:
+        """Перепривязка smart-camera links + publish (под RLock)."""
+        from sqlmodel import Session
+
+        from app.warehouse_sim.smart_cameras import (
+            apply_camera_positions,
+            sync_runtime_camera_links,
+        )
+
+        with self._lock:
+            with Session(engine) as session:
+                sync_runtime_camera_links(session, self.world)
+                apply_camera_positions(self.world)
+            self._refresh()
+            self._publish("data", self._last_data)
+            self._publish("motion", self._last_motion)
+
+    def sync_personnel_links(self, session: Session) -> None:
+        """Синхронизация браслетов/позиций персонала + publish."""
+        from app.warehouse_sim.bracelets import (
+            apply_bracelet_positions,
+            sync_runtime_links,
+        )
+
+        with self._lock:
+            sync_runtime_links(session, self.world)
+            apply_bracelet_positions(self.world)
+            self._refresh()
+            self._publish("data", self._last_data)
+            self._publish("motion", self._last_motion)
 
     def start_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
@@ -134,39 +319,94 @@ class WarehouseSimRuntime:
                 pass
             self._task = None
 
-    def subscribe(self) -> asyncio.Queue[dict]:
+    def _rebuild_subs_snapshot(self) -> None:
+        self._subs_snapshot = tuple(self._subs)
+
+    def subscribe(self, *, want_deltas: bool = False) -> asyncio.Queue[dict]:
         q: asyncio.Queue[dict] = asyncio.Queue(maxsize=32)
         with self._sub_lock:
-            self._subs.append(q)
+            self._subs.append(_SimSseSub(queue=q, want_deltas=want_deltas))
+            self._rebuild_subs_snapshot()
         return q
 
     def unsubscribe(self, q: asyncio.Queue[dict]) -> None:
         with self._sub_lock:
-            self._subs[:] = [s for s in self._subs if s is not q]
+            self._subs = [s for s in self._subs if s.queue is not q]
+            self._rebuild_subs_snapshot()
 
     def _broadcast(self, msg: dict) -> None:
-        with self._sub_lock:
-            subs = list(self._subs)
-        for q in subs:
-            try:
-                q.put_nowait(msg)
-            except asyncio.QueueFull:
-                try:
-                    q.get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
-                try:
-                    q.put_nowait(msg)
-                except asyncio.QueueFull:
-                    pass
+        """Произвольное сообщение (camera.* и т.п.) — всем подписчикам."""
+        for s in self._subs_snapshot:
+            put_drop_oldest(s.queue, msg)
+
+    def _broadcast_snapshot(
+        self,
+        kind: str,
+        payload: dict,
+        prev: dict | None,
+    ) -> None:
+        """
+        motion/data: legacy-клиентам — полный payload;
+        подписчикам с deltas=1 — mode=delta (или full, если дельта невыгодна).
+        """
+        ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        revision = int(payload.get("version") or 0)
+        legacy = {"v": 1, "type": kind, "ts": ts, "payload": payload}
+        full_env = envelope(kind, revision=revision, mode="full", payload=payload)
+        full_env["ts"] = ts
+
+        delta_env: dict[str, Any] | None = None
+        if prev is not None:
+            patch = (
+                diff_motion(prev, payload)
+                if kind == "motion"
+                else diff_data(prev, payload)
+            )
+            if patch is not None and not should_send_full(patch, payload):
+                base_rev = int(prev.get("version") or 0)
+                delta_env = envelope(
+                    kind,
+                    revision=revision,
+                    mode="delta",
+                    payload=patch,
+                    base_revision=base_rev,
+                )
+                delta_env["ts"] = ts
+
+        for s in self._subs_snapshot:
+            if s.want_deltas and delta_env is not None:
+                put_drop_oldest(s.queue, delta_env)
+            elif s.want_deltas:
+                put_drop_oldest(s.queue, full_env)
+            else:
+                put_drop_oldest(s.queue, legacy)
 
     def _publish(self, kind: str, payload: dict) -> None:
-        msg = {
-            "v": 1,
-            "type": kind,
-            "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "payload": payload,
-        }
+        """
+        Публикация из sync-кода. Для motion/data после _refresh —
+        полный кадр (редкие control-события). Горячий путь тика — _broadcast_snapshot.
+        """
+        ts = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        if kind in ("motion", "data"):
+            revision = int(payload.get("version") or 0)
+            legacy = {"v": 1, "type": kind, "ts": ts, "payload": payload}
+            full_env = envelope(kind, revision=revision, mode="full", payload=payload)
+            full_env["ts"] = ts
+            loop = self._loop
+            if loop is None:
+                return
+
+            def _run_full() -> None:
+                for s in self._subs_snapshot:
+                    put_drop_oldest(s.queue, full_env if s.want_deltas else legacy)
+
+            try:
+                loop.call_soon_threadsafe(_run_full)
+            except RuntimeError:
+                pass
+            return
+
+        msg = {"v": 1, "type": kind, "ts": ts, "payload": payload}
         loop = self._loop
         if loop is None:
             return
@@ -191,9 +431,27 @@ class WarehouseSimRuntime:
             pending = list(self.world.get("vision_outbox") or [])
             self.world["vision_outbox"] = []
         for item in pending:
-            self._publish(str(item.get("type") or "camera.status"), item.get("payload") or {})
+            self._publish(
+                str(item.get("type") or "camera.status"), item.get("payload") or {}
+            )
+
+    def integration_metrics(self) -> dict[str, int]:
+        """Счётчики lag/ошибок интеграции (для диагностики)."""
+        with self._lock:
+            lag = len(self.world.get("integration_queue") or [])
+        return {
+            "applied": int(getattr(self, "_integration_applied", 0)),
+            "errors": int(getattr(self, "_integration_errors", 0)),
+            "requeued": int(getattr(self, "_integration_requeued", 0)),
+            "lag": lag,
+        }
 
     def _flush_integration(self) -> None:
+        """
+        Сливает integration_queue в WMS. Очередь очищается до apply, но при любой
+        ошибке события возвращаются в world (без потери). wsim_event — как раньше:
+        seq двигается только после успешной записи.
+        """
         with self._lock:
             world = self.world
             queue = list(world.get("integration_queue") or [])
@@ -209,18 +467,53 @@ class WarehouseSimRuntime:
                     written_max = persist_new_sim_events(session, pending_events)
                 if written_max:
                     with self._lock:
-                        self._last_persisted_seq = max(self._last_persisted_seq, written_max)
+                        self._last_persisted_seq = max(
+                            self._last_persisted_seq, written_max
+                        )
             except Exception:
-                logger.exception("Warehouse Device Server: не удалось сохранить журнал событий")
+                logger.exception(
+                    "Warehouse Device Server: не удалось сохранить журнал событий"
+                )
         if not queue:
             return
         try:
             from app.warehouse_sim.integration import apply_integration_queue
 
             with Session(engine) as session:
-                apply_integration_queue(session, world, queue=queue)
+                result = apply_integration_queue(session, world, queue=queue)
+            applied = int(result.get("applied") or 0)
+            requeued = int(result.get("requeued") or 0)
+            errors = int(result.get("errors") or 0)
+            self._integration_applied = (
+                int(getattr(self, "_integration_applied", 0)) + applied
+            )
+            self._integration_requeued = (
+                int(getattr(self, "_integration_requeued", 0)) + requeued
+            )
+            self._integration_errors = (
+                int(getattr(self, "_integration_errors", 0)) + errors
+            )
+            if errors or requeued:
+                logger.error(
+                    "Warehouse Device Server: integration batch errors=%s requeued=%s lag=%s",
+                    errors,
+                    requeued,
+                    len(world.get("integration_queue") or []),
+                )
         except Exception:
-            logger.exception("Warehouse Device Server: не удалось применить доменные изменения")
+            # apply не успел вернуть очередь — восстанавливаем здесь
+            with self._lock:
+                pending = list(world.get("integration_queue") or [])
+                world["integration_queue"] = list(queue) + pending
+            self._integration_errors = int(getattr(self, "_integration_errors", 0)) + 1
+            self._integration_requeued = int(
+                getattr(self, "_integration_requeued", 0)
+            ) + len(queue)
+            logger.exception(
+                "Warehouse Device Server: не удалось применить доменные изменения; "
+                "события возвращены в очередь (%s)",
+                len(queue),
+            )
 
     def _seed_domain_inventory(self) -> None:
         try:
@@ -231,7 +524,9 @@ class WarehouseSimRuntime:
             with Session(engine) as session:
                 seed_world_inventory(session, world)
         except Exception:
-            logger.exception("Warehouse Device Server: не удалось синхронизировать остатки")
+            logger.exception(
+                "Warehouse Device Server: не удалось синхронизировать остатки"
+            )
 
     def _reset_domain(self) -> None:
         try:
@@ -240,7 +535,9 @@ class WarehouseSimRuntime:
             with Session(engine) as session:
                 reset_demo_domain(session)
         except Exception:
-            logger.exception("Warehouse Device Server: не удалось сбросить доменные данные")
+            logger.exception(
+                "Warehouse Device Server: не удалось сбросить доменные данные"
+            )
 
     def start(self) -> dict:
         self._seed_domain_inventory()
@@ -330,7 +627,9 @@ class WarehouseSimRuntime:
 
         with self._lock:
             lookup = previous_code or row.code
-            device = self.world["deviceById"].get(lookup) or self.world["deviceById"].get(row.code)
+            device = self.world["deviceById"].get(lookup) or self.world[
+                "deviceById"
+            ].get(row.code)
             if row.archived:
                 if device is not None:
                     device["enabled"] = False
@@ -389,7 +688,9 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    def send_device_command(self, device_id: str, command: str, payload: dict | None = None) -> dict:
+    def send_device_command(
+        self, device_id: str, command: str, payload: dict | None = None
+    ) -> dict:
         with self._lock:
             device_command(self.world, device_id, command, payload)
             self._refresh()
@@ -406,7 +707,9 @@ class WarehouseSimRuntime:
         self._flush_integration()
         return self.data()
 
-    def inject_event(self, event_type: str, device_id: str | None, message: str | None) -> dict:
+    def inject_event(
+        self, event_type: str, device_id: str | None, message: str | None
+    ) -> dict:
         with self._lock:
             if event_type == ev.EMERGENCY_STOP:
                 emergency_stop(self.world)
@@ -416,34 +719,85 @@ class WarehouseSimRuntime:
                 device = self.world["deviceById"].get(device_id)
                 if device and device.get("battery") is not None:
                     device["battery"] = 12
-                    apply_command(self.world, {"type": "recallToCharge", "deviceId": device_id})
+                    apply_command(
+                        self.world, {"type": "recallToCharge", "deviceId": device_id}
+                    )
             elif event_type == ev.CONVEYOR_BLOCKED:
                 conv = self.world["deviceById"].get("cnv-2")
                 if conv:
                     conv["status"] = "jam"
                     conv["repairTimer"] = 120
-                    emit(self.world, ev.CONVEYOR_BLOCKED, "error", message or f"{conv['name']} заблокирован вручную", device_id=conv["id"])
+                    emit(
+                        self.world,
+                        ev.CONVEYOR_BLOCKED,
+                        "error",
+                        message or f"{conv['name']} заблокирован вручную",
+                        device_id=conv["id"],
+                    )
             elif event_type == ev.ZONE_CONGESTED:
-                emit(self.world, ev.ZONE_CONGESTED, "warning", message or "Зона перегружена (ручное событие)")
+                emit(
+                    self.world,
+                    ev.ZONE_CONGESTED,
+                    "warning",
+                    message or "Зона перегружена (ручное событие)",
+                )
             elif event_type == ev.SENSOR_ALARM and device_id:
                 device = self.world["deviceById"].get(device_id)
                 if device:
                     device["alarm"] = True
-                    emit(self.world, ev.SENSOR_ALARM, "warning", message or f"{device['name']}: ручная авария", device_id=device_id)
+                    emit(
+                        self.world,
+                        ev.SENSOR_ALARM,
+                        "warning",
+                        message or f"{device['name']}: ручная авария",
+                        device_id=device_id,
+                    )
             else:
-                emit(self.world, event_type, "warning", message or event_type, device_id=device_id)
+                emit(
+                    self.world,
+                    event_type,
+                    "warning",
+                    message or event_type,
+                    device_id=device_id,
+                )
             self._refresh()
             self._publish("data", self._last_data)
         self._flush_integration()
         return self.data()
 
     def fast_forward(self, seconds: float) -> dict:
+        """Синхронный fast-forward (тесты/скрипты). HTTP — ``fast_forward_async``."""
         with self._lock:
             advance_world(self.world, max(0.0, seconds))
             self._refresh()
             self._publish("data", self._last_data)
         self._flush_integration()
         return self.data()
+
+    async def fast_forward_async(self, seconds: float) -> dict:
+        """
+        Продвижение модельного времени чанками с отдачей event loop.
+
+        Контракт ответа совпадает с ``fast_forward``: актуальный data-снимок.
+        DB-flush выполняется в threadpool, чтобы не стопорить SSE.
+        """
+        remaining = max(0.0, float(seconds))
+        while remaining > 1e-9:
+            chunk = min(FF_CHUNK_MODEL_SEC, remaining)
+            with self._lock:
+                advance_world(self.world, chunk)
+                self._refresh()
+            await asyncio.to_thread(self._flush_integration)
+            remaining -= chunk
+            await asyncio.sleep(0)
+        with self._lock:
+            self._refresh()
+            self._publish("data", self._last_data)
+        return self.data()
+
+    async def _flush_integration_async(self) -> None:
+        """Sync DB flush вне event loop (threadpool)."""
+        await asyncio.to_thread(self._flush_integration)
 
     async def _run(self) -> None:
         last = asyncio.get_running_loop().time()
@@ -456,6 +810,10 @@ class WarehouseSimRuntime:
             last = now
             if wall <= 0:
                 continue
+            motion: dict | None = None
+            motion_prev: dict | None = None
+            data: dict | None = None
+            data_prev: dict | None = None
             with self._lock:
                 if self.state == SIM_RUNNING:
                     advance_world(self.world, wall * self.speed)
@@ -463,40 +821,26 @@ class WarehouseSimRuntime:
                 data_acc += wall
                 if motion_acc >= MOTION_PUBLISH_SEC:
                     motion_acc = 0
+                    motion_prev = self._last_motion
                     self.version += 1
                     self._last_motion = build_motion(
                         self.world, self.state == SIM_RUNNING, self.version
                     )
                     motion = self._last_motion
-                else:
-                    motion = None
                 if data_acc >= DATA_PUBLISH_SEC:
                     data_acc = 0
+                    data_prev = self._last_data
                     self.version += 1
-                    self._last_data = build_data(self.world, self.state, self.speed, self.version)
+                    self._last_data = build_data(
+                        self.world, self.state, self.speed, self.version
+                    )
                     data = self._last_data
-                else:
-                    data = None
-            self._flush_integration()
+            await self._flush_integration_async()
             self._drain_vision()
             if motion is not None:
-                self._broadcast(
-                    {
-                        "v": 1,
-                        "type": "motion",
-                        "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                        "payload": motion,
-                    }
-                )
+                self._broadcast_snapshot("motion", motion, motion_prev)
             if data is not None:
-                self._broadcast(
-                    {
-                        "v": 1,
-                        "type": "data",
-                        "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                        "payload": data,
-                    }
-                )
+                self._broadcast_snapshot("data", data, data_prev)
 
 
 _runtime: WarehouseSimRuntime | None = None
@@ -533,24 +877,58 @@ def ensure_seed_layout() -> None:
         seed_if_empty(session)
 
 
-async def sse_stream(rt: WarehouseSimRuntime) -> AsyncIterator[bytes]:
-    q = rt.subscribe()
+async def sse_stream(
+    rt: WarehouseSimRuntime,
+    *,
+    deltas: bool = False,
+    since: int | None = None,
+) -> AsyncIterator[bytes]:
+    """
+    SSE склада. По умолчанию — полные снапшоты (обратная совместимость).
+
+    ``deltas=True``: первый кадр full (если since устарел), далее mode=delta.
+    ``since=<revision>``: пропустить начальный full, если клиент уже на актуальной ревизии.
+    """
+    q = rt.subscribe(want_deltas=deltas)
+    data = rt.data()
+    motion = rt.motion()
+    cur_rev = max(int(data.get("version") or 0), int(motion.get("version") or 0))
+    start: list[bytes] = [
+        format_sse({"type": "ready", "deltas": bool(deltas), "revision": cur_rev})
+    ]
+    need_full = True
+    if deltas and since is not None and int(since) >= cur_rev:
+        need_full = False
+    if need_full:
+        if deltas:
+            start.append(
+                format_sse(
+                    envelope(
+                        "data",
+                        revision=int(data.get("version") or 0),
+                        mode="full",
+                        payload=data,
+                    )
+                )
+            )
+            start.append(
+                format_sse(
+                    envelope(
+                        "motion",
+                        revision=int(motion.get("version") or 0),
+                        mode="full",
+                        payload=motion,
+                    )
+                )
+            )
+        else:
+            start.append(format_sse({"type": "data", "payload": data}))
+            start.append(format_sse({"type": "motion", "payload": motion}))
     try:
-        yield _sse({"type": "ready"})
-        yield _sse({"type": "data", "payload": rt.data()})
-        yield _sse({"type": "motion", "payload": rt.motion()})
-        while True:
-            try:
-                msg = await asyncio.wait_for(q.get(), timeout=15.0)
-                yield _sse(msg)
-            except asyncio.TimeoutError:
-                yield b": ping\n\n"
+        async for chunk in iter_sse_from_queue(q, on_start=start):
+            yield chunk
     finally:
         rt.unsubscribe(q)
-
-
-def _sse(data: dict[str, Any]) -> bytes:
-    return f"data: {json.dumps(data, ensure_ascii=False, default=str)}\n\n".encode()
 
 
 def persist_new_sim_events(session: Session, events: list[dict[str, Any]]) -> int:
@@ -573,7 +951,9 @@ def persist_new_sim_events(session: Session, events: list[dict[str, Any]]) -> in
         return db_max
     if to_write:
         to_write.sort(key=lambda item: int(item["id"]))
-        warehouse = session.exec(select(SimWarehouse).where(SimWarehouse.code == "DEMO")).first()
+        warehouse = session.exec(
+            select(SimWarehouse).where(SimWarehouse.code == "DEMO")
+        ).first()
         warehouse_id = warehouse.id if warehouse is not None else None
         for event in to_write:
             session.add(
@@ -648,7 +1028,16 @@ def query_event_log(
     from_ts: datetime | None = None,
     to_ts: datetime | None = None,
 ) -> dict[str, Any]:
-    """Realtime-буфер из памяти + история из PostgreSQL (`wsim_event`)."""
+    """
+    Realtime-буфер из памяти + история из PostgreSQL (`wsim_event`).
+
+    Фильтры и пагинация истории — в SQL (WHERE + ORDER BY seq DESC + OFFSET/LIMIT).
+    SENSOR_READING только в памяти: при их наличии в окно страницы подмешиваем
+    `LIMIT skip+limit` из БД и режем страницу после merge (иначе чистый OFFSET).
+    """
+    skip = max(0, int(skip))
+    limit = max(1, min(int(limit), 500))
+
     with rt._lock:
         memory_events = list(rt.world.get("events") or [])
     persist_new_sim_events(session, memory_events)
@@ -667,6 +1056,9 @@ def query_event_log(
                 device_id=device_id,
             )
         ]
+    # После persist несенсорные события уже в БД; memory-only — SENSOR_READING.
+    memory_only = [e for e in memory if e.get("type") == ev.SENSOR_READING]
+    sensor_count = len(memory_only)
 
     conditions = []
     if severity:
@@ -679,6 +1071,7 @@ def query_event_log(
             or_(SimEvent.message.ilike(needle), SimEvent.event_type.ilike(needle))
         )
     if device_id:
+        # @> — под GIN(jsonb_path_ops) / GIN(jsonb)
         conditions.append(SimEvent.payload.contains({"deviceId": device_id}))
     if from_ts is not None:
         conditions.append(SimEvent.occurred_at >= from_ts)
@@ -693,9 +1086,21 @@ def query_event_log(
         count_stmt = count_stmt.where(clause)
 
     db_count = int(session.exec(count_stmt).one() or 0)
-    fetch_limit = min(2000, skip + limit + max(len(memory), 50))
-    rows = list(session.exec(stmt.order_by(SimEvent.seq.desc()).limit(fetch_limit)).all())
+    ordered_stmt = stmt.order_by(SimEvent.seq.desc())
 
+    if not memory_only:
+        rows = list(
+            session.exec(ordered_stmt.offset(skip).limit(limit)).all()
+        )
+        page_events = [_row_to_event(row) for row in rows]
+        # Оверлей live-полей из memory по seq (те же id, что уже в БД).
+        by_id = {int(e["id"]): e for e in memory}
+        page_events = [by_id.get(int(e["id"]), e) for e in page_events]
+        ordered = annotate_event_orders(session, page_events)
+        return {"data": ordered, "count": db_count}
+
+    # Сенсоры сдвигают ранги: берём верх skip+limit из БД, merge, затем slice.
+    rows = list(session.exec(ordered_stmt.limit(skip + limit)).all())
     merged: dict[int, dict[str, Any]] = {}
     for row in rows:
         merged[int(row.seq)] = _row_to_event(row)
@@ -704,7 +1109,6 @@ def query_event_log(
     ordered = annotate_event_orders(
         session, sorted(merged.values(), key=lambda item: int(item["id"]), reverse=True)
     )
-    sensor_count = sum(1 for event in memory if event.get("type") == ev.SENSOR_READING)
     return {
         "data": ordered[skip : skip + limit],
         "count": db_count + sensor_count,

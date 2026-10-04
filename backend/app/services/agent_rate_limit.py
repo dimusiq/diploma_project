@@ -61,7 +61,8 @@ def _get_redis_pool() -> redis.ConnectionPool:
         with _redis_pool_lock:
             if _redis_pool is None:
                 _redis_pool = redis.ConnectionPool.from_url(
-                    settings.REDIS_URL, decode_responses=True  # type: ignore[arg-type]
+                    settings.REDIS_URL,
+                    decode_responses=True,  # type: ignore[arg-type]
                 )
     return _redis_pool
 

@@ -51,7 +51,7 @@ Read-модель занятости ячеек (проекция для twin/KP
 
 Чат-ассистент по складу: **`POST /api/v1/agent/chat`** (`{"message":"..."}`), **`GET /api/v1/agent/permissions`** (`can_use` для UI). Нужно право **`agent.use`** (по умолчанию у ролей admin, manager, warehouse, viewer). Лимит запросов: **`AGENT_CHAT_RATE_LIMIT_PER_MINUTE`** (по умолчанию 30/мин на пользователя; в памяти API-процесса, при **`REDIS_URL`** — через Redis). Контекст: агрегаты склада по правам, **RAG** из таблицы `agent_knowledge_chunk` (keyword; векторный поиск через **pgvector** при наличии колонки `embedding_vec` и эмбеддинга запроса; иначе JSONB/keyword), **инструмент** `search_items_in_warehouse` (read-only, с теми же границами, что у пользователя). Размерность эмбеддингов: **768** (`app/core/agent_vector.py`; модели см. **`VLLM_EMBED_MODEL`** / `LLM_EMBED_MODEL` / `OLLAMA_EMBED_MODEL`). LLM: **`VLLM_BASE_URL`** (приоритет), **`LLM_OPENAI_BASE_URL`**, **`OLLAMA_BASE_URL`**. Эмбеддинги: **`LLM_EMBEDDINGS_BASE_URL`** (опц.), **`LLM_EMBEDDING_API_STYLE`** `openai` | `ollama`. Без настроенного URL — текстовая сводка контекста (+ RAG keyword). Миграции: `alembic upgrade head`. Страница **`/assistant`** в меню видна только при `can_use`.
 
-**Слои AI-агента** (пакет **`app/agent`**, оркестрация — **`app/services/agent_chat.py`**): **LLM adapter** (`llm_adapter.py`) — OpenAI-совместимый `/v1/chat/completions` к **`VLLM_BASE_URL`** / **`LLM_OPENAI_BASE_URL`** / **`OLLAMA_BASE_URL`**; выбор модели по **`LlmTaskKind`** (`CHAT`, `REASONING` → опционально **`VLLM_REASONING_MODEL`** / `LLM_REASONING_MODEL` / **`OLLAMA_MODEL_REASONING`**, `EMBEDDING` → env эмбед-модели). **Policy** (`policy.py`) — системный промпт, подсказка формата ответа, **redaction** email/телефона перед LLM. **Tool registry** (`tool_registry.py`) — версии и схемы инструментов, проверка права на вызов (сейчас все tools завязаны на **`agent.use`**). **Planner** (`planner.py`) — цикл chat + tool_calls с лимитом **`AGENT_MAX_TOOL_STEPS`**, таймаут **`AGENT_LLM_TIMEOUT_SEC`**, обработка ошибок инструментов и откат, если модель не поддерживает tools (HTTP 400). **Memory** (`memory.py`) — сборка контекста склада + RAG (+ заготовка под сводку длинного диалога). **Trace / audit** (`trace.py`) — шаги прогона в логгер **`app.agent.audit`** (JSON); **evaluation** (`evaluation.py`) — заготовки под скоринг и offline benchmark. Фасад для старых импортов: **`app/services/agent_llm.py`**.
+**Слои AI-агента** (пакет **`app/agent`**, оркестрация — **`app/services/agent_chat.py`**): **LLM adapter** (`llm_adapter.py`) — OpenAI-совместимый `/v1/chat/completions` к **`VLLM_BASE_URL`** / **`LLM_OPENAI_BASE_URL`** / **`OLLAMA_BASE_URL`**; выбор модели по **`LlmTaskKind`** (`CHAT`, `REASONING` → опционально **`VLLM_REASONING_MODEL`** / `LLM_REASONING_MODEL` / **`OLLAMA_MODEL_REASONING`**, `EMBEDDING` → env эмбед-модели). **Policy** (`policy.py`) — системный промпт, подсказка формата ответа, **redaction** email/телефона перед LLM. **Tool registry** (`tool_registry.py`) — версии и схемы инструментов, проверка права на вызов (сейчас все tools завязаны на **`agent.use`**). **Planner** (`planner.py`) — цикл chat + tool_calls с лимитом **`AGENT_ORCHESTRATOR_MAX_STEPS`**, таймаут **`AGENT_LLM_TIMEOUT_SEC`**, обработка ошибок инструментов и откат, если модель не поддерживает tools (HTTP 400). **Memory** (`memory.py`) — сборка контекста склада + RAG (+ заготовка под сводку длинного диалога). **Trace / audit** (`trace.py`) — шаги прогона в логгер **`app.agent.audit`** (JSON). Фасад для старых импортов: **`app/services/agent_llm.py`**.
 
 **Reasoning / несколько моделей:** эмбеддинги — env эмбед-модели (RAG); основной цикл с tools — chat-модель из env (`VLLM_CHAT_MODEL` / …), либо отдельная **reasoning** модель (`VLLM_REASONING_MODEL` / `LLM_REASONING_MODEL` / `OLLAMA_MODEL_REASONING`); опционально **router** — `VLLM_ROUTER_MODEL` / `LLM_ROUTER_MODEL` / **`OLLAMA_MODEL_ROUTER`**. Структурированный trace: **`StructuredReasoningRun`** + запись в **`AgentTrace.internal_reasoning`** и лог **`app.agent.audit`**. Клиенту отдаётся **`public_reasoning`** (краткое объяснение, список tools, источники данных, итог, использованные модели) без полного CoT; полный trace — только **`include_reasoning_debug: true`** в **`POST /agent/chat`** и только **суперпользователь**.
 
@@ -177,11 +177,18 @@ docker compose watch
 
 ## The .env file
 
-The `.env` file is the one that contains all your configurations, generated keys and passwords, etc.
+Шаблон переменных — [`.env.example`](.env.example). Локально:
 
-Depending on your workflow, you could want to exclude it from Git, for example if your project is public. In that case, you would have to make sure to set up a way for your CI tools to obtain it while building or deploying your project.
+```bash
+cp .env.example .env
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
-One way to do it could be to add each environment variable to your CI/CD system, and updating the `docker-compose.yml` file to read that specific env var instead of reading the `.env` file.
+Файл `.env` в `.gitignore` (секреты не коммитить). CI копирует `.env.example` → `.env` перед `docker compose`.
+
+`changethis` для `SECRET_KEY` / `POSTGRES_PASSWORD` / `FIRST_SUPERUSER_PASSWORD` допустим только при `ENVIRONMENT=local` (warning). При `staging`/`production` `Settings` падает с `ValueError` (`backend/app/core/config.py`).
+
+Дубликаты ключей в `.env` запрещены: в dotenv побеждает последнее значение (раньше второй блок `POSTGRES_*` молча перекрывал первый).
 
 ## Pre-commits and code linting
 

@@ -9,7 +9,9 @@ from app.services.agent_chat import AgentChatOutcome
 
 
 def test_agent_chat_requires_auth(client: TestClient) -> None:
-    r = client.post(f"{settings.API_V1_STR}/agent/chat", json={"message": "Сколько товаров?"})
+    r = client.post(
+        f"{settings.API_V1_STR}/agent/chat", json={"message": "Сколько товаров?"}
+    )
     assert r.status_code in (401, 403)
 
 
@@ -119,11 +121,7 @@ def test_agent_chat_stream_fallback_without_llm(
     )
     assert r.status_code == 200
     assert "text/event-stream" in (r.headers.get("content-type") or "")
-    chunks = [
-        ln[6:]
-        for ln in r.text.splitlines()
-        if ln.startswith("data: ")
-    ]
+    chunks = [ln[6:] for ln in r.text.splitlines() if ln.startswith("data: ")]
     assert len(chunks) == 1
     payload = json.loads(chunks[0])
     assert payload["type"] == "done"

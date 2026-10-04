@@ -1,4 +1,5 @@
 """API склада запчастей (отдельная сущность, не Item)."""
+
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -11,8 +12,8 @@ from app.api.deps import CurrentUser, SessionDep
 from app.models import (
     SparePart,
     SparePartCreate,
-    SparePartsPublic,
     SparePartPublic,
+    SparePartsPublic,
     SparePartUpdate,
 )
 
@@ -26,7 +27,9 @@ def list_spare_parts(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     search: str | None = None,
-    below_min: bool = Query(False, description="Только позиции с остатком <= min_quantity (алерты)"),
+    below_min: bool = Query(
+        False, description="Только позиции с остатком <= min_quantity (алерты)"
+    ),
     sort_by: str | None = None,
     sort_order: str | None = None,
 ) -> Any:
@@ -60,7 +63,9 @@ def list_spare_parts(
             SparePart.quantity <= SparePart.min_quantity,
         )
 
-    _sort_by = sort_by if sort_by in ("title", "sku", "quantity", "created_at") else "title"
+    _sort_by = (
+        sort_by if sort_by in ("title", "sku", "quantity", "created_at") else "title"
+    )
     _sort_order = sort_order if sort_order in ("asc", "desc") else "asc"
     col = getattr(SparePart, _sort_by)
     statement = statement.order_by(col.desc() if _sort_order == "desc" else col.asc())
@@ -83,7 +88,9 @@ def _get_spare_part_or_404(session: SessionDep, id: uuid.UUID) -> SparePart:
 
 
 @router.get("/{id}", response_model=SparePartPublic)
-def get_spare_part(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
+def get_spare_part(
+    session: SessionDep, _current_user: CurrentUser, id: uuid.UUID
+) -> Any:
     return _get_spare_part_or_404(session, id)
 
 

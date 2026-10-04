@@ -1,24 +1,36 @@
 """
-Оркестрация read-инструментов в коде: план по intent (router) и ключевым словам,
-вызовы через registry, один проход генерации текста в vLLM без tool_calls.
+Тонкий адаптер code-оркестрации (флаг AGENT_CODE_ORCHESTRATION).
+
+План read-tools строится из единого tool_force_router.detect_tool_topics;
+боевой контур по умолчанию — LLM tool_calls (structured_orchestrator).
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
-import re
 from typing import Any
 
 from sqlmodel import Session
 
 from app.agent import llm_adapter
 from app.agent.answer_guardrails import apply_numeric_grounding_guardrail
-from app.agent.llm_adapter import LlmTaskKind, llm_inference_configured, resolve_llm_model
-from app.agent.policy import initial_messages
-from app.agent.reasoning_runtime import StructuredReasoningRun, main_loop_task_kind, run_router_intent
+from app.agent.llm_adapter import (
+    LlmTaskKind,
+    llm_inference_configured,
+    resolve_llm_model,
+)
+from app.agent.policy import initial_messages, redact_pii
+from app.agent.reasoning_runtime import (
+    StructuredReasoningRun,
+    main_loop_task_kind,
+    run_router_intent,
+)
+from app.agent.tool_force_router import detect_tool_topics
 from app.agent.tool_registry import invoke_tool
 from app.agent.tool_safety import AgentToolContext
 from app.agent.trace import AgentTrace
+from app.agent.untrusted import wrap_untrusted
 from app.agent.verify_tool_llm import summarize_tool_round_for_verifier
 from app.core.config import settings
 from app.models import User
@@ -33,90 +45,6 @@ _READ_EVENTS = "get_recent_events"
 _READ_ZONE = "list_zone_congestion"
 
 
-def _msg_lower(msg: str) -> str:
-    return (msg or "").lower()
-
-
-def _wants_maintenance(text: str) -> bool:
-    return bool(
-        re.search(
-            r"(то\b|т\.?\s*о\.?\b|техобслуж|моточас|просроч|календар|планов|maintenance|overdue)",
-            text,
-            re.I,
-        )
-    )
-
-
-def _wants_equipment(text: str) -> bool:
-    return bool(
-        re.search(
-            r"(техник|парк\s+тех|погрузчик|forklift|equipment|единиц.*тех|вкладк\w*\s+техник)",
-            text,
-            re.I,
-        )
-    )
-
-
-def _wants_inventory(text: str) -> bool:
-    return bool(
-        re.search(
-            r"(остат|запас|инвентар|sku|товар|складск|inventory|stock)",
-            text,
-            re.I,
-        )
-    )
-
-
-def _wants_layout(text: str) -> bool:
-    return bool(
-        re.search(
-            r"(тополог|layout|ячейк|слот|ряд|карт.*склад)",
-            text,
-            re.I,
-        )
-    )
-
-
-def _wants_tasks(text: str) -> bool:
-    return bool(
-        re.search(
-            r"(задач|задани|пикинг|отбор|warehouse.?task|tasks?\b)",
-            text,
-            re.I,
-        )
-    )
-
-
-def _wants_expiring(text: str) -> bool:
-    return bool(
-        re.search(
-            r"(срок\s+годност|годност|просрочен.*товар|expir)",
-            text,
-            re.I,
-        )
-    )
-
-
-def _wants_events(text: str) -> bool:
-    return bool(
-        re.search(
-            r"(событ|аудит|журнал|domain.?event|event\s+log)",
-            text,
-            re.I,
-        )
-    )
-
-
-def _wants_congestion(text: str) -> bool:
-    return bool(
-        re.search(
-            r"(загрузк|конгест|перегруж|congestion|зон.*загруз)",
-            text,
-            re.I,
-        )
-    )
-
-
 def _max_tools_cap() -> int:
     n = int(getattr(settings, "AGENT_CODE_ORCH_MAX_TOOLS", 5) or 5)
     return max(1, min(n, 10))
@@ -127,12 +55,14 @@ def _max_tool_chars() -> int:
     return max(2000, min(n, 100_000))
 
 
-def plan_read_tools(user_message: str, router: dict[str, Any] | None) -> list[tuple[str, dict[str, Any]]]:
+def plan_read_tools(
+    user_message: str, router: dict[str, Any] | None
+) -> list[tuple[str, dict[str, Any]]]:
     """
     Возвращает упорядоченный список (имя read-инструмента, аргументы).
-    Только инструменты из каталога с пустыми/простыми аргументами — без act/propose.
+    Темы — из tool_force_router.detect_tool_topics (единый контур).
     """
-    msg = _msg_lower(user_message)
+    topics = detect_tool_topics(user_message)
     intent = ""
     if router and isinstance(router.get("intent"), str):
         intent = str(router["intent"]).strip().lower()
@@ -148,39 +78,39 @@ def plan_read_tools(user_message: str, router: dict[str, Any] | None) -> list[tu
             return
         out.append((name, args))
 
-    def apply_keywords() -> None:
-        if _wants_inventory(msg):
+    def apply_topics(selected: frozenset[str]) -> None:
+        if "inventory" in selected:
             add(_READ_INV)
-        if _wants_tasks(msg):
+        if "tasks" in selected:
             add(_READ_TASKS, {"limit": 40})
-        if _wants_layout(msg):
+        if "layout" in selected:
             add(_READ_LAYOUT)
-        if _wants_congestion(msg):
+        if "congestion" in selected:
             add(_READ_ZONE, {"limit_rows": 15})
-        if _wants_equipment(msg):
+        if "equipment" in selected:
             add(_READ_EQUIPMENT, {"limit": 100})
-        if _wants_maintenance(msg):
+        if "maintenance" in selected:
             add(_READ_MAINT, {"limit": 50})
-        if _wants_expiring(msg):
+        if "expiring" in selected:
             add(_READ_EXPIRING, {"days": 30, "limit": 50})
-        if _wants_events(msg):
+        if "events" in selected:
             add(_READ_EVENTS, {"limit": 30})
 
     if intent == "inventory":
         add(_READ_INV)
-        if _wants_expiring(msg):
+        if "expiring" in topics:
             add(_READ_EXPIRING, {"days": 30, "limit": 50})
         return out
 
     if intent == "layout":
         add(_READ_LAYOUT)
-        if _wants_congestion(msg):
+        if "congestion" in topics:
             add(_READ_ZONE, {"limit_rows": 15})
         return out
 
     if intent == "equipment":
         add(_READ_EQUIPMENT, {"limit": 100})
-        if _wants_maintenance(msg):
+        if "maintenance" in topics:
             add(_READ_MAINT, {"limit": 50})
         return out
 
@@ -188,11 +118,7 @@ def plan_read_tools(user_message: str, router: dict[str, Any] | None) -> list[tu
         add(_READ_TASKS, {"limit": 40})
         return out
 
-    if intent in ("question", "other", ""):
-        apply_keywords()
-        return out
-
-    apply_keywords()
+    apply_topics(topics)
     return out
 
 
@@ -251,10 +177,12 @@ def _fallback_answer_from_tools(tool_payload: list[dict[str, Any]]) -> str:
                     eq_type = str(e.get("type") or "").strip()
                     best_name = model or eq_type or "единица техники"
             if best_hours is not None:
-                hours = int(best_hours) if isinstance(best_hours, int) or float(best_hours).is_integer() else best_hours
-                return (
-                    f"<answer>Максимум моточасов у техники «{best_name}»: {hours} ч.</answer>"
+                hours = (
+                    int(best_hours)
+                    if isinstance(best_hours, int) or float(best_hours).is_integer()
+                    else best_hours
                 )
+                return f"<answer>Максимум моточасов у техники «{best_name}»: {hours} ч.</answer>"
         total = d.get("total_units")
         summary = d.get("operational_status_summary")
         if isinstance(total, int):
@@ -291,9 +219,16 @@ def _fallback_answer_from_tools(tool_payload: list[dict[str, Any]]) -> str:
                 continue
             if best_hours is None or h > best_hours:
                 best_hours = h
-                best_name = str(e.get("equipment_name") or "единица техники").strip() or "единица техники"
+                best_name = (
+                    str(e.get("equipment_name") or "единица техники").strip()
+                    or "единица техники"
+                )
         if best_hours is not None:
-            hours = int(best_hours) if isinstance(best_hours, int) or float(best_hours).is_integer() else best_hours
+            hours = (
+                int(best_hours)
+                if isinstance(best_hours, int) or float(best_hours).is_integer()
+                else best_hours
+            )
             return f"<answer>Максимум моточасов у техники «{best_name}»: {hours} ч.</answer>"
 
     for row in tool_payload:
@@ -330,7 +265,9 @@ async def run_code_orchestrated_turn(
     if reasoning:
         reasoning.main_loop_task = loop_kind.value
         reasoning.models_used["main_loop"] = main_model
-        reasoning.models_used["embedding"] = resolve_llm_model(LlmTaskKind.EMBEDDING) or "(off)"
+        reasoning.models_used["embedding"] = (
+            resolve_llm_model(LlmTaskKind.EMBEDDING) or "(off)"
+        )
 
     router: dict[str, Any] | None = None
     if reasoning:
@@ -361,7 +298,15 @@ async def run_code_orchestrated_turn(
         if trace:
             trace.add_step("code_tool_invoke", tool=tool_name, args_preview=raw_s[:300])
         try:
-            result = invoke_tool(session, user, tool_name, raw_s, ctx=tool_ctx)
+            result = await asyncio.to_thread(
+                invoke_tool,
+                session,
+                user,
+                tool_name,
+                raw_s,
+                ctx=tool_ctx,
+                trace=trace,
+            )
         except Exception as e:
             if trace:
                 trace.add_step("tool_error", tool=tool_name, error=str(e))
@@ -374,8 +319,8 @@ async def run_code_orchestrated_turn(
             reasoning.tool_calls.append(
                 {
                     "name": tool_name,
-                    "args_preview": raw_s[:400],
-                    "result_preview": result[:500],
+                    "args_preview": redact_pii(raw_s)[:400],
+                    "result_preview": redact_pii(result)[:500],
                 }
             )
         tool_payload.append(
@@ -415,7 +360,7 @@ async def run_code_orchestrated_turn(
         messages[-1]["content"] += (
             "\n\nРезультаты автоматических запросов к данным (JSON). "
             "Используй только факты отсюда и из блока контекста выше; не выдумывай числа:\n"
-            + blob
+            + wrap_untrusted("tool_result_batch", blob, source="code_orchestrator")
         )
 
     if trace:
@@ -443,6 +388,8 @@ async def run_code_orchestrated_turn(
                 error=str(e)[:240],
             )
     if trace:
-        trace.add_step("conclude", detail="code_orchestration_response", chars=len(text or ""))
+        trace.add_step(
+            "conclude", detail="code_orchestration_response", chars=len(text or "")
+        )
         trace.add_step("finish", detail="assistant_text", rounds=1)
     return text

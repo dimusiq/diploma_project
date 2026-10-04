@@ -22,7 +22,9 @@ def test_emit_domain_event_creates_pending_outbox(db: Session) -> None:
         actor_user_id=None,
     )
     db.commit()
-    ob = db.exec(select(EventOutbox).where(EventOutbox.domain_event_id == ev.id)).first()
+    ob = db.exec(
+        select(EventOutbox).where(EventOutbox.domain_event_id == ev.id)
+    ).first()
     assert ob is not None
     assert ob.completed_at is None
 
@@ -47,7 +49,9 @@ def test_outbox_dispatch_writes_twin_projection(db: Session) -> None:
         if batch["batch_taken"] == 0:
             break
     assert stats["completed"] >= 1
-    row = db.exec(select(TwinProjectionEntry).where(TwinProjectionEntry.aggregate_id == aid)).first()
+    row = db.exec(
+        select(TwinProjectionEntry).where(TwinProjectionEntry.aggregate_id == aid)
+    ).first()
     assert row is not None
     assert row.event_type == EVENT_ITEM_CREATED
 
@@ -72,10 +76,18 @@ def test_outbox_dispatch_idempotent(db: Session) -> None:
                 break
 
     _drain()
-    n1 = len(db.exec(select(TwinProjectionEntry).where(TwinProjectionEntry.aggregate_id == aid)).all())
+    n1 = len(
+        db.exec(
+            select(TwinProjectionEntry).where(TwinProjectionEntry.aggregate_id == aid)
+        ).all()
+    )
     _drain()
     db.commit()
-    n2 = len(db.exec(select(TwinProjectionEntry).where(TwinProjectionEntry.aggregate_id == aid)).all())
+    n2 = len(
+        db.exec(
+            select(TwinProjectionEntry).where(TwinProjectionEntry.aggregate_id == aid)
+        ).all()
+    )
     assert n1 == n2 == 1
 
 

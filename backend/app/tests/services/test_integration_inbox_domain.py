@@ -30,7 +30,9 @@ def test_inbox_putaway_updates_item_slot_and_projections(db: Session) -> None:
     wh = db.exec(select(Warehouse)).first()
     assert user is not None and wh is not None
 
-    item = Item(title="inbox-domain-test", owner_id=user.id, status="incoming", quantity=1)
+    item = Item(
+        title="inbox-domain-test", owner_id=user.id, status="incoming", quantity=1
+    )
     db.add(item)
     db.commit()
     db.refresh(item)

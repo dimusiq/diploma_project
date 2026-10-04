@@ -61,11 +61,27 @@ KIND_FIELDS: dict[str, tuple[str, ...]] = {
     "dock_door": COMMON_FIELDS,
     "charger": COMMON_FIELDS,
     "radio_beacon": (*COMMON_FIELDS, "battery", "serialNumber"),
-    "smart_camera": (*COMMON_FIELDS, "serialNumber", "model", "resolution", "targetFps"),
+    "smart_camera": (
+        *COMMON_FIELDS,
+        "serialNumber",
+        "model",
+        "resolution",
+        "targetFps",
+    ),
 }
 
 CATEGORY_COLUMNS: dict[str, tuple[str, ...]] = {
-    "all": ("name", "code", "kind", "zone", "status", "task", "maintenance", "enabled", "actions"),
+    "all": (
+        "name",
+        "code",
+        "kind",
+        "zone",
+        "status",
+        "task",
+        "maintenance",
+        "enabled",
+        "actions",
+    ),
     "transport": (
         "name",
         "code",
@@ -81,7 +97,17 @@ CATEGORY_COLUMNS: dict[str, tuple[str, ...]] = {
     ),
     "scanner": ("name", "code", "kind", "zone", "status", "enabled", "actions"),
     "conveyor": ("name", "code", "zone", "status", "enabled", "actions"),
-    "sensor": ("name", "code", "subtype", "zone", "status", "value", "unit", "enabled", "actions"),
+    "sensor": (
+        "name",
+        "code",
+        "subtype",
+        "zone",
+        "status",
+        "value",
+        "unit",
+        "enabled",
+        "actions",
+    ),
     "gate": ("name", "code", "zone", "status", "enabled", "actions"),
     "charging": ("name", "code", "zone", "status", "enabled", "actions"),
     "personnel_bracelets": (
@@ -143,7 +169,12 @@ def equipment_catalog() -> dict[str, Any]:
     ]
     return {
         "categories": [
-            {**cat, "columns": list(CATEGORY_COLUMNS.get(cat["id"], CATEGORY_COLUMNS["all"]))}
+            {
+                **cat,
+                "columns": list(
+                    CATEGORY_COLUMNS.get(cat["id"], CATEGORY_COLUMNS["all"])
+                ),
+            }
             for cat in CATEGORIES
         ],
         "types": types,

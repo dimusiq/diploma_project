@@ -1,14 +1,14 @@
 """API заявок на обслуживание и ремонт техники (Work Order)."""
+
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
-
-from app.core.audit import get_client_ip, log_audit
 from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep
+from app.core.audit import get_client_ip, log_audit
 from app.models import (
     WORK_ORDER_PRIORITIES,
     WORK_ORDER_PRIORITY_MEDIUM,
@@ -117,7 +117,9 @@ def list_work_orders(
         count_statement = count_statement.where(WorkOrder.status == status)
     if assigned_to_id is not None:
         statement = statement.where(WorkOrder.assigned_to_id == assigned_to_id)
-        count_statement = count_statement.where(WorkOrder.assigned_to_id == assigned_to_id)
+        count_statement = count_statement.where(
+            WorkOrder.assigned_to_id == assigned_to_id
+        )
     if priority:
         statement = statement.where(WorkOrder.priority == priority)
         count_statement = count_statement.where(WorkOrder.priority == priority)
@@ -139,7 +141,9 @@ def list_work_orders(
         _work_order_to_public(
             session,
             wo,
-            assigned_to_email=users_map.get(wo.assigned_to_id) if wo.assigned_to_id else None,
+            assigned_to_email=users_map.get(wo.assigned_to_id)
+            if wo.assigned_to_id
+            else None,
         )
         for wo in orders
     ]
@@ -157,22 +161,32 @@ def list_work_order_events(
 ) -> Any:
     """События work order для календаря: пересечение start/end с диапазоном."""
     if to_dt <= from_dt:
-        raise HTTPException(status_code=400, detail="Параметр to должен быть больше from")
+        raise HTTPException(
+            status_code=400, detail="Параметр to должен быть больше from"
+        )
 
-    statement = select(WorkOrder).where(
-        WorkOrder.start_at.is_not(None),
-        WorkOrder.end_at.is_not(None),
-        WorkOrder.start_at < to_dt,
-        WorkOrder.end_at > from_dt,
-        WorkOrder.status != "canceled",
-    ).order_by(WorkOrder.start_at.asc())
+    statement = (
+        select(WorkOrder)
+        .where(
+            WorkOrder.start_at.is_not(None),
+            WorkOrder.end_at.is_not(None),
+            WorkOrder.start_at < to_dt,
+            WorkOrder.end_at > from_dt,
+            WorkOrder.status != "canceled",
+        )
+        .order_by(WorkOrder.start_at.asc())
+    )
 
-    count_statement = select(func.count()).select_from(WorkOrder).where(
-        WorkOrder.start_at.is_not(None),
-        WorkOrder.end_at.is_not(None),
-        WorkOrder.start_at < to_dt,
-        WorkOrder.end_at > from_dt,
-        WorkOrder.status != "canceled",
+    count_statement = (
+        select(func.count())
+        .select_from(WorkOrder)
+        .where(
+            WorkOrder.start_at.is_not(None),
+            WorkOrder.end_at.is_not(None),
+            WorkOrder.start_at < to_dt,
+            WorkOrder.end_at > from_dt,
+            WorkOrder.status != "canceled",
+        )
     )
 
     count = session.exec(count_statement).one()
@@ -188,7 +202,9 @@ def list_work_order_events(
         _work_order_to_public(
             session,
             wo,
-            assigned_to_email=users_map.get(wo.assigned_to_id) if wo.assigned_to_id else None,
+            assigned_to_email=users_map.get(wo.assigned_to_id)
+            if wo.assigned_to_id
+            else None,
         )
         for wo in orders
     ]
@@ -245,7 +261,11 @@ def create_work_order(
         action="work_order.create",
         resource_type="work_order",
         resource_id=wo.id,
-        details={"title": wo.title, "status": wo.status, "equipment_id": str(wo.equipment_id)},
+        details={
+            "title": wo.title,
+            "status": wo.status,
+            "equipment_id": str(wo.equipment_id),
+        },
         ip_address=get_client_ip(request),
     )
     session.commit()
@@ -325,7 +345,9 @@ def create_work_order_from_maintenance_event(
 
     # 3) Создаём work order.
     status = WORK_ORDER_STATUS_WAITING_PARTS if req_rows else WORK_ORDER_STATUS_OPEN
-    interval_suffix = f" ({body.interval_hours} м/ч)" if body.interval_hours is not None else ""
+    interval_suffix = (
+        f" ({body.interval_hours} м/ч)" if body.interval_hours is not None else ""
+    )
     title = body.title or f"ТО{interval_suffix}"
 
     wo = WorkOrder(
@@ -364,18 +386,27 @@ def create_work_order_from_maintenance_event(
     # 4) Резерв запчастей (с проверкой доступности остатков).
     if req_rows:
         spare_ids = {r.spare_part_id for r in req_rows}
-        spares = {
-            s.id: s
-            for s in session.exec(select(SparePart).where(SparePart.id.in_(spare_ids))).all()
-        } if spare_ids else {}
+        spares = (
+            {
+                s.id: s
+                for s in session.exec(
+                    select(SparePart).where(SparePart.id.in_(spare_ids))
+                ).all()
+            }
+            if spare_ids
+            else {}
+        )
 
         reserved_by_part: dict[uuid.UUID, int] = {}
         for sid in spare_ids:
-            total_reserved = session.exec(
-                select(func.coalesce(func.sum(WorkOrderPartReservation.quantity), 0)).where(
-                    WorkOrderPartReservation.spare_part_id == sid
-                )
-            ).one() or 0
+            total_reserved = (
+                session.exec(
+                    select(
+                        func.coalesce(func.sum(WorkOrderPartReservation.quantity), 0)
+                    ).where(WorkOrderPartReservation.spare_part_id == sid)
+                ).one()
+                or 0
+            )
             reserved_by_part[sid] = int(total_reserved)
 
         delta_reserved: dict[uuid.UUID, int] = {}
@@ -384,7 +415,9 @@ def create_work_order_from_maintenance_event(
             if part is None:
                 raise HTTPException(status_code=404, detail="Запчасть не найдена")
 
-            already_reserved = reserved_by_part.get(req.spare_part_id, 0) + delta_reserved.get(req.spare_part_id, 0)
+            already_reserved = reserved_by_part.get(
+                req.spare_part_id, 0
+            ) + delta_reserved.get(req.spare_part_id, 0)
             available = part.quantity - already_reserved
 
             if req.quantity > available:
@@ -404,7 +437,9 @@ def create_work_order_from_maintenance_event(
                     quantity=req.quantity,
                 )
             )
-            delta_reserved[req.spare_part_id] = delta_reserved.get(req.spare_part_id, 0) + req.quantity
+            delta_reserved[req.spare_part_id] = (
+                delta_reserved.get(req.spare_part_id, 0) + req.quantity
+            )
 
     log_audit(
         session,
@@ -412,7 +447,11 @@ def create_work_order_from_maintenance_event(
         action="work_order.create",
         resource_type="work_order",
         resource_id=wo.id,
-        details={"title": wo.title, "status": wo.status, "equipment_id": str(wo.equipment_id)},
+        details={
+            "title": wo.title,
+            "status": wo.status,
+            "equipment_id": str(wo.equipment_id),
+        },
         ip_address=get_client_ip(request),
     )
     session.commit()
@@ -457,7 +496,9 @@ def get_work_order(
             from_status=h.from_status,
             to_status=h.to_status,
             changed_by_id=h.changed_by_id,
-            changed_by_email=users.get(h.changed_by_id).email if users.get(h.changed_by_id) else None,
+            changed_by_email=users.get(h.changed_by_id).email
+            if users.get(h.changed_by_id)
+            else None,
             comment=h.comment,
             created_at=h.created_at,
         )
@@ -478,7 +519,9 @@ def get_work_order(
             id=c.id,
             work_order_id=c.work_order_id,
             user_id=c.user_id,
-            user_email=comment_users.get(c.user_id).email if comment_users.get(c.user_id) else None,
+            user_email=comment_users.get(c.user_id).email
+            if comment_users.get(c.user_id)
+            else None,
             body=c.body,
             created_at=c.created_at,
         )
@@ -489,7 +532,9 @@ def get_work_order(
         session.exec(
             select(WorkOrderChecklistItem)
             .where(WorkOrderChecklistItem.work_order_id == id)
-            .order_by(WorkOrderChecklistItem.sort_order.asc(), WorkOrderChecklistItem.id)
+            .order_by(
+                WorkOrderChecklistItem.sort_order.asc(), WorkOrderChecklistItem.id
+            )
         ).all()
     )
     attachments = list(
@@ -508,14 +553,27 @@ def get_work_order(
         ).all()
     )
     spare_ids_res = {r.spare_part_id for r in part_reservations}
-    spares_res = {s.id: s for s in session.exec(select(SparePart).where(SparePart.id.in_(spare_ids_res))).all()} if spare_ids_res else {}
+    spares_res = (
+        {
+            s.id: s
+            for s in session.exec(
+                select(SparePart).where(SparePart.id.in_(spare_ids_res))
+            ).all()
+        }
+        if spare_ids_res
+        else {}
+    )
     part_reservations_public = [
         WorkOrderPartReservationPublic(
             id=r.id,
             work_order_id=r.work_order_id,
             spare_part_id=r.spare_part_id,
-            spare_part_title=spares_res.get(r.spare_part_id).title if spares_res.get(r.spare_part_id) else None,
-            spare_part_sku=spares_res.get(r.spare_part_id).sku if spares_res.get(r.spare_part_id) else None,
+            spare_part_title=spares_res.get(r.spare_part_id).title
+            if spares_res.get(r.spare_part_id)
+            else None,
+            spare_part_sku=spares_res.get(r.spare_part_id).sku
+            if spares_res.get(r.spare_part_id)
+            else None,
             quantity=r.quantity,
             created_at=r.created_at,
         )
@@ -530,31 +588,61 @@ def get_work_order(
         ).all()
     )
     spare_ids_cons = {c.spare_part_id for c in part_consumptions}
-    spares_cons = {s.id: s for s in session.exec(select(SparePart).where(SparePart.id.in_(spare_ids_cons))).all()} if spare_ids_cons else {}
+    spares_cons = (
+        {
+            s.id: s
+            for s in session.exec(
+                select(SparePart).where(SparePart.id.in_(spare_ids_cons))
+            ).all()
+        }
+        if spare_ids_cons
+        else {}
+    )
     part_consumptions_public = [
         WorkOrderPartConsumptionPublic(
             id=c.id,
             work_order_id=c.work_order_id,
             spare_part_id=c.spare_part_id,
-            spare_part_title=spares_cons.get(c.spare_part_id).title if spares_cons.get(c.spare_part_id) else None,
-            spare_part_sku=spares_cons.get(c.spare_part_id).sku if spares_cons.get(c.spare_part_id) else None,
+            spare_part_title=spares_cons.get(c.spare_part_id).title
+            if spares_cons.get(c.spare_part_id)
+            else None,
+            spare_part_sku=spares_cons.get(c.spare_part_id).sku
+            if spares_cons.get(c.spare_part_id)
+            else None,
             quantity=c.quantity,
             consumed_at=c.consumed_at,
         )
         for c in part_consumptions
     ]
 
-    base = _work_order_to_public(session, wo, equipment_name_val=eq_name, assigned_to_email=assigned_email)
+    base = _work_order_to_public(
+        session, wo, equipment_name_val=eq_name, assigned_to_email=assigned_email
+    )
     return WorkOrderDetailPublic(
         **base.model_dump(),
         status_history=status_history_public,
         comments=comments_public,
-        checklist_items=[WorkOrderChecklistItemPublic(
-            id=c.id, work_order_id=c.work_order_id, title=c.title, sort_order=c.sort_order, completed=c.completed
-        ) for c in checklist],
-        attachments=[WorkOrderAttachmentPublic(
-            id=a.id, work_order_id=a.work_order_id, file_path=a.file_path, filename=a.filename, kind=a.kind, created_at=a.created_at
-        ) for a in attachments],
+        checklist_items=[
+            WorkOrderChecklistItemPublic(
+                id=c.id,
+                work_order_id=c.work_order_id,
+                title=c.title,
+                sort_order=c.sort_order,
+                completed=c.completed,
+            )
+            for c in checklist
+        ],
+        attachments=[
+            WorkOrderAttachmentPublic(
+                id=a.id,
+                work_order_id=a.work_order_id,
+                file_path=a.file_path,
+                filename=a.filename,
+                kind=a.kind,
+                created_at=a.created_at,
+            )
+            for a in attachments
+        ],
         part_reservations=part_reservations_public,
         part_consumptions=part_consumptions_public,
     )
@@ -576,14 +664,23 @@ def update_work_order(
     if "status" in update_data:
         if update_data["status"] not in WORK_ORDER_STATUSES:
             raise HTTPException(status_code=400, detail="Недопустимый статус")
-    if "priority" in update_data and update_data["priority"] not in WORK_ORDER_PRIORITIES:
+    if (
+        "priority" in update_data
+        and update_data["priority"] not in WORK_ORDER_PRIORITIES
+    ):
         raise HTTPException(status_code=400, detail="Недопустимый приоритет")
-    if body.assigned_to_id is not None and body.assigned_to_id and session.get(User, body.assigned_to_id) is None:
+    if (
+        body.assigned_to_id is not None
+        and body.assigned_to_id
+        and session.get(User, body.assigned_to_id) is None
+    ):
         raise HTTPException(status_code=400, detail="Исполнитель не найден")
 
     new_status = update_data.get("status", old_status)
 
-    should_check_conflicts = any(k in update_data for k in ("start_at", "end_at", "assigned_to_id"))
+    should_check_conflicts = any(
+        k in update_data for k in ("start_at", "end_at", "assigned_to_id")
+    )
     if should_check_conflicts:
         new_start_at = update_data.get("start_at", wo.start_at)
         new_end_at = update_data.get("end_at", wo.end_at)
@@ -642,7 +739,9 @@ def add_comment(
 ) -> Any:
     """Добавить комментарий к заявке."""
     wo = _get_work_order(session, id)
-    comment = WorkOrderComment(work_order_id=wo.id, user_id=current_user.id, body=body.body[:4096])
+    comment = WorkOrderComment(
+        work_order_id=wo.id, user_id=current_user.id, body=body.body[:4096]
+    )
     session.add(comment)
     session.commit()
     session.refresh(comment)
@@ -657,16 +756,29 @@ def add_comment(
 
 
 @router.get("/{id}/checklist", response_model=list[WorkOrderChecklistItemPublic])
-def get_checklist(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
+def get_checklist(
+    session: SessionDep, _current_user: CurrentUser, id: uuid.UUID
+) -> Any:
     wo = _get_work_order(session, id)
     items = list(
         session.exec(
             select(WorkOrderChecklistItem)
             .where(WorkOrderChecklistItem.work_order_id == wo.id)
-            .order_by(WorkOrderChecklistItem.sort_order.asc(), WorkOrderChecklistItem.id)
+            .order_by(
+                WorkOrderChecklistItem.sort_order.asc(), WorkOrderChecklistItem.id
+            )
         ).all()
     )
-    return [WorkOrderChecklistItemPublic(id=i.id, work_order_id=i.work_order_id, title=i.title, sort_order=i.sort_order, completed=i.completed) for i in items]
+    return [
+        WorkOrderChecklistItemPublic(
+            id=i.id,
+            work_order_id=i.work_order_id,
+            title=i.title,
+            sort_order=i.sort_order,
+            completed=i.completed,
+        )
+        for i in items
+    ]
 
 
 @router.post("/{id}/checklist", response_model=WorkOrderChecklistItemPublic)
@@ -690,7 +802,13 @@ def add_checklist_item(
     session.add(item)
     session.commit()
     session.refresh(item)
-    return WorkOrderChecklistItemPublic(id=item.id, work_order_id=item.work_order_id, title=item.title, sort_order=item.sort_order, completed=item.completed)
+    return WorkOrderChecklistItemPublic(
+        id=item.id,
+        work_order_id=item.work_order_id,
+        title=item.title,
+        sort_order=item.sort_order,
+        completed=item.completed,
+    )
 
 
 @router.patch("/{id}/checklist/{item_id}", response_model=WorkOrderChecklistItemPublic)
@@ -715,7 +833,13 @@ def update_checklist_item(
     session.add(item)
     session.commit()
     session.refresh(item)
-    return WorkOrderChecklistItemPublic(id=item.id, work_order_id=item.work_order_id, title=item.title, sort_order=item.sort_order, completed=item.completed)
+    return WorkOrderChecklistItemPublic(
+        id=item.id,
+        work_order_id=item.work_order_id,
+        title=item.title,
+        sort_order=item.sort_order,
+        completed=item.completed,
+    )
 
 
 @router.delete("/{id}/checklist/{item_id}", response_model=dict)
@@ -743,7 +867,11 @@ def add_attachment(
 ) -> Any:
     """Добавить вложение (file_path — путь/URL после загрузки файла)."""
     wo = _get_work_order(session, id)
-    kind = body.kind if body.kind in ("before_photo", "after_photo", "attachment") else "attachment"
+    kind = (
+        body.kind
+        if body.kind in ("before_photo", "after_photo", "attachment")
+        else "attachment"
+    )
     att = WorkOrderAttachment(
         work_order_id=wo.id,
         file_path=body.file_path[:1024],
@@ -753,11 +881,20 @@ def add_attachment(
     session.add(att)
     session.commit()
     session.refresh(att)
-    return WorkOrderAttachmentPublic(id=att.id, work_order_id=att.work_order_id, file_path=att.file_path, filename=att.filename, kind=att.kind, created_at=att.created_at)
+    return WorkOrderAttachmentPublic(
+        id=att.id,
+        work_order_id=att.work_order_id,
+        file_path=att.file_path,
+        filename=att.filename,
+        kind=att.kind,
+        created_at=att.created_at,
+    )
 
 
 # --- Резерв и списание запчастей по заявке ---
-@router.get("/{id}/part-reservations", response_model=list[WorkOrderPartReservationPublic])
+@router.get(
+    "/{id}/part-reservations", response_model=list[WorkOrderPartReservationPublic]
+)
 def list_part_reservations(
     session: SessionDep,
     _current_user: CurrentUser,
@@ -773,14 +910,27 @@ def list_part_reservations(
         ).all()
     )
     spare_ids = {r.spare_part_id for r in reservations}
-    spares = {s.id: s for s in session.exec(select(SparePart).where(SparePart.id.in_(spare_ids))).all()} if spare_ids else {}
+    spares = (
+        {
+            s.id: s
+            for s in session.exec(
+                select(SparePart).where(SparePart.id.in_(spare_ids))
+            ).all()
+        }
+        if spare_ids
+        else {}
+    )
     return [
         WorkOrderPartReservationPublic(
             id=r.id,
             work_order_id=r.work_order_id,
             spare_part_id=r.spare_part_id,
-            spare_part_title=spares.get(r.spare_part_id).title if spares.get(r.spare_part_id) else None,
-            spare_part_sku=spares.get(r.spare_part_id).sku if spares.get(r.spare_part_id) else None,
+            spare_part_title=spares.get(r.spare_part_id).title
+            if spares.get(r.spare_part_id)
+            else None,
+            spare_part_sku=spares.get(r.spare_part_id).sku
+            if spares.get(r.spare_part_id)
+            else None,
             quantity=r.quantity,
             created_at=r.created_at,
         )
@@ -800,11 +950,14 @@ def add_part_reservation(
     part = session.get(SparePart, body.spare_part_id)
     if not part:
         raise HTTPException(status_code=404, detail="Запчасть не найдена")
-    total_reserved = session.exec(
-        select(func.coalesce(func.sum(WorkOrderPartReservation.quantity), 0)).where(
-            WorkOrderPartReservation.spare_part_id == body.spare_part_id
-        )
-    ).one() or 0
+    total_reserved = (
+        session.exec(
+            select(func.coalesce(func.sum(WorkOrderPartReservation.quantity), 0)).where(
+                WorkOrderPartReservation.spare_part_id == body.spare_part_id
+            )
+        ).one()
+        or 0
+    )
     available = part.quantity - total_reserved
     if body.quantity > available:
         raise HTTPException(
@@ -874,8 +1027,7 @@ def add_part_consumption(
     part.quantity -= body.quantity
     session.add(part)
     reservation = session.exec(
-        select(WorkOrderPartReservation)
-        .where(
+        select(WorkOrderPartReservation).where(
             WorkOrderPartReservation.work_order_id == wo.id,
             WorkOrderPartReservation.spare_part_id == body.spare_part_id,
         )

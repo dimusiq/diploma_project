@@ -33,7 +33,9 @@ QUIET = {
 }
 
 
-def _mobile(device_id: str, kind: str, x: float, z: float, goal_x: float, speed: float = 1.5) -> dict:
+def _mobile(
+    device_id: str, kind: str, x: float, z: float, goal_x: float, speed: float = 1.5
+) -> dict:
     return {
         "id": device_id,
         "kind": kind,
@@ -55,7 +57,13 @@ def _mobile(device_id: str, kind: str, x: float, z: float, goal_x: float, speed:
 
 def test_vehicle_moves_at_expected_speed() -> None:
     device = _mobile("agv-1", "agv", 0.0, 0.0, 100.0, speed=2.0)
-    world = {"devices": [device], "workers": [], "tasks": [], "timeSec": 0.0, "topology": {"racks": []}}
+    world = {
+        "devices": [device],
+        "workers": [],
+        "tasks": [],
+        "timeSec": 0.0,
+        "topology": {"racks": []},
+    }
     for _ in range(50):
         advance_along_path(device, 1.0, world)
     assert abs(device["pos"]["x"] - 100.0) < 0.05
@@ -65,7 +73,13 @@ def test_vehicle_moves_at_expected_speed() -> None:
 def test_vehicle_changes_waypoint() -> None:
     device = _mobile("agv-1", "agv", 0.0, 0.0, 10.0, speed=10.0)
     device["path"] = [{"x": 6.0, "z": 0.0}, {"x": 16.0, "z": 0.0}]
-    world = {"devices": [device], "workers": [], "tasks": [], "timeSec": 0.0, "topology": {"racks": []}}
+    world = {
+        "devices": [device],
+        "workers": [],
+        "tasks": [],
+        "timeSec": 0.0,
+        "topology": {"racks": []},
+    }
     advance_along_path(device, 1.0, world)
     assert device["path"] == [{"x": 16.0, "z": 0.0}]
     assert abs(device["pos"]["x"] - 10.0) < 0.05
@@ -156,14 +170,20 @@ def test_person_has_deterministic_path() -> None:
     assert left["target"] == "receiving"
     assert left["path"] == right["path"]
     assert left["pos"] == right["pos"]
-    assert [worker["code"] for worker in first["workers"]] == ["PERSON-001", "PERSON-002", "PERSON-003"]
+    assert [worker["code"] for worker in first["workers"]] == [
+        "PERSON-001",
+        "PERSON-002",
+        "PERSON-003",
+    ]
 
 
 def test_person_position_changes_with_time() -> None:
     world = create_world(QUIET)
     start = dict(world["workers"][0]["pos"])
     advance_world(world, 8.0)
-    moved = abs(world["workers"][0]["pos"]["x"] - start["x"]) + abs(world["workers"][0]["pos"]["z"] - start["z"])
+    moved = abs(world["workers"][0]["pos"]["x"] - start["x"]) + abs(
+        world["workers"][0]["pos"]["z"] - start["z"]
+    )
     assert moved > 4.0
     assert world["workers"][0]["status"] == "walking"
 
@@ -304,10 +324,14 @@ def test_pause_freezes_people_and_vehicles() -> None:
     agv["path"] = [{"x": agv["pos"]["x"] + 40.0, "z": agv["pos"]["z"]}]
     advance_world(world, 3.0)
     people = deepcopy([worker["pos"] for worker in world["workers"]])
-    devices = deepcopy([device["pos"] for device in world["devices"] if device["kind"] == "agv"])
+    devices = deepcopy(
+        [device["pos"] for device in world["devices"] if device["kind"] == "agv"]
+    )
     step_world(world, 0.0)
     assert [worker["pos"] for worker in world["workers"]] == people
-    assert [device["pos"] for device in world["devices"] if device["kind"] == "agv"] == devices
+    assert [
+        device["pos"] for device in world["devices"] if device["kind"] == "agv"
+    ] == devices
 
 
 def test_simulation_speed_affects_people_and_vehicles_equally() -> None:
@@ -319,7 +343,9 @@ def test_simulation_speed_affects_people_and_vehicles_equally() -> None:
         agv["path"] = [{"x": 90.0, "z": AISLE_Z[8]}]
         person = dict(world["workers"][0]["pos"])
         advance_world(world, seconds)
-        moved_person = abs(world["workers"][0]["pos"]["x"] - person["x"]) + abs(world["workers"][0]["pos"]["z"] - person["z"])
+        moved_person = abs(world["workers"][0]["pos"]["x"] - person["x"]) + abs(
+            world["workers"][0]["pos"]["z"] - person["z"]
+        )
         moved_agv = abs(agv["pos"]["x"] - 30.0)
         return moved_person, moved_agv
 
@@ -336,8 +362,14 @@ def test_reset_returns_deterministic_positions() -> None:
     advanced = create_world(QUIET)
     advance_world(advanced, 6.0)
     restored = create_world(QUIET)
-    assert [worker["pos"] for worker in restored["workers"]] == [worker["pos"] for worker in original["workers"]]
-    assert [device["pos"] for device in restored["devices"]] == [device["pos"] for device in original["devices"]]
-    assert [worker["pos"] for worker in advanced["workers"]] != [worker["pos"] for worker in original["workers"]]
+    assert [worker["pos"] for worker in restored["workers"]] == [
+        worker["pos"] for worker in original["workers"]
+    ]
+    assert [device["pos"] for device in restored["devices"]] == [
+        device["pos"] for device in original["devices"]
+    ]
+    assert [worker["pos"] for worker in advanced["workers"]] != [
+        worker["pos"] for worker in original["workers"]
+    ]
     assert traffic_snapshot(restored)
     assert people_snapshot(restored)

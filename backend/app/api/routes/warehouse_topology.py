@@ -26,14 +26,20 @@ router = APIRouter(prefix="/warehouse", tags=["warehouse"])
 
 
 def _active_layout(session: Session) -> WarehouseLayout:
-    row = session.exec(select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))).first()
+    row = session.exec(
+        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+    ).first()
     if not row:
-        raise HTTPException(status_code=404, detail="Активная конфигурация склада не найдена")
+        raise HTTPException(
+            status_code=404, detail="Активная конфигурация склада не найдена"
+        )
     return row
 
 
 @router.get("/topology", response_model=TopologyDocument)
-def read_warehouse_topology(session: SessionDep, _current_user: CurrentUser) -> TopologyDocument:
+def read_warehouse_topology(
+    session: SessionDep, _current_user: CurrentUser
+) -> TopologyDocument:
     """Текущая топология или шаблон по числовому spec layout (если topology ещё не задана)."""
     layout = _active_layout(session)
     spec = layout.spec if isinstance(layout.spec, dict) else {}
@@ -55,7 +61,9 @@ def put_warehouse_topology(
 ) -> TopologyDocument:
     """Сохранить топологию в spec (канонический schema-driven JSON v1)."""
     layout = _active_layout(session)
-    parsed = parse_warehouse_layout_spec(layout.spec if isinstance(layout.spec, dict) else {})
+    parsed = parse_warehouse_layout_spec(
+        layout.spec if isinstance(layout.spec, dict) else {}
+    )
     parsed.topology = body
     layout.spec = canonical_spec_dict(parsed)
     layout.spec_schema_version = parsed.schema_version

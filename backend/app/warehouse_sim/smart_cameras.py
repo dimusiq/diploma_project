@@ -8,7 +8,6 @@ wsim_smart_camera_assignment. Runtime vision (detections / cameraHold) живё�
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -25,6 +24,7 @@ from app.warehouse_sim.models import (
     SimDevice,
     SimSmartCameraAssignment,
 )
+from app.warehouse_sim.timeutil import iso_utc, utcnow
 from app.warehouse_sim.vision.service import camera_spec, public_camera
 
 KIND_SMART_CAMERA = "smart_camera"
@@ -58,18 +58,6 @@ DEMO_CAMERA_SPECS = (
         "z": 14.0,
     },
 )
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _iso(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.isoformat().replace("+00:00", "Z")
 
 
 def is_smart_camera(row: SimDevice) -> bool:
@@ -144,7 +132,9 @@ def active_assignments_by_camera(
     if camera_ids is not None:
         if not camera_ids:
             return {}
-        stmt = stmt.where(col(SimSmartCameraAssignment.camera_device_id).in_(camera_ids))
+        stmt = stmt.where(
+            col(SimSmartCameraAssignment.camera_device_id).in_(camera_ids)
+        )
     rows = list(session.exec(stmt).all())
     return {row.camera_device_id: row for row in rows}
 
@@ -210,14 +200,22 @@ def camera_payload(
         "device_id": str(camera.id),
         "code": camera.code,
         "name": camera.name,
-        "status": device_status_label(camera, host_rt if host_rt.get("camera") else None),
-        "online": bool((cam_public or {}).get("online")) if cam_public else device_status_label(camera) == "online",
-        "fps": (cam_public or {}).get("fps") or meta.get("targetFps") or meta.get("fps") or 0,
+        "status": device_status_label(
+            camera, host_rt if host_rt.get("camera") else None
+        ),
+        "online": bool((cam_public or {}).get("online"))
+        if cam_public
+        else device_status_label(camera) == "online",
+        "fps": (cam_public or {}).get("fps")
+        or meta.get("targetFps")
+        or meta.get("fps")
+        or 0,
         "detection_count": (cam_public or {}).get("detection_count") or 0,
-        "last_signal_at": (cam_public or {}).get("last_frame_at") or meta.get("lastSignalAt"),
+        "last_signal_at": (cam_public or {}).get("last_frame_at")
+        or meta.get("lastSignalAt"),
         "model": meta.get("model") or (cam_public or {}).get("model") or "Scene camera",
         "resolution": meta.get("resolution"),
-        "assigned_at": _iso(link.assigned_at),
+        "assigned_at": iso_utc(link.assigned_at),
         "host": {
             "id": str(host.id),
             "code": host.code,
@@ -238,7 +236,9 @@ def host_payload(session: Session, camera: SimDevice) -> dict[str, Any] | None:
         "id": str(host.id),
         "code": host.code,
         "name": host.name,
-        "kind": str((host.meta or {}).get("kind") or TYPE_TO_KIND.get(host.device_type) or ""),
+        "kind": str(
+            (host.meta or {}).get("kind") or TYPE_TO_KIND.get(host.device_type) or ""
+        ),
     }
 
 
@@ -260,7 +260,9 @@ def assign_smart_camera(
         raise HTTPException(status_code=409, detail="Техника архивирована")
     camera = get_device_row(session, camera_id)
     if not is_smart_camera(camera):
-        raise HTTPException(status_code=400, detail="Устройство не является умной камерой")
+        raise HTTPException(
+            status_code=400, detail="Устройство не является умной камерой"
+        )
     if camera.archived:
         raise HTTPException(status_code=409, detail="Камера архивирована")
     if not camera.enabled:
@@ -281,7 +283,7 @@ def assign_smart_camera(
     assignment = SimSmartCameraAssignment(
         camera_device_id=camera.id,
         host_device_id=host.id,
-        assigned_at=_utcnow(),
+        assigned_at=utcnow(),
         assigned_by_user_id=user_id,
         previous_camera_id=previous_camera_id,
         notes=notes,
@@ -305,7 +307,7 @@ def unassign_smart_camera(
     assignment = active_assignment_for_host(session, host.id)
     if assignment is None:
         return None
-    assignment.unassigned_at = _utcnow()
+    assignment.unassigned_at = utcnow()
     session.add(assignment)
     session.flush()
     return assignment
@@ -323,7 +325,7 @@ def replace_smart_camera(
     if current is not None:
         if current.camera_device_id == new_camera_id:
             return current
-        current.unassigned_at = _utcnow()
+        current.unassigned_at = utcnow()
         session.add(current)
         session.flush()
     return assign_smart_camera(
@@ -361,10 +363,12 @@ def enrich_fleet_payload(
                 payload["smart_camera"]["runtime"] = rt_cam
                 payload["smart_camera"]["online"] = bool(rt_cam.get("online"))
                 payload["smart_camera"]["fps"] = rt_cam.get("fps") or 0
-                payload["smart_camera"]["detection_count"] = rt_cam.get("detection_count") or 0
-                payload["smart_camera"]["last_signal_at"] = rt_cam.get("last_frame_at") or payload[
-                    "smart_camera"
-                ].get("last_signal_at")
+                payload["smart_camera"]["detection_count"] = (
+                    rt_cam.get("detection_count") or 0
+                )
+                payload["smart_camera"]["last_signal_at"] = rt_cam.get(
+                    "last_frame_at"
+                ) or payload["smart_camera"].get("last_signal_at")
                 if rt_cam.get("camera_code"):
                     payload["smart_camera"]["code"] = rt_cam["camera_code"]
     if is_smart_camera(row):
@@ -473,7 +477,9 @@ def sync_runtime_camera_links(session: Session, world: dict[str, Any]) -> None:
             # Не трогаем hardcoded demo-камеру юнит-тестов без UUID-привязки,
             # если устройство ещё не из persistent fleet.
             if host_uuid and isinstance(device.get("camera"), dict):
-                if device["camera"].get("deviceUuid") or device["camera"].get("fromAssignment"):
+                if device["camera"].get("deviceUuid") or device["camera"].get(
+                    "fromAssignment"
+                ):
                     apply_camera_to_host(device, camera_row=None, installed=False)
             elif host_uuid:
                 # Persistent host без назначения — камера не установлена.
@@ -491,7 +497,7 @@ def apply_camera_positions(world: dict[str, Any]) -> None:
     if not links:
         return
     devices = world.get("deviceById") or {}
-    now_iso = _iso(_utcnow())
+    now_iso = iso_utc(utcnow())
     for link in links:
         host = devices.get(link.get("hostId") or "")
         camera = devices.get(link.get("cameraId") or "")
@@ -514,7 +520,7 @@ def ensure_demo_smart_cameras(session: Session, warehouse_id: uuid.UUID) -> None
     from app.warehouse_sim.fleet import KIND_TO_TYPE, persist_meta
     from app.warehouse_sim.world import create_device
 
-    now = _utcnow()
+    now = utcnow()
     for spec in DEMO_CAMERA_SPECS:
         row = session.exec(
             select(SimDevice).where(

@@ -256,9 +256,7 @@ def build_header_index(header_row: list[Any]) -> dict[str, int]:
     return index
 
 
-def row_to_field_dict(
-    row: list[Any], header_index: dict[str, int]
-) -> dict[str, str]:
+def row_to_field_dict(row: list[Any], header_index: dict[str, int]) -> dict[str, str]:
     out: dict[str, str] = {}
     for field, col in header_index.items():
         if col < len(row):

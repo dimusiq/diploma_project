@@ -95,7 +95,9 @@ class TwinRealtimeSurface(BaseModel):
         ]
     )
     websocket_path: str = "/api/v1/twin/ws"
-    replay: str = "in-memory ring buffer per process + optional seconds replay on connect"
+    replay: str = (
+        "in-memory ring buffer per process + optional seconds replay on connect"
+    )
 
 
 class TwinStateOperationalDb(BaseModel):
@@ -239,7 +241,9 @@ class IntelligenceToolRuntime(BaseModel):
     policy: str = "AgentPolicy code=tool_execution (deny_tools, allow_act_tools, …)"
     sandbox_flag: str = "AGENT_SANDBOX_MODE; act без подтверждения блокируется"
     audit_log: str = "JSON в логгер app.agent.tools (run_id, actor, preview in/out)"
-    approval_queue: str = "agent_pending_action; исполнение act — суперпользователь, sandbox off"
+    approval_queue: str = (
+        "agent_pending_action; исполнение act — суперпользователь, sandbox off"
+    )
 
 
 class IntelligenceRagMemory(BaseModel):
@@ -303,7 +307,9 @@ class IntegrationLayerStatusResponse(BaseModel):
     version: str = "1"
 
 
-def build_integration_layer_status(settings: Settings) -> IntegrationLayerStatusResponse:
+def build_integration_layer_status(
+    settings: Settings,
+) -> IntegrationLayerStatusResponse:
     redis_on = bool(settings.REDIS_URL and str(settings.REDIS_URL).strip())
     redis_usage: list[str] = []
     if redis_on:
@@ -314,7 +320,9 @@ def build_integration_layer_status(settings: Settings) -> IntegrationLayerStatus
             ]
         )
 
-    bus_pattern: Literal["none", "redis_auxiliary", "postgres_outbox", "hybrid_postgres_redis"]
+    bus_pattern: Literal[
+        "none", "redis_auxiliary", "postgres_outbox", "hybrid_postgres_redis"
+    ]
     if redis_on:
         bus_pattern = "hybrid_postgres_redis"
     else:

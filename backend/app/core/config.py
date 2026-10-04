@@ -1,4 +1,3 @@
-import secrets
 import warnings
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -172,8 +171,6 @@ class Settings(BaseSettings):
     AGENT_CHAT_RATE_LIMIT_PER_MINUTE: int = 30
     # При сбое Redis в rate limit: memory — in-memory счётчик; reject — HTTP 503.
     AGENT_RL_REDIS_FAILOVER: Literal["memory", "reject"] = "memory"
-    # Цикл агента (observe → reason → act → verify → conclude); верхняя граница раундов LLM+tools (legacy-режим).
-    AGENT_MAX_TOOL_STEPS: int = 5
     # True: выбор read-инструментов в Python; False (по умолчанию): классический цикл vLLM + tool_choice auto.
     AGENT_CODE_ORCHESTRATION: bool = False
     # Роль developer в chat/completions (OpenAI-стиль). False — объединить с system (совместимость с vLLM без роли developer).
@@ -211,8 +208,6 @@ class Settings(BaseSettings):
     AGENT_VERIFY_LLM_PASS: bool = False
     # Воркер: интервал опроса agent_orchestration_job (сек).
     AGENT_ORCHESTRATION_POLL_SEC: float = 30.0
-    # Воркер: публикация pending integration_inbox в twin telemetry (сек).
-    AGENT_INBOX_TWIN_PULSE_SEC: float = 90.0
     # Обработка integration_inbox → домен + domain_event + проекции (воркер).
     INTEGRATION_INBOX_DOMAIN_ENABLED: bool = True
     INTEGRATION_INBOX_DOMAIN_POLL_SEC: float = 5.0

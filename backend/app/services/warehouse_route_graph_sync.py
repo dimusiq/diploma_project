@@ -44,7 +44,9 @@ def _topology_for_layout(layout: WarehouseLayout) -> TopologyDocument:
     return default_topology_from_layout_spec(spec)
 
 
-def sync_route_graph_from_topology(session: Session, layout: WarehouseLayout) -> dict[str, int]:
+def sync_route_graph_from_topology(
+    session: Session, layout: WarehouseLayout
+) -> dict[str, int]:
     """
     Перезаписывает граф маршрутов для данной ревизии layout по текущей топологии в spec.
 
@@ -56,12 +58,16 @@ def sync_route_graph_from_topology(session: Session, layout: WarehouseLayout) ->
     topo = _topology_for_layout(layout)
 
     edges_del = list(
-        session.exec(select(RouteEdge).where(RouteEdge.warehouse_layout_id == lid)).all()
+        session.exec(
+            select(RouteEdge).where(RouteEdge.warehouse_layout_id == lid)
+        ).all()
     )
     for e in edges_del:
         session.delete(e)
     nodes_del = list(
-        session.exec(select(RouteNode).where(RouteNode.warehouse_layout_id == lid)).all()
+        session.exec(
+            select(RouteNode).where(RouteNode.warehouse_layout_id == lid)
+        ).all()
     )
     for n in nodes_del:
         session.delete(n)

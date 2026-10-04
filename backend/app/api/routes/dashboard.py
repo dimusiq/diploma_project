@@ -26,7 +26,9 @@ def get_dashboard_stats(session: SessionDep, current_user: CurrentUser) -> Any:
         total_items = session.exec(select(func.count()).select_from(Item)).one()
     else:
         total_items = session.exec(
-            select(func.count()).select_from(Item).where(Item.owner_id == current_user.id)
+            select(func.count())
+            .select_from(Item)
+            .where(Item.owner_id == current_user.id)
         ).one()
 
     # Items by status (with permission)
@@ -155,7 +157,10 @@ def get_dashboard_trends(
     # Shipped: from ItemHistory where field_name='status' and new_value='shipped'
     if can_see_all_items(session, current_user):
         shipped_stmt = (
-            select(date_expr_hist.label("period"), func.count(ItemHistory.id).label("count"))
+            select(
+                date_expr_hist.label("period"),
+                func.count(ItemHistory.id).label("count"),
+            )
             .where(
                 ItemHistory.field_name == "status",
                 ItemHistory.new_value == "shipped",
@@ -167,7 +172,10 @@ def get_dashboard_trends(
         )
     else:
         shipped_stmt = (
-            select(date_expr_hist.label("period"), func.count(ItemHistory.id).label("count"))
+            select(
+                date_expr_hist.label("period"),
+                func.count(ItemHistory.id).label("count"),
+            )
             .join(Item, ItemHistory.item_id == Item.id)
             .where(
                 Item.owner_id == current_user.id,
@@ -183,13 +191,19 @@ def get_dashboard_trends(
 
     def _serialize_period(period: Any) -> str:
         if hasattr(period, "isoformat"):
-            return period.isoformat()[:10] if isinstance(period, datetime) else str(period)
+            return (
+                period.isoformat()[:10] if isinstance(period, datetime) else str(period)
+            )
         return str(period)
 
     return {
         "from": from_date.isoformat(),
         "to": to_date.isoformat(),
         "group_by": group_by,
-        "incoming": [{"period": _serialize_period(p), "count": c} for p, c in incoming_rows],
-        "shipped": [{"period": _serialize_period(p), "count": c} for p, c in shipped_rows],
+        "incoming": [
+            {"period": _serialize_period(p), "count": c} for p, c in incoming_rows
+        ],
+        "shipped": [
+            {"period": _serialize_period(p), "count": c} for p, c in shipped_rows
+        ],
     }

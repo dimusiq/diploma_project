@@ -222,7 +222,8 @@ def chat_completion_400_implies_tools_unsupported(response: httpx.Response) -> b
 
     # vLLM / строгие прокси: repetition_penalty или лишние поля
     if "repetition" in h and any(
-        x in h for x in ("invalid", "unknown", "unexpected", "not support", "unsupported")
+        x in h
+        for x in ("invalid", "unknown", "unexpected", "not support", "unsupported")
     ):
         return True
 

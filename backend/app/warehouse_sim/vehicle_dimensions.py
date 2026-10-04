@@ -34,12 +34,18 @@ VEHICLE_PHYSICAL_DIMENSIONS: dict[str, dict[str, float]] = {
     "reach_truck": {"width": 0.70, "length": 1.46, "safetyMargin": SAFETY_CLEARANCE},
     "order_picker": {"width": 0.70, "length": 1.14, "safetyMargin": SAFETY_CLEARANCE},
     "pallet_jack": {"width": 0.33, "length": 1.20, "safetyMargin": SAFETY_CLEARANCE},
-    "electric_pallet_jack": {"width": 0.42, "length": 1.28, "safetyMargin": SAFETY_CLEARANCE},
+    "electric_pallet_jack": {
+        "width": 0.42,
+        "length": 1.28,
+        "safetyMargin": SAFETY_CLEARANCE,
+    },
 }
 
 MAX_VEHICLE_KIND = "agv"
 MAX_VEHICLE_WIDTH = max(item["width"] for item in VEHICLE_PHYSICAL_DIMENSIONS.values())
-MAX_VEHICLE_LENGTH = max(item["length"] for item in VEHICLE_PHYSICAL_DIMENSIONS.values())
+MAX_VEHICLE_LENGTH = max(
+    item["length"] for item in VEHICLE_PHYSICAL_DIMENSIONS.values()
+)
 
 # Две одинаковые машины бок о бок. Каждая занимает свою полную ширину.
 # clearanceLeft и clearanceRight — зазор до стеллажа.

@@ -24,7 +24,10 @@ def test_integration_layer_status_ok(
     cons = data["domain_outbox"]["consumer_names"]
     assert "twin_timeline" in cons
     assert "slot_occupancy_sync" in cons
-    assert data["integration_inbox"]["downstream_processing"] == "domain_pipeline_outbox_projections"
+    assert (
+        data["integration_inbox"]["downstream_processing"]
+        == "domain_pipeline_outbox_projections"
+    )
     ts = data["twin_state_layer"]
     assert ts["operational_db"]["engine"] == "postgresql"
     assert ts["event_store"]["primary_table"] == "domain_event"
@@ -34,7 +37,10 @@ def test_integration_layer_status_ok(
     il = data["intelligence_layer"]
     assert "reasoning_llm" in il
     assert isinstance(il["reasoning_llm"]["llm_inference_configured"], bool)
-    assert il["optimization_analytics"]["slotting_optimization"]["implementation"] == "none"
+    assert (
+        il["optimization_analytics"]["slotting_optimization"]["implementation"]
+        == "none"
+    )
     og = data["observability_governance_layer"]
     assert og["policy_registry"]["status"] == "active"
     assert og["rbac_abac"]["status"] == "partial"

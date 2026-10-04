@@ -15,8 +15,8 @@ from typing import Any
 
 from sqlmodel import Session, select
 
+from app.agent.contracts import AgentToolContext, ToolSafetyClass
 from app.agent.tool_catalog import CatalogTool
-from app.agent.tool_safety import AgentToolContext, ToolSafetyClass
 from app.models import AgentPolicy, User
 
 DEFAULT_TOOL_POLICY: dict[str, Any] = {
@@ -31,7 +31,9 @@ DEFAULT_TOOL_POLICY: dict[str, Any] = {
 
 def load_tool_execution_policy(session: Session) -> dict[str, Any]:
     out = dict(DEFAULT_TOOL_POLICY)
-    row = session.exec(select(AgentPolicy).where(AgentPolicy.code == "tool_execution")).first()
+    row = session.exec(
+        select(AgentPolicy).where(AgentPolicy.code == "tool_execution")
+    ).first()
     if row is not None and isinstance(row.rules, dict):
         out.update(row.rules)
     return out
@@ -60,9 +62,7 @@ def policy_denial_message(
     if spec.safety != ToolSafetyClass.ACT:
         return None
 
-    real_act = bool(
-        ctx is not None and ctx.can_execute_act() and not ctx.sandbox
-    )
+    real_act = bool(ctx is not None and ctx.can_execute_act() and not ctx.sandbox)
     if not real_act:
         return None
 
@@ -70,13 +70,19 @@ def policy_denial_message(
         return "Реальные act-операции разрешены только суперпользователю (политика)"
 
     allow_list = pol.get("allow_act_tools")
-    if isinstance(allow_list, list) and len(allow_list) > 0 and tool_name not in allow_list:
+    if (
+        isinstance(allow_list, list)
+        and len(allow_list) > 0
+        and tool_name not in allow_list
+    ):
         return "Инструмент не входит в allow_act_tools политики"
 
     return None
 
 
-def policy_denial_json(session: Session, user: User, tool_name: str, spec: CatalogTool, ctx: Any) -> str | None:
+def policy_denial_json(
+    session: Session, user: User, tool_name: str, spec: CatalogTool, ctx: Any
+) -> str | None:
     msg = policy_denial_message(session, user, tool_name, spec, ctx)
     if msg is None:
         return None

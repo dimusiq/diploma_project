@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from app.warehouse_sim import events as ev
 from app.warehouse_sim.rng import rand_pick
-from app.warehouse_sim.simulation import emergency_stop, emit, inject_fault, is_mobile_kind
+from app.warehouse_sim.simulation import (
+    emergency_stop,
+    emit,
+    inject_fault,
+    is_mobile_kind,
+)
 
 SCENARIO_DEFS = [
     {
@@ -80,7 +85,9 @@ def apply_scenario(world: dict, code: str) -> dict:
         mobiles = [
             d
             for d in world["devices"]
-            if is_mobile_kind(d["kind"]) and d["online"] and d["status"] not in ("fault", "offline")
+            if is_mobile_kind(d["kind"])
+            and d["online"]
+            and d["status"] not in ("fault", "offline")
         ]
         if mobiles:
             inject_fault(world, rand_pick(world, mobiles), "сценарий EQUIPMENT_FAILURE")

@@ -4,17 +4,16 @@ from __future__ import annotations
 
 from sqlmodel import Session
 
+from app.agent.answer_guardrails import apply_numeric_grounding_guardrail
+from app.agent.contracts import AgentToolContext
 from app.agent.llm_adapter import (
     LlmTaskKind,
     chat_completion_text_only,
     llm_inference_configured,
-    ollama_configured,
 )
-from app.agent.answer_guardrails import apply_numeric_grounding_guardrail
 from app.agent.planner import run_chat_with_tools
 from app.agent.policy import DEVELOPER_PROMPT_RU, SYSTEM_PROMPT_RU, initial_messages
 from app.agent.reasoning_runtime import StructuredReasoningRun
-from app.agent.tool_safety import AgentToolContext
 from app.agent.trace import AgentTrace
 from app.models import User
 
@@ -23,28 +22,19 @@ __all__ = [
     "SYSTEM_PROMPT_RU",
     "complete_with_llm",
     "complete_with_llm_tools",
-    "complete_with_ollama",
-    "complete_with_ollama_tools",
     "llm_inference_configured",
-    "ollama_configured",
 ]
 
 
 async def complete_with_llm(*, context_block: str, user_message: str) -> str:
     if not llm_inference_configured():
         raise RuntimeError("LLM inference is not configured (VLLM_BASE_URL / …)")
-    messages = initial_messages(
-        context_block=context_block, user_message=user_message
-    )
+    messages = initial_messages(context_block=context_block, user_message=user_message)
     text = await chat_completion_text_only(
         messages=messages,
         task_kind=LlmTaskKind.CHAT,
     )
     return apply_numeric_grounding_guardrail(text, messages)
-
-
-async def complete_with_ollama(*, context_block: str, user_message: str) -> str:
-    return await complete_with_llm(context_block=context_block, user_message=user_message)
 
 
 async def complete_with_llm_tools(
@@ -65,25 +55,4 @@ async def complete_with_llm_tools(
         trace=trace,
         tool_ctx=tool_ctx,
         reasoning=reasoning_run,
-    )
-
-
-async def complete_with_ollama_tools(
-    *,
-    session: Session,
-    user: User,
-    context_block: str,
-    user_message: str,
-    trace: AgentTrace | None = None,
-    tool_ctx: AgentToolContext | None = None,
-    reasoning_run: StructuredReasoningRun | None = None,
-) -> str:
-    return await complete_with_llm_tools(
-        session=session,
-        user=user,
-        context_block=context_block,
-        user_message=user_message,
-        trace=trace,
-        tool_ctx=tool_ctx,
-        reasoning_run=reasoning_run,
     )

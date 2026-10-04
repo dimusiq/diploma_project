@@ -103,7 +103,9 @@ def _opt_uuid(val: Any) -> uuid.UUID | None:
     return uuid.UUID(str(val))
 
 
-def handle_inventory_typed(session: Session, row: IntegrationInbox, event_type: str) -> Any:
+def handle_inventory_typed(
+    session: Session, row: IntegrationInbox, event_type: str
+) -> Any:
     raw = dict(row.payload or {})
     raw.setdefault("schema_version", 1)
     inv = normalize_event_payload(event_type, 1, raw, strict_typed_events=True)
@@ -235,7 +237,9 @@ def handle_equipment_battery(session: Session, row: IntegrationInbox) -> Any:
     )
 
 
-def handle_task_lifecycle(session: Session, row: IntegrationInbox, event_type: str) -> Any:
+def handle_task_lifecycle(
+    session: Session, row: IntegrationInbox, event_type: str
+) -> Any:
     raw = dict(row.payload or {})
     raw.setdefault("schema_version", 1)
     t = normalize_event_payload(event_type, 1, raw, strict_typed_events=True)

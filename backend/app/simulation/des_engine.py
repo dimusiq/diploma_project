@@ -152,8 +152,12 @@ def run_discrete_event_simulation(cfg: SimulationConfig) -> SimulationResult:
             if start > horizon:
                 break
             putaway_queue.popleft()
-            base = cfg.mean_putaway_duration_min * _putaway_factor(cfg.putaway_rule, rng)
-            dur = max(0.5, base * cfg.layout_travel_scale) + cfg.sandbox_extra_putaway_min
+            base = cfg.mean_putaway_duration_min * _putaway_factor(
+                cfg.putaway_rule, rng
+            )
+            dur = (
+                max(0.5, base * cfg.layout_travel_scale) + cfg.sandbox_extra_putaway_min
+            )
             end = start + dur
             fk_next[fi] = end
             acc.fk_busy_min += dur
@@ -170,7 +174,9 @@ def run_discrete_event_simulation(cfg: SimulationConfig) -> SimulationResult:
                 break
             pick_queue.popleft()
             sigma = 0.3
-            mu = math.log(max(0.4, cfg.mean_pick_duration_min * cfg.layout_travel_scale))
+            mu = math.log(
+                max(0.4, cfg.mean_pick_duration_min * cfg.layout_travel_scale)
+            )
             mu += math.log(max(0.25, cfg.layout_travel_scale)) * 0.15
             dur = max(0.3, rng.lognormvariate(mu, sigma))
             end = start + dur
@@ -246,7 +252,9 @@ def run_discrete_event_simulation(cfg: SimulationConfig) -> SimulationResult:
                 push(t + next_exp(cfg.replenishment_trips_per_hour), "replen_arrive")
                 continue
             sigma = 0.35
-            mu = math.log(max(0.5, cfg.mean_replenishment_min * cfg.layout_travel_scale))
+            mu = math.log(
+                max(0.5, cfg.mean_replenishment_min * cfg.layout_travel_scale)
+            )
             dur = max(1.0, rng.lognormvariate(mu, sigma))
             end = start + dur
             fk_next[fi] = end
@@ -274,16 +282,24 @@ def run_discrete_event_simulation(cfg: SimulationConfig) -> SimulationResult:
         mean_pick_wait_min=mean(acc.pick_waits),
         mean_pick_path_proxy_min=mean(acc.pick_durations),
         mean_replenishment_cycle_min=mean(acc.repl_cycles),
-        forklift_utilization=round(min(1.0, acc.fk_busy_min / fk_cap), 4) if fk_cap else 0.0,
-        operator_utilization=round(min(1.0, acc.op_busy_min / op_cap), 4) if op_cap else 0.0,
-        dock_utilization=round(min(1.0, acc.dock_service_min / dock_cap), 4) if dock_cap else 0.0,
+        forklift_utilization=round(min(1.0, acc.fk_busy_min / fk_cap), 4)
+        if fk_cap
+        else 0.0,
+        operator_utilization=round(min(1.0, acc.op_busy_min / op_cap), 4)
+        if op_cap
+        else 0.0,
+        dock_utilization=round(min(1.0, acc.dock_service_min / dock_cap), 4)
+        if dock_cap
+        else 0.0,
         otif_proxy=round(
             max(0.0, min(1.0, 1.0 - acc.late_picks / acc.total_picks)),
             4,
         )
         if acc.total_picks
         else 1.0,
-        late_pick_fraction=round(acc.late_picks / acc.total_picks, 4) if acc.total_picks else 0.0,
+        late_pick_fraction=round(acc.late_picks / acc.total_picks, 4)
+        if acc.total_picks
+        else 0.0,
         events_processed=acc.events,
     )
     return SimulationResult(

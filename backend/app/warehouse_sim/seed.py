@@ -3,24 +3,18 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
+from app.warehouse_sim.fleet import KIND_TO_TYPE as DEVICE_KIND_TO_TYPE
 from app.warehouse_sim.layout import (
     ZONE_STORAGE as LAYOUT_STORAGE,
+)
+from app.warehouse_sim.layout import (
     build_cells,
     build_topology,
 )
 from app.warehouse_sim.models import (
-    DEVICE_AGV,
-    DEVICE_AMR,
-    DEVICE_CHARGING_STATION,
-    DEVICE_CONVEYOR,
-    DEVICE_DOCK,
-    DEVICE_FORKLIFT,
-    DEVICE_SCANNER,
-    DEVICE_SENSOR,
     DEVICE_STATUS_IDLE,
     DEVICE_STATUS_ONLINE,
     DOCK_RECEIVING,
@@ -42,11 +36,13 @@ from app.warehouse_sim.models import (
     SimZone,
 )
 from app.warehouse_sim.scenarios import SCENARIO_DEFS
+from app.warehouse_sim.timeutil import utcnow
 from app.warehouse_sim.world import SKUS, create_world
 
 logger = logging.getLogger(__name__)
 
-KIND_TO_TYPE = {
+# Виды зон топологии → ZONE_* (не путать с fleet.KIND_TO_TYPE для устройств).
+ZONE_KIND_TO_TYPE = {
     "receiving": ZONE_RECEIVING,
     "storage": ZONE_STORAGE,
     "picking": ZONE_PICKING,
@@ -54,20 +50,12 @@ KIND_TO_TYPE = {
     "shipping": ZONE_SHIPPING,
     "charging": ZONE_CHARGING,
 }
-DEVICE_KIND_TO_TYPE = {
-    "agv": DEVICE_AGV,
-    "amr": DEVICE_AMR,
-    "forklift": DEVICE_FORKLIFT,
-    "scanner": DEVICE_SCANNER,
-    "sensor": DEVICE_SENSOR,
-    "conveyor": DEVICE_CONVEYOR,
-    "dock_door": DEVICE_DOCK,
-    "charger": DEVICE_CHARGING_STATION,
-}
 
 
 def seed_if_empty(session: Session) -> None:
-    existing = session.exec(select(SimWarehouse).where(SimWarehouse.code == "DEMO")).first()
+    existing = session.exec(
+        select(SimWarehouse).where(SimWarehouse.code == "DEMO")
+    ).first()
     if existing is None:
         _seed_warehouse(session)
         logger.info("Warehouse Device Server: seeded DEMO layout")
@@ -112,7 +100,7 @@ def _seed_scenarios(session: Session) -> None:
 
 
 def _seed_warehouse(session: Session) -> None:
-    now = datetime.now(timezone.utc)
+    now = utcnow()
     topology = build_topology()
     world = create_world()
     wh = SimWarehouse(
@@ -133,7 +121,7 @@ def _seed_warehouse(session: Session) -> None:
             warehouse_id=wh.id,
             code=zone["code"],
             name=zone["name"],
-            zone_type=KIND_TO_TYPE.get(zone["kind"], ZONE_STORAGE),
+            zone_type=ZONE_KIND_TO_TYPE.get(zone["kind"], ZONE_STORAGE),
             x=zone["x"],
             y=zone["z"],
             width=zone["w"],
@@ -208,13 +196,19 @@ def _seed_warehouse(session: Session) -> None:
             )
 
     for dock in topology["docks"]:
-        zid = zone_rows["zone-recv"].id if dock["direction"] == "inbound" else zone_rows["zone-ship"].id
+        zid = (
+            zone_rows["zone-recv"].id
+            if dock["direction"] == "inbound"
+            else zone_rows["zone-ship"].id
+        )
         session.add(
             SimDock(
                 warehouse_id=wh.id,
                 zone_id=zid,
                 code=dock["code"],
-                dock_type=DOCK_RECEIVING if dock["direction"] == "inbound" else DOCK_SHIPPING,
+                dock_type=DOCK_RECEIVING
+                if dock["direction"] == "inbound"
+                else DOCK_SHIPPING,
                 x=dock["pos"]["x"],
                 y=dock["pos"]["z"],
                 yard_x=dock["yardPos"]["x"],
@@ -235,7 +229,9 @@ def _seed_warehouse(session: Session) -> None:
                     "device_type": dtype,
                     "enabled": True,
                     "archived": False,
-                    "status": DEVICE_STATUS_IDLE if device["status"] == "idle" else DEVICE_STATUS_ONLINE,
+                    "status": DEVICE_STATUS_IDLE
+                    if device["status"] == "idle"
+                    else DEVICE_STATUS_ONLINE,
                     "battery": device["battery"],
                     "x": device["pos"]["x"],
                     "y": device["pos"]["z"],

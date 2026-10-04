@@ -15,7 +15,16 @@ class NormPoint(BaseModel):
     z: float = Field(ge=0, le=1)
 
 
-StorageZoneType = Literal["storage", "staging", "buffer", "dock_area", "cross_dock", "receiving", "shipping", "other"]
+StorageZoneType = Literal[
+    "storage",
+    "staging",
+    "buffer",
+    "dock_area",
+    "cross_dock",
+    "receiving",
+    "shipping",
+    "other",
+]
 AisleKind = Literal["main", "cross", "feeder"]
 DockType = Literal["inbound", "outbound", "cross"]
 

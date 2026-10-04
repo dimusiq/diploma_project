@@ -2,6 +2,7 @@
 Хелпер для создания уведомлений. Вызывается из генераторов (cron, обработчики API).
 Дедупликация и cooldown — при необходимости реализовать в вызывающем коде.
 """
+
 import json
 import math
 import uuid
@@ -48,7 +49,9 @@ LOW_SPARE_PARTS_TYPE = "low_spare_parts"
 WORK_ORDER_ASSIGNED_TYPE = "work_order_assigned"
 
 
-def _in_app_enabled(session: "Session", user_id: uuid.UUID, notification_type: str) -> bool:
+def _in_app_enabled(
+    session: "Session", user_id: uuid.UUID, notification_type: str
+) -> bool:
     """Возвращает, включён ли данный тип уведомлений в приложении для пользователя (дефолт: True)."""
     row = session.exec(
         select(UserCommunicationPreference)
@@ -79,7 +82,9 @@ def _default_interval(session: "Session") -> int:
 def _interval_for_equipment(session: "Session", equipment_id: uuid.UUID) -> int:
     """Интервал ТО (м/ч) для единицы техники: первый шаг цепочки или default."""
     assignment = session.exec(
-        select(ChainAssignment).where(ChainAssignment.equipment_id == equipment_id).limit(1)
+        select(ChainAssignment)
+        .where(ChainAssignment.equipment_id == equipment_id)
+        .limit(1)
     ).first()
     if not assignment:
         return _default_interval(session)
@@ -107,7 +112,9 @@ def _get_overdue_equipment(session: "Session") -> list[Equipment]:
     return result
 
 
-def ensure_overdue_maintenance_notification(session: "Session", user_id: uuid.UUID) -> None:
+def ensure_overdue_maintenance_notification(
+    session: "Session", user_id: uuid.UUID
+) -> None:
     """
     Для каждой единицы техники с просроченным ТО создаёт уведомление единожды: только если
     по этой технике для этого пользователя ещё не создавали уведомление (никакое, в любой момент).
@@ -245,9 +252,9 @@ def ensure_twin_notifications(session: "Session", user_id: uuid.UUID) -> None:
     user = session.get(User, user_id)
     if not user:
         return
-    if not _in_app_enabled(session, user_id, TWIN_ROW_CONGESTED_TYPE) and not _in_app_enabled(
-        session, user_id, TWIN_HIGH_UTILIZATION_TYPE
-    ):
+    if not _in_app_enabled(
+        session, user_id, TWIN_ROW_CONGESTED_TYPE
+    ) and not _in_app_enabled(session, user_id, TWIN_HIGH_UTILIZATION_TYPE):
         return
 
     snap = build_twin_summary_dict(session, user)
@@ -290,12 +297,7 @@ def ensure_twin_notifications(session: "Session", user_id: uuid.UUID) -> None:
     if _in_app_enabled(session, user_id, TWIN_HIGH_UTILIZATION_TYPE):
         ratio = snap.get("slot_utilization_ratio")
         cap = snap.get("layout_capacity_cells")
-        if (
-            ratio is not None
-            and cap
-            and int(cap) > 0
-            and float(ratio) >= util_min
-        ):
+        if ratio is not None and cap and int(cap) > 0 and float(ratio) >= util_min:
             ent_id = uuid.uuid5(uuid.NAMESPACE_URL, f"twin-util/{user_id}")
             existing = session.exec(
                 select(Notification).where(
@@ -327,7 +329,9 @@ def ensure_twin_notifications(session: "Session", user_id: uuid.UUID) -> None:
         publish_notifications_updated(user_id)
 
 
-def ensure_overdue_work_orders_notification(session: "Session", user_id: uuid.UUID) -> None:
+def ensure_overdue_work_orders_notification(
+    session: "Session", user_id: uuid.UUID
+) -> None:
     """
     Для каждого наряда с просроченным сроком (due_at < now, статус не done/canceled)
     создаёт критическое уведомление. Дедупликация по user_id + type + entity_id.
@@ -338,7 +342,9 @@ def ensure_overdue_work_orders_notification(session: "Session", user_id: uuid.UU
     overdue = session.exec(
         select(WorkOrder).where(
             WorkOrder.due_at < now,
-            WorkOrder.status.notin_([WORK_ORDER_STATUS_DONE, WORK_ORDER_STATUS_CANCELED]),
+            WorkOrder.status.notin_(
+                [WORK_ORDER_STATUS_DONE, WORK_ORDER_STATUS_CANCELED]
+            ),
         )
     ).all()
     if not overdue:

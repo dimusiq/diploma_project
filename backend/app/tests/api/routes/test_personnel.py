@@ -4,7 +4,13 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import ROLE_MANAGER, ROLE_VIEWER, ROLE_WAREHOUSE, AuditLog, WarehouseEmployee
+from app.models import (
+    ROLE_MANAGER,
+    ROLE_VIEWER,
+    ROLE_WAREHOUSE,
+    AuditLog,
+    WarehouseEmployee,
+)
 from app.tests.api.routes.test_warehouse_sim import _headers_for_role
 
 PREFIX = f"{settings.API_V1_STR}/personnel"
@@ -32,14 +38,18 @@ def test_personnel_crud_and_delete(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
     code = f"EMP-T{uuid.uuid4().hex[:6].upper()}"
-    created = client.post(f"{PREFIX}/", headers=superuser_token_headers, json=_payload(code))
+    created = client.post(
+        f"{PREFIX}/", headers=superuser_token_headers, json=_payload(code)
+    )
     assert created.status_code == 200, created.text
     employee_id = created.json()["id"]
     assert created.json()["employee_code"] == code
     assert created.json()["status"] == "working"
     assert created.json()["status_until"] is None
 
-    listed = client.get(f"{PREFIX}/", headers=superuser_token_headers, params={"q": code})
+    listed = client.get(
+        f"{PREFIX}/", headers=superuser_token_headers, params={"q": code}
+    )
     assert listed.status_code == 200
     assert listed.json()["count"] == 1
 
@@ -59,7 +69,11 @@ def test_personnel_crud_and_delete(
 
     db.expire_all()
     actions = set(
-        db.exec(select(AuditLog.action).where(AuditLog.resource_id == uuid.UUID(employee_id))).all()
+        db.exec(
+            select(AuditLog.action).where(
+                AuditLog.resource_id == uuid.UUID(employee_id)
+            )
+        ).all()
     )
     assert "worker.create" in actions
     assert "worker.update" in actions
@@ -86,7 +100,9 @@ def test_personnel_rbac(client: TestClient, db: Session) -> None:
     assert blocked.status_code == 403
 
     code = f"EMP-M{uuid.uuid4().hex[:6].upper()}"
-    created = client.post(f"{PREFIX}/", headers=manager, json=_payload(code, email=None))
+    created = client.post(
+        f"{PREFIX}/", headers=manager, json=_payload(code, email=None)
+    )
     assert created.status_code == 200, created.text
 
 
@@ -148,7 +164,9 @@ def test_personnel_status_rules(
     assert cleared.json()["status"] == "working"
     assert cleared.json()["status_until"] is None
 
-    listed = client.get(f"{PREFIX}/", headers=headers, params={"q": vacation_code, "status": "working"})
+    listed = client.get(
+        f"{PREFIX}/", headers=headers, params={"q": vacation_code, "status": "working"}
+    )
     assert listed.status_code == 200
     assert listed.json()["count"] == 1
 

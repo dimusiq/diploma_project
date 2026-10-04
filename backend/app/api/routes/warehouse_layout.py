@@ -45,7 +45,9 @@ class ForkWarehouseLayoutBody(BaseModel):
     source_layout_id: uuid.UUID | None = None
 
 
-def _sync_warehouses_active_layout(session: SessionDep, layout: WarehouseLayout) -> None:
+def _sync_warehouses_active_layout(
+    session: SessionDep, layout: WarehouseLayout
+) -> None:
     """Обновляет Warehouse.active_layout_id в соответствии с активной ревизией."""
     now = datetime.now(timezone.utc)
     if layout.warehouse_id is not None:
@@ -62,14 +64,20 @@ def _sync_warehouses_active_layout(session: SessionDep, layout: WarehouseLayout)
 
 
 def _active_layout_row(session: SessionDep) -> WarehouseLayout:
-    row = session.exec(select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))).first()
+    row = session.exec(
+        select(WarehouseLayout).where(WarehouseLayout.is_active.is_(True))
+    ).first()
     if not row:
-        raise HTTPException(status_code=404, detail="Активная конфигурация склада не найдена")
+        raise HTTPException(
+            status_code=404, detail="Активная конфигурация склада не найдена"
+        )
     return row
 
 
 def warehouse_layout_to_public(row: WarehouseLayout) -> WarehouseLayoutPublic:
-    spec_parsed = parse_warehouse_layout_spec(row.spec if isinstance(row.spec, dict) else {})
+    spec_parsed = parse_warehouse_layout_spec(
+        row.spec if isinstance(row.spec, dict) else {}
+    )
     return WarehouseLayoutPublic(
         id=row.id,
         code=row.code,
@@ -85,7 +93,9 @@ def warehouse_layout_to_public(row: WarehouseLayout) -> WarehouseLayoutPublic:
 
 
 @router.get("/layout", response_model=WarehouseLayoutPublic)
-def read_active_warehouse_layout(session: SessionDep, _current_user: CurrentUser) -> Any:
+def read_active_warehouse_layout(
+    session: SessionDep, _current_user: CurrentUser
+) -> Any:
     """Текущий активный layout (spec — плоский JSON с schema_version и валидированной геометрией)."""
     return warehouse_layout_to_public(_active_layout_row(session))
 
@@ -156,7 +166,9 @@ def publish_warehouse_layout(
     if not row:
         raise HTTPException(status_code=404, detail="Layout не найден")
     if row.lifecycle_status != LAYOUT_LIFECYCLE_DRAFT:
-        raise HTTPException(status_code=400, detail="Опубликовать можно только черновик")
+        raise HTTPException(
+            status_code=400, detail="Опубликовать можно только черновик"
+        )
     now = datetime.now(timezone.utc)
     row.lifecycle_status = LAYOUT_LIFECYCLE_PUBLISHED
     row.published_at = now
@@ -203,7 +215,9 @@ def activate_warehouse_layout(
     if not row:
         raise HTTPException(status_code=404, detail="Layout не найден")
     if row.lifecycle_status != LAYOUT_LIFECYCLE_PUBLISHED:
-        raise HTTPException(status_code=400, detail="Активировать можно только опубликованную ревизию")
+        raise HTTPException(
+            status_code=400, detail="Активировать можно только опубликованную ревизию"
+        )
     now = datetime.now(timezone.utc)
 
     scope = select(WarehouseLayout)
@@ -354,7 +368,9 @@ def archive_warehouse_layout(
     if not row:
         raise HTTPException(status_code=404, detail="Layout не найден")
     if row.is_active:
-        raise HTTPException(status_code=400, detail="Сначала активируйте другую ревизию")
+        raise HTTPException(
+            status_code=400, detail="Сначала активируйте другую ревизию"
+        )
     row.lifecycle_status = LAYOUT_LIFECYCLE_ARCHIVED
     session.add(row)
     session.commit()
@@ -444,7 +460,8 @@ def read_warehouse_occupancy(session: SessionDep, current_user: CurrentUser) -> 
     rows = list(session.exec(stmt).all())
     return WarehouseOccupancyResponse(
         data=[
-            WarehouseSlotOccupancyEntry(slot_key=r.slot_key, item_id=r.item_id) for r in rows
+            WarehouseSlotOccupancyEntry(slot_key=r.slot_key, item_id=r.item_id)
+            for r in rows
         ],
         count=len(rows),
     )

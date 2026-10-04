@@ -52,18 +52,15 @@ def read_users(
     Retrieve users. Use deleted=true for soft-deleted users only.
     """
     if deleted:
-        count_statement = select(func.count()).select_from(User).where(
-            User.deleted_at.isnot(None)
+        count_statement = (
+            select(func.count()).select_from(User).where(User.deleted_at.isnot(None))
         )
         statement = (
-            select(User)
-            .where(User.deleted_at.isnot(None))
-            .offset(skip)
-            .limit(limit)
+            select(User).where(User.deleted_at.isnot(None)).offset(skip).limit(limit)
         )
     else:
-        count_statement = select(func.count()).select_from(User).where(
-            User.deleted_at.is_(None)
+        count_statement = (
+            select(func.count()).select_from(User).where(User.deleted_at.is_(None))
         )
         statement = (
             select(User).where(User.deleted_at.is_(None)).offset(skip).limit(limit)
@@ -74,7 +71,9 @@ def read_users(
 
 
 @router.post(
-    "/", dependencies=[Depends(get_current_user_can_manage_users)], response_model=UserPublic
+    "/",
+    dependencies=[Depends(get_current_user_can_manage_users)],
+    response_model=UserPublic,
 )
 def create_user(
     *,
@@ -250,6 +249,7 @@ def get_user_avatar_file(
     Получить файл аватара (только для авторизованных клиентов; для UI используйте fetch с токеном и blob URL).
     """
     from app.utils import avatars as avatar_utils
+
     user = session.get(User, user_id)
     if not user or user.deleted_at is not None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -267,7 +267,9 @@ def get_user_avatar_file(
     return FileResponse(path, media_type=media)
 
 
-@router.get("/me/communication-preferences", response_model=UserCommunicationPreferenceList)
+@router.get(
+    "/me/communication-preferences", response_model=UserCommunicationPreferenceList
+)
 def read_my_communication_preferences(
     session: SessionDep,
     current_user: CurrentUser,
@@ -287,7 +289,9 @@ def read_my_communication_preferences(
     )
 
 
-@router.put("/me/communication-preferences", response_model=UserCommunicationPreferencePublic)
+@router.put(
+    "/me/communication-preferences", response_model=UserCommunicationPreferencePublic
+)
 def upsert_my_communication_preference(
     *,
     session: SessionDep,
@@ -375,7 +379,10 @@ def read_user_by_id(
         raise HTTPException(status_code=404, detail="User not found")
     if user == current_user:
         return user
-    if not (current_user.is_superuser or user_has_permission(session, current_user, PERM_USERS_MANAGE)):
+    if not (
+        current_user.is_superuser
+        or user_has_permission(session, current_user, PERM_USERS_MANAGE)
+    ):
         raise HTTPException(
             status_code=403,
             detail="The user doesn't have enough privileges",
@@ -425,7 +432,10 @@ def update_user(
         action="user.update",
         resource_type="user",
         resource_id=db_user.id,
-        details={"email": db_user.email, "updated_fields": list(user_in.model_dump(exclude_unset=True).keys())},
+        details={
+            "email": db_user.email,
+            "updated_fields": list(user_in.model_dump(exclude_unset=True).keys()),
+        },
         ip_address=get_client_ip(request),
     )
     return db_user

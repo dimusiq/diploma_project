@@ -21,24 +21,13 @@ from app.warehouse_sim.models import (
     SimDevice,
     SimDeviceMaintenance,
 )
+from app.warehouse_sim.timeutil import iso_utc, utcnow
 
 OPEN_STATUSES = (
     MAINT_STATUS_PLANNED,
     "scheduled",
     MAINT_STATUS_IN_PROGRESS,
 )
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _iso(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.isoformat().replace("+00:00", "Z")
 
 
 def serialize_maintenance(row: SimDeviceMaintenance) -> dict[str, Any]:
@@ -50,17 +39,19 @@ def serialize_maintenance(row: SimDeviceMaintenance) -> dict[str, Any]:
         "title": row.title,
         "description": row.description,
         "priority": row.priority,
-        "scheduled_at": _iso(row.scheduled_at),
-        "started_at": _iso(row.started_at),
-        "completed_at": _iso(row.completed_at),
+        "scheduled_at": iso_utc(row.scheduled_at),
+        "started_at": iso_utc(row.started_at),
+        "completed_at": iso_utc(row.completed_at),
         "performed_by": row.performed_by,
         "notes": row.notes,
-        "created_at": _iso(row.created_at),
-        "updated_at": _iso(row.updated_at),
+        "created_at": iso_utc(row.created_at),
+        "updated_at": iso_utc(row.updated_at),
     }
 
 
-def list_maintenance(session: Session, device_id: uuid.UUID) -> list[SimDeviceMaintenance]:
+def list_maintenance(
+    session: Session, device_id: uuid.UUID
+) -> list[SimDeviceMaintenance]:
     return list(
         session.exec(
             select(SimDeviceMaintenance)
@@ -87,7 +78,9 @@ def _parse_dt(value: Any) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
-def create_maintenance(session: Session, device: SimDevice, body: dict[str, Any]) -> SimDeviceMaintenance:
+def create_maintenance(
+    session: Session, device: SimDevice, body: dict[str, Any]
+) -> SimDeviceMaintenance:
     kind = str(body.get("type") or "")
     if kind not in MAINT_TYPES:
         raise HTTPException(status_code=400, detail="Неподдерживаемый тип ТО")
@@ -100,18 +93,23 @@ def create_maintenance(session: Session, device: SimDevice, body: dict[str, Any]
     priority = str(body.get("priority") or MAINT_PRIORITY_MEDIUM)
     if priority not in MAINT_PRIORITIES:
         raise HTTPException(status_code=400, detail="Неподдерживаемый приоритет")
-    now = _utcnow()
+    now = utcnow()
     row = SimDeviceMaintenance(
         device_id=device.id,
         type=kind,
         status=status,
         title=title[:256],
-        description=str(body["description"])[:4096] if body.get("description") else None,
+        description=str(body["description"])[:4096]
+        if body.get("description")
+        else None,
         priority=priority,
         scheduled_at=_parse_dt(body.get("scheduled_at")),
-        started_at=_parse_dt(body.get("started_at")) or (now if status == MAINT_STATUS_IN_PROGRESS else None),
+        started_at=_parse_dt(body.get("started_at"))
+        or (now if status == MAINT_STATUS_IN_PROGRESS else None),
         completed_at=_parse_dt(body.get("completed_at")),
-        performed_by=str(body["performed_by"])[:128] if body.get("performed_by") else None,
+        performed_by=str(body["performed_by"])[:128]
+        if body.get("performed_by")
+        else None,
         notes=str(body["notes"])[:2048] if body.get("notes") else None,
         created_at=now,
         updated_at=now,
@@ -137,16 +135,23 @@ def patch_maintenance(
             raise HTTPException(status_code=400, detail="Неподдерживаемый статус ТО")
         row.status = status
         if status == MAINT_STATUS_IN_PROGRESS and row.started_at is None:
-            row.started_at = _utcnow()
-        if status in (MAINT_STATUS_COMPLETED, MAINT_STATUS_CANCELLED) and row.completed_at is None:
-            row.completed_at = _utcnow()
+            row.started_at = utcnow()
+        if (
+            status in (MAINT_STATUS_COMPLETED, MAINT_STATUS_CANCELLED)
+            and row.completed_at is None
+        ):
+            row.completed_at = utcnow()
     if "title" in body and body["title"] is not None:
         title = str(body["title"]).strip()
         if not title:
-            raise HTTPException(status_code=400, detail="Название ТО не может быть пустым")
+            raise HTTPException(
+                status_code=400, detail="Название ТО не может быть пустым"
+            )
         row.title = title[:256]
     if "description" in body:
-        row.description = str(body["description"])[:4096] if body["description"] else None
+        row.description = (
+            str(body["description"])[:4096] if body["description"] else None
+        )
     if "priority" in body and body["priority"] is not None:
         priority = str(body["priority"])
         if priority not in MAINT_PRIORITIES:
@@ -155,10 +160,12 @@ def patch_maintenance(
     if "scheduled_at" in body:
         row.scheduled_at = _parse_dt(body["scheduled_at"])
     if "performed_by" in body:
-        row.performed_by = str(body["performed_by"])[:128] if body["performed_by"] else None
+        row.performed_by = (
+            str(body["performed_by"])[:128] if body["performed_by"] else None
+        )
     if "notes" in body:
         row.notes = str(body["notes"])[:2048] if body["notes"] else None
-    row.updated_at = _utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     session.commit()
     session.refresh(row)
@@ -182,27 +189,35 @@ def maintenance_summaries(
             )
         ).all()
     )
-    by_device: dict[uuid.UUID, list[SimDeviceMaintenance]] = {did: [] for did in device_ids}
+    by_device: dict[uuid.UUID, list[SimDeviceMaintenance]] = {
+        did: [] for did in device_ids
+    }
     for row in rows:
         by_device.setdefault(row.device_id, []).append(row)
     return {did: _summary_from_rows(items) for did, items in by_device.items()}
 
 
 def _summary_from_rows(rows: list[SimDeviceMaintenance]) -> dict[str, Any]:
-    now = _utcnow()
+    now = utcnow()
     soon = now + timedelta(days=7)
-    completed = [r for r in rows if r.status == MAINT_STATUS_COMPLETED and r.completed_at]
-    last = max(completed, key=lambda r: r.completed_at or r.created_at) if completed else None
+    completed = [
+        r for r in rows if r.status == MAINT_STATUS_COMPLETED and r.completed_at
+    ]
+    last = (
+        max(completed, key=lambda r: r.completed_at or r.created_at)
+        if completed
+        else None
+    )
     upcoming = [
-        r
-        for r in rows
-        if r.status in OPEN_STATUSES and r.scheduled_at is not None
+        r for r in rows if r.status in OPEN_STATUSES and r.scheduled_at is not None
     ]
     next_row = min(upcoming, key=lambda r: r.scheduled_at or now) if upcoming else None
     overdue = [
         r
         for r in upcoming
-        if r.scheduled_at is not None and r.scheduled_at < now and r.status != MAINT_STATUS_IN_PROGRESS
+        if r.scheduled_at is not None
+        and r.scheduled_at < now
+        and r.status != MAINT_STATUS_IN_PROGRESS
     ]
     in_progress = any(r.status == MAINT_STATUS_IN_PROGRESS for r in rows)
     due_soon = bool(
@@ -223,8 +238,8 @@ def _summary_from_rows(rows: list[SimDeviceMaintenance]) -> dict[str, Any]:
     return {
         "count": len(rows),
         "overdueCount": len(overdue),
-        "lastAt": _iso(last.completed_at if last else None),
-        "nextAt": _iso(next_row.scheduled_at if next_row else None),
+        "lastAt": iso_utc(last.completed_at if last else None),
+        "nextAt": iso_utc(next_row.scheduled_at if next_row else None),
         "status": next_row.status if next_row else (last.status if last else None),
         "tone": tone,
     }

@@ -28,21 +28,32 @@ from app.models import (
 router = APIRouter(prefix="/maintenance-templates", tags=["maintenance-templates"])
 
 
-def _assert_template_permissions(session: SessionDep, current_user: CurrentUser, *, can_edit: bool) -> None:
+def _assert_template_permissions(
+    session: SessionDep, current_user: CurrentUser, *, can_edit: bool
+) -> None:
     if can_edit:
         if not can_edit_maintenance_schedule(session, current_user):
-            raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования")
+            raise HTTPException(
+                status_code=403, detail="Недостаточно прав для редактирования"
+            )
     else:
         if not can_view_maintenance_schedule(session, current_user):
-            raise HTTPException(status_code=403, detail="Недостаточно прав для просмотра")
+            raise HTTPException(
+                status_code=403, detail="Недостаточно прав для просмотра"
+            )
 
 
-def _get_template_detail(session: SessionDep, template: MaintenanceReglamentTemplate) -> MaintenanceReglamentTemplateDetailPublic:
+def _get_template_detail(
+    session: SessionDep, template: MaintenanceReglamentTemplate
+) -> MaintenanceReglamentTemplateDetailPublic:
     checklist_rows = list(
         session.exec(
             select(MaintenanceTemplateChecklistItem)
             .where(MaintenanceTemplateChecklistItem.template_id == template.id)
-            .order_by(MaintenanceTemplateChecklistItem.sort_order.asc(), MaintenanceTemplateChecklistItem.id)
+            .order_by(
+                MaintenanceTemplateChecklistItem.sort_order.asc(),
+                MaintenanceTemplateChecklistItem.id,
+            )
         ).all()
     )
     checklist_public = [
@@ -62,13 +73,26 @@ def _get_template_detail(session: SessionDep, template: MaintenanceReglamentTemp
         ).all()
     )
     spare_ids = {r.spare_part_id for r in req_rows}
-    spares = {s.id: s for s in session.exec(select(SparePart).where(SparePart.id.in_(spare_ids))).all()} if spare_ids else {}
+    spares = (
+        {
+            s.id: s
+            for s in session.exec(
+                select(SparePart).where(SparePart.id.in_(spare_ids))
+            ).all()
+        }
+        if spare_ids
+        else {}
+    )
     req_public = [
         MaintenanceTemplateSparePartRequirementPublic(
             id=r.id,
             spare_part_id=r.spare_part_id,
-            spare_part_title=spares.get(r.spare_part_id).title if spares.get(r.spare_part_id) else None,
-            spare_part_sku=spares.get(r.spare_part_id).sku if spares.get(r.spare_part_id) else None,
+            spare_part_title=spares.get(r.spare_part_id).title
+            if spares.get(r.spare_part_id)
+            else None,
+            spare_part_sku=spares.get(r.spare_part_id).sku
+            if spares.get(r.spare_part_id)
+            else None,
             quantity=r.quantity,
         )
         for r in req_rows
@@ -90,27 +114,43 @@ def list_templates(
     session: SessionDep,
     current_user: CurrentUser,
     equipment_type: str | None = Query(None, description="Фильтр по типу техники"),
-    interval_hours: int | None = Query(None, description="Фильтр по интервалу (если задан)"),
+    interval_hours: int | None = Query(
+        None, description="Фильтр по интервалу (если задан)"
+    ),
 ) -> MaintenanceReglamentTemplateList:
     _assert_template_permissions(session, current_user, can_edit=False)
 
     statement = select(MaintenanceReglamentTemplate)
     if equipment_type is not None:
-        statement = statement.where(MaintenanceReglamentTemplate.equipment_type == equipment_type)
+        statement = statement.where(
+            MaintenanceReglamentTemplate.equipment_type == equipment_type
+        )
     if interval_hours is not None:
-        statement = statement.where(MaintenanceReglamentTemplate.interval_hours == interval_hours)
+        statement = statement.where(
+            MaintenanceReglamentTemplate.interval_hours == interval_hours
+        )
 
-    templates = list(session.exec(statement.order_by(MaintenanceReglamentTemplate.equipment_type.asc(), MaintenanceReglamentTemplate.interval_hours.asc())).all())
-    return MaintenanceReglamentTemplateList(data=[
-        {
-            "id": t.id,
-            "equipment_type": t.equipment_type,
-            "interval_hours": t.interval_hours,
-            "created_at": t.created_at,
-            "updated_at": t.updated_at,
-        }
-        for t in templates
-    ], count=len(templates))
+    templates = list(
+        session.exec(
+            statement.order_by(
+                MaintenanceReglamentTemplate.equipment_type.asc(),
+                MaintenanceReglamentTemplate.interval_hours.asc(),
+            )
+        ).all()
+    )
+    return MaintenanceReglamentTemplateList(
+        data=[
+            {
+                "id": t.id,
+                "equipment_type": t.equipment_type,
+                "interval_hours": t.interval_hours,
+                "created_at": t.created_at,
+                "updated_at": t.updated_at,
+            }
+            for t in templates
+        ],
+        count=len(templates),
+    )
 
 
 @router.get("/{id}", response_model=MaintenanceReglamentTemplateDetailPublic)
@@ -139,7 +179,9 @@ def create_template(
 ) -> MaintenanceReglamentTemplateDetailPublic:
     # require_permission уже проверит edit, но оставим явную проверку для читаемости.
     if not can_edit_maintenance_schedule(session, current_user):
-        raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования")
+        raise HTTPException(
+            status_code=403, detail="Недостаточно прав для редактирования"
+        )
 
     if body.equipment_type not in EQUIPMENT_TYPES:
         raise HTTPException(status_code=400, detail="Недопустимый тип техники")
@@ -164,10 +206,21 @@ def create_template(
 
     spare_requirements: list[MaintenanceTemplateSparePartRequirement] = []
     spare_ids = {r.spare_part_id for r in body.spare_part_requirements}
-    spares = {s.id: s for s in session.exec(select(SparePart).where(SparePart.id.in_(spare_ids))).all()} if spare_ids else {}
+    spares = (
+        {
+            s.id: s
+            for s in session.exec(
+                select(SparePart).where(SparePart.id.in_(spare_ids))
+            ).all()
+        }
+        if spare_ids
+        else {}
+    )
     for req in body.spare_part_requirements:
         if req.spare_part_id not in spares:
-            raise HTTPException(status_code=404, detail=f"Запчасть {req.spare_part_id} не найдена")
+            raise HTTPException(
+                status_code=404, detail=f"Запчасть {req.spare_part_id} не найдена"
+            )
         spare_requirements.append(
             MaintenanceTemplateSparePartRequirement(
                 template_id=template.id,
@@ -194,7 +247,9 @@ def update_template(
     body: MaintenanceReglamentTemplateCreate,
 ) -> MaintenanceReglamentTemplateDetailPublic:
     if not can_edit_maintenance_schedule(session, current_user):
-        raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования")
+        raise HTTPException(
+            status_code=403, detail="Недостаточно прав для редактирования"
+        )
 
     template = session.get(MaintenanceReglamentTemplate, id)
     if not template:
@@ -242,10 +297,21 @@ def update_template(
 
     spare_requirements: list[MaintenanceTemplateSparePartRequirement] = []
     spare_ids = {r.spare_part_id for r in body.spare_part_requirements}
-    spares = {s.id: s for s in session.exec(select(SparePart).where(SparePart.id.in_(spare_ids))).all()} if spare_ids else {}
+    spares = (
+        {
+            s.id: s
+            for s in session.exec(
+                select(SparePart).where(SparePart.id.in_(spare_ids))
+            ).all()
+        }
+        if spare_ids
+        else {}
+    )
     for req in body.spare_part_requirements:
         if req.spare_part_id not in spares:
-            raise HTTPException(status_code=404, detail=f"Запчасть {req.spare_part_id} не найдена")
+            raise HTTPException(
+                status_code=404, detail=f"Запчасть {req.spare_part_id} не найдена"
+            )
         spare_requirements.append(
             MaintenanceTemplateSparePartRequirement(
                 template_id=template.id,
@@ -272,7 +338,9 @@ def delete_template(
     id: uuid.UUID,
 ) -> dict:
     if not can_edit_maintenance_schedule(session, current_user):
-        raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования")
+        raise HTTPException(
+            status_code=403, detail="Недостаточно прав для редактирования"
+        )
 
     template = session.get(MaintenanceReglamentTemplate, id)
     if not template:
@@ -280,4 +348,3 @@ def delete_template(
     session.delete(template)
     session.commit()
     return {"message": "Шаблон удалён"}
-

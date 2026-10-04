@@ -8,7 +8,16 @@ from typing import Any
 from app.warehouse_sim.vision.demo_source import FRAME_HEIGHT, FRAME_WIDTH
 from app.warehouse_sim.vision.detector import DemoDetector
 
-CAMERA_CLASSES = ("person", "forklift", "agv", "truck", "pallet", "box", "obstacle", "rack")
+CAMERA_CLASSES = (
+    "person",
+    "forklift",
+    "agv",
+    "truck",
+    "pallet",
+    "box",
+    "obstacle",
+    "rack",
+)
 HOLD_CLASSES = ("person", "obstacle")
 SCENE_VIEW_FPS = 24
 _EPOCH = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -66,7 +75,9 @@ def public_camera(device: dict[str, Any]) -> dict[str, Any]:
         "model": camera.get("model") or DemoDetector.model,
         "inference_enabled": bool(camera.get("inference_enabled")),
         "confidence_threshold": float(camera.get("confidence_threshold") or 0.5),
-        "mode": "offline" if not camera.get("online") else ("demo" if (camera.get("source") or "demo") == "demo" else "live"),
+        "mode": "offline"
+        if not camera.get("online")
+        else ("demo" if (camera.get("source") or "demo") == "demo" else "live"),
         "log": list(camera.get("log") or [])[-12:],
         "fps": camera.get("fps") or 0,
         "inference_ms": camera.get("inference_ms") or 0,
@@ -91,10 +102,23 @@ def _publish(world: dict[str, Any], kind: str, payload: dict[str, Any]) -> None:
     world.setdefault("vision_outbox", []).append({"type": kind, "payload": payload})
 
 
-def _emit(world: dict[str, Any], event_type: str, severity: str, message: str, device: dict[str, Any]) -> None:
+def _emit(
+    world: dict[str, Any],
+    event_type: str,
+    severity: str,
+    message: str,
+    device: dict[str, Any],
+) -> None:
     from app.warehouse_sim.simulation import emit
 
-    emit(world, event_type, severity, message, device_id=device["id"], entity_id=f"{device['id']}-cam")
+    emit(
+        world,
+        event_type,
+        severity,
+        message,
+        device_id=device["id"],
+        entity_id=f"{device['id']}-cam",
+    )
 
 
 def tick_cameras(world: dict[str, Any], dt: float) -> None:
@@ -124,7 +148,13 @@ def start_camera(world: dict[str, Any], device: dict[str, Any]) -> dict[str, Any
     camera["description"] = ""
     device["cameraHold"] = False
     if not was_online:
-        _emit(world, ev.CAMERA_ONLINE, "success", f"{device['name']}: камера в сети", device)
+        _emit(
+            world,
+            ev.CAMERA_ONLINE,
+            "success",
+            f"{device['name']}: камера в сети",
+            device,
+        )
         _publish(world, "camera.status", public_camera(device))
     return public_camera(device)
 
@@ -136,7 +166,13 @@ def stop_camera(world: dict[str, Any], device: dict[str, Any]) -> dict[str, Any]
     if camera is None:
         raise KeyError(device["id"])
     if camera.get("online"):
-        _emit(world, ev.CAMERA_OFFLINE, "warning", f"{device['name']}: камера не в сети", device)
+        _emit(
+            world,
+            ev.CAMERA_OFFLINE,
+            "warning",
+            f"{device['name']}: камера не в сети",
+            device,
+        )
     camera["online"] = False
     camera["inference_enabled"] = False
     camera["fps"] = 0
@@ -149,7 +185,11 @@ def stop_camera(world: dict[str, Any], device: dict[str, Any]) -> dict[str, Any]
     camera["seen_classes"] = []
     device["cameraHold"] = False
     _publish(world, "camera.status", public_camera(device))
-    _publish(world, "camera.detection_cleared", {"equipment_id": device["id"], "camera_id": f"{device['id']}-cam"})
+    _publish(
+        world,
+        "camera.detection_cleared",
+        {"equipment_id": device["id"], "camera_id": f"{device['id']}-cam"},
+    )
     return public_camera(device)
 
 
@@ -221,27 +261,61 @@ def note_scene_detection(
         # Детект без координат не останавливает AGV. cameraHold ставит только
         # resolve_traffic, когда объект непосредственно на пути.
         if class_name == "person":
-            _emit(world, ev.CAMERA_PERSON_DETECTED, "warning", f"{device['name']}: обнаружен человек", device)
+            _emit(
+                world,
+                ev.CAMERA_PERSON_DETECTED,
+                "warning",
+                f"{device['name']}: обнаружен человек",
+                device,
+            )
         elif class_name == "obstacle":
-            _emit(world, ev.CAMERA_OBSTACLE_DETECTED, "warning", f"{device['name']}: обнаружено препятствие", device)
+            _emit(
+                world,
+                ev.CAMERA_OBSTACLE_DETECTED,
+                "warning",
+                f"{device['name']}: обнаружено препятствие",
+                device,
+            )
         else:
-            _emit(world, ev.CAMERA_OBJECT_DETECTED, "info", f"{device['name']}: обнаружен {class_name}", device)
+            _emit(
+                world,
+                ev.CAMERA_OBJECT_DETECTED,
+                "info",
+                f"{device['name']}: обнаружен {class_name}",
+                device,
+            )
         _publish(world, "camera.detection", _transition_payload(device, camera))
         return public_camera(device)
     if key not in tracks:
         return public_camera(device)
     del tracks[key]
     _refresh_track_view(device, camera)
-    _emit(world, ev.CAMERA_OBJECT_LOST, "info", f"{device['name']}: {class_name} потерян", device)
+    _emit(
+        world,
+        ev.CAMERA_OBJECT_LOST,
+        "info",
+        f"{device['name']}: {class_name} потерян",
+        device,
+    )
     danger = any(item["class_name"] in HOLD_CLASSES for item in tracks.values())
     if not danger:
         camera["obstacle"] = False
         if class_name in HOLD_CLASSES:
-            _emit(world, ev.CAMERA_OBSTACLE_CLEARED, "success", f"{device['name']}: препятствие исчезло", device)
+            _emit(
+                world,
+                ev.CAMERA_OBSTACLE_CLEARED,
+                "success",
+                f"{device['name']}: препятствие исчезло",
+                device,
+            )
         _publish(
             world,
             "camera.detection_cleared",
-            {"equipment_id": device["id"], "camera_id": f"{device['id']}-cam", "entity_id": entity_id},
+            {
+                "equipment_id": device["id"],
+                "camera_id": f"{device['id']}-cam",
+                "entity_id": entity_id,
+            },
         )
     else:
         _publish(world, "camera.detection", _transition_payload(device, camera))
@@ -249,7 +323,11 @@ def note_scene_detection(
 
 
 def _refresh_track_view(device: dict[str, Any], camera: dict[str, Any]) -> None:
-    when = (_EPOCH + timedelta(seconds=float(device.get("lastSeen") or 0))).isoformat().replace("+00:00", "Z")
+    when = (
+        (_EPOCH + timedelta(seconds=float(device.get("lastSeen") or 0)))
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
     cam_label = camera.get("camera_code") or f"{device['id']}-cam"
     detections = []
     for item in camera.get("tracks", {}).values():
@@ -289,7 +367,9 @@ def _refresh_track_view(device: dict[str, Any], camera: dict[str, Any]) -> None:
     camera["log"] = log[-12:]
 
 
-def _transition_payload(device: dict[str, Any], camera: dict[str, Any]) -> dict[str, Any]:
+def _transition_payload(
+    device: dict[str, Any], camera: dict[str, Any]
+) -> dict[str, Any]:
     status = public_camera(device)
     return {
         "equipment_id": device["id"],
@@ -314,5 +394,6 @@ def frame_payload(device: dict[str, Any]) -> dict[str, Any]:
         "mode": "scene",
         "svg": None,
         "detections": list(camera.get("detections") or []),
-        "description": camera.get("description") or "Viewport is rendered from the Digital Twin.",
+        "description": camera.get("description")
+        or "Viewport is rendered from the Digital Twin.",
     }

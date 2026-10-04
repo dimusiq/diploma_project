@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlmodel import Session
 
-from app.agent.tool_safety import AgentToolContext
+from app.agent.contracts import AgentToolContext
 from app.models import User
 from app.services.agent_tools_handlers import HANDLERS
 
@@ -31,9 +31,7 @@ def run_agent_tool(
 ) -> str:
     fn = HANDLERS.get(name)
     if not fn:
-        return json.dumps({"error": f"Неизвестный инструмент: {name}"}, ensure_ascii=False)
+        return json.dumps(
+            {"error": f"Неизвестный инструмент: {name}"}, ensure_ascii=False
+        )
     return fn(session, user, arguments, ctx)
-
-
-# Обратная совместимость: пустой список; OpenAI-схемы берутся из `app.agent.tool_catalog`.
-TOOL_DEFINITIONS: list[dict[str, Any]] = []

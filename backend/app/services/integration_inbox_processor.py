@@ -47,7 +47,9 @@ def resolve_inbox_event_type(integration_event_type: str) -> str:
     return INTEGRATION_EVENT_ALIASES.get(integration_event_type, integration_event_type)
 
 
-def _dispatch(session: Session, row: IntegrationInbox, domain_type: str) -> DomainEvent | None:
+def _dispatch(
+    session: Session, row: IntegrationInbox, domain_type: str
+) -> DomainEvent | None:
     if domain_type == TWIN_ONLY:
         return None
     if domain_type in h.INVENTORY_EVENT_TYPES:
@@ -67,7 +69,9 @@ def _dispatch(session: Session, row: IntegrationInbox, domain_type: str) -> Doma
     raise ValueError(f"Неподдерживаемый тип после маппинга: {domain_type}")
 
 
-def _publish_inbox_twin(row: IntegrationInbox, domain_event_id: uuid.UUID | None) -> None:
+def _publish_inbox_twin(
+    row: IntegrationInbox, domain_event_id: uuid.UUID | None
+) -> None:
     payload: dict[str, Any] = {
         "integration_inbox_id": str(row.id),
         "source": row.source,
@@ -79,7 +83,9 @@ def _publish_inbox_twin(row: IntegrationInbox, domain_event_id: uuid.UUID | None
     publish_telemetry_fact(event_type=f"integration.{row.event_type}", payload=payload)
 
 
-def process_integration_inbox_batch(session: Session, *, limit: int = 30) -> dict[str, int]:
+def process_integration_inbox_batch(
+    session: Session, *, limit: int = 30
+) -> dict[str, int]:
     """
     Берёт pending-строки (FOR UPDATE SKIP LOCKED), применяет доменную логику, коммитит.
     Возвращает счётчики processed / failed / twin_only / ignored_duplicate.

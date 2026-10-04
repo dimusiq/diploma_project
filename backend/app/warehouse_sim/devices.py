@@ -28,7 +28,11 @@ class DeviceServer:
                 spec.get("kind", "agv"),
                 spec.get("name", did),
                 spec.get("pos") or {"x": 10.0, "z": 10.0},
-                **{k: v for k, v in spec.items() if k not in {"id", "kind", "name", "pos"}},
+                **{
+                    k: v
+                    for k, v in spec.items()
+                    if k not in {"id", "kind", "name", "pos"}
+                },
             )
         self._world["devices"].append(device)
         self._world["deviceById"][did] = device
@@ -38,7 +42,9 @@ class DeviceServer:
         device = self._world["deviceById"].pop(device_id, None)
         if device is None:
             raise KeyError(device_id)
-        self._world["devices"] = [d for d in self._world["devices"] if d["id"] != device_id]
+        self._world["devices"] = [
+            d for d in self._world["devices"] if d["id"] != device_id
+        ]
 
     def get_device(self, device_id: str) -> dict:
         device = self._world["deviceById"].get(device_id)
@@ -57,7 +63,9 @@ class DeviceServer:
             device[key] = value
         return device
 
-    def send_command(self, device_id: str, command: str, payload: dict | None = None) -> dict:
+    def send_command(
+        self, device_id: str, command: str, payload: dict | None = None
+    ) -> dict:
         device_command(self._world, device_id, command, payload)
         return self.get_device(device_id)
 

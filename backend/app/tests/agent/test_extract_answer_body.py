@@ -7,11 +7,7 @@ def test_extract_answer_body_uses_last_answer_block() -> None:
 
 
 def test_extract_answer_body_closing_tag_without_opening() -> None:
-    raw = (
-        "Первым делом смотрю контекст.\n\n"
-        "В системе нет данных.\n"
-        "</answer>"
-    )
+    raw = "Первым делом смотрю контекст.\n\nВ системе нет данных.\n</answer>"
     assert extract_answer_body(raw) == "В системе нет данных."
 
 

@@ -1,7 +1,7 @@
 import re
 
-from app.warehouse_sim.snapshot import build_data, build_motion
 from app.warehouse_sim.simulation import drop_off_pallet, pick_up_pallet
+from app.warehouse_sim.snapshot import build_data, build_motion
 from app.warehouse_sim.world import DEMO_CONFIG, create_world
 
 CELL_ID_RE = re.compile(r"^R(0[1-8])([AB])-L([1-3])-C(0[1-9]|1[0-2])$")

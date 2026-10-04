@@ -147,7 +147,9 @@ def test_warehouse_occupancy_after_item_with_cell(
     assert "0-0-0-0" in keys
     assert any(e["item_id"] == item_id for e in data)
 
-    row = db.exec(select(WarehouseSlotOccupancy).where(WarehouseSlotOccupancy.item_id == item_id)).first()
+    row = db.exec(
+        select(WarehouseSlotOccupancy).where(WarehouseSlotOccupancy.item_id == item_id)
+    ).first()
     assert row is not None
     assert row.slot_key == "0-0-0-0"
 
@@ -183,5 +185,7 @@ def test_warehouse_occupancy_clears_when_storage_cleared(
     )
     assert up.status_code == 200
 
-    row = db.exec(select(WarehouseSlotOccupancy).where(WarehouseSlotOccupancy.item_id == item_id)).first()
+    row = db.exec(
+        select(WarehouseSlotOccupancy).where(WarehouseSlotOccupancy.item_id == item_id)
+    ).first()
     assert row is None

@@ -29,7 +29,14 @@ ConsumerFn = Callable[[Session, DomainEvent], None]
 def _payload_summary(payload: dict[str, Any]) -> dict[str, Any]:
     keys = list(payload.keys())[:24]
     out: dict[str, Any] = {"keys": keys}
-    for k in ("item_id", "warehouse_id", "task_id", "slot_key", "equipment_id", "alert_id"):
+    for k in (
+        "item_id",
+        "warehouse_id",
+        "task_id",
+        "slot_key",
+        "equipment_id",
+        "alert_id",
+    ):
         if k in payload:
             out[k] = payload[k]
     return out
@@ -57,8 +64,7 @@ def twin_timeline_handler(session: Session, ev: DomainEvent) -> None:
 def slot_occupancy_sync_handler(session: Session, ev: DomainEvent) -> None:
     """Пересчёт occupancy по событию с item_id (инвентарь / товар)."""
     if not (
-        ev.event_type.startswith("inventory.")
-        or ev.event_type.startswith("item.")
+        ev.event_type.startswith("inventory.") or ev.event_type.startswith("item.")
     ):
         return
     raw = ev.payload.get("item_id")
@@ -244,7 +250,9 @@ def twin_alert_open_handler(session: Session, ev: DomainEvent) -> None:
         except (ValueError, TypeError):
             return
         row = session.exec(
-            select(TwinAlertOpenProjection).where(TwinAlertOpenProjection.alert_id == aid)
+            select(TwinAlertOpenProjection).where(
+                TwinAlertOpenProjection.alert_id == aid
+            )
         ).first()
         if row is not None:
             row.resolved_at = datetime.now(timezone.utc)

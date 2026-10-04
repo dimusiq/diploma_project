@@ -1,7 +1,7 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from sqlmodel import select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
@@ -21,7 +21,9 @@ def read_categories(session: SessionDep, _current_user: CurrentUser) -> Any:
 
 
 @router.get("/{id}", response_model=CategoryPublic)
-def read_category(session: SessionDep, _current_user: CurrentUser, id: uuid.UUID) -> Any:
+def read_category(
+    session: SessionDep, _current_user: CurrentUser, id: uuid.UUID
+) -> Any:
     """
     Получить категорию по ID.
     """

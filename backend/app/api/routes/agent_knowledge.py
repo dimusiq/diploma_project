@@ -47,9 +47,7 @@ def list_knowledge_chunks(
     skip: int = 0,
     limit: int = Query(100, le=500),
 ) -> Any:
-    count = session.exec(
-        select(func.count()).select_from(AgentKnowledgeChunk)
-    ).one()
+    count = session.exec(select(func.count()).select_from(AgentKnowledgeChunk)).one()
     rows = list(
         session.exec(
             select(AgentKnowledgeChunk)
@@ -127,7 +125,9 @@ def delete_knowledge_chunk(
     return {"message": "Удалено"}
 
 
-@router.post("/chunks/{chunk_id}/reindex", response_model=AgentKnowledgeChunkAdminPublic)
+@router.post(
+    "/chunks/{chunk_id}/reindex", response_model=AgentKnowledgeChunkAdminPublic
+)
 async def reindex_knowledge_chunk(
     session: SessionDep,
     chunk_id: uuid.UUID,

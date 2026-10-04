@@ -26,6 +26,7 @@ def create_user(user_in: PrivateUserCreate, session: SessionDep) -> Any:
     Create a new user.
     """
     from sqlmodel import select
+
     existing = session.exec(select(User).where(User.email == user_in.email)).first()
     if existing:
         raise HTTPException(

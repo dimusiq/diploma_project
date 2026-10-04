@@ -12,7 +12,9 @@ from app.models import Item, WarehouseSlotOccupancy
 
 def sync_projection_for_item(session: Session, item: Item) -> None:
     """Удаляет старую строку по item_id и при полной ячейке вставляет актуальную."""
-    session.exec(delete(WarehouseSlotOccupancy).where(WarehouseSlotOccupancy.item_id == item.id))
+    session.exec(
+        delete(WarehouseSlotOccupancy).where(WarehouseSlotOccupancy.item_id == item.id)
+    )
     sk = format_storage_slot_key(
         item.storage_row,
         item.storage_level,

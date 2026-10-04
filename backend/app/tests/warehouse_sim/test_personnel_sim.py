@@ -39,11 +39,15 @@ def test_inactive_worker_is_not_spawned() -> None:
     roster = [dict(row) for row in DEMO_STAFF]
     roster[1] = {**roster[1], "status": "sick"}
     seed_workers(world["workers"], world["topology"]["racks"], roster)
-    present = {worker.get("employeeCode") for worker in world["workers"] if worker.get("pos")}
+    present = {
+        worker.get("employeeCode") for worker in world["workers"] if worker.get("pos")
+    }
     assert "EMP-001" in present
     assert "EMP-003" in present
     assert "EMP-002" not in present
-    absent = next(worker for worker in world["workers"] if worker.get("employeeCode") == "EMP-002")
+    absent = next(
+        worker for worker in world["workers"] if worker.get("employeeCode") == "EMP-002"
+    )
     assert absent["status"] == "off_shift"
     assert absent["spawned"] is False
 
@@ -54,7 +58,9 @@ def test_vacation_worker_is_not_spawned_and_break_is() -> None:
     roster[0] = {**roster[0], "status": "vacation"}
     roster[1] = {**roster[1], "status": "break"}
     seed_workers(world["workers"], world["topology"]["racks"], roster)
-    present = {worker.get("employeeCode") for worker in world["workers"] if worker.get("pos")}
+    present = {
+        worker.get("employeeCode") for worker in world["workers"] if worker.get("pos")
+    }
     assert "EMP-001" not in present
     assert "EMP-002" in present
     assert "EMP-003" in present
@@ -62,10 +68,14 @@ def test_vacation_worker_is_not_spawned_and_break_is() -> None:
 
 def test_active_worker_position_updates() -> None:
     world = create_world({**QUIET})
-    person = next(worker for worker in world["workers"] if worker["code"] == "PERSON-001")
+    person = next(
+        worker for worker in world["workers"] if worker["code"] == "PERSON-001"
+    )
     start = (person["pos"]["x"], person["pos"]["z"])
     advance_workers(world, 3.0)
-    moved = next(worker for worker in world["workers"] if worker["code"] == "PERSON-001")
+    moved = next(
+        worker for worker in world["workers"] if worker["code"] == "PERSON-001"
+    )
     assert (moved["pos"]["x"], moved["pos"]["z"]) != start
     assert moved["employeeCode"] == "EMP-001"
     assert moved["status"] == "walking"
@@ -73,10 +83,14 @@ def test_active_worker_position_updates() -> None:
 
 def test_simulation_step_moves_linked_person() -> None:
     world = create_world({**QUIET})
-    person = next(worker for worker in world["workers"] if worker["employeeCode"] == "EMP-002")
+    person = next(
+        worker for worker in world["workers"] if worker["employeeCode"] == "EMP-002"
+    )
     start = person["pos"]["x"]
     advance_world(world, 2.0)
-    again = next(worker for worker in world["workers"] if worker["employeeCode"] == "EMP-002")
+    again = next(
+        worker for worker in world["workers"] if worker["employeeCode"] == "EMP-002"
+    )
     assert again["pos"]["x"] != start
 
 

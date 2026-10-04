@@ -2,7 +2,6 @@
 
 from app.agent.llm_adapter import (
     llm_inference_configured,
-    ollama_configured,
     resolve_llm_chat_base_url,
     resolve_llm_embeddings_base_url,
 )
@@ -15,7 +14,6 @@ def test_vllm_url_highest_priority(monkeypatch) -> None:
     monkeypatch.setattr(settings, "OLLAMA_BASE_URL", "http://ollama:11434")
     assert resolve_llm_chat_base_url() == "http://vllm:8000"
     assert llm_inference_configured() is True
-    assert ollama_configured() is True
 
 
 def test_llm_openai_url_second_priority(monkeypatch) -> None:

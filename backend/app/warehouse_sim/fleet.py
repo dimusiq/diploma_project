@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -29,6 +28,7 @@ from app.warehouse_sim.models import (
     SimDevice,
     SimWarehouse,
 )
+from app.warehouse_sim.timeutil import iso_utc, utcnow
 from app.warehouse_sim.world import DEFAULT_CONFIG, _create_devices, create_device
 
 logger = logging.getLogger(__name__)
@@ -80,10 +80,6 @@ META_KEYS = (
 )
 
 
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 def demo_warehouse(session: Session) -> SimWarehouse | None:
     return session.exec(select(SimWarehouse).where(SimWarehouse.code == "DEMO")).first()
 
@@ -104,9 +100,7 @@ def persist_meta(device: dict[str, Any]) -> dict[str, Any]:
 def row_to_runtime(row: SimDevice) -> dict[str, Any]:
     meta = dict(row.meta or {})
     kind = str(meta.get("kind") or TYPE_TO_KIND.get(row.device_type) or "agv")
-    overrides: dict[str, Any] = {
-        k: v for k, v in meta.items() if k not in {"kind"}
-    }
+    overrides: dict[str, Any] = {k: v for k, v in meta.items() if k not in {"kind"}}
     overrides["speed"] = float(row.speed_mps or 0)
     overrides["battery"] = row.battery
     overrides["enabled"] = bool(row.enabled)
@@ -125,11 +119,13 @@ def row_to_runtime(row: SimDevice) -> dict[str, Any]:
     )
 
 
-def device_to_row_kwargs(warehouse_id: uuid.UUID, device: dict[str, Any]) -> dict[str, Any]:
+def device_to_row_kwargs(
+    warehouse_id: uuid.UUID, device: dict[str, Any]
+) -> dict[str, Any]:
     dtype = KIND_TO_TYPE.get(device["kind"])
     if not dtype:
         raise ValueError(f"Неизвестный тип устройства: {device.get('kind')}")
-    now = _utcnow()
+    now = utcnow()
     return {
         "warehouse_id": warehouse_id,
         "code": str(device["id"])[:64],
@@ -138,7 +134,9 @@ def device_to_row_kwargs(warehouse_id: uuid.UUID, device: dict[str, Any]) -> dic
         "device_type": dtype,
         "enabled": True,
         "archived": False,
-        "status": DEVICE_STATUS_IDLE if device.get("status") == "idle" else DEVICE_STATUS_ONLINE,
+        "status": DEVICE_STATUS_IDLE
+        if device.get("status") == "idle"
+        else DEVICE_STATUS_ONLINE,
         "battery": device.get("battery"),
         "x": device["pos"]["x"],
         "y": device["pos"]["z"],
@@ -157,7 +155,9 @@ def ensure_fleet_seed(session: Session) -> None:
     if warehouse is None:
         return
     rows = list(
-        session.exec(select(SimDevice).where(SimDevice.warehouse_id == warehouse.id)).all()
+        session.exec(
+            select(SimDevice).where(SimDevice.warehouse_id == warehouse.id)
+        ).all()
     )
     baseline = {d["name"]: d for d in baseline_devices()}
     used_codes = {r.code for r in rows if r.code}
@@ -165,7 +165,11 @@ def ensure_fleet_seed(session: Session) -> None:
     for row in rows:
         match = baseline.get(row.name)
         if not row.code:
-            code = match["id"] if match else re.sub(r"[^a-zA-Z0-9._-]+", "-", row.name).strip("-").lower()
+            code = (
+                match["id"]
+                if match
+                else re.sub(r"[^a-zA-Z0-9._-]+", "-", row.name).strip("-").lower()
+            )
             while code in used_codes:
                 code = f"{code}-x"
             row.code = code[:64]
@@ -192,7 +196,9 @@ def ensure_fleet_seed(session: Session) -> None:
     session.commit()
 
 
-def list_config_devices(session: Session, *, include_archived: bool = False) -> list[SimDevice]:
+def list_config_devices(
+    session: Session, *, include_archived: bool = False
+) -> list[SimDevice]:
     warehouse = demo_warehouse(session)
     if warehouse is None:
         return []
@@ -209,9 +215,7 @@ def load_active_runtime_devices(session: Session) -> list[dict[str, Any]] | None
     if warehouse is None:
         return None
     rows = [
-        row
-        for row in list_config_devices(session)
-        if row.enabled and not row.archived
+        row for row in list_config_devices(session) if row.enabled and not row.archived
     ]
     return [row_to_runtime(row) for row in rows]
 
@@ -248,7 +252,9 @@ def _next_code(session: Session, warehouse_id: uuid.UUID, kind: str) -> str:
 def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
     warehouse = demo_warehouse(session)
     if warehouse is None:
-        raise HTTPException(status_code=409, detail="Склад симулятора ещё не инициализирован")
+        raise HTTPException(
+            status_code=409, detail="Склад симулятора ещё не инициализирован"
+        )
     kind = str(body.get("kind") or "")
     if kind not in KIND_TO_TYPE:
         raise HTTPException(status_code=400, detail="Неподдерживаемый тип техники")
@@ -282,7 +288,9 @@ def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
     battery = body.get("battery")
     if battery is None and kind in ("forklift", "agv", "amr", "radio_beacon"):
         battery = 80.0
-    configuration = body.get("configuration") if isinstance(body.get("configuration"), dict) else {}
+    configuration = (
+        body.get("configuration") if isinstance(body.get("configuration"), dict) else {}
+    )
     device_dict = create_device(
         code,
         kind,
@@ -300,7 +308,9 @@ def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
         locationSource="unknown",
     )
     kwargs = device_to_row_kwargs(warehouse.id, device_dict)
-    kwargs["description"] = str(body["description"])[:255] if body.get("description") else None
+    kwargs["description"] = (
+        str(body["description"])[:255] if body.get("description") else None
+    )
     kwargs["enabled"] = bool(body.get("enabled", True))
     row = SimDevice(**kwargs)
     session.add(row)
@@ -309,10 +319,14 @@ def create_fleet_device(session: Session, body: dict[str, Any]) -> SimDevice:
     return row
 
 
-def patch_fleet_device(session: Session, device_id: uuid.UUID, body: dict[str, Any]) -> SimDevice:
+def patch_fleet_device(
+    session: Session, device_id: uuid.UUID, body: dict[str, Any]
+) -> SimDevice:
     row = get_device_row(session, device_id)
     if row.archived and body.get("archived") is not False:
-        raise HTTPException(status_code=409, detail="Архивное устройство нельзя изменить")
+        raise HTTPException(
+            status_code=409, detail="Архивное устройство нельзя изменить"
+        )
     if "name" in body and body["name"] is not None:
         name = str(body["name"]).strip()[:64]
         if not name:
@@ -328,7 +342,9 @@ def patch_fleet_device(session: Session, device_id: uuid.UUID, body: dict[str, A
             raise HTTPException(status_code=409, detail="Имя устройства уже занято")
         row.name = name
     if "description" in body:
-        row.description = str(body["description"])[:255] if body["description"] else None
+        row.description = (
+            str(body["description"])[:255] if body["description"] else None
+        )
     if "code" in body and body["code"] is not None:
         code = str(body["code"]).strip()[:64]
         if not code:
@@ -376,7 +392,7 @@ def patch_fleet_device(session: Session, device_id: uuid.UUID, body: dict[str, A
                 continue
             meta[key] = value
         row.meta = meta
-    row.updated_at = _utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     session.commit()
     session.refresh(row)
@@ -388,17 +404,9 @@ def archive_fleet_device(session: Session, device_id: uuid.UUID) -> SimDevice:
 
     assignment = active_assignment_for_device(session, device_id)
     if assignment is not None:
-        assignment.unassigned_at = _utcnow()
+        assignment.unassigned_at = utcnow()
         session.add(assignment)
     return patch_fleet_device(session, device_id, {"archived": True, "enabled": False})
-
-
-def _iso(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.isoformat().replace("+00:00", "Z")
 
 
 def serialize_fleet_device(
@@ -459,7 +467,9 @@ def serialize_fleet_device(
         },
         "runtime": {
             "status": status,
-            "online": False if in_maintenance and not rt.get("taskId") else rt.get("online"),
+            "online": False
+            if in_maintenance and not rt.get("taskId")
+            else rt.get("online"),
             "battery": rt.get("battery"),
             "position": pos,
             "taskId": rt.get("taskId"),
@@ -480,8 +490,8 @@ def serialize_fleet_device(
         "maintenance": maintenance,
         "engine_hours": engine_hours,
         "deferredUntilRestart": deferred or [],
-        "created_at": _iso(row.created_at),
-        "updated_at": _iso(row.updated_at),
+        "created_at": iso_utc(row.created_at),
+        "updated_at": iso_utc(row.updated_at),
         "serial_number": meta.get("serialNumber"),
         "last_signal_at": rt.get("lastSignalAt") or meta.get("lastSignalAt"),
         "location_source": rt.get("locationSource") or meta.get("locationSource"),
@@ -492,7 +502,9 @@ def serialize_fleet_device(
     }
     if session is not None:
         from app.warehouse_sim.bracelets import enrich_fleet_payload as enrich_bracelet
-        from app.warehouse_sim.smart_cameras import enrich_fleet_payload as enrich_camera
+        from app.warehouse_sim.smart_cameras import (
+            enrich_fleet_payload as enrich_camera,
+        )
 
         payload = enrich_bracelet(session, payload, row, assignments=assignments)
         camera_host_map = None

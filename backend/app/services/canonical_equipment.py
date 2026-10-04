@@ -32,7 +32,9 @@ def canonical_device_name(row: SimDevice) -> str:
     return row.name
 
 
-def device_engine_hours(row: SimDevice, busy_sec: float | int | None = None) -> int | None:
+def device_engine_hours(
+    row: SimDevice, busy_sec: float | int | None = None
+) -> int | None:
     meta = dict(row.meta or {})
     raw = meta.get("engineHours")
     if raw is not None:

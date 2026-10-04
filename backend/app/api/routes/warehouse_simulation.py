@@ -172,9 +172,7 @@ def list_warehouses_for_simulation_seed(
     _current_user: CurrentUser,
 ) -> list[WarehouseForSimulationSeed]:
     rows = list(session.exec(select(Warehouse).order_by(Warehouse.code)).all())
-    return [
-        WarehouseForSimulationSeed(id=w.id, code=w.code, name=w.name) for w in rows
-    ]
+    return [WarehouseForSimulationSeed(id=w.id, code=w.code, name=w.name) for w in rows]
 
 
 @router.post("/run", response_model=SimulationRunResponse)

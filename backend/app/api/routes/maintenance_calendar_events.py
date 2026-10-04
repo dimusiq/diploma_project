@@ -10,9 +10,13 @@ from fastapi import APIRouter, HTTPException, Query
 from app.api.deps import CurrentUser, SessionDep
 from app.core.permissions import can_view_maintenance_schedule
 from app.models import MaintenanceCalendarEventList
-from app.services.maintenance_calendar_query import build_maintenance_calendar_event_list
+from app.services.maintenance_calendar_query import (
+    build_maintenance_calendar_event_list,
+)
 
-router = APIRouter(prefix="/maintenance-calendar-events", tags=["maintenance-calendar-events"])
+router = APIRouter(
+    prefix="/maintenance-calendar-events", tags=["maintenance-calendar-events"]
+)
 
 
 @router.get("", response_model=MaintenanceCalendarEventList)

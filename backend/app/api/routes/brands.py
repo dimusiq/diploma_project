@@ -1,8 +1,9 @@
 """API справочника брендов техники (управление в админке)."""
+
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from sqlmodel import func, select
 
 from app.api.deps import CurrentUser, SessionDep, require_permission
@@ -43,7 +44,9 @@ def create_brand(
     """Создать бренд."""
     existing = session.exec(select(Brand).where(Brand.name == body.name)).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Бренд с таким названием уже существует")
+        raise HTTPException(
+            status_code=400, detail="Бренд с таким названием уже существует"
+        )
     brand = Brand.model_validate(body)
     session.add(brand)
     session.commit()
@@ -78,9 +81,13 @@ def update_brand(
     if not brand:
         raise HTTPException(status_code=404, detail="Бренд не найден")
     if body.name is not None:
-        other = session.exec(select(Brand).where(Brand.name == body.name, Brand.id != id)).first()
+        other = session.exec(
+            select(Brand).where(Brand.name == body.name, Brand.id != id)
+        ).first()
         if other:
-            raise HTTPException(status_code=400, detail="Бренд с таким названием уже существует")
+            raise HTTPException(
+                status_code=400, detail="Бренд с таким названием уже существует"
+            )
     update_data = body.model_dump(exclude_unset=True)
     brand.sqlmodel_update(update_data)
     session.add(brand)
@@ -113,7 +120,9 @@ def delete_brand(
     brand = session.get(Brand, id)
     if not brand:
         raise HTTPException(status_code=404, detail="Бренд не найден")
-    used = session.exec(select(func.count()).select_from(Equipment).where(Equipment.brand_id == id)).one()
+    used = session.exec(
+        select(func.count()).select_from(Equipment).where(Equipment.brand_id == id)
+    ).one()
     if used > 0:
         raise HTTPException(
             status_code=400,

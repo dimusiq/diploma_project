@@ -35,6 +35,7 @@ class _DrawingFlowable(Flowable):
     def draw(self):
         self.drawing.drawOn(self.canv, 0, 0)
 
+
 # Шрифты с поддержкой кириллицы (иначе в PDF будут квадраты вместо букв)
 PDF_FONT = "Helvetica"
 PDF_FONT_BOLD = "Helvetica-Bold"
@@ -52,9 +53,18 @@ def _register_cyrillic_fonts() -> None:
             return
     base_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
-        (os.path.join(base_dir, "fonts", "DejaVuSans.ttf"), os.path.join(base_dir, "fonts", "DejaVuSans-Bold.ttf")),
-        ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
-        ("/usr/share/fonts/TTF/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"),
+        (
+            os.path.join(base_dir, "fonts", "DejaVuSans.ttf"),
+            os.path.join(base_dir, "fonts", "DejaVuSans-Bold.ttf"),
+        ),
+        (
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        ),
+        (
+            "/usr/share/fonts/TTF/DejaVuSans.ttf",
+            "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+        ),
     ]
     for path_regular, path_bold in candidates:
         if os.path.isfile(path_regular):
@@ -93,7 +103,12 @@ def _logo_flowable(max_width_pt: float):
         content_width = A4[0] - 40 * mm
         logo_table = Table([[flowable]], colWidths=[content_width])
         logo_table.setStyle(
-            TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTRE"), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")])
+            TableStyle(
+                [
+                    ("ALIGN", (0, 0), (-1, -1), "CENTRE"),
+                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ]
+            )
         )
         return logo_table
     except Exception:
@@ -141,30 +156,36 @@ def build_shipping_note_pdf(items: list[Item]) -> bytes:
         data = [["№", "Название", "Артикул", "Кол-во", "Ед.", "Штрихкод"]]
         for i, item in enumerate(items, 1):
             d = _get_item_display(item)
-            data.append([
-                str(i),
-                d["title"][:40],
-                d["sku"][:20],
-                str(d["quantity"]),
-                d["unit"][:8],
-                (d["barcode"] or "—")[:20],
-            ])
+            data.append(
+                [
+                    str(i),
+                    d["title"][:40],
+                    d["sku"][:20],
+                    str(d["quantity"]),
+                    d["unit"][:8],
+                    (d["barcode"] or "—")[:20],
+                ]
+            )
 
-        table = Table(data, colWidths=[20 * mm, 60 * mm, 35 * mm, 25 * mm, 20 * mm, 40 * mm])
+        table = Table(
+            data, colWidths=[20 * mm, 60 * mm, 35 * mm, 25 * mm, 20 * mm, 40 * mm]
+        )
         table.setStyle(
-            TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("ALIGN", (3, 0), (3, -1), "RIGHT"),
-                ("FONTNAME", (0, 0), (-1, 0), PDF_FONT_BOLD),
-                ("FONTSIZE", (0, 0), (-1, 0), 10),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
-                ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-                ("FONTNAME", (0, 1), (-1, -1), PDF_FONT),
-                ("FONTSIZE", (0, 1), (-1, -1), 9),
-            ])
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("ALIGN", (3, 0), (3, -1), "RIGHT"),
+                    ("FONTNAME", (0, 0), (-1, 0), PDF_FONT_BOLD),
+                    ("FONTSIZE", (0, 0), (-1, 0), 10),
+                    ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                    ("FONTNAME", (0, 1), (-1, -1), PDF_FONT),
+                    ("FONTSIZE", (0, 1), (-1, -1), 9),
+                ]
+            )
         )
         story.append(table)
 

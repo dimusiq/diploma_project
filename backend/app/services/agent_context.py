@@ -29,7 +29,9 @@ def build_warehouse_context_for_user(session: Session, user: User) -> str:
     ).first()
     if layout:
         spec = layout.spec
-        parsed = try_parse_warehouse_layout_spec(spec if isinstance(spec, dict) else None)
+        parsed = try_parse_warehouse_layout_spec(
+            spec if isinstance(spec, dict) else None
+        )
         if parsed:
             g = parsed.geometry
             lines.append(
@@ -56,11 +58,15 @@ def build_warehouse_context_for_user(session: Session, user: User) -> str:
         wh_stmt = wh_stmt.where(Item.owner_id == user.id)
     on_warehouse = session.exec(wh_stmt).one()
 
-    placed_stmt = select(func.count()).select_from(Item).where(
-        Item.storage_row.is_not(None),
-        Item.storage_level.is_not(None),
-        Item.storage_cell_x.is_not(None),
-        Item.storage_cell_z.is_not(None),
+    placed_stmt = (
+        select(func.count())
+        .select_from(Item)
+        .where(
+            Item.storage_row.is_not(None),
+            Item.storage_level.is_not(None),
+            Item.storage_cell_x.is_not(None),
+            Item.storage_cell_z.is_not(None),
+        )
     )
     if not see_all:
         placed_stmt = placed_stmt.where(Item.owner_id == user.id)
@@ -90,7 +96,9 @@ def build_warehouse_context_for_user(session: Session, user: User) -> str:
     )
 
     if see_all:
-        lines.append("Доступ: вы видите товары всех пользователей (роль с правом items.read_all).")
+        lines.append(
+            "Доступ: вы видите товары всех пользователей (роль с правом items.read_all)."
+        )
     else:
         lines.append("Доступ: вы видите только свои товары.")
 

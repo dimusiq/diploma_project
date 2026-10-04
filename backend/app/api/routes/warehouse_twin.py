@@ -150,7 +150,11 @@ class ExternalTwinFactCreate(BaseModel):
     @model_validator(mode="after")
     def _require_aggregate_when_persisting(self) -> ExternalTwinFactCreate:
         if self.persist_domain_event:
-            if not self.domain_event_type or not self.aggregate_type or not self.aggregate_id:
+            if (
+                not self.domain_event_type
+                or not self.aggregate_type
+                or not self.aggregate_id
+            ):
                 raise ValueError(
                     "При persist_domain_event нужны domain_event_type, aggregate_type, aggregate_id"
                 )
@@ -195,7 +199,9 @@ def read_semantic_overview(
             )
         )
     sla_rows = list(session.exec(stmt_sla.order_by(TwinSlaDefinition.code)).all())
-    rule_rows = list(session.exec(stmt_rule.order_by(TwinBusinessRule.priority.desc())).all())
+    rule_rows = list(
+        session.exec(stmt_rule.order_by(TwinBusinessRule.priority.desc())).all()
+    )
     return TwinSemanticOverviewResponse(
         vocabulary=build_default_vocabulary(),
         sla_definitions=[_sla_public(r) for r in sla_rows],
@@ -258,7 +264,11 @@ def list_sla_definitions(
             )
         )
     count = session.exec(count_stmt).one()
-    rows = list(session.exec(stmt.order_by(TwinSlaDefinition.code).offset(skip).limit(limit)).all())
+    rows = list(
+        session.exec(
+            stmt.order_by(TwinSlaDefinition.code).offset(skip).limit(limit)
+        ).all()
+    )
     return TwinSlaDefinitionList(data=[_sla_public(r) for r in rows], count=count)
 
 
@@ -363,6 +373,8 @@ def ingest_external_twin_fact(
         "correlation_id": str(body.correlation_id) if body.correlation_id else None,
     }
     if body.occurred_at:
-        tele_payload["occurred_at"] = body.occurred_at.isoformat().replace("+00:00", "Z")
+        tele_payload["occurred_at"] = body.occurred_at.isoformat().replace(
+            "+00:00", "Z"
+        )
     publish_telemetry_fact(event_type=body.fact_type, payload=tele_payload)
     return ExternalTwinFactAccepted(ok=True, domain_event_id=ev_id)

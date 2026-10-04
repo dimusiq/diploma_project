@@ -7,15 +7,24 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import threading
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
+
+from app.realtime.sse_common import format_sse, iter_sse_from_queue, put_drop_oldest
+
+
+@dataclass(slots=True)
+class _NotifSub:
+    user_id: uuid.UUID
+    queue: asyncio.Queue[dict]
+
 
 _hub_loop: asyncio.AbstractEventLoop | None = None
 _sub_lock = threading.Lock()
-# user_id -> список очередей подписчиков
-_subscribers: dict[uuid.UUID, list[asyncio.Queue[dict]]] = {}
+_subscribers: list[_NotifSub] = []
+_snapshot: tuple[_NotifSub, ...] = ()
 
 
 def _ensure_hub_loop() -> None:
@@ -27,22 +36,25 @@ def _ensure_hub_loop() -> None:
             pass
 
 
+def _rebuild() -> None:
+    global _snapshot
+    _snapshot = tuple(_subscribers)
+
+
 def _subscribe_queue(user_id: uuid.UUID) -> asyncio.Queue[dict]:
     q: asyncio.Queue[dict] = asyncio.Queue(maxsize=16)
     with _sub_lock:
-        _subscribers.setdefault(user_id, []).append(q)
+        _subscribers.append(_NotifSub(user_id=user_id, queue=q))
+        _rebuild()
     return q
 
 
 def _unsubscribe_queue(user_id: uuid.UUID, q: asyncio.Queue[dict]) -> None:
     with _sub_lock:
-        lst = _subscribers.get(user_id)
-        if not lst:
-            return
-        if q in lst:
-            lst.remove(q)
-        if not lst:
-            _subscribers.pop(user_id, None)
+        _subscribers[:] = [
+            s for s in _subscribers if not (s.user_id == user_id and s.queue is q)
+        ]
+        _rebuild()
 
 
 def publish_notifications_updated(user_id: uuid.UUID) -> None:
@@ -52,21 +64,11 @@ def publish_notifications_updated(user_id: uuid.UUID) -> None:
         return
 
     def _broadcast() -> None:
-        with _sub_lock:
-            queues = list(_subscribers.get(user_id, ()))
         payload = {"type": "notifications_updated"}
-        for q in queues:
-            try:
-                q.put_nowait(payload)
-            except asyncio.QueueFull:
-                try:
-                    q.get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
-                try:
-                    q.put_nowait(payload)
-                except asyncio.QueueFull:
-                    pass
+        for s in _snapshot:
+            if s.user_id != user_id:
+                continue
+            put_drop_oldest(s.queue, payload)
 
     try:
         loop.call_soon_threadsafe(_broadcast)
@@ -74,26 +76,14 @@ def publish_notifications_updated(user_id: uuid.UUID) -> None:
         pass
 
 
-def _format_sse(data: dict | None = None, *, comment: str | None = None) -> bytes:
-    lines: list[str] = []
-    if comment is not None:
-        lines.append(f": {comment}")
-    if data is not None:
-        lines.append(f"data: {json.dumps(data, ensure_ascii=False)}")
-    lines.append("")
-    return ("\n".join(lines) + "\n").encode("utf-8")
-
-
 async def notification_sse_stream(user_id: uuid.UUID) -> AsyncIterator[bytes]:
     _ensure_hub_loop()
     q = _subscribe_queue(user_id)
     try:
-        yield _format_sse(comment="ok")
-        while True:
-            try:
-                msg = await asyncio.wait_for(q.get(), timeout=15.0)
-                yield _format_sse(msg)
-            except asyncio.TimeoutError:
-                yield _format_sse(comment="ping")
+        async for chunk in iter_sse_from_queue(
+            q,
+            on_start=(format_sse(comment="ok"),),
+        ):
+            yield chunk
     finally:
         _unsubscribe_queue(user_id, q)

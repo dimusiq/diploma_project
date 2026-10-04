@@ -23,7 +23,9 @@ EVENT_ITEM_DELETED = catalog.EVENT_ITEM_DELETED
 
 def _next_event_seq(session: Session) -> int:
     return int(
-        session.execute(text("SELECT nextval('domain_event_event_seq_seq')")).scalar_one()
+        session.execute(
+            text("SELECT nextval('domain_event_event_seq_seq')")
+        ).scalar_one()
     )
 
 

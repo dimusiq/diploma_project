@@ -125,7 +125,10 @@ def _bind_staff(worker: dict, spec: dict, row: dict) -> None:
 
 def seed_workers(workers: list[dict], racks, roster: list[dict] | None = None) -> None:
     routes = demo_routes()
-    roster_rows = {row["employee_code"]: row for row in (roster if roster is not None else DEMO_STAFF)}
+    roster_rows = {
+        row["employee_code"]: row
+        for row in (roster if roster is not None else DEMO_STAFF)
+    }
     for index, worker in enumerate(workers):
         if index < len(DEMO_STAFF):
             spec = DEMO_STAFF[index]
@@ -226,7 +229,14 @@ def path_crosses_rack(points: list[dict], racks) -> bool:
     previous = None
     for point in samples:
         if previous is not None:
-            steps = int(max(abs(point["x"] - previous["x"]), abs(point["z"] - previous["z"]))) + 1
+            steps = (
+                int(
+                    max(
+                        abs(point["x"] - previous["x"]), abs(point["z"] - previous["z"])
+                    )
+                )
+                + 1
+            )
             for step in range(steps + 1):
                 t = step / steps
                 cell = (
@@ -255,7 +265,9 @@ def people_snapshot(world: dict) -> list[dict]:
                     "x": round(float(worker["pos"]["x"]), 2),
                     "z": round(float(worker["pos"]["z"]), 2),
                 },
-                "speed": float(worker.get("speed") or 0.0) if worker.get("status") == "walking" else 0.0,
+                "speed": float(worker.get("speed") or 0.0)
+                if worker.get("status") == "walking"
+                else 0.0,
                 "status": worker.get("status"),
                 "target": worker.get("target"),
             }

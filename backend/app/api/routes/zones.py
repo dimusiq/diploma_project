@@ -1,4 +1,5 @@
 """API справочника зон склада (управление в админке)."""
+
 import uuid
 from typing import Any
 
@@ -20,7 +21,9 @@ from app.models import (
 router = APIRouter(prefix="/zones", tags=["zones"])
 
 
-def _resolve_warehouse_id(session: SessionDep, warehouse_id: uuid.UUID | None) -> uuid.UUID:
+def _resolve_warehouse_id(
+    session: SessionDep, warehouse_id: uuid.UUID | None
+) -> uuid.UUID:
     if warehouse_id is not None:
         wh = session.get(Warehouse, warehouse_id)
         if not wh:

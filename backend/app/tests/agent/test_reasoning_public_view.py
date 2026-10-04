@@ -29,8 +29,5 @@ def test_public_reasoning_includes_operational_cycle_and_run_log() -> None:
 
 
 def test_reply_without_first_paragraph_strips_when_multiple_paragraphs() -> None:
-    assert (
-        reply_without_first_paragraph_when_multi("A\n\nB\n\nC")
-        == "B\n\nC"
-    )
+    assert reply_without_first_paragraph_when_multi("A\n\nB\n\nC") == "B\n\nC"
     assert reply_without_first_paragraph_when_multi("Один абзац") == "Один абзац"

@@ -41,7 +41,9 @@ class DueReport:
     subject: str
 
 
-def _report_enabled_for_user(session: "Session", user_id: uuid.UUID, report_key: str) -> bool:
+def _report_enabled_for_user(
+    session: "Session", user_id: uuid.UUID, report_key: str
+) -> bool:
     pref = session.exec(
         select(UserCommunicationPreference)
         .where(
@@ -58,7 +60,11 @@ def _report_enabled_for_user(session: "Session", user_id: uuid.UUID, report_key:
 
 
 def _already_sent(
-    session: "Session", user_id: uuid.UUID, report_key: str, period_start: date, period_end: date
+    session: "Session",
+    user_id: uuid.UUID,
+    report_key: str,
+    period_start: date,
+    period_end: date,
 ) -> bool:
     existing = session.exec(
         select(ReportEmailDeliveryLog).where(
@@ -103,13 +109,21 @@ def _card(title: str, body_html: str) -> str:
 """.strip()
 
 
-def _weekly_summary_html(session: "Session", user: User, period_start: date, period_end: date) -> str:
+def _weekly_summary_html(
+    session: "Session", user: User, period_start: date, period_end: date
+) -> str:
     # Items created in period
-    dt_from = datetime.combine(period_start, datetime.min.time()).replace(tzinfo=timezone.utc)
-    dt_to = datetime.combine(period_end, datetime.max.time()).replace(tzinfo=timezone.utc)
+    dt_from = datetime.combine(period_start, datetime.min.time()).replace(
+        tzinfo=timezone.utc
+    )
+    dt_to = datetime.combine(period_end, datetime.max.time()).replace(
+        tzinfo=timezone.utc
+    )
 
     created_count = session.exec(
-        select(func.count()).select_from(Item).where(
+        select(func.count())
+        .select_from(Item)
+        .where(
             Item.owner_id == user.id,
             Item.created_at >= dt_from,
             Item.created_at <= dt_to,
@@ -118,14 +132,18 @@ def _weekly_summary_html(session: "Session", user: User, period_start: date, per
 
     # Work orders assigned to user (active)
     open_wo = session.exec(
-        select(func.count()).select_from(WorkOrder).where(
+        select(func.count())
+        .select_from(WorkOrder)
+        .where(
             WorkOrder.assigned_to_id == user.id,
             WorkOrder.status.in_(["open", "in_progress", "waiting_parts"]),
         )
     ).one()
 
     unread_notifications = session.exec(
-        select(func.count()).select_from(Notification).where(
+        select(func.count())
+        .select_from(Notification)
+        .where(
             Notification.user_id == user.id,
             Notification.is_read.is_(False),
             Notification.archived_at.is_(None),
@@ -151,18 +169,28 @@ def _weekly_summary_html(session: "Session", user: User, period_start: date, per
     return _html_layout("Еженедельная сводка", subtitle, blocks)
 
 
-def _monthly_maintenance_html(session: "Session", user: User, period_start: date, period_end: date) -> str:
-    dt_from = datetime.combine(period_start, datetime.min.time()).replace(tzinfo=timezone.utc)
-    dt_to = datetime.combine(period_end, datetime.max.time()).replace(tzinfo=timezone.utc)
+def _monthly_maintenance_html(
+    session: "Session", _user: User, period_start: date, period_end: date
+) -> str:
+    dt_from = datetime.combine(period_start, datetime.min.time()).replace(
+        tzinfo=timezone.utc
+    )
+    dt_to = datetime.combine(period_end, datetime.max.time()).replace(
+        tzinfo=timezone.utc
+    )
 
     created_wo = session.exec(
-        select(func.count()).select_from(WorkOrder).where(
+        select(func.count())
+        .select_from(WorkOrder)
+        .where(
             WorkOrder.created_at >= dt_from,
             WorkOrder.created_at <= dt_to,
         )
     ).one()
     done_wo = session.exec(
-        select(func.count()).select_from(WorkOrder).where(
+        select(func.count())
+        .select_from(WorkOrder)
+        .where(
             WorkOrder.status == "done",
             WorkOrder.updated_at >= dt_from,
             WorkOrder.updated_at <= dt_to,
@@ -195,7 +223,7 @@ def compute_due_reports(now_utc: datetime) -> list[DueReport]:
 
     # Weekly: Monday 09:xx (any minute within the hour)
     if now_utc.weekday() == 0 and now_utc.hour >= 9:
-        end = (now_utc.date() - timedelta(days=1))
+        end = now_utc.date() - timedelta(days=1)
         start = end - timedelta(days=6)
         due.append(
             DueReport(
@@ -253,13 +281,19 @@ def send_due_reports(session: "Session", now_utc: datetime) -> int:
 
             try:
                 if dr.key == REPORT_WEEKLY_SUMMARY:
-                    html = _weekly_summary_html(session, user, dr.period_start, dr.period_end)
+                    html = _weekly_summary_html(
+                        session, user, dr.period_start, dr.period_end
+                    )
                 elif dr.key == REPORT_MONTHLY_MAINTENANCE:
-                    html = _monthly_maintenance_html(session, user, dr.period_start, dr.period_end)
+                    html = _monthly_maintenance_html(
+                        session, user, dr.period_start, dr.period_end
+                    )
                 else:
                     continue
 
-                send_email(email_to=str(user.email), subject=dr.subject, html_content=html)
+                send_email(
+                    email_to=str(user.email), subject=dr.subject, html_content=html
+                )
                 session.add(
                     ReportEmailDeliveryLog(
                         user_id=user.id,
@@ -286,4 +320,3 @@ def send_due_reports(session: "Session", now_utc: datetime) -> int:
                 )
                 session.commit()
     return sent
-

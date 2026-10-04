@@ -34,8 +34,7 @@ def _get_default_config(session: Session) -> tuple[list[int], int]:
                 default_intervals = [
                     int(x)
                     for x in parsed
-                    if isinstance(x, int)
-                    or (isinstance(x, float) and x.is_integer())
+                    if isinstance(x, int) or (isinstance(x, float) and x.is_integer())
                 ]
         except Exception:
             pass
@@ -60,7 +59,9 @@ def _get_interval_and_remind_for_equipment(
     default_remind: int,
 ) -> tuple[int, uuid.UUID | None, int]:
     chain_ids_rows = session.exec(
-        select(ChainAssignment.chain_id).where(ChainAssignment.equipment_id == equipment_id)
+        select(ChainAssignment.chain_id).where(
+            ChainAssignment.equipment_id == equipment_id
+        )
     ).all()
     chain_ids = [row for row in chain_ids_rows if row is not None]
     if not chain_ids:
@@ -118,7 +119,9 @@ def build_maintenance_calendar_event_list(
     default_intervals, default_remind = _get_default_config(session)
     default_interval = default_intervals[0] if default_intervals else 500
 
-    devices = list(session.exec(select(SimDevice).where(SimDevice.archived.is_(False))).all())
+    devices = list(
+        session.exec(select(SimDevice).where(SimDevice.archived.is_(False))).all()
+    )
 
     events: list[MaintenanceCalendarEventPublic] = []
     for device in devices:
@@ -126,11 +129,13 @@ def build_maintenance_calendar_event_list(
         if engine_hours is None:
             continue
 
-        interval_hours, primary_chain_id, remind_before = _get_interval_and_remind_for_equipment(
-            session,
-            equipment_id=device.id,
-            default_interval=default_interval,
-            default_remind=default_remind,
+        interval_hours, primary_chain_id, remind_before = (
+            _get_interval_and_remind_for_equipment(
+                session,
+                equipment_id=device.id,
+                default_interval=default_interval,
+                default_remind=default_remind,
+            )
         )
         if interval_hours <= 0:
             interval_hours = default_interval
@@ -160,7 +165,9 @@ def build_maintenance_calendar_event_list(
             )
         )
 
-    events.sort(key=lambda e: (0 if e.status == "overdue" else 1, e.next_service_at_hours or 0))
+    events.sort(
+        key=lambda e: (0 if e.status == "overdue" else 1, e.next_service_at_hours or 0)
+    )
     total_matching = len(events)
     if len(events) > limit:
         events = events[:limit]

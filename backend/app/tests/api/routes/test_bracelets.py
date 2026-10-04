@@ -15,7 +15,10 @@ from app.warehouse_sim.bracelets import (
     ensure_demo_bracelets,
 )
 from app.warehouse_sim.fleet import demo_warehouse
-from app.warehouse_sim.models import DEVICE_RADIO_BEACON, SimBraceletAssignment, SimDevice
+from app.warehouse_sim.models import (
+    DEVICE_RADIO_BEACON,
+    SimDevice,
+)
 from app.warehouse_sim.runtime import get_runtime
 
 PERSONNEL = f"{settings.API_V1_STR}/personnel"
@@ -68,7 +71,9 @@ def test_create_bracelet_as_equipment(
     assert device["device_type"] == DEVICE_RADIO_BEACON
     assert device["assigned_employee"] is None
 
-    listed = client.get(f"{FLEET}?category=personnel_bracelets", headers=superuser_token_headers)
+    listed = client.get(
+        f"{FLEET}?category=personnel_bracelets", headers=superuser_token_headers
+    )
     assert listed.status_code == 200
     codes = {row["code"] for row in listed.json()["data"]}
     assert device["code"] in codes
@@ -98,7 +103,11 @@ def test_assign_and_read_from_both_sides(
 
     db.expire_all()
     actions = set(
-        db.exec(select(AuditLog.action).where(AuditLog.resource_id == uuid.UUID(employee["id"]))).all()
+        db.exec(
+            select(AuditLog.action).where(
+                AuditLog.resource_id == uuid.UUID(employee["id"])
+            )
+        ).all()
     )
     assert "bracelet.assign" in actions
 
@@ -213,12 +222,15 @@ def test_archived_bracelet_cannot_be_assigned(
 def test_runtime_mirrors_worker_position(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
+    _ = client, superuser_token_headers
     warehouse = demo_warehouse(db)
     assert warehouse is not None
     ensure_demo_bracelets(db, warehouse.id)
     db.commit()
 
-    employee = db.get(WarehouseEmployee, uuid.UUID("11111111-1111-4111-8111-111111111001"))
+    employee = db.get(
+        WarehouseEmployee, uuid.UUID("11111111-1111-4111-8111-111111111001")
+    )
     assert employee is not None
     assignment = active_assignment_for_employee(db, employee.id)
     assert assignment is not None
@@ -262,7 +274,9 @@ def test_available_bracelets_exclude_busy(
         headers=superuser_token_headers,
         json={"device_id": busy["id"]},
     )
-    available = client.get(f"{PERSONNEL}/bracelets/available", headers=superuser_token_headers)
+    available = client.get(
+        f"{PERSONNEL}/bracelets/available", headers=superuser_token_headers
+    )
     assert available.status_code == 200
     ids = {row["device_id"] for row in available.json()["data"]}
     assert free["id"] in ids
@@ -291,6 +305,8 @@ def test_assignment_persists_across_reads(
     assert fleet.json()["assigned_employee"]["id"] == employee["id"]
 
     worker_without = _create_employee(client, superuser_token_headers)
-    empty = client.get(f"{PERSONNEL}/{worker_without['id']}", headers=superuser_token_headers)
+    empty = client.get(
+        f"{PERSONNEL}/{worker_without['id']}", headers=superuser_token_headers
+    )
     assert empty.status_code == 200
     assert empty.json()["bracelet"] is None

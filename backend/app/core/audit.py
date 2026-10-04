@@ -36,7 +36,11 @@ def log_audit(
     """Записать запись в журнал аудита."""
     details_str: str | None = None
     if details is not None:
-        details_str = json.dumps(details, ensure_ascii=False) if isinstance(details, dict) else str(details)
+        details_str = (
+            json.dumps(details, ensure_ascii=False)
+            if isinstance(details, dict)
+            else str(details)
+        )
         if len(details_str) > 4096:
             details_str = details_str[:4092] + "..."
     entry = AuditLog(

@@ -8,8 +8,6 @@ from app.warehouse_sim.layout import (
     AISLE_Z,
     EAST_CORRIDOR_X,
     PACKING_POINT,
-    RECEIVING_STAGING,
-    SHIPPING_STAGING,
     WEST_CORRIDOR_X,
     ZONE_CHARGING,
     ZONE_PACKING,
@@ -53,14 +51,62 @@ DEMO_CONFIG = {
 DAY_START_SEC = 8 * 3600
 
 SKUS = [
-    {"id": "sku-1", "code": "SKU-1001", "name": "Вода питьевая, 0.5 л", "cold": False, "unitsPerPallet": 1200},
-    {"id": "sku-2", "code": "SKU-1002", "name": "Крупа гречневая, 1 кг", "cold": False, "unitsPerPallet": 800},
-    {"id": "sku-3", "code": "SKU-1003", "name": "Молоко УВТ, 1 л", "cold": True, "unitsPerPallet": 600},
-    {"id": "sku-4", "code": "SKU-1004", "name": "Кофе молотый, 250 г", "cold": False, "unitsPerPallet": 960},
-    {"id": "sku-5", "code": "SKU-1005", "name": "Сыр полутвёрдый, 400 г", "cold": True, "unitsPerPallet": 540},
-    {"id": "sku-6", "code": "SKU-1006", "name": "Бумага А4, 500 л.", "cold": False, "unitsPerPallet": 400},
-    {"id": "sku-7", "code": "SKU-1007", "name": "Стеклоомыватель, 5 л", "cold": False, "unitsPerPallet": 320},
-    {"id": "sku-8", "code": "SKU-1008", "name": "Корм для животных, 3 кг", "cold": False, "unitsPerPallet": 480},
+    {
+        "id": "sku-1",
+        "code": "SKU-1001",
+        "name": "Вода питьевая, 0.5 л",
+        "cold": False,
+        "unitsPerPallet": 1200,
+    },
+    {
+        "id": "sku-2",
+        "code": "SKU-1002",
+        "name": "Крупа гречневая, 1 кг",
+        "cold": False,
+        "unitsPerPallet": 800,
+    },
+    {
+        "id": "sku-3",
+        "code": "SKU-1003",
+        "name": "Молоко УВТ, 1 л",
+        "cold": True,
+        "unitsPerPallet": 600,
+    },
+    {
+        "id": "sku-4",
+        "code": "SKU-1004",
+        "name": "Кофе молотый, 250 г",
+        "cold": False,
+        "unitsPerPallet": 960,
+    },
+    {
+        "id": "sku-5",
+        "code": "SKU-1005",
+        "name": "Сыр полутвёрдый, 400 г",
+        "cold": True,
+        "unitsPerPallet": 540,
+    },
+    {
+        "id": "sku-6",
+        "code": "SKU-1006",
+        "name": "Бумага А4, 500 л.",
+        "cold": False,
+        "unitsPerPallet": 400,
+    },
+    {
+        "id": "sku-7",
+        "code": "SKU-1007",
+        "name": "Стеклоомыватель, 5 л",
+        "cold": False,
+        "unitsPerPallet": 320,
+    },
+    {
+        "id": "sku-8",
+        "code": "SKU-1008",
+        "name": "Корм для животных, 3 кг",
+        "cold": False,
+        "unitsPerPallet": 480,
+    },
 ]
 
 WORKER_NAMES = [
@@ -80,13 +126,83 @@ WORKER_NAMES = [
 WORKER_ROLE_CYCLE = ["receiver", "picker", "picker", "loader", "operator", "supervisor"]
 
 SENSOR_SPECS = [
-    {"code": "T-01", "name": "Температура, хранение А", "zoneId": ZONE_STORAGE, "pos": {"x": 34, "z": AISLE_Z[1]}, "metricKind": "temperature", "unit": "°C", "value": 19, "min": 14, "max": 26},
-    {"code": "T-02", "name": "Температура, холодная зона", "zoneId": ZONE_STORAGE, "pos": {"x": 60, "z": AISLE_Z[7]}, "metricKind": "temperature", "unit": "°C", "value": 4.5, "min": 1, "max": 8},
-    {"code": "H-01", "name": "Влажность, хранение B", "zoneId": ZONE_STORAGE, "pos": {"x": 48, "z": AISLE_Z[4]}, "metricKind": "humidity", "unit": "%", "value": 48, "min": 30, "max": 68},
-    {"code": "V-01", "name": "Вибрация, конвейер упаковки", "zoneId": ZONE_PACKING, "pos": {"x": 88, "z": 18}, "metricKind": "vibration", "unit": "мм/с", "value": 0.6, "min": 0, "max": 2.2},
-    {"code": "C-01", "name": "CO₂, приёмка", "zoneId": ZONE_RECEIVING, "pos": {"x": 8, "z": 16}, "metricKind": "co2", "unit": "ppm", "value": 520, "min": 350, "max": 1100},
-    {"code": "W-01", "name": "Весы паллетные, упаковка", "zoneId": ZONE_PACKING, "pos": {"x": 84, "z": 22}, "metricKind": "weight", "unit": "кг", "value": 420, "min": 0, "max": 1450},
-    {"code": "P-01", "name": "Фотобарьер, буфер отгрузки", "zoneId": ZONE_SHIPPING, "pos": {"x": 84, "z": 38}, "metricKind": "photo_eye", "unit": "", "value": 0, "min": 0, "max": 1},
+    {
+        "code": "T-01",
+        "name": "Температура, хранение А",
+        "zoneId": ZONE_STORAGE,
+        "pos": {"x": 34, "z": AISLE_Z[1]},
+        "metricKind": "temperature",
+        "unit": "°C",
+        "value": 19,
+        "min": 14,
+        "max": 26,
+    },
+    {
+        "code": "T-02",
+        "name": "Температура, холодная зона",
+        "zoneId": ZONE_STORAGE,
+        "pos": {"x": 60, "z": AISLE_Z[7]},
+        "metricKind": "temperature",
+        "unit": "°C",
+        "value": 4.5,
+        "min": 1,
+        "max": 8,
+    },
+    {
+        "code": "H-01",
+        "name": "Влажность, хранение B",
+        "zoneId": ZONE_STORAGE,
+        "pos": {"x": 48, "z": AISLE_Z[4]},
+        "metricKind": "humidity",
+        "unit": "%",
+        "value": 48,
+        "min": 30,
+        "max": 68,
+    },
+    {
+        "code": "V-01",
+        "name": "Вибрация, конвейер упаковки",
+        "zoneId": ZONE_PACKING,
+        "pos": {"x": 88, "z": 18},
+        "metricKind": "vibration",
+        "unit": "мм/с",
+        "value": 0.6,
+        "min": 0,
+        "max": 2.2,
+    },
+    {
+        "code": "C-01",
+        "name": "CO₂, приёмка",
+        "zoneId": ZONE_RECEIVING,
+        "pos": {"x": 8, "z": 16},
+        "metricKind": "co2",
+        "unit": "ppm",
+        "value": 520,
+        "min": 350,
+        "max": 1100,
+    },
+    {
+        "code": "W-01",
+        "name": "Весы паллетные, упаковка",
+        "zoneId": ZONE_PACKING,
+        "pos": {"x": 84, "z": 22},
+        "metricKind": "weight",
+        "unit": "кг",
+        "value": 420,
+        "min": 0,
+        "max": 1450,
+    },
+    {
+        "code": "P-01",
+        "name": "Фотобарьер, буфер отгрузки",
+        "zoneId": ZONE_SHIPPING,
+        "pos": {"x": 84, "z": 38},
+        "metricKind": "photo_eye",
+        "unit": "",
+        "value": 0,
+        "min": 0,
+        "max": 1,
+    },
 ]
 
 
@@ -242,7 +358,13 @@ def _create_devices(config: dict, topology: dict) -> list[dict]:
     for dock in topology["docks"]:
         zone = ZONE_RECEIVING if dock["direction"] == "inbound" else ZONE_SHIPPING
         devices.append(
-            create_device(dock["id"], "dock_door", f"DOCK {dock['code']}", dock["pos"], zoneId=zone)
+            create_device(
+                dock["id"],
+                "dock_door",
+                f"DOCK {dock['code']}",
+                dock["pos"],
+                zoneId=zone,
+            )
         )
         ox = 2 if dock["direction"] == "inbound" else -2
         devices.append(
@@ -255,7 +377,9 @@ def _create_devices(config: dict, topology: dict) -> list[dict]:
             )
         )
     devices.append(
-        create_device("scn-PACK", "scanner", "SCANNER PACK", PACKING_POINT, zoneId=ZONE_PACKING)
+        create_device(
+            "scn-PACK", "scanner", "SCANNER PACK", PACKING_POINT, zoneId=ZONE_PACKING
+        )
     )
     for spec in SENSOR_SPECS:
         devices.append(

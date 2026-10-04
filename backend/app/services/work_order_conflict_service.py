@@ -9,12 +9,12 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime
 from typing import Any, TypedDict
 
 from sqlmodel import select
-import json
 
 from app.api.deps import SessionDep
 from app.models import (
@@ -24,8 +24,11 @@ from app.models import (
     WorkOrder,
 )
 
-
-BLOCKING_STATUSES = {WORK_ORDER_STATUS_OPEN, WORK_ORDER_STATUS_IN_PROGRESS, WORK_ORDER_STATUS_WAITING_PARTS}
+BLOCKING_STATUSES = {
+    WORK_ORDER_STATUS_OPEN,
+    WORK_ORDER_STATUS_IN_PROGRESS,
+    WORK_ORDER_STATUS_WAITING_PARTS,
+}
 
 
 class ConflictResult(TypedDict):
@@ -134,4 +137,3 @@ def assert_no_overlapping_conflicts_or_raise(
         status_code=409,
         detail=detail_str,
     )
-

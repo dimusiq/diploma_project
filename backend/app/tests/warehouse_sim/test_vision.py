@@ -2,7 +2,12 @@
 
 from app.warehouse_sim.simulation import advance_world
 from app.warehouse_sim.vision.detector import DemoDetector
-from app.warehouse_sim.vision.service import note_scene_detection, public_camera, start_camera, tick_cameras
+from app.warehouse_sim.vision.service import (
+    note_scene_detection,
+    public_camera,
+    start_camera,
+    tick_cameras,
+)
 from app.warehouse_sim.world import create_world
 
 
@@ -42,7 +47,9 @@ def test_detection_schema_and_equipment_link() -> None:
     assert status["online"] is True
     assert status["source"] == "scene"
     assert device["camera"]["detections"] == []
-    note_scene_detection(world, device, present=True, class_name="pallet", entity_id="R04A-L2-C03")
+    note_scene_detection(
+        world, device, present=True, class_name="pallet", entity_id="R04A-L2-C03"
+    )
     detection = device["camera"]["detections"][0]
     assert set(detection) >= {
         "id",
@@ -60,21 +67,35 @@ def test_detection_schema_and_equipment_link() -> None:
     assert detection["bbox"] is None
     assert detection["class_name"] == "pallet"
     before = world["eventCountsByType"].get("CAMERA_OBJECT_DETECTED", 0)
-    note_scene_detection(world, device, present=True, class_name="pallet", entity_id="R04A-L2-C03")
+    note_scene_detection(
+        world, device, present=True, class_name="pallet", entity_id="R04A-L2-C03"
+    )
     assert world["eventCountsByType"].get("CAMERA_OBJECT_DETECTED", 0) == before
     assert device["cameraHold"] is False
 
 
 def test_person_sighting_without_position_does_not_stop_agv() -> None:
-    world = create_world({"seed": 3, "faultRatePerHour": 0, "jamRatePerHour": 0, "truckArrivalsPerHour": 0, "ordersPerHour": 0})
+    world = create_world(
+        {
+            "seed": 3,
+            "faultRatePerHour": 0,
+            "jamRatePerHour": 0,
+            "truckArrivalsPerHour": 0,
+            "ordersPerHour": 0,
+        }
+    )
     device = world["deviceById"]["agv-1"]
     start_camera(world, device)
-    note_scene_detection(world, device, present=True, class_name="person", entity_id="wrk-1")
+    note_scene_detection(
+        world, device, present=True, class_name="person", entity_id="wrk-1"
+    )
     assert device["camera"]["obstacle"] is False
     assert device["cameraHold"] is False
     assert device["camera"]["detection_count"] == 1
     assert world["eventCountsByType"].get("CAMERA_PERSON_DETECTED", 0) == 1
-    note_scene_detection(world, device, present=True, class_name="person", entity_id="wrk-1")
+    note_scene_detection(
+        world, device, present=True, class_name="person", entity_id="wrk-1"
+    )
     assert world["eventCountsByType"].get("CAMERA_PERSON_DETECTED", 0) == 1
     device["status"] = "moving"
     device["online"] = True
@@ -85,6 +106,8 @@ def test_person_sighting_without_position_does_not_stop_agv() -> None:
     assert device["pos"]["x"] > origin["x"]
     assert device["cameraHold"] is False
     assert device.get("taskId") == "T-DEMO"
-    note_scene_detection(world, device, present=False, class_name="person", entity_id="wrk-1")
+    note_scene_detection(
+        world, device, present=False, class_name="person", entity_id="wrk-1"
+    )
     assert device["cameraHold"] is False
     assert world["eventCountsByType"].get("CAMERA_OBJECT_LOST", 0) >= 1

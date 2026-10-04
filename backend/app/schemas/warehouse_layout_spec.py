@@ -74,7 +74,9 @@ def parse_warehouse_layout_spec(raw: dict[str, Any] | None) -> WarehouseLayoutSp
     return WarehouseLayoutSpecV1.model_validate(raw)
 
 
-def try_parse_warehouse_layout_spec(raw: dict[str, Any] | None) -> WarehouseLayoutSpecV1 | None:
+def try_parse_warehouse_layout_spec(
+    raw: dict[str, Any] | None,
+) -> WarehouseLayoutSpecV1 | None:
     try:
         return parse_warehouse_layout_spec(raw)
     except Exception:

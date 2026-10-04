@@ -46,7 +46,9 @@ def build_twin_summary_dict(session: Session, user: User) -> dict:
         if r is not None
     ]
 
-    total_stmt = select(func.count()).select_from(Item).where(Item.status == "warehouse")
+    total_stmt = (
+        select(func.count()).select_from(Item).where(Item.status == "warehouse")
+    )
     if not see_all:
         total_stmt = total_stmt.where(Item.owner_id == user.id)
     warehouse_total = session.exec(total_stmt).one()

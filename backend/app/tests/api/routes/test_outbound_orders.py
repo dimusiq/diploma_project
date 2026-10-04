@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.core.config import settings
-from app.models import OutboundOrder, Warehouse, WarehouseTask
+from app.models import Warehouse, WarehouseTask
 from app.tests.utils.item import create_random_item
 
 
@@ -53,7 +53,10 @@ def test_ready_for_shipment_uses_packed_orders_not_item_status(
     db.commit()
 
     open_order = _create_order(
-        client, superuser_token_headers, code=f"OUT-OPEN-{uuid.uuid4().hex[:8]}", status="open"
+        client,
+        superuser_token_headers,
+        code=f"OUT-OPEN-{uuid.uuid4().hex[:8]}",
+        status="open",
     )
     packed = _create_order(
         client,

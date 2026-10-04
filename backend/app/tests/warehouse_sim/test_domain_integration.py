@@ -40,7 +40,9 @@ def test_full_warehouse_workflow_writes_existing_domain(db: Session) -> None:
     seed_world_inventory(db, world)
     apply_integration_queue(db, world)
 
-    stock = list(db.exec(select(Item).where(Item.barcode.like(f"{BARCODE_PREFIX}%"))).all())
+    stock = list(
+        db.exec(select(Item).where(Item.barcode.like(f"{BARCODE_PREFIX}%"))).all()
+    )
     assert stock, "стартовые паллеты должны стать Item"
 
     elapsed = 0.0
@@ -62,7 +64,9 @@ def test_full_warehouse_workflow_writes_existing_domain(db: Session) -> None:
     assert world["metrics"]["palletsPutaway"] >= 1, world["metrics"]
 
     db.expire_all()
-    items = list(db.exec(select(Item).where(Item.barcode.like(f"{BARCODE_PREFIX}%"))).all())
+    items = list(
+        db.exec(select(Item).where(Item.barcode.like(f"{BARCODE_PREFIX}%"))).all()
+    )
     tasks = [
         t
         for t in db.exec(select(WarehouseTask)).all()
@@ -75,9 +79,13 @@ def test_full_warehouse_workflow_writes_existing_domain(db: Session) -> None:
     assert world["metrics"]["palletsPutaway"] >= 1
     assert any(i.status in ("warehouse", "shipment", "shipped") for i in items)
     assert any(t.task_type in ("putaway", "pick", "move") for t in tasks)
-    assert any(t.status in ("completed", "in_progress", "pending", "blocked") for t in tasks)
+    assert any(
+        t.status in ("completed", "in_progress", "pending", "blocked") for t in tasks
+    )
     assert inbound
-    assert any(o.status in ("open", "in_progress", "received", "closed") for o in inbound)
+    assert any(
+        o.status in ("open", "in_progress", "received", "closed") for o in inbound
+    )
     assert outbound
     assert world["metrics"]["ordersCreated"] >= 1
 
@@ -99,8 +107,11 @@ def test_full_warehouse_workflow_writes_existing_domain(db: Session) -> None:
     assert leftover_tasks == []
 
 
-def test_slot_from_context_uses_one_based_cell_z() -> None:
+def test_slot_from_context_distinguishes_rack_sides() -> None:
+    """Ожидаемое изменение: A/B больше не схлопываются в один (row,level,bay,z)."""
     slot_a = _slot_from_context({"cell": {"rackId": "rack-3-A", "level": 2, "bay": 4}})
     slot_b = _slot_from_context({"cell": {"rackId": "rack-3-B", "level": 2, "bay": 4}})
-    assert slot_a == (3, 2, 4, 1)
-    assert slot_b == (3, 2, 4, 1)
+    # rack-3-A → row 5, rack-3-B → row 6
+    assert slot_a == (5, 2, 4, 1)
+    assert slot_b == (6, 2, 4, 1)
+    assert slot_a != slot_b

@@ -17,12 +17,14 @@
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import BigInteger, Column, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
+
+from app.warehouse_sim.timeutil import utcnow
 
 # --- Зоны склада ---
 ZONE_RECEIVING = "RECEIVING"
@@ -294,10 +296,6 @@ SCENARIO_CODES = (
 )
 
 
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
 # --- План склада ---
 
 
@@ -312,15 +310,17 @@ class SimWarehouse(SQLModel, table=True):
     width_m: float = Field(gt=0, description="Размер плана по оси x, метры")
     height_m: float = Field(gt=0, description="Размер плана по оси y, метры")
     grid_cell_m: float = Field(default=1.0, gt=0, description="Шаг сетки для A*")
-    created_at: datetime = Field(default_factory=_utcnow)
-    updated_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class SimZone(SQLModel, table=True):
     """Функциональная зона (прямоугольник на плане)."""
 
     __tablename__ = "wsim_zone"
-    __table_args__ = (UniqueConstraint("warehouse_id", "code", name="uq_wsim_zone_wh_code"),)
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_wsim_zone_wh_code"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     warehouse_id: uuid.UUID = Field(
@@ -334,14 +334,16 @@ class SimZone(SQLModel, table=True):
     width: float = Field(gt=0)
     height: float = Field(gt=0)
     color: str = Field(default="#3b82f6", max_length=32)
-    created_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SimAisle(SQLModel, table=True):
     """Проезд: отрезок, по которому разрешено движение техники."""
 
     __tablename__ = "wsim_aisle"
-    __table_args__ = (UniqueConstraint("warehouse_id", "code", name="uq_wsim_aisle_wh_code"),)
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_wsim_aisle_wh_code"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     warehouse_id: uuid.UUID = Field(
@@ -357,14 +359,16 @@ class SimAisle(SQLModel, table=True):
     from_coord: float = Field(description="Начало отрезка по свободной оси")
     to_coord: float = Field(description="Конец отрезка по свободной оси")
     width_m: float = Field(default=2.5, gt=0)
-    created_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SimRack(SQLModel, table=True):
     """Стеллаж: непроходимый прямоугольник с секциями и уровнями."""
 
     __tablename__ = "wsim_rack"
-    __table_args__ = (UniqueConstraint("warehouse_id", "code", name="uq_wsim_rack_wh_code"),)
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_wsim_rack_wh_code"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     warehouse_id: uuid.UUID = Field(
@@ -381,7 +385,7 @@ class SimRack(SQLModel, table=True):
     height: float = Field(gt=0)
     bays: int = Field(ge=1, description="Секций по длине стеллажа")
     levels: int = Field(ge=1, description="Ярусов по высоте")
-    created_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SimStorageLocation(SQLModel, table=True):
@@ -389,30 +393,38 @@ class SimStorageLocation(SQLModel, table=True):
 
     __tablename__ = "wsim_storage_location"
     __table_args__ = (
-        UniqueConstraint("warehouse_id", "code", name="uq_wsim_storage_location_wh_code"),
+        UniqueConstraint(
+            "warehouse_id", "code", name="uq_wsim_storage_location_wh_code"
+        ),
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     warehouse_id: uuid.UUID = Field(
         foreign_key="wsim_warehouse.id", ondelete="CASCADE", index=True
     )
-    rack_id: uuid.UUID = Field(foreign_key="wsim_rack.id", ondelete="CASCADE", index=True)
+    rack_id: uuid.UUID = Field(
+        foreign_key="wsim_rack.id", ondelete="CASCADE", index=True
+    )
     code: str = Field(max_length=64)
     bay: int = Field(ge=1)
     level: int = Field(ge=1)
-    capacity: int = Field(default=1, ge=1, description="Сколько грузовых единиц вмещает")
+    capacity: int = Field(
+        default=1, ge=1, description="Сколько грузовых единиц вмещает"
+    )
     occupied: int = Field(default=0, ge=0)
     approach_x: float
     approach_y: float
     blocked: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SimDock(SQLModel, table=True):
     """Док (ворота) с площадкой во дворе, где встаёт транспорт."""
 
     __tablename__ = "wsim_dock"
-    __table_args__ = (UniqueConstraint("warehouse_id", "code", name="uq_wsim_dock_wh_code"),)
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_wsim_dock_wh_code"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     warehouse_id: uuid.UUID = Field(
@@ -428,7 +440,7 @@ class SimDock(SQLModel, table=True):
     y: float
     yard_x: float = Field(description="Точка ожидания транспорта, метры")
     yard_y: float
-    created_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 # --- Устройства ---
@@ -457,23 +469,32 @@ class SimDevice(SQLModel, table=True):
     code: str = Field(max_length=64, description="Стабильный runtime id: agv-1, fl-2")
     name: str = Field(max_length=64, description="Отображаемое имя: AGV-01")
     description: str | None = Field(default=None, max_length=255)
-    device_type: str = Field(max_length=32, index=True, description="|".join(DEVICE_TYPES))
+    device_type: str = Field(
+        max_length=32, index=True, description="|".join(DEVICE_TYPES)
+    )
     enabled: bool = Field(default=True)
     archived: bool = Field(default=False)
     status: str = Field(default=DEVICE_STATUS_IDLE, max_length=16, index=True)
     battery: float | None = Field(
-        default=None, ge=0, le=100, description="Проценты; None — устройство без батареи"
+        default=None,
+        ge=0,
+        le=100,
+        description="Проценты; None — устройство без батареи",
     )
     x: float
     y: float
     home_x: float = Field(description="Точка парковки / базовая позиция")
     home_y: float
-    speed_mps: float = Field(default=0.0, ge=0, description="Максимальная скорость, м/с")
+    speed_mps: float = Field(
+        default=0.0, ge=0, description="Максимальная скорость, м/с"
+    )
     #: Мягкая ссылка на wsim_task (без FK, чтобы не замыкать связь device ↔ task).
     current_task_id: uuid.UUID | None = Field(default=None, index=True)
-    meta: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
-    created_at: datetime = Field(default_factory=_utcnow)
-    updated_at: datetime = Field(default_factory=_utcnow)
+    meta: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class SimBraceletAssignment(SQLModel, table=True):
@@ -495,7 +516,7 @@ class SimBraceletAssignment(SQLModel, table=True):
         ondelete="SET NULL",
         index=True,
     )
-    assigned_at: datetime = Field(default_factory=_utcnow, index=True)
+    assigned_at: datetime = Field(default_factory=utcnow, index=True)
     unassigned_at: datetime | None = Field(default=None, index=True)
     assigned_by_user_id: uuid.UUID | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
@@ -525,7 +546,7 @@ class SimSmartCameraAssignment(SQLModel, table=True):
     host_device_id: uuid.UUID = Field(
         foreign_key="wsim_device.id", ondelete="CASCADE", index=True
     )
-    assigned_at: datetime = Field(default_factory=_utcnow, index=True)
+    assigned_at: datetime = Field(default_factory=utcnow, index=True)
     unassigned_at: datetime | None = Field(default=None, index=True)
     assigned_by_user_id: uuid.UUID | None = Field(
         default=None, foreign_key="user.id", ondelete="SET NULL"
@@ -558,8 +579,8 @@ class SimDeviceMaintenance(SQLModel, table=True):
     completed_at: datetime | None = Field(default=None)
     performed_by: str | None = Field(default=None, max_length=128)
     notes: str | None = Field(default=None, max_length=2048)
-    created_at: datetime = Field(default_factory=_utcnow)
-    updated_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 # --- Товар ---
@@ -576,7 +597,7 @@ class SimProduct(SQLModel, table=True):
     unit: str = Field(default="шт", max_length=32)
     units_per_pallet: int = Field(default=100, ge=1)
     cold_chain: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SimInventoryItem(SQLModel, table=True):
@@ -595,12 +616,17 @@ class SimInventoryItem(SQLModel, table=True):
     product_id: uuid.UUID = Field(
         foreign_key="wsim_product.id", ondelete="CASCADE", index=True
     )
-    lpn: str = Field(max_length=64, unique=True, description="Номер грузовой единицы (SSCC)")
+    lpn: str = Field(
+        max_length=64, unique=True, description="Номер грузовой единицы (SSCC)"
+    )
     qty: int = Field(ge=0)
     state: str = Field(default=INVENTORY_RECEIVED, max_length=16, index=True)
     location_kind: str = Field(default=LOCATION_ZONE, max_length=24)
     storage_location_id: uuid.UUID | None = Field(
-        default=None, foreign_key="wsim_storage_location.id", ondelete="SET NULL", index=True
+        default=None,
+        foreign_key="wsim_storage_location.id",
+        ondelete="SET NULL",
+        index=True,
     )
     zone_id: uuid.UUID | None = Field(
         default=None, foreign_key="wsim_zone.id", ondelete="SET NULL", index=True
@@ -609,8 +635,8 @@ class SimInventoryItem(SQLModel, table=True):
     device_id: uuid.UUID | None = Field(default=None, index=True)
     truck_id: uuid.UUID | None = Field(default=None, index=True)
     order_id: uuid.UUID | None = Field(default=None, index=True)
-    created_at: datetime = Field(default_factory=_utcnow)
-    updated_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class SimInventoryMovement(SQLModel, table=True):
@@ -628,7 +654,9 @@ class SimInventoryMovement(SQLModel, table=True):
     product_id: uuid.UUID = Field(
         foreign_key="wsim_product.id", ondelete="CASCADE", index=True
     )
-    movement_type: str = Field(max_length=16, index=True, description="|".join(MOVEMENT_TYPES))
+    movement_type: str = Field(
+        max_length=16, index=True, description="|".join(MOVEMENT_TYPES)
+    )
     qty: int
     from_kind: str | None = Field(default=None, max_length=24)
     from_id: uuid.UUID | None = None
@@ -638,7 +666,7 @@ class SimInventoryMovement(SQLModel, table=True):
     to_label: str | None = Field(default=None, max_length=128)
     task_id: uuid.UUID | None = Field(default=None, index=True)
     sim_time_sec: float = Field(default=0.0)
-    created_at: datetime = Field(default_factory=_utcnow, index=True)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
 
 
 # --- Документы ---
@@ -666,25 +694,31 @@ class SimTruck(SQLModel, table=True):
     y: float = Field(default=0.0)
     arrived_sim_sec: float = Field(default=0.0)
     departed_sim_sec: float | None = None
-    created_at: datetime = Field(default_factory=_utcnow, index=True)
-    updated_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class SimOrder(SQLModel, table=True):
     """Заказ: входящий (поставка) или исходящий (отгрузка клиенту)."""
 
     __tablename__ = "wsim_order"
-    __table_args__ = (UniqueConstraint("warehouse_id", "code", name="uq_wsim_order_wh_code"),)
+    __table_args__ = (
+        UniqueConstraint("warehouse_id", "code", name="uq_wsim_order_wh_code"),
+    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     warehouse_id: uuid.UUID = Field(
         foreign_key="wsim_warehouse.id", ondelete="CASCADE", index=True
     )
     code: str = Field(max_length=64)
-    direction: str = Field(max_length=16, index=True, description="|".join(ORDER_DIRECTIONS))
+    direction: str = Field(
+        max_length=16, index=True, description="|".join(ORDER_DIRECTIONS)
+    )
     status: str = Field(default=ORDER_CREATED, max_length=16, index=True)
     priority: int = Field(default=0, description="Больше — важнее")
-    counterparty: str = Field(default="", max_length=128, description="Клиент или поставщик")
+    counterparty: str = Field(
+        default="", max_length=128, description="Клиент или поставщик"
+    )
     truck_id: uuid.UUID | None = Field(
         default=None, foreign_key="wsim_truck.id", ondelete="SET NULL", index=True
     )
@@ -692,8 +726,8 @@ class SimOrder(SQLModel, table=True):
     due_sim_sec: float | None = None
     released_sim_sec: float | None = None
     completed_sim_sec: float | None = None
-    created_at: datetime = Field(default_factory=_utcnow, index=True)
-    updated_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class SimOrderItem(SQLModel, table=True):
@@ -702,7 +736,9 @@ class SimOrderItem(SQLModel, table=True):
     __tablename__ = "wsim_order_item"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    order_id: uuid.UUID = Field(foreign_key="wsim_order.id", ondelete="CASCADE", index=True)
+    order_id: uuid.UUID = Field(
+        foreign_key="wsim_order.id", ondelete="CASCADE", index=True
+    )
     product_id: uuid.UUID = Field(
         foreign_key="wsim_product.id", ondelete="CASCADE", index=True
     )
@@ -743,17 +779,25 @@ class SimTask(SQLModel, table=True):
         default=None, foreign_key="wsim_order.id", ondelete="SET NULL", index=True
     )
     inventory_item_id: uuid.UUID | None = Field(
-        default=None, foreign_key="wsim_inventory_item.id", ondelete="SET NULL", index=True
+        default=None,
+        foreign_key="wsim_inventory_item.id",
+        ondelete="SET NULL",
+        index=True,
     )
     storage_location_id: uuid.UUID | None = Field(
-        default=None, foreign_key="wsim_storage_location.id", ondelete="SET NULL", index=True
+        default=None,
+        foreign_key="wsim_storage_location.id",
+        ondelete="SET NULL",
+        index=True,
     )
     blocked_reason: str | None = Field(default=None, max_length=255)
-    payload: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    payload: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
     created_sim_sec: float = Field(default=0.0)
     started_sim_sec: float | None = None
     completed_sim_sec: float | None = None
-    created_at: datetime = Field(default_factory=_utcnow, index=True)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -778,7 +822,7 @@ class SimEvent(SQLModel, table=True):
     )
     warehouse_id: uuid.UUID | None = Field(default=None, index=True)
     run_id: uuid.UUID | None = Field(default=None, index=True)
-    occurred_at: datetime = Field(default_factory=_utcnow, index=True)
+    occurred_at: datetime = Field(default_factory=utcnow, index=True)
     sim_time_sec: float = Field(default=0.0)
     event_type: str = Field(max_length=48, index=True)
     severity: str = Field(default=SEVERITY_INFO, max_length=16, index=True)
@@ -788,7 +832,9 @@ class SimEvent(SQLModel, table=True):
     order_id: uuid.UUID | None = Field(default=None, index=True)
     product_id: uuid.UUID | None = Field(default=None, index=True)
     zone_id: uuid.UUID | None = Field(default=None, index=True)
-    payload: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    payload: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
 
 
 # --- Сценарии и прогоны ---
@@ -803,10 +849,12 @@ class SimScenario(SQLModel, table=True):
     code: str = Field(max_length=48, unique=True)
     name: str = Field(max_length=255)
     description: str = Field(default="", max_length=1024)
-    config: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB, nullable=False))
+    config: dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSONB, nullable=False)
+    )
     is_builtin: bool = Field(default=True)
     sort_order: int = Field(default=0)
-    created_at: datetime = Field(default_factory=_utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SimRun(SQLModel, table=True):
@@ -837,8 +885,12 @@ class SimRun(SQLModel, table=True):
         sa_column=Column(BigInteger, nullable=False, server_default="0"),
         description="Последний выданный номер события",
     )
-    config: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB, nullable=False))
-    kpi: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB, nullable=False))
-    started_at: datetime = Field(default_factory=_utcnow)
+    config: dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSONB, nullable=False)
+    )
+    kpi: dict[str, Any] = Field(
+        default_factory=dict, sa_column=Column(JSONB, nullable=False)
+    )
+    started_at: datetime = Field(default_factory=utcnow)
     stopped_at: datetime | None = None
-    updated_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

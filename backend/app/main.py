@@ -27,7 +27,7 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
     stop_event: asyncio.Event | None = None
     task: asyncio.Task | None = None  # type: ignore[type-arg]
     if settings.emails_enabled and settings.RUN_REPORT_SCHEDULER_IN_API:

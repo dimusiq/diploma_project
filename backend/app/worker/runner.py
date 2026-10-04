@@ -18,11 +18,11 @@ from app.worker.agent_background_loop import (
     agent_orchestration_loop,
     integration_inbox_domain_loop,
 )
-from app.worker.outbox_loop import OUTBOX_POLL_INTERVAL_SEC, outbox_dispatcher_loop
 from app.worker.inventory_snapshot_loop import (
     SNAPSHOT_INTERVAL_SEC,
     inventory_snapshot_loop,
 )
+from app.worker.outbox_loop import OUTBOX_POLL_INTERVAL_SEC, outbox_dispatcher_loop
 from app.worker.projection_loop import (
     PROJECTION_RECONCILE_INTERVAL_SEC,
     warehouse_projection_reconcile_loop,

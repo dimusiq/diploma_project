@@ -31,7 +31,7 @@ jobs:
           changed:
             - backend/**
             - frontend/**
-            - .env
+            - .env.example
             - docker-compose*.yml
             - .github/workflows/playwright.yml
 
@@ -71,6 +71,8 @@ jobs:
     - run: uv run bash scripts/generate-client.sh
       env:
         VIRTUAL_ENV: backend/.venv
+    - name: Prepare .env from example
+      run: cp .env.example .env
     - run: docker compose build
     - run: docker compose down -v --remove-orphans
     - name: Run Playwright tests

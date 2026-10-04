@@ -91,10 +91,14 @@ def get_simulation_scenario(
 
 
 class BaselinePatchBody(BaseModel):
-    baseline_kpis: dict[str, Any] = Field(description="KPI снимок для сравнения прогонов")
+    baseline_kpis: dict[str, Any] = Field(
+        description="KPI снимок для сравнения прогонов"
+    )
 
 
-@router.patch("/scenarios/{scenario_id}/baseline", response_model=SimulationScenarioPublic)
+@router.patch(
+    "/scenarios/{scenario_id}/baseline", response_model=SimulationScenarioPublic
+)
 def patch_scenario_baseline(
     session: SessionDep,
     current_user: CurrentUser,
