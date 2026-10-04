@@ -18,6 +18,7 @@ from app.worker.agent_background_loop import (
     agent_orchestration_loop,
     integration_inbox_domain_loop,
 )
+from app.worker.event_retention_loop import event_retention_loop
 from app.worker.inventory_snapshot_loop import (
     SNAPSHOT_INTERVAL_SEC,
     inventory_snapshot_loop,
@@ -59,10 +60,12 @@ def main() -> None:
                 pass
 
         logger.info(
-            "Worker started (reports + outbox %ss + slot projection %ss + inv snapshot %ss + agent orch + inbox→domain)",
+            "Worker started (reports + outbox %ss + slot projection %ss + inv snapshot %ss "
+            "+ agent orch + inbox→domain + event retention %ss)",
             OUTBOX_POLL_INTERVAL_SEC,
             PROJECTION_RECONCILE_INTERVAL_SEC,
             SNAPSHOT_INTERVAL_SEC,
+            settings.EVENT_RETENTION_INTERVAL_SEC,
         )
         await asyncio.gather(
             report_scheduler_loop(stop, redis_url=redis_url),
@@ -71,6 +74,7 @@ def main() -> None:
             inventory_snapshot_loop(stop),
             agent_orchestration_loop(stop),
             integration_inbox_domain_loop(stop),
+            event_retention_loop(stop),
         )
         logger.info("Worker stopped")
 

@@ -218,6 +218,17 @@ class Settings(BaseSettings):
     INTEGRATION_INBOX_DOMAIN_ENABLED: bool = True
     INTEGRATION_INBOX_DOMAIN_POLL_SEC: float = 5.0
 
+    # Ретеншен журналов событий (воркер event_retention_loop). Сроки — политика P0-5.
+    EVENT_RETENTION_ENABLED: bool = True
+    EVENT_RETENTION_INTERVAL_SEC: float = 3600.0
+    EVENT_RETENTION_BATCH_SIZE: int = 1000
+    EVENT_RETENTION_MAX_BATCHES_PER_TICK: int = 20
+    EVENT_RETENTION_DOMAIN_EVENT_DAYS: int = 90
+    EVENT_RETENTION_TWIN_PROJECTION_DAYS: int = 90
+    EVENT_RETENTION_PROJECTION_CONSUMER_DAYS: int = 30
+    EVENT_RETENTION_WSIM_EVENT_DAYS: int = 30
+    EVENT_RETENTION_OUTBOX_DONE_DAYS: int = 30
+
     # Уведомления «Аналитика двойника» (ensure /notifications/ensure).
     TWIN_NOTIFICATION_ROW_ITEMS_MIN: int = 30
     TWIN_NOTIFICATION_UTILIZATION_MIN: float = 0.9
