@@ -215,5 +215,42 @@ def sync_overdue_maintenance(
     }
 
 
+def notify_maintenance_viewers_overdue(session: Session) -> int:
+    """Разослать overdue-уведомления пользователям с правом просмотра графика ТО."""
+    from app.core.permissions import can_view_maintenance_schedule
+    from app.models import User
+    from app.services.notification_service import (
+        ensure_overdue_maintenance_notification,
+    )
+
+    users = list(
+        session.exec(
+            select(User).where(
+                col(User.is_active).is_(True),
+                col(User.deleted_at).is_(None),
+            )
+        ).all()
+    )
+    notified = 0
+    for user in users:
+        if not can_view_maintenance_schedule(session, user):
+            continue
+        # ensure сам коммитит при создании уведомлений.
+        ensure_overdue_maintenance_notification(session, user.id)
+        notified += 1
+    return notified
+
+
+def run_maintenance_auto_tick(session: Session) -> dict[str, Any]:
+    """
+    Тик воркера: создать наряды по overdue, затем уведомить зрителей графика ТО.
+    """
+    stats = sync_overdue_maintenance(session, actor_user_id=None, notify_user_id=None)
+    if stats["work_orders_created"]:
+        session.commit()
+    viewers = notify_maintenance_viewers_overdue(session)
+    return {**stats, "viewers_notified": viewers}
+
+
 def canonical_device_name_fallback(equipment_id: uuid.UUID) -> str:
     return f"Техника {str(equipment_id)[:8]}"

@@ -218,6 +218,10 @@ class Settings(BaseSettings):
     INTEGRATION_INBOX_DOMAIN_ENABLED: bool = True
     INTEGRATION_INBOX_DOMAIN_POLL_SEC: float = 5.0
 
+    # Воркер: авто-наряды ТО по просрочке моточасов (не из GET/ensure уведомлений).
+    MAINTENANCE_AUTO_ENABLED: bool = True
+    MAINTENANCE_AUTO_POLL_SEC: float = 120.0
+
     # Ретеншен журналов событий (воркер event_retention_loop). Сроки — политика P0-5.
     EVENT_RETENTION_ENABLED: bool = True
     EVENT_RETENTION_INTERVAL_SEC: float = 3600.0

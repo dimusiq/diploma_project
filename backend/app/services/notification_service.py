@@ -65,26 +65,35 @@ def ensure_overdue_maintenance_notification(
     session: "Session", user_id: uuid.UUID
 ) -> None:
     """
-    Канонический контур: overdue по моточасам (wsim_device) → наряд ТО + уведомление.
-    Уведомление на пару (user, device) создаётся один раз.
+    Только уведомления о просроченном ТО (без создания нарядов).
+
+    Наряды создаёт воркер ``maintenance_auto_loop`` / POST sync-overdue.
+    Уведомление на пару (user, device) — один раз.
     """
     if not _in_app_enabled(session, user_id, OVERDUE_MAINTENANCE_TYPE):
-        # всё равно создаём наряды — уведомления отключены преференсами
-        from app.services.maintenance_auto import sync_overdue_maintenance
-
-        stats = sync_overdue_maintenance(session, actor_user_id=user_id)
-        if stats["work_orders_created"]:
-            session.commit()
         return
 
-    from app.services.maintenance_auto import sync_overdue_maintenance
-
-    stats = sync_overdue_maintenance(
-        session,
-        actor_user_id=user_id,
-        notify_user_id=user_id,
+    from app.services.maintenance_auto import (
+        ensure_overdue_notification_for_device,
     )
-    if stats["work_orders_created"] or stats["notifications_created"]:
+    from app.services.maintenance_calendar_query import (
+        build_maintenance_calendar_event_list,
+    )
+
+    events = build_maintenance_calendar_event_list(session, status="overdue", limit=500)
+    created = 0
+    for ev in events.data:
+        note = ensure_overdue_notification_for_device(
+            session,
+            user_id=user_id,
+            equipment_id=ev.equipment_id,
+            equipment_name=ev.equipment_name or str(ev.equipment_id)[:8],
+            engine_hours=int(ev.engine_hours or 0),
+            next_service_at_hours=int(ev.next_service_at_hours or 0),
+        )
+        if note is not None:
+            created += 1
+    if created:
         session.commit()
         publish_notifications_updated(user_id)
 

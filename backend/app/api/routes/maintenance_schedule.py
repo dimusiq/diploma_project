@@ -493,3 +493,30 @@ def import_chains_from_local(
         imported += 1
     session.commit()
     return {"imported": imported, "message": f"Импортировано цепочек: {imported}"}
+
+
+@router.post(
+    "/sync-overdue",
+    dependencies=[require_permission(PERM_MAINTENANCE_SCHEDULE_EDIT)],
+)
+def sync_overdue_maintenance_endpoint(
+    session: SessionDep,
+    current_user: CurrentUser,
+) -> dict[str, Any]:
+    """
+    Явно пересчитать просроченное ТО: создать наряды и уведомить зрителей графика.
+
+    Идемпотентно. Не вызывается из GET/ensure уведомлений — только вручную или воркером.
+    """
+    _ = current_user
+    from app.services.maintenance_auto import run_maintenance_auto_tick
+
+    stats = run_maintenance_auto_tick(session)
+    return {
+        "message": "ok",
+        "overdue": stats["overdue"],
+        "work_orders_created": stats["work_orders_created"],
+        "work_order_ids": stats["work_order_ids"],
+        "skipped": len(stats["skipped"]),
+        "viewers_notified": stats["viewers_notified"],
+    }
